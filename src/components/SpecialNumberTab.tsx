@@ -322,9 +322,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Special Song Number Details
                 </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
-                  (Tap header to collapse)
-                </span>
                 {isToday(selectedEntry.scheduledDate) ? (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white">
                     Today

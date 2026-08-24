@@ -5,13 +5,17 @@ export interface UserAccount {
   username: string;
   passwordHash: string; // Plain/stored for internal church auth
   role: UserRole;
+  avatar?: string; // Base64 compressed image data URL for profile picture
   createdAt: string;
 }
+
+export type AttachmentCategory = 'plus_one' | 'minus_one';
 
 export interface SongAttachment {
   id: string;
   name: string;
-  type: 'image' | 'pdf' | 'link' | 'text';
+  category?: AttachmentCategory;
+  type: 'link' | 'audio' | 'video' | 'image' | 'text' | 'file';
   urlOrData: string;
   createdAt: string;
 }

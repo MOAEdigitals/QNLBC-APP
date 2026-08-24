@@ -405,31 +405,28 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
           </p>
         </div>
 
-        {/* Buttons: Fellowship/Event on left, Sunday Setlist on right */}
+        {/* Buttons: Event Setlist on left, Sunday Setlist on right */}
         <div className="flex flex-wrap items-center gap-2 relative">
-          {/* Fellowship / Event / Prayer dropdown */}
+          {/* Event Setlist dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowTypeSelector(!showTypeSelector)}
               className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
             >
               <Plus className="w-4 h-4" />
-              <span>Fellowship / Event / Prayer</span>
+              <span>Event Setlist</span>
               <ChevronDown className="w-4 h-4" />
             </button>
 
             {showTypeSelector && (
-              <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-64 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-30 py-2 divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-60 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-30 py-1.5 divide-y divide-slate-100 dark:divide-slate-800">
                 <button
                   type="button"
                   onClick={() => handleStartCreateOther('prayer_meeting')}
                   className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
                 >
-                  <Flame className="w-4 h-4 text-amber-500" />
-                  <div>
-                    <span className="font-semibold block">Midweek Prayer Meeting</span>
-                    <span className="text-[11px] text-slate-400">1 straight program</span>
-                  </div>
+                  <Flame className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="font-semibold">Midweek Prayer Meeting</span>
                 </button>
 
                 <button
@@ -437,11 +434,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   onClick={() => handleStartCreateOther('fellowship')}
                   className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
                 >
-                  <Users className="w-4 h-4 text-indigo-500" />
-                  <div>
-                    <span className="font-semibold block">Fellowship Gathering</span>
-                    <span className="text-[11px] text-slate-400">Youth, Men, Women</span>
-                  </div>
+                  <Users className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span className="font-semibold">Fellowship Gathering</span>
                 </button>
 
                 <button
@@ -449,11 +443,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   onClick={() => handleStartCreateOther('event')}
                   className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"
                 >
-                  <Sparkles className="w-4 h-4 text-emerald-500" />
-                  <div>
-                    <span className="font-semibold block">Special Event</span>
-                    <span className="text-[11px] text-slate-400">Anniversary, special service</span>
-                  </div>
+                  <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span className="font-semibold">Special Event</span>
                 </button>
               </div>
             )}
@@ -515,9 +506,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {selectedSetlist.type === 'sunday' || !selectedSetlist.type
                     ? 'Sunday School • Worship Service'
                     : `Scheduled for ${formatDateStr(selectedSetlist.date, { showDayOfWeek: true })}`}
-                </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic ml-2">
-                  (Tap header to collapse)
                 </span>
               </div>
             </div>
@@ -611,24 +599,36 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                  {(selectedSetlist.sundaySchool?.songs || []).map((song, idx) => (
-                    <div
-                      key={song.id || idx}
-                      className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                    >
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {idx + 1}. {song.title}
-                      </span>
-                      {song.songId && (
-                        <button
-                          onClick={() => onOpenSongDetail(song.songId!, selectedSetlist.id)}
-                          className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
+                  {(selectedSetlist.sundaySchool?.songs || []).map((song, idx) => {
+                    const matchedSong = song.songId
+                      ? songs.find((s) => s.id === song.songId)
+                      : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                    const targetSongId = matchedSong ? matchedSong.id : song.songId;
+
+                    return (
+                      <div
+                        key={song.id || idx}
+                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                      >
+                        <span
+                          onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, selectedSetlist.id) : null)}
+                          className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                            targetSongId
+                              ? 'cursor-pointer hover:underline hover:text-amber-600 dark:hover:text-amber-400 transition-colors'
+                              : ''
+                          }`}
+                          title={targetSongId ? 'Click to open in Song Library' : undefined}
                         >
-                          Lyrics
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                          {idx + 1}. {song.title}
+                        </span>
+                        {song.keyNote && (
+                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                            {song.keyNote}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {selectedSetlist.sundaySchool?.notes && (
@@ -655,51 +655,62 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                  {(selectedSetlist.worshipService?.songs || []).map((song, idx) => (
-                    <div
-                      key={song.id || idx}
-                      className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                    >
-                      <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                        {idx + 1}. {song.title}
-                      </span>
-                      {song.songId && (
-                        <button
-                          onClick={() => onOpenSongDetail(song.songId!, selectedSetlist.id)}
-                          className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
-                        >
-                          Lyrics
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                  {(selectedSetlist.worshipService?.songs || []).map((song, idx) => {
+                    const matchedSong = song.songId
+                      ? songs.find((s) => s.id === song.songId)
+                      : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                    const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
-                  {/* Month Theme Song displayed in Worship Service lineup with working Lyrics link */}
+                    return (
+                      <div
+                        key={song.id || idx}
+                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                      >
+                        <span
+                          onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, selectedSetlist.id) : null)}
+                          className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                            targetSongId
+                              ? 'cursor-pointer hover:underline hover:text-amber-600 dark:hover:text-amber-400 transition-colors'
+                              : ''
+                          }`}
+                          title={targetSongId ? 'Click to open in Song Library' : undefined}
+                        >
+                          {idx + 1}. {song.title}
+                        </span>
+                        {song.keyNote && (
+                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                            {song.keyNote}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Month Theme Song displayed in Worship Service lineup with working clickable title */}
                   {selectedSetlist.themeSong && (
                     <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                      <div className="min-w-0 pr-2">
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-1.5">
-                          Month theme song:
-                        </span>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">
-                          {selectedSetlist.themeSong}
-                        </span>
-                      </div>
                       {(() => {
                         const matchedSong = songs.find(
                           (s) => s.title.trim().toLowerCase() === selectedSetlist.themeSong?.trim().toLowerCase()
                         );
-                        if (matchedSong) {
-                          return (
-                            <button
-                              onClick={() => onOpenSongDetail(matchedSong.id, selectedSetlist.id)}
-                              className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
+                        return (
+                          <div className="min-w-0 pr-2">
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mr-1.5">
+                              Month theme song:
+                            </span>
+                            <span
+                              onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, selectedSetlist.id) : null)}
+                              className={`text-xs font-bold text-slate-900 dark:text-white ${
+                                matchedSong
+                                  ? 'cursor-pointer hover:underline hover:text-amber-600 dark:hover:text-amber-400 transition-colors'
+                                  : ''
+                              }`}
+                              title={matchedSong ? 'Click to open in Song Library' : undefined}
                             >
-                              Lyrics
-                            </button>
-                          );
-                        }
-                        return null;
+                              {selectedSetlist.themeSong}
+                            </span>
+                          </div>
+                        );
                       })()}
                     </div>
                   )}
@@ -766,24 +777,36 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
                   Program Songs:
                 </span>
-                {(selectedSetlist.program?.songs || []).map((song, idx) => (
-                  <div
-                    key={song.id || idx}
-                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                  >
-                    <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                      {idx + 1}. {song.title}
-                    </span>
-                    {song.songId && (
-                      <button
-                        onClick={() => onOpenSongDetail(song.songId!, selectedSetlist.id)}
-                        className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
+                {(selectedSetlist.program?.songs || []).map((song, idx) => {
+                  const matchedSong = song.songId
+                    ? songs.find((s) => s.id === song.songId)
+                    : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                  const targetSongId = matchedSong ? matchedSong.id : song.songId;
+
+                  return (
+                    <div
+                      key={song.id || idx}
+                      className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                    >
+                      <span
+                        onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, selectedSetlist.id) : null)}
+                        className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                          targetSongId
+                            ? 'cursor-pointer hover:underline hover:text-amber-600 dark:hover:text-amber-400 transition-colors'
+                            : ''
+                        }`}
+                        title={targetSongId ? 'Click to open in Song Library' : undefined}
                       >
-                        Lyrics
-                      </button>
-                    )}
-                  </div>
-                ))}
+                        {idx + 1}. {song.title}
+                      </span>
+                      {song.keyNote && (
+                        <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                          {song.keyNote}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               {selectedSetlist.program?.notes && (
@@ -816,7 +839,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
         {sortedSetlists.length === 0 ? (
           <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            No setlists created yet. Click "Sunday Setlist" or "Fellowship / Event / Prayer" to start.
+            No setlists created yet. Click "Sunday Setlist" or "Event Setlist" to start.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3">

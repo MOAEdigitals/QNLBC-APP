@@ -13,6 +13,7 @@ import {
 import {
   loadCurrentSession,
   saveCurrentSession,
+  loadUsers,
   loadTheme,
   saveTheme,
   loadSetlists,
@@ -52,6 +53,7 @@ export default function App() {
     const session = loadCurrentSession();
     return session.user;
   });
+  const [users, setUsers] = useState<UserAccount[]>(() => loadUsers());
 
   // 2. Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
@@ -89,6 +91,7 @@ export default function App() {
 
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {
+    setUsers(loadUsers());
     setSetlists(loadSetlists());
     setSongs(loadSongs());
     setBirthdays(loadBirthdays());
@@ -160,6 +163,7 @@ export default function App() {
   // Auth Handlers
   const handleSignInSuccess = (user: UserAccount) => {
     setCurrentUser(user);
+    setUsers(loadUsers());
     setCurrentTab('home');
     tabHistoryRef.current = ['home'];
     window.history.replaceState({ tab: 'home' }, '', '#home');
@@ -383,6 +387,7 @@ export default function App() {
       {/* Sticky Top Header */}
       <Navbar
         currentUser={currentUser}
+        users={users}
         currentTab={currentTab}
         onNavigateToSettings={() => handleNavigateTab('settings')}
       />
@@ -450,6 +455,9 @@ export default function App() {
         {currentTab === 'settings' && (
           <SettingsTab
             currentUser={currentUser}
+            onUpdateCurrentUser={setCurrentUser}
+            users={users}
+            onUpdateUsers={setUsers}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Song, Setlist, SongAttachment } from '../types';
-import { isPastDate, formatDateStr, getNextSundayStr } from '../utils/dateUtils';
+import React, { useState, useEffect, useRef } from 'react';
+import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
+import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle } from '../utils/storage';
 import {
   Music,
@@ -13,15 +13,19 @@ import {
   Edit3,
   X,
   Play,
-  Share2,
   CalendarPlus,
   Type,
   Check,
   FileImage,
   Link2,
-  FileText,
-  Eye,
+  FileAudio,
+  FileVideo,
   Copy,
+  ArrowUpDown,
+  Calendar,
+  Volume2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface SongsTabProps {
@@ -34,6 +38,19 @@ interface SongsTabProps {
   initialSelectedSongId?: string | null;
   onClearInitialSelectedSongId?: () => void;
   collapseSignal?: number;
+}
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  try {
+    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
+    const match = url.match(regExp);
+    if (match && match[2].length === 11) {
+      return `https://www.youtube.com/embed/${match[2]}?autoplay=1`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 export const SongsTab: React.FC<SongsTabProps> = ({
@@ -49,48 +66,89 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortMode, setSortMode] = useState<'alpha' | 'date'>('alpha');
   const [isEditing, setIsEditing] = useState(false);
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
+  const [showArtistInput, setShowArtistInput] = useState(false);
+
+  // Large lyrics reading mode for stage worship singing
+  const [largeFontMode, setLargeFontMode] = useState(false);
+
+  // Active playing media for the in-line player right after lyrics
+  const [activeMedia, setActiveMedia] = useState<{
+    id: string;
+    name: string;
+    url: string;
+    type: 'link' | 'audio' | 'video' | 'image' | 'text' | 'file';
+  } | null>(null);
+
+  // Add to Setlist Modal state
+  const [isAddToSetlistOpen, setIsAddToSetlistOpen] = useState(false);
+  const [targetSetlistId, setTargetSetlistId] = useState('');
+  const [targetPart, setTargetPart] = useState<'sundaySchool' | 'worshipService'>('worshipService');
+  const [addedNotice, setAddedNotice] = useState(false);
+  const [copiedSongId, setCopiedSongId] = useState<string | null>(null);
+
+  // Attachment adding modal state
+  const [isAddingAttachment, setIsAddingAttachment] = useState(false);
+  const [attachmentCategory, setAttachmentCategory] = useState<AttachmentCategory>('minus_one');
+  const [attachmentName, setAttachmentName] = useState('');
+  const [attachmentLinkOrData, setAttachmentLinkOrData] = useState('');
+  const [attachmentType, setAttachmentType] = useState<'link' | 'audio' | 'video' | 'image' | 'text' | 'file'>('link');
+  const [attachmentFileName, setAttachmentFileName] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const expandedItemRef = useRef<HTMLDivElement>(null);
 
   // Collapse active container if songs tab icon is tapped
-  React.useEffect(() => {
+  useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0) {
       setSelectedSongId(null);
       setIsEditing(false);
       setEditingSong(null);
       setIsAddToSetlistOpen(false);
+      setIsAddingAttachment(false);
+      setActiveMedia(null);
       onClearInitialSelectedSongId?.();
     }
   }, [collapseSignal, onClearInitialSelectedSongId]);
 
   // Back swipe / popstate listener to collapse container
-  React.useEffect(() => {
+  useEffect(() => {
     const handlePopState = () => {
       if (isEditing) {
         setIsEditing(false);
         setEditingSong(null);
         return;
       }
+      if (isAddingAttachment) {
+        setIsAddingAttachment(false);
+        return;
+      }
+      if (isAddToSetlistOpen) {
+        setIsAddToSetlistOpen(false);
+        return;
+      }
       if (selectedSongId) {
         setSelectedSongId(null);
+        setActiveMedia(null);
         onClearInitialSelectedSongId?.();
         return;
       }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isEditing, selectedSongId, onClearInitialSelectedSongId]);
+  }, [isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
 
-  // Large lyrics reading mode for stage worship singing
-  const [largeFontMode, setLargeFontMode] = useState(false);
-
-  // Add to Setlist Modal state
-  const [isAddToSetlistOpen, setIsAddToSetlistOpen] = useState(false);
-  const [targetSetlistId, setTargetSetlistId] = useState('');
-  const [targetPart, setTargetPart] = useState<'sundaySchool' | 'worshipService'>('worshipService');
-  const [keyNoteInput, setKeyNoteInput] = useState('');
-  const [addedNotice, setAddedNotice] = useState(false);
-  const [copiedSongId, setCopiedSongId] = useState<string | null>(null);
+  useEffect(() => {
+    if (initialSelectedSongId) {
+      setSelectedSongId(initialSelectedSongId);
+      // Automatically scroll to the expanded item after render
+      setTimeout(() => {
+        expandedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [initialSelectedSongId]);
 
   const handleCopySong = (song: Song, e?: React.MouseEvent) => {
     if (e) {
@@ -104,26 +162,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     }, 2500);
   };
 
-  // Attachment adding state
-  const [isAddingAttachment, setIsAddingAttachment] = useState(false);
-  const [attachmentForm, setAttachmentForm] = useState<{
-    name: string;
-    type: 'text' | 'link' | 'image';
-    urlOrData: string;
-  }>({
-    name: '',
-    type: 'text',
-    urlOrData: '',
-  });
-
-  React.useEffect(() => {
-    if (initialSelectedSongId) {
-      setSelectedSongId(initialSelectedSongId);
+  // Sorting
+  const sortedSongs = [...songs].sort((a, b) => {
+    if (sortMode === 'date') {
+      const dateA = a.updatedAt || '';
+      const dateB = b.updatedAt || '';
+      return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
     }
-  }, [initialSelectedSongId]);
-
-  // Alphabetical sort by title
-  const sortedSongs = [...songs].sort((a, b) => a.title.localeCompare(b.title));
+    return a.title.localeCompare(b.title);
+  });
 
   const filteredSongs = sortedSongs.filter((song) => {
     if (!searchQuery.trim()) return true;
@@ -142,7 +189,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     .filter((s) => !isPastDate(s.date))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // The newest / soonest upcoming setlist
   const newestUpcomingSetlist = upcomingSetlists.length > 0 ? upcomingSetlists[0] : null;
 
   const handleStartCreateSong = () => {
@@ -151,15 +197,17 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       title: '',
       artist: '',
       lyrics: '',
-      minusOneLink: '',
       attachments: [],
       updatedAt: new Date().toISOString(),
     });
+    setShowArtistInput(false);
     setIsEditing(true);
   };
 
-  const handleStartEditSong = (song: Song) => {
+  const handleStartEditSong = (song: Song, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setEditingSong(JSON.parse(JSON.stringify(song)));
+    setShowArtistInput(Boolean(song.artist && song.artist.trim().length > 0));
     setIsEditing(true);
   };
 
@@ -172,9 +220,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     const finalSong: Song = {
       id: editingSong.id || `song-${Date.now()}`,
       title: formattedTitle,
-      artist: editingSong.artist?.trim() || undefined,
+      artist: showArtistInput && editingSong.artist?.trim() ? editingSong.artist.trim() : undefined,
       lyrics: editingSong.lyrics || '',
-      minusOneLink: editingSong.minusOneLink?.trim() || undefined,
+      minusOneLink: editingSong.minusOneLink,
       attachments: editingSong.attachments || [],
       updatedAt: new Date().toISOString(),
     };
@@ -184,15 +232,56 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     setSelectedSongId(finalSong.id);
   };
 
+  const handleOpenAddAttachment = (category: AttachmentCategory = 'minus_one', e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setAttachmentCategory(category);
+    setAttachmentName('');
+    setAttachmentLinkOrData('');
+    setAttachmentType('link');
+    setAttachmentFileName('');
+    setIsAddingAttachment(true);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    let detectedType: 'audio' | 'video' | 'image' | 'file' = 'file';
+    if (file.type.startsWith('audio/')) {
+      detectedType = 'audio';
+    } else if (file.type.startsWith('video/')) {
+      detectedType = 'video';
+    } else if (file.type.startsWith('image/')) {
+      detectedType = 'image';
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setAttachmentLinkOrData(result);
+      setAttachmentType(detectedType);
+      setAttachmentFileName(file.name);
+      if (!attachmentName.trim()) {
+        setAttachmentName(file.name.replace(/\.[^/.]+$/, ''));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSaveAttachment = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSong || !attachmentForm.name.trim() || !attachmentForm.urlOrData.trim()) return;
+    if (!selectedSong || !attachmentLinkOrData.trim()) return;
+
+    const finalName =
+      attachmentName.trim() ||
+      (attachmentType === 'link' ? 'Web Track Link' : attachmentFileName || 'Audio/Video Track');
 
     const newAtt: SongAttachment = {
       id: `att-${Date.now()}`,
-      name: attachmentForm.name.trim(),
-      type: attachmentForm.type,
-      urlOrData: attachmentForm.urlOrData.trim(),
+      name: finalName,
+      category: attachmentCategory,
+      type: attachmentType,
+      urlOrData: attachmentLinkOrData.trim(),
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -203,24 +292,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     };
 
     onSaveSong(updatedSong);
-    setAttachmentForm({ name: '', type: 'text', urlOrData: '' });
     setIsAddingAttachment(false);
+    // Automatically play the newly added media
+    setActiveMedia({
+      id: newAtt.id,
+      name: newAtt.name,
+      url: newAtt.urlOrData,
+      type: newAtt.type,
+    });
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      setAttachmentForm({
-        name: file.name,
-        type: file.type.startsWith('image/') ? 'image' : 'text',
-        urlOrData: result,
-      });
-    };
-    reader.readAsDataURL(file);
+  const handleDeleteAttachment = (attId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedSong) return;
+    const updated = (selectedSong.attachments || []).filter((a) => a.id !== attId);
+    onSaveSong({ ...selectedSong, attachments: updated, updatedAt: new Date().toISOString() });
+    if (activeMedia?.id === attId) {
+      setActiveMedia(null);
+    }
   };
 
   const handleExecuteAddToSetlist = () => {
@@ -238,7 +327,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
@@ -247,7 +336,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             <span>Shared Song Library</span>
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Central repository for praise & worship songs, hymns, minus-ones, and chord sheets
+            Central repository for praise & worship songs, hymns, plus-ones, and minus-ones
           </p>
         </div>
 
@@ -267,341 +356,499 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         </div>
       )}
 
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by song title, composer/artist, or lyrics phrase..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
+      {/* Search Bar & Interactive Sort Toggle */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by song title, composer/artist, or lyrics phrase..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Sort Toggle Button (Tap to switch between A-Z and Date/Newest) */}
+        <button
+          type="button"
+          onClick={() => setSortMode(sortMode === 'alpha' ? 'date' : 'alpha')}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600 transition-all shadow-xs cursor-pointer select-none shrink-0"
+          title="Tap to toggle sorting order"
+        >
+          <ArrowUpDown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+          <span>
+            {sortMode === 'alpha' ? 'Sorted A–Z (Tap to switch)' : 'Newest on Top (Tap to switch)'}
+          </span>
+        </button>
       </div>
 
-      {/* Selected Song Detail View */}
-      {selectedSong && !isEditing && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-300 dark:border-slate-700 p-5 sm:p-6 shadow-md space-y-6">
-          <div
-            onClick={() => {
-              setSelectedSongId(null);
-              onClearInitialSelectedSongId?.();
-            }}
-            className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 cursor-pointer group"
-            title="Click header to collapse"
-          >
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  Song Library Entry
-                </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
-                  (Tap header to collapse)
-                </span>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                {selectedSong.title}
-              </h3>
-              {selectedSong.artist && (
-                <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
-                  {selectedSong.artist}
-                </p>
-              )}
-            </div>
+      {/* Song List Header */}
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          All Songs ({filteredSongs.length})
+        </span>
+        <span className="text-xs text-slate-400">
+          {sortMode === 'alpha' ? 'Alphabetical A–Z' : 'Date / Newest'}
+        </span>
+      </div>
 
-            <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => handleCopySong(selectedSong)}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Copy Title and Lyrics to Clipboard"
-              >
-                {copiedSongId === selectedSong.id ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy</span>
-                  </>
-                )}
-              </button>
+      {/* Songs List with In-Place Accordion Expansion */}
+      {filteredSongs.length === 0 ? (
+        <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+          No songs found matching "{searchQuery}".
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredSongs.map((song) => {
+            const isSelected = selectedSongId === song.id;
+            const attachments = song.attachments || [];
+            const plusOneList = attachments.filter((a) => a.category === 'plus_one');
+            const minusOneList = attachments.filter((a) => a.category === 'minus_one' || !a.category);
+            const hasAttachments = attachments.length > 0 || Boolean(song.minusOneLink);
 
-              <button
-                onClick={() => {
-                  setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');
-                  setIsAddToSetlistOpen(true);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:bg-slate-800 dark:hover:bg-white cursor-pointer"
-              >
-                <CalendarPlus className="w-3.5 h-3.5" />
-                <span>Add to Setlist</span>
-              </button>
-
-              <button
-                onClick={() => setLargeFontMode(!largeFontMode)}
-                className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                  largeFontMode
-                    ? 'bg-amber-100 dark:bg-amber-950/70 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
-                    : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            return (
+              <div
+                key={song.id}
+                ref={isSelected ? expandedItemRef : null}
+                className={`rounded-2xl transition-all border overflow-hidden ${
+                  isSelected
+                    ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 shadow-lg'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-xs'
                 }`}
-                title="Toggle Large Font Reading Mode for Stage"
               >
-                <Type className="w-4 h-4" />
-                <span className="hidden sm:inline">{largeFontMode ? 'Standard Font' : 'Stage Font'}</span>
-              </button>
-
-              <button
-                onClick={() => handleStartEditSong(selectedSong)}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
-              >
-                <Edit3 className="w-4 h-4" />
-                <span className="hidden sm:inline">Edit</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  if (confirm(`Remove "${selectedSong.title}" from Song Library?`)) {
-                    onDeleteSong(selectedSong.id);
-                    setSelectedSongId(null);
-                    onClearInitialSelectedSongId?.();
-                  }
-                }}
-                className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectedSongId(null);
-                  onClearInitialSelectedSongId?.();
-                }}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs transition-colors cursor-pointer"
-                title="Collapse Song"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Minus-One Link */}
-          {selectedSong.minusOneLink && (
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-              <div className="flex items-center space-x-2.5 min-w-0">
-                <Play className="w-4 h-4 text-amber-600 shrink-0" />
-                <div className="min-w-0">
-                  <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">
-                    Minus-One / Reference Track
-                  </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate block">
-                    {selectedSong.minusOneLink}
-                  </span>
-                </div>
-              </div>
-              <a
-                href={selectedSong.minusOneLink}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shrink-0 ml-3 flex items-center gap-1 hover:opacity-90"
-              >
-                <span>Play / Open</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          )}
-
-          {/* Lyrics (Formatted for easy reading while leading singing) */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <BookOpen className="w-4 h-4" />
-                Lyrics (Worship Leader View)
-              </span>
-              <span className="text-xs text-slate-400">
-                {largeFontMode ? 'Stage Size: 18px' : 'Standard Size'}
-              </span>
-            </div>
-
-            <div
-              className={`p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all ${
-                largeFontMode
-                  ? 'text-lg sm:text-xl font-medium leading-relaxed font-sans'
-                  : 'text-sm leading-relaxed font-mono'
-              }`}
-            >
-              {selectedSong.lyrics || (
-                <span className="text-slate-400 italic">No lyrics entered yet for this song.</span>
-              )}
-            </div>
-          </div>
-
-          {/* Attachments Section */}
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Paperclip className="w-4 h-4" />
-                Attachments & Chord Sheets ({(selectedSong.attachments || []).length})
-              </span>
-              <button
-                onClick={() => setIsAddingAttachment(true)}
-                className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 hover:underline"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Attachment
-              </button>
-            </div>
-
-            {(selectedSong.attachments || []).length === 0 ? (
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-500">
-                No screenshots, chord sheets, or file attachments attached yet.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {(selectedSong.attachments || []).map((att) => (
-                  <div
-                    key={att.id}
-                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-start justify-between space-x-2"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center space-x-1.5">
-                        {att.type === 'image' ? (
-                          <FileImage className="w-4 h-4 text-emerald-600 shrink-0" />
-                        ) : att.type === 'link' ? (
-                          <Link2 className="w-4 h-4 text-blue-600 shrink-0" />
-                        ) : (
-                          <FileText className="w-4 h-4 text-amber-600 shrink-0" />
-                        )}
-                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                          {att.name}
-                        </span>
-                      </div>
-
-                      {att.type === 'text' && (
-                        <div className="text-[11px] font-mono text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-2 rounded border border-slate-200 dark:border-slate-800 whitespace-pre-wrap">
-                          {att.urlOrData}
-                        </div>
-                      )}
-
-                      {att.type === 'image' && (
-                        <div className="mt-1">
-                          <img
-                            src={att.urlOrData}
-                            alt={att.name}
-                            className="max-h-40 rounded-lg object-contain border border-slate-200 dark:border-slate-700"
-                          />
-                        </div>
-                      )}
-
-                      {att.type === 'link' && (
-                        <a
-                          href={att.urlOrData}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-blue-600 dark:text-blue-400 underline truncate block"
-                        >
-                          {att.urlOrData}
-                        </a>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        const updated = (selectedSong.attachments || []).filter((a) => a.id !== att.id);
-                        onSaveSong({ ...selectedSong, attachments: updated, updatedAt: new Date().toISOString() });
-                      }}
-                      className="text-slate-400 hover:text-rose-600 p-1 shrink-0"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Alphabetical Song List */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            All Songs Alphabetical ({filteredSongs.length})
-          </span>
-          <span className="text-xs text-slate-400">Sorted A–Z</span>
-        </div>
-
-        {filteredSongs.length === 0 ? (
-          <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            No songs found matching "{searchQuery}".
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {filteredSongs.map((song) => {
-              const isSelected = selectedSongId === song.id;
-
-              return (
+                {/* Song Card Header (Click to expand / collapse in-place) */}
                 <div
-                  key={song.id}
-                  onClick={() => setSelectedSongId(isSelected ? null : song.id)}
-                  className={`p-3.5 rounded-xl bg-white dark:bg-slate-900 border transition-all cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 flex items-center justify-between ${
-                    isSelected
-                      ? 'border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-sm'
-                      : 'border-slate-200 dark:border-slate-800'
-                  }`}
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedSongId(null);
+                      setActiveMedia(null);
+                      onClearInitialSelectedSongId?.();
+                    } else {
+                      setSelectedSongId(song.id);
+                      setActiveMedia(null);
+                    }
+                  }}
+                  className="p-4 flex items-center justify-between cursor-pointer select-none group"
                 >
-                  <div className="min-w-0 space-y-0.5">
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                  <div className="min-w-0 pr-3">
+                    <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
                       {song.title}
                     </h4>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                      {song.artist || 'Praise & Worship'}
-                    </p>
+                    {song.artist && (
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {song.artist}
+                      </p>
+                    )}
                   </div>
 
-                  <div className="flex items-center space-x-2 shrink-0 ml-2">
+                  <div className="flex items-center space-x-2 shrink-0">
                     <button
                       type="button"
                       onClick={(e) => handleCopySong(song, e)}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                       title="Copy Song Title and Lyrics"
                     >
                       {copiedSongId === song.id ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <Check className="w-4 h-4 text-emerald-600" />
                       ) : (
-                        <Copy className="w-3.5 h-3.5" />
+                        <Copy className="w-4 h-4" />
                       )}
                     </button>
 
-                    {song.minusOneLink && (
-                      <span className="p-1 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
-                        Track
+                    {attachments.length > 0 && (
+                      <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
+                        {attachments.length} {attachments.length === 1 ? 'track' : 'tracks'}
                       </span>
                     )}
-                    {(song.attachments || []).length > 0 && (
-                      <span className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold">
-                        {song.attachments!.length} att
-                      </span>
-                    )}
-                    <span className="text-xs font-semibold text-slate-400">
-                      {isSelected ? 'Close' : 'View'}
-                    </span>
+
+                    <div className="p-1 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform">
+                      {isSelected ? (
+                        <ChevronUp className="w-5 h-5" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5" />
+                      )}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
+                {/* IN-LINE EXPANDED VIEW (When clicked directly in place!) */}
+                {isSelected && (
+                  <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
+                    {/* Action Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          onClick={() => handleCopySong(song)}
+                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          title="Copy Title and Lyrics"
+                        >
+                          {copiedSongId === song.id ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');
+                            setIsAddToSetlistOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:bg-slate-800 dark:hover:bg-white cursor-pointer"
+                        >
+                          <CalendarPlus className="w-3.5 h-3.5" />
+                          <span>Add to Setlist</span>
+                        </button>
+
+                        <button
+                          onClick={() => setLargeFontMode(!largeFontMode)}
+                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            largeFontMode
+                              ? 'bg-amber-100 dark:bg-amber-950/70 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                              : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                          title="Toggle Stage Font Size"
+                        >
+                          <Type className="w-3.5 h-3.5" />
+                          <span>{largeFontMode ? 'Standard Font' : 'Stage Font'}</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => handleStartEditSong(song, e)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (confirm(`Remove "${song.title}" from Song Library?`)) {
+                              onDeleteSong(song.id);
+                              setSelectedSongId(null);
+                              onClearInitialSelectedSongId?.();
+                            }
+                          }}
+                          className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs cursor-pointer"
+                          title="Delete Song"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setSelectedSongId(null);
+                            setActiveMedia(null);
+                            onClearInitialSelectedSongId?.();
+                          }}
+                          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs transition-colors cursor-pointer"
+                          title="Close"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Lyrics Block */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <BookOpen className="w-4 h-4" />
+                          <span>Lyrics</span>
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          {largeFontMode ? 'Stage Size (Large)' : 'Standard Size'}
+                        </span>
+                      </div>
+
+                      <div
+                        className={`p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text ${
+                          largeFontMode
+                            ? 'text-lg sm:text-xl font-medium leading-relaxed font-sans'
+                            : 'text-sm leading-relaxed font-mono'
+                        }`}
+                      >
+                        {song.lyrics || (
+                          <span className="text-slate-400 italic">No lyrics entered yet for this song.</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* VIDEO / SOUND PLAYER (Placed right after the lyrics!) */}
+                    {activeMedia && (
+                      <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                          <div className="flex items-center space-x-2 min-w-0">
+                            <Volume2 className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+                            <span className="text-xs font-bold truncate">
+                              Playing: {activeMedia.name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => setActiveMedia(null)}
+                            className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                            title="Close Player"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* YouTube Embed Player */}
+                        {(() => {
+                          const ytEmbed = getYouTubeEmbedUrl(activeMedia.url);
+                          if (ytEmbed) {
+                            return (
+                              <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+                                <iframe
+                                  src={ytEmbed}
+                                  title={activeMedia.name}
+                                  className="w-full h-full border-0"
+                                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            );
+                          }
+
+                          if (activeMedia.type === 'video' || activeMedia.url.startsWith('data:video/')) {
+                            return (
+                              <video
+                                src={activeMedia.url}
+                                controls
+                                autoPlay
+                                className="w-full max-h-72 rounded-xl bg-black"
+                              />
+                            );
+                          }
+
+                          if (activeMedia.type === 'audio' || activeMedia.url.startsWith('data:audio/')) {
+                            return (
+                              <div className="p-2 bg-slate-800/80 rounded-xl">
+                                <audio src={activeMedia.url} controls autoPlay className="w-full" />
+                              </div>
+                            );
+                          }
+
+                          // Other web links
+                          return (
+                            <div className="p-3 rounded-xl bg-slate-800/80 flex items-center justify-between text-xs">
+                              <span className="truncate pr-2">{activeMedia.url}</span>
+                              <a
+                                href={activeMedia.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold flex items-center gap-1 shrink-0"
+                              >
+                                <span>Open Link</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Categorized Attachments (Plus One & Minus One) */}
+                    {hasAttachments && (
+                      <div className="space-y-4 pt-1">
+                        {/* Plus One (+1) Section */}
+                        {plusOneList.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+                              Plus One (+1) Reference Tracks & Files ({plusOneList.length})
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {plusOneList.map((att) => {
+                                const isPlaying = activeMedia?.id === att.id;
+                                return (
+                                  <div
+                                    key={att.id}
+                                    onClick={() =>
+                                      setActiveMedia({
+                                        id: att.id,
+                                        name: att.name,
+                                        url: att.urlOrData,
+                                        type: att.type,
+                                      })
+                                    }
+                                    className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                                      isPlaying
+                                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600 ring-1 ring-amber-400'
+                                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                                    }`}
+                                  >
+                                    <div className="flex items-center space-x-2.5 min-w-0">
+                                      <div className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shrink-0">
+                                        {att.type === 'video' ? (
+                                          <FileVideo className="w-3.5 h-3.5 text-rose-500" />
+                                        ) : att.type === 'audio' ? (
+                                          <FileAudio className="w-3.5 h-3.5 text-amber-500" />
+                                        ) : att.type === 'image' ? (
+                                          <FileImage className="w-3.5 h-3.5 text-emerald-500" />
+                                        ) : (
+                                          <Link2 className="w-3.5 h-3.5 text-blue-500" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                                          {att.name}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 block truncate">
+                                          {isPlaying ? 'Now Playing' : 'Click to play / preview'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <Play className="w-3.5 h-3.5 text-slate-500 hover:text-amber-500" />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleDeleteAttachment(att.id, e)}
+                                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                                        title="Delete attachment"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Minus One (-1) Section */}
+                        {(minusOneList.length > 0 || song.minusOneLink) && (
+                          <div className="space-y-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+                              Minus One (-1) Instrumental Tracks ({minusOneList.length + (song.minusOneLink ? 1 : 0)})
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {song.minusOneLink && (
+                                <div
+                                  onClick={() =>
+                                    setActiveMedia({
+                                      id: `legacy-${song.id}`,
+                                      name: `${song.title} (Minus One Link)`,
+                                      url: song.minusOneLink!,
+                                      type: 'link',
+                                    })
+                                  }
+                                  className="p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-400 flex items-center justify-between cursor-pointer transition-all"
+                                >
+                                  <div className="flex items-center space-x-2.5 min-w-0">
+                                    <div className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shrink-0">
+                                      <Play className="w-3.5 h-3.5 text-amber-500" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                                        Minus One Track
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 block truncate">
+                                        {song.minusOneLink}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Play className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                                </div>
+                              )}
+
+                              {minusOneList.map((att) => {
+                                const isPlaying = activeMedia?.id === att.id;
+                                return (
+                                  <div
+                                    key={att.id}
+                                    onClick={() =>
+                                      setActiveMedia({
+                                        id: att.id,
+                                        name: att.name,
+                                        url: att.urlOrData,
+                                        type: att.type,
+                                      })
+                                    }
+                                    className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                                      isPlaying
+                                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600 ring-1 ring-amber-400'
+                                        : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                                    }`}
+                                  >
+                                    <div className="flex items-center space-x-2.5 min-w-0">
+                                      <div className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shrink-0">
+                                        {att.type === 'video' ? (
+                                          <FileVideo className="w-3.5 h-3.5 text-rose-500" />
+                                        ) : att.type === 'audio' ? (
+                                          <FileAudio className="w-3.5 h-3.5 text-amber-500" />
+                                        ) : att.type === 'image' ? (
+                                          <FileImage className="w-3.5 h-3.5 text-emerald-500" />
+                                        ) : (
+                                          <Link2 className="w-3.5 h-3.5 text-blue-500" />
+                                        )}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                                          {att.name}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 block truncate">
+                                          {isPlaying ? 'Now Playing' : 'Click to play / preview'}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      <Play className="w-3.5 h-3.5 text-slate-500 hover:text-amber-500" />
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleDeleteAttachment(att.id, e)}
+                                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                                        title="Delete attachment"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Centered "+ Add Attachment" Button at the bottom (Requirement 10) */}
+                    <div className="flex justify-center pt-2">
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenAddAttachment('minus_one', e)}
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
+                      >
+                        <Plus className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <span>+ Add Attachment</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* MODAL 1: ADD TO SETLIST */}
       {isAddToSetlistOpen && selectedSong && (
@@ -612,7 +859,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 <CalendarPlus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                 <span>Add "{selectedSong.title}" to Setlist</span>
               </h3>
-              <button onClick={() => setIsAddToSetlistOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setIsAddToSetlistOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -653,7 +900,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => setTargetPart('sundaySchool')}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
                           targetPart === 'sundaySchool'
                             ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900'
                             : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
@@ -664,7 +911,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       <button
                         type="button"
                         onClick={() => setTargetPart('worshipService')}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center ${
+                        className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
                           targetPart === 'worshipService'
                             ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900'
                             : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
@@ -685,14 +932,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddToSetlistOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleExecuteAddToSetlist}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm cursor-pointer"
                 >
                   {targetSetlistId === 'NEW' ? 'Create New Setlist' : 'Add to Setlist'}
                 </button>
@@ -702,95 +949,121 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: ADD ATTACHMENT */}
+      {/* MODAL 2: ADD ATTACHMENT / TRACKS (Requirement 7) */}
       {isAddingAttachment && selectedSong && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Paperclip className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                <span>Add Attachment / Materials</span>
+                <Paperclip className="w-4 h-4 text-amber-500" />
+                <span>Add Track or Attachment</span>
               </h3>
-              <button onClick={() => setIsAddingAttachment(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setIsAddingAttachment(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveAttachment} className="p-5 space-y-4">
+              {/* Category Choice: Plus One vs. Minus One */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Attachment Category *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAttachmentCategory('plus_one')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                      attachmentCategory === 'plus_one'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    Plus One (+1)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAttachmentCategory('minus_one')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
+                      attachmentCategory === 'minus_one'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    Minus One (-1)
+                  </button>
+                </div>
+              </div>
+
+              {/* Title / Description */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Attachment Name *
+                  Track / Attachment Title
                 </label>
                 <input
                   type="text"
-                  required
-                  value={attachmentForm.name}
-                  onChange={(e) => setAttachmentForm({ ...attachmentForm, name: e.target.value })}
-                  placeholder="e.g. Chords Key of G / Lead Sheet / Screenshot"
+                  value={attachmentName}
+                  onChange={(e) => setAttachmentName(e.target.value)}
+                  placeholder={
+                    attachmentCategory === 'plus_one'
+                      ? 'e.g. Vocal Reference / Studio Version'
+                      : 'e.g. Acoustic Backing Track / Key of G'
+                  }
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
 
+              {/* Link Input Box with Attachment Icon on the farthest right */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Attachment Type
+                  Paste Web / YouTube Link or Attach Sound/Video File *
                 </label>
-                <select
-                  value={attachmentForm.type}
-                  onChange={(e) => setAttachmentForm({ ...attachmentForm, type: e.target.value as any })}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                >
-                  <option value="text">Chord Progression / Text Notes</option>
-                  <option value="link">Web / Cloud Drive Link</option>
-                  <option value="image">Uploaded Image / Screenshot</option>
-                </select>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    required
+                    value={attachmentFileName ? `Attached File: ${attachmentFileName}` : attachmentLinkOrData}
+                    onChange={(e) => {
+                      setAttachmentFileName('');
+                      setAttachmentType('link');
+                      setAttachmentLinkOrData(e.target.value);
+                    }}
+                    placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/..."
+                    className="w-full pr-10 pl-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400"
+                  />
+                  {/* File Upload Trigger Icon at the farthest right */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute right-2 p-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                    title="Attach Audio, Video, or Image file from device"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="audio/*,video/*,image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-400 mt-1 block">
+                  Paste any YouTube/audio link or click the paperclip icon on the right to attach sound or video files.
+                </span>
               </div>
 
-              {attachmentForm.type === 'image' && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Upload Screenshot / Sheet Image
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 dark:file:bg-slate-800 file:text-slate-700 dark:file:text-slate-200"
-                  />
-                </div>
-              )}
-
-              {attachmentForm.type !== 'image' && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    {attachmentForm.type === 'link' ? 'URL / Link *' : 'Chords / Text Content *'}
-                  </label>
-                  <textarea
-                    rows={4}
-                    required
-                    value={attachmentForm.urlOrData}
-                    onChange={(e) => setAttachmentForm({ ...attachmentForm, urlOrData: e.target.value })}
-                    placeholder={
-                      attachmentForm.type === 'link'
-                        ? 'https://drive.google.com/...'
-                        : 'Intro: G - D - Em - C\nVerse: G - D - Em - C\nChorus: C - D - G'
-                    }
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white"
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-3">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddingAttachment(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm cursor-pointer"
                 >
                   Save Attachment
                 </button>
@@ -800,7 +1073,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         </div>
       )}
 
-      {/* MODAL 3: CREATE / EDIT SONG */}
+      {/* MODAL 3: CREATE / EDIT SONG (Requirements 7 & 8) */}
       {isEditing && editingSong && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-6">
@@ -811,57 +1084,71 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   {songs.some((s) => s.id === editingSong.id) ? 'Edit Song' : 'Add New Song to Library'}
                 </span>
               </h3>
-              <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleSaveSongForm} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Song Title *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingSong.title || ''}
-                    onChange={(e) => setEditingSong({ ...editingSong, title: e.target.value })}
-                    placeholder="e.g. Dakilang Katapatan"
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Artist / Composer / Hymn Origin
-                  </label>
-                  <input
-                    type="text"
-                    value={editingSong.artist || ''}
-                    onChange={(e) => setEditingSong({ ...editingSong, artist: e.target.value })}
-                    placeholder="e.g. Papuri / Arnel De Pano / Hymn"
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
+              {/* Song Title (Required) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Minus-One / Reference Track Link
+                  Song Title *
                 </label>
                 <input
-                  type="url"
-                  value={editingSong.minusOneLink || ''}
-                  onChange={(e) => setEditingSong({ ...editingSong, minusOneLink: e.target.value })}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                  type="text"
+                  required
+                  value={editingSong.title || ''}
+                  onChange={(e) => setEditingSong({ ...editingSong, title: e.target.value })}
+                  placeholder="e.g. Dakilang Katapatan"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium"
                 />
               </div>
 
+              {/* Optional Artist / Origin with "+ Add Artist/Origin" button (Requirement 8) */}
+              <div>
+                {showArtistInput ? (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        Artist / Composer / Hymn Origin
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowArtistInput(false);
+                          setEditingSong({ ...editingSong, artist: '' });
+                        }}
+                        className="text-[11px] text-slate-400 hover:text-rose-500 cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      value={editingSong.artist || ''}
+                      onChange={(e) => setEditingSong({ ...editingSong, artist: e.target.value })}
+                      placeholder="e.g. Papuri / Arnel De Pano / Hymn"
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
+                      autoFocus
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowArtistInput(true)}
+                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer py-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Add artist/origin</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Lyrics Field */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Lyrics (Formatted for Singing / Worship Leading)
+                  Lyrics
                 </label>
                 <textarea
                   rows={9}
@@ -876,13 +1163,13 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm cursor-pointer"
                 >
                   Save Song
                 </button>

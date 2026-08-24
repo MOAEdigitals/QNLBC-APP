@@ -5,12 +5,22 @@ import { getTodayStr, formatDateStr } from '../utils/dateUtils';
 
 interface NavbarProps {
   currentUser: UserAccount | null;
+  users?: UserAccount[];
   currentTab: AppTab;
   onNavigateToSettings: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToSettings }) => {
+export const Navbar: React.FC<NavbarProps> = ({ currentUser, users = [], onNavigateToSettings }) => {
   const todayStr = getTodayStr();
+
+  // Order users with currentUser first, followed by other active webapp users
+  const otherUsers = users.filter((u) => u.id !== currentUser?.id);
+  const orderedUsers: UserAccount[] = currentUser
+    ? [currentUser, ...otherUsers]
+    : users;
+
+  const firstTwoUsers = orderedUsers.slice(0, 2);
+  const remainingCount = orderedUsers.length > 2 ? orderedUsers.length - 2 : 0;
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -34,17 +44,49 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToSetting
         {currentUser && (
           <button
             onClick={onNavigateToSettings}
-            className="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60"
+            className="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 cursor-pointer select-none"
             title="User Profile & Settings"
           >
-            {currentUser.role === 'admin' ? (
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-            ) : (
-              <User className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-            )}
-            <span className="font-semibold">{currentUser.username}</span>
+            {/* Circular Profile Pictures Stack (Max 2 avatars, + 3rd circle with +# if > 2) */}
+            <div className="flex items-center -space-x-2 mr-1">
+              {firstTwoUsers.map((u, idx) => (
+                <div
+                  key={u.id}
+                  className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0 shadow-xs"
+                  title={`${u.username}${u.id === currentUser.id ? ' (You)' : ''}`}
+                  style={{ zIndex: 10 - idx }}
+                >
+                  {u.avatar ? (
+                    <img
+                      src={u.avatar}
+                      alt={u.username}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{u.username.substring(0, 1).toUpperCase()}</span>
+                  )}
+                </div>
+              ))}
+
+              {/* 3rd circle: overlapping +# indicator for other active webapp users */}
+              {remainingCount > 0 && (
+                <div
+                  className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 flex items-center justify-center text-[10px] font-bold shrink-0 shadow-xs"
+                  style={{ zIndex: 5 }}
+                  title={`${remainingCount} more user${remainingCount > 1 ? 's' : ''}: ${orderedUsers
+                    .slice(2)
+                    .map((u) => u.username)
+                    .join(', ')}`}
+                >
+                  +{remainingCount}
+                </div>
+              )}
+            </div>
+
+            <span className="font-semibold text-slate-900 dark:text-white">{currentUser.username}</span>
             {currentUser.role === 'admin' && (
-              <span className="text-[10px] uppercase tracking-wider font-bold px-1 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+              <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
                 Admin
               </span>
             )}

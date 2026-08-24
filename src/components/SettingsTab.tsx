@@ -3,6 +3,7 @@ import { UserAccount } from '../types';
 import {
   loadUsers,
   saveUsers,
+  updateUserAvatar,
   DEFAULT_ADMIN,
   resetAppToDefaults,
   exportChurchDataJSON,
@@ -11,6 +12,7 @@ import {
   loadSavedNames,
   saveSavedNames,
 } from '../utils/storage';
+import { compressImageToAvatar } from '../utils/imageUtils';
 import {
   Settings,
   Sun,
@@ -29,10 +31,16 @@ import {
   Database,
   FileText,
   Music,
+  ChevronDown,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface SettingsTabProps {
   currentUser: UserAccount;
+  onUpdateCurrentUser: (updatedUser: UserAccount) => void;
+  users: UserAccount[];
+  onUpdateUsers: (updatedUsers: UserAccount[]) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onSignOut: () => void;
@@ -41,16 +49,21 @@ interface SettingsTabProps {
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
   currentUser,
+  onUpdateCurrentUser,
+  users,
+  onUpdateUsers,
   theme,
   onToggleTheme,
   onSignOut,
   onDataReset,
 }) => {
-  const [users, setUsers] = useState<UserAccount[]>(() => loadUsers());
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [newUserAvatar, setNewUserAvatar] = useState<string | null>(null);
   const [userCreatedMsg, setUserCreatedMsg] = useState<string | null>(null);
   const [userErrorMsg, setUserErrorMsg] = useState<string | null>(null);
+  const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
 
   // Church directory names state for autofill management
   const [savedNames, setSavedNames] = useState<string[]>(() => loadSavedNames());
@@ -61,6 +74,31 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const isAdmin =
     currentUser.role === 'admin' ||
     currentUser.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
+
+  const handleAvatarChangeForUser = async (userId: string, file: File) => {
+    try {
+      const compressed = await compressImageToAvatar(file, 256, 0.85);
+      const { updatedUser, allUsers } = updateUserAvatar(userId, compressed);
+      onUpdateUsers(allUsers);
+      if (userId === currentUser.id && updatedUser) {
+        onUpdateCurrentUser(updatedUser);
+      }
+      setAvatarNoticeMsg('Profile picture updated! Previous photo was completely purged to save space.');
+      setTimeout(() => setAvatarNoticeMsg(null), 4000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to process image');
+    }
+  };
+
+  const handleRemoveAvatarForUser = (userId: string) => {
+    const { updatedUser, allUsers } = updateUserAvatar(userId, undefined);
+    onUpdateUsers(allUsers);
+    if (userId === currentUser.id && updatedUser) {
+      onUpdateCurrentUser(updatedUser);
+    }
+    setAvatarNoticeMsg('Profile picture removed from storage.');
+    setTimeout(() => setAvatarNoticeMsg(null), 4000);
+  };
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,16 +123,30 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       username: cleanUser,
       passwordHash: cleanPass,
       role: 'user',
+      avatar: newUserAvatar || undefined,
       createdAt: new Date().toISOString(),
     };
 
     const updated = [...users, newUser];
     saveUsers(updated);
-    setUsers(updated);
+    onUpdateUsers(updated);
     setNewUsername('');
     setNewPassword('');
+    setNewUserAvatar(null);
     setUserCreatedMsg(`User access successfully generated for "${cleanUser}".`);
     setTimeout(() => setUserCreatedMsg(null), 4000);
+  };
+
+  const handleNewUserAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImageToAvatar(file, 256, 0.85);
+      setNewUserAvatar(compressed);
+    } catch (err: any) {
+      alert(err.message || 'Failed to process image');
+    }
+    e.target.value = '';
   };
 
   const handleAddDirectoryName = (e: React.FormEvent) => {
@@ -442,115 +494,378 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       )}
 
-      {/* Section 5: Current Account Session (Accessible to Everyone) */}
+      {/* Section 5: Current Account Session & Profile Picture (Accessible to Everyone) */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-          Account Session
-        </h3>
-
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold">
-              {currentUser.username.substring(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                  {currentUser.username}
-                </span>
-                {isAdmin && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
-                    Administrator
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {isAdmin
-                  ? 'Administrator account with full ministry program privileges'
-                  : 'Ministry team contributor account'}
-              </span>
-            </div>
-          </div>
-
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            Account Profile & Session
+          </h3>
           <button
             onClick={onSignOut}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
           </button>
         </div>
+
+        {avatarNoticeMsg && (
+          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <span>{avatarNoticeMsg}</span>
+          </div>
+        )}
+
+        <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          {/* Avatar Picture with Camera badge */}
+          <div className="relative shrink-0">
+            <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full ring-3 ring-white dark:ring-slate-800 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-xl overflow-hidden shadow-sm">
+              {currentUser.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.username}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{currentUser.username.substring(0, 2).toUpperCase()}</span>
+              )}
+            </div>
+            <label
+              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 ring-2 ring-white dark:ring-slate-800 flex items-center justify-center shadow-xs cursor-pointer hover:scale-105 transition-transform"
+              title="Change profile picture"
+            >
+              <Camera className="w-3 h-3" />
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleAvatarChangeForUser(currentUser.id, f);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+
+          {/* User Details & Photo Controls */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-bold text-slate-900 dark:text-white">
+                  {currentUser.username}
+                </span>
+                {isAdmin ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300">
+                    Administrator
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    User
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {isAdmin
+                  ? 'Administrator account with full ministry program privileges'
+                  : 'Ministry team contributor account'}
+              </p>
+            </div>
+
+            {/* Profile photo actions */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-2xs">
+                <Camera className="w-3.5 h-3.5" />
+                <span>{currentUser.avatar ? 'Replace Photo' : 'Add Profile Picture'}</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleAvatarChangeForUser(currentUser.id, f);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+
+              {currentUser.avatar && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveAvatarForUser(currentUser.id)}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-medium border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Remove Photo</span>
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              Photos are automatically optimized. When a new photo is uploaded, all previous photos are completely deleted from storage.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Section 6: Create User Access (Admin Only) */}
+      {/* Section 6: User Access Accounts & Management (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Create Ministry User Access</span>
+              <span>Ministry User Access & Profiles ({users.length})</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Add login access for team members. Account details and passwords remain confidential and are not listed publicly.
+              Click any user to expand and view their password and profile photo. Clicking a different user collapses the previous one.
             </p>
           </div>
 
-          {userCreatedMsg && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span>{userCreatedMsg}</span>
-            </div>
-          )}
+          {/* User list with expandable password and profile picture view */}
+          <div className="space-y-2">
+            {users.map((u) => {
+              const isExpanded = expandedUserId === u.id;
+              const isCurrent = u.id === currentUser.id;
 
-          {userErrorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{userErrorMsg}</span>
-            </div>
-          )}
+              return (
+                <div
+                  key={u.id}
+                  className={`rounded-xl border transition-all ${
+                    isExpanded
+                      ? 'bg-slate-50 dark:bg-slate-800/80 border-slate-400 dark:border-slate-600 shadow-xs'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div
+                    onClick={() => setExpandedUserId(isExpanded ? null : u.id)}
+                    className="p-3.5 flex items-center justify-between cursor-pointer select-none"
+                  >
+                    <div className="flex items-center space-x-3 min-w-0">
+                      {/* User Avatar Circle */}
+                      <div className="w-9 h-9 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+                        {u.avatar ? (
+                          <img
+                            src={u.avatar}
+                            alt={u.username}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{u.username.substring(0, 2).toUpperCase()}</span>
+                        )}
+                      </div>
 
-          {/* Form */}
-          <form onSubmit={handleCreateUser} className="p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  New Username *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  placeholder="e.g. BroChristian / SisAbigail"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                            {u.username}
+                          </span>
+                          {u.role === 'admin' ? (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                              Admin
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                              User
+                            </span>
+                          )}
+                          {isCurrent && (
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              (You)
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-400 block">
+                          {isExpanded ? 'Click to collapse' : 'Click to view password & details'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <ChevronDown
+                        className={`w-4 h-4 text-slate-400 transition-transform ${
+                          isExpanded ? 'rotate-180 text-slate-700 dark:text-slate-200' : ''
+                        }`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Expanded Password & Photo Controls */}
+                  {isExpanded && (
+                    <div className="px-3.5 pb-3.5 pt-2 border-t border-slate-200/70 dark:border-slate-700/70 space-y-3 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-slate-500 dark:text-slate-400 font-medium">
+                            Password:
+                          </span>
+                          <code className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-900 font-mono text-slate-900 dark:text-white font-bold text-xs select-all">
+                            {u.passwordHash || '(no password set)'}
+                          </code>
+                        </div>
+
+                        {/* Photo management for this user */}
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-[11px] font-semibold flex items-center gap-1 transition-colors">
+                            <Camera className="w-3 h-3" />
+                            <span>{u.avatar ? 'Replace Photo' : 'Upload Photo'}</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleAvatarChangeForUser(u.id, f);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+
+                          {u.avatar && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveAvatarForUser(u.id);
+                              }}
+                              className="px-2 py-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Clear Photo</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase() && (
+                        <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`Remove account for user "${u.username}"?`)) {
+                                const updated = users.filter((item) => item.id !== u.id);
+                                saveUsers(updated);
+                                onUpdateUsers(updated);
+                                setExpandedUserId(null);
+                              }
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Account</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Create User Form */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Create New User Access</span>
+            </h4>
+
+            {userCreatedMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300 mb-3">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{userCreatedMsg}</span>
+              </div>
+            )}
+
+            {userErrorMsg && (
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300 mb-3">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <span>{userErrorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateUser} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    New Username *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newUsername}
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    placeholder="e.g. BroChristian / SisAbigail"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                    Assigned Password *
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Private password"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  Assigned Password *
-                </label>
-                <input
-                  type="password"
-                  required
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Private password"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
+              {/* Optional Profile Picture for New User */}
+              <div className="flex items-center gap-3 pt-1">
+                {newUserAvatar ? (
+                  <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-slate-300 dark:ring-slate-600 shrink-0">
+                    <img
+                      src={newUserAvatar}
+                      alt="New user preview"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0">
+                    <ImageIcon className="w-4 h-4" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50">
+                    <Camera className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{newUserAvatar ? 'Change Initial Photo' : 'Add Initial Profile Photo (Optional)'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleNewUserAvatarPick}
+                    />
+                  </label>
+                  {newUserAvatar && (
+                    <button
+                      type="button"
+                      onClick={() => setNewUserAvatar(null)}
+                      className="ml-2 text-xs text-rose-500 hover:underline cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="flex justify-end pt-1">
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white shadow-xs cursor-pointer"
-              >
-                <UserPlus className="w-4 h-4" />
-                <span>Create User Access</span>
-              </button>
-            </div>
-          </form>
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white shadow-xs cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>Create User Access</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

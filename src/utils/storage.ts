@@ -506,6 +506,33 @@ export function saveUsers(users: UserAccount[]): void {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
 }
 
+export function updateUserAvatar(
+  userId: string,
+  newAvatarDataUrl: string | undefined
+): { updatedUser: UserAccount | null; allUsers: UserAccount[] } {
+  const users = loadUsers();
+  const userIdx = users.findIndex((u) => u.id === userId);
+  if (userIdx === -1) {
+    return { updatedUser: null, allUsers: users };
+  }
+
+  const updatedUser: UserAccount = {
+    ...users[userIdx],
+    avatar: newAvatarDataUrl || undefined,
+  };
+
+  users[userIdx] = updatedUser;
+  saveUsers(users);
+
+  // If current session is this user, update session as well
+  const currentSession = loadCurrentSession();
+  if (currentSession.user && currentSession.user.id === userId) {
+    saveCurrentSession(updatedUser, currentSession.rememberMe);
+  }
+
+  return { updatedUser, allUsers: users };
+}
+
 export function loadCurrentSession(): { user: UserAccount | null; rememberMe: boolean } {
   try {
     // Check localStorage (remembered) or sessionStorage
@@ -712,35 +739,12 @@ export function saveWelcomeSongs(songs: string[]): void {
 }
 
 /**
- * Returns all distinct names found across saved ministry directory, setlists, celebrants, visitors, and special numbers
+ * Returns names strictly from the Church Directory and autofill suggestions from Settings
  */
 export function getAllDirectoryNames(): string[] {
-  const nameSet = new Set<string>(loadSavedNames());
-
-  // Collect from setlists
-  const setlists = loadSetlists();
-  setlists.forEach((s) => {
-    if (s.presider?.trim()) nameSet.add(s.presider.trim());
-    if (s.sundaySchool?.songLeader?.trim()) nameSet.add(s.sundaySchool.songLeader.trim());
-    if (s.worshipService?.songLeader?.trim()) nameSet.add(s.worshipService.songLeader.trim());
-    if (s.program?.songLeader?.trim()) nameSet.add(s.program.songLeader.trim());
-  });
-
-  // Collect from special numbers
-  const specialNumbers = loadSpecialNumbers();
-  specialNumbers.forEach((sp) => {
-    if (sp.performerName?.trim()) nameSet.add(sp.performerName.trim());
-  });
-
-  // Collect from birthdays, anniversaries, visitors
-  loadBirthdays().forEach((b) => {
-    if (b.name?.trim()) nameSet.add(b.name.trim());
-  });
-  loadVisitors().forEach((v) => {
-    if (v.name?.trim()) nameSet.add(v.name.trim());
-  });
-
-  return Array.from(nameSet).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const saved = loadSavedNames();
+  const nameSet = new Set<string>(saved.map((n) => n.trim()).filter(Boolean));
+  return Array.from(nameSet).sort((a, b) => a.localeCompare(b));
 }
 
 /**
