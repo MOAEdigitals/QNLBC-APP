@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserAccount,
   AppTab,
@@ -31,7 +31,11 @@ import {
   saveSpecialNumbers,
   upsertSongFromSpecialNumber,
 } from './utils/storage';
-import { getCurrentRecognitionWindow, categorizeAnnualCelebrants, isPastDate, getNextSundayStr } from './utils/dateUtils';
+import {
+  categorizeAnnualCelebrants,
+  isPastDate,
+  getNextSundayStr,
+} from './utils/dateUtils';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { AuthScreen } from './components/AuthScreen';
@@ -40,6 +44,7 @@ import { RecognitionsTab } from './components/RecognitionsTab';
 import { SpecialNumberTab } from './components/SpecialNumberTab';
 import { SongsTab } from './components/SongsTab';
 import { SettingsTab } from './components/SettingsTab';
+import { LogOut, X, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   // 1. Auth State
@@ -61,12 +66,13 @@ export default function App() {
     saveTheme(theme);
   }, [theme]);
 
-  // 3. App Tab Navigation
+  // 3. App Tab Navigation & History Stack
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
+  const tabHistoryRef = useRef<AppTab[]>(['home']);
 
   // Cross-tab deep links
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
-  const [selectedSetlistIdForTab, setSelectedSetlistIdForTab] = useState<string | null>(null);
 
   // 4. Core Church Data Entities
   const [setlists, setSetlists] = useState<Setlist[]>(() => loadSetlists());
@@ -77,7 +83,7 @@ export default function App() {
   const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>(() => loadSpecialRecognitions());
   const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>(() => loadSpecialNumbers());
 
-  // Reload all data (used when resetting to defaults)
+  // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {
     setSetlists(loadSetlists());
     setSongs(loadSongs());
@@ -88,15 +94,59 @@ export default function App() {
     setSpecialNumbers(loadSpecialNumbers());
   };
 
+  // Navigate to a new tab with history tracking
+  const handleNavigateTab = useCallback((newTab: AppTab) => {
+    if (newTab === currentTab) return;
+
+    // Push new state to browser history for standard back/swipe gestures
+    window.history.pushState({ tab: newTab }, '', `#${newTab}`);
+    tabHistoryRef.current.push(newTab);
+    setCurrentTab(newTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentTab]);
+
+  // Browser Back / Swipe Back Interceptor
+  useEffect(() => {
+    // Initialize base history state on load
+    if (!window.history.state || !window.history.state.tab) {
+      window.history.replaceState({ tab: 'home' }, '', '#home');
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      const targetTab: AppTab = event.state?.tab || 'home';
+
+      if (currentTab !== 'home') {
+        // If we are not on home, go back to targetTab or home
+        setCurrentTab(targetTab);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        // If we are already on Home and the user presses/swipes back again:
+        // Prompt for logout or cancel per specification
+        setShowLogoutConfirmModal(true);
+        // Push a state again to prevent immediately leaving window if they cancel
+        window.history.pushState({ tab: 'home' }, '', '#home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentTab]);
+
   // Auth Handlers
   const handleSignInSuccess = (user: UserAccount) => {
     setCurrentUser(user);
     setCurrentTab('home');
+    tabHistoryRef.current = ['home'];
+    window.history.replaceState({ tab: 'home' }, '', '#home');
   };
 
   const handleSignOut = () => {
+    setShowLogoutConfirmModal(false);
     saveCurrentSession(null, false);
     setCurrentUser(null);
+    window.history.replaceState(null, '', window.location.pathname);
   };
 
   const handleToggleTheme = () => {
@@ -145,11 +195,9 @@ export default function App() {
 
   // Special Number Operations
   const handleSaveSpecialNumber = (entry: SpecialNumberEntry) => {
-    // 1. Sync lyrics into Song Library if lyrics / title provided
     if (entry.songTitle && entry.lyrics) {
       const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
       entry.songId = syncedSong.id;
-      // Reload songs in state
       setSongs(loadSongs());
     }
 
@@ -223,7 +271,7 @@ export default function App() {
   // Cross-Navigation: Open song in Song Library
   const handleOpenSongDetail = (songId: string) => {
     setSelectedSongIdForTab(songId);
-    setCurrentTab('songs');
+    handleNavigateTab('songs');
   };
 
   // Cross-Navigation: Add song to a new setlist
@@ -231,8 +279,11 @@ export default function App() {
     const nextSunday = getNextSundayStr();
     const newSetlist: Setlist = {
       id: `setlist-${Date.now()}`,
+      type: 'sunday',
       date: nextSunday,
       presider: 'TBA',
+      welcomeSong: 'Napakaligaya',
+      closingSong: 'Give Thanks',
       sundaySchool: {
         songLeader: 'TBA',
         songs: [
@@ -253,8 +304,7 @@ export default function App() {
     };
 
     handleSaveSetlist(newSetlist);
-    setSelectedSetlistIdForTab(newSetlist.id);
-    setCurrentTab('home');
+    handleNavigateTab('home');
   };
 
   // Cross-Navigation: Add song to an existing upcoming setlist
@@ -266,18 +316,19 @@ export default function App() {
     const targetSetlist = setlists.find((s) => s.id === targetSetlistId);
     if (!targetSetlist) return;
 
+    const currentPart = targetSetlist[part] || { songLeader: '', songs: [] };
     const newItem = {
       id: `${part.substring(0, 2)}-${Date.now()}`,
       songId: song.id,
       title: song.title,
     };
 
-    const updatedPartSongs = [...targetSetlist[part].songs, newItem];
+    const updatedPartSongs = [...(currentPart.songs || []), newItem];
 
     const updatedSetlist: Setlist = {
       ...targetSetlist,
       [part]: {
-        ...targetSetlist[part],
+        ...currentPart,
         songs: updatedPartSongs,
       },
       updatedAt: new Date().toISOString(),
@@ -287,10 +338,15 @@ export default function App() {
   };
 
   // Badge calculations
-  const { currentWindow: thisWeekBirthdays } = categorizeAnnualCelebrants<BirthdayCelebrant>(birthdays, (b: BirthdayCelebrant) => b.birthDate);
-  const { currentWindow: thisWeekAnniversaries } = categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
+  const { currentWindow: thisWeekBirthdays } = categorizeAnnualCelebrants<BirthdayCelebrant>(
+    birthdays,
+    (b: BirthdayCelebrant) => b.birthDate
+  );
+  const { currentWindow: thisWeekAnniversaries } = categorizeAnnualCelebrants<AnniversaryCelebrant>(
+    anniversaries,
+    (a: AnniversaryCelebrant) => a.anniversaryDate
+  );
   const totalCelebrantsThisWeek = thisWeekBirthdays.length + thisWeekAnniversaries.length;
-
   const upcomingSpecialCount = specialNumbers.filter((s) => !isPastDate(s.scheduledDate)).length;
 
   // Unauthenticated Gate
@@ -304,11 +360,11 @@ export default function App() {
       <Navbar
         currentUser={currentUser}
         currentTab={currentTab}
-        onNavigateToSettings={() => setCurrentTab('settings')}
+        onNavigateToSettings={() => handleNavigateTab('settings')}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-24">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
         {currentTab === 'home' && (
           <SetlistsTab
             setlists={setlists}
@@ -316,8 +372,6 @@ export default function App() {
             onSaveSetlist={handleSaveSetlist}
             onDeleteSetlist={handleDeleteSetlist}
             onOpenSongDetail={handleOpenSongDetail}
-            selectedSetlistId={selectedSetlistIdForTab}
-            onClearSelectedSetlistId={() => setSelectedSetlistIdForTab(null)}
           />
         )}
 
@@ -342,6 +396,7 @@ export default function App() {
           <SpecialNumberTab
             specialNumbers={specialNumbers}
             songs={songs}
+            setlists={setlists}
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
             onOpenSongDetail={handleOpenSongDetail}
@@ -375,13 +430,52 @@ export default function App() {
       {/* Mobile-First Bottom Navigation */}
       <BottomNav
         activeTab={currentTab}
-        onChangeTab={(t) => {
-          setCurrentTab(t);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
+        onChangeTab={handleNavigateTab}
         celebrantCount={totalCelebrantsThisWeek}
         upcomingSpecialCount={upcomingSpecialCount}
       />
+
+      {/* Logout Confirmation Prompt on back swipe from Home */}
+      {showLogoutConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-rose-600">
+                <AlertTriangle className="w-5 h-5" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Exit & Sign Out?
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowLogoutConfirmModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              You are currently on the Home tab. Pressing or swiping back again will close your session. Would you like to sign out of the church ministry app?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                onClick={() => setShowLogoutConfirmModal(false)}
+                className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                Cancel / Stay
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shadow-sm cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

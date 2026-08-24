@@ -30,22 +30,34 @@ export interface SetlistSongItem {
   id: string;
   songId?: string; // Reference to Song library if linked
   title: string;
-  keyNote?: string;
-  notes?: string;
+  keyNote?: string; // Optional legacy or key note
+  notes?: string; // Stanza notes, style, etc. (empty by default)
 }
+
+export type SetlistType = 'sunday' | 'prayer_meeting' | 'fellowship' | 'event';
 
 export interface Setlist {
   id: string;
+  type?: SetlistType; // 'sunday' | 'prayer_meeting' | 'fellowship' | 'event'
+  title?: string; // Custom title for Fellowship (e.g. "Youth Fellowship") or Event (e.g. "Mission Conference")
   date: string; // YYYY-MM-DD
-  presider: string;
-  sundaySchool: {
+  presider?: string; // Optional for prayer meeting
+  welcomeSong?: string; // Welcome song (e.g. "Napakaligaya")
+  closingSong?: string; // Closing song (e.g. "Give Thanks")
+  themeSong?: string; // Month theme song
+  sundaySchool?: {
+    songLeader: string;
+    songs: SetlistSongItem[]; // 2-3 songs
+    notes?: string;
+  };
+  worshipService?: {
     songLeader: string;
     songs: SetlistSongItem[]; // 2-4 songs
     notes?: string;
   };
-  worshipService: {
+  program?: {
     songLeader: string;
-    songs: SetlistSongItem[]; // 2-4 songs
+    songs: SetlistSongItem[]; // 1-2 for prayer meeting, 2-3 for fellowship, 3-4 for event
     notes?: string;
   };
   generalNotes?: string;
@@ -105,13 +117,14 @@ export interface SpecialNumberEntry {
   id: string;
   performerName: string;
   scheduledDate: string; // YYYY-MM-DD
-  songTitle: string;
+  songTitle?: string; // Can be left empty if song is not yet decided
   songId?: string;
   minusOneLink?: string;
   notes?: string;
-  lyrics: string;
+  lyrics?: string;
   createdAt: string;
 }
 
 export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'settings';
 export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
+

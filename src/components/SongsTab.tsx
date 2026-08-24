@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Song, Setlist, SongAttachment } from '../types';
 import { isPastDate, formatDateStr, getNextSundayStr } from '../utils/dateUtils';
+import { formatDuplicateTitle } from '../utils/storage';
 import {
   Music,
   Plus,
@@ -20,6 +21,7 @@ import {
   Link2,
   FileText,
   Eye,
+  Copy,
 } from 'lucide-react';
 
 interface SongsTabProps {
@@ -57,6 +59,19 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [targetPart, setTargetPart] = useState<'sundaySchool' | 'worshipService'>('worshipService');
   const [keyNoteInput, setKeyNoteInput] = useState('');
   const [addedNotice, setAddedNotice] = useState(false);
+  const [copiedSongId, setCopiedSongId] = useState<string | null>(null);
+
+  const handleCopySong = (song: Song, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    const textToCopy = `Title: ${song.title}${song.artist ? `\nArtist/Author: ${song.artist}` : ''}\n\n${song.lyrics || '(No lyrics available)'}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedSongId(song.id);
+    setTimeout(() => {
+      setCopiedSongId(null);
+    }, 2500);
+  };
 
   // Attachment adding state
   const [isAddingAttachment, setIsAddingAttachment] = useState(false);
@@ -121,9 +136,11 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     e.preventDefault();
     if (!editingSong || !editingSong.title?.trim()) return;
 
+    const formattedTitle = formatDuplicateTitle(editingSong.title.trim(), songs, editingSong.id);
+
     const finalSong: Song = {
       id: editingSong.id || `song-${Date.now()}`,
-      title: editingSong.title.trim(),
+      title: formattedTitle,
       artist: editingSong.artist?.trim() || undefined,
       lyrics: editingSong.lyrics || '',
       minusOneLink: editingSong.minusOneLink?.trim() || undefined,
@@ -258,6 +275,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => handleCopySong(selectedSong)}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Copy Title and Lyrics to Clipboard"
+              >
+                {copiedSongId === selectedSong.id ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+
               <button
                 onClick={() => {
                   setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');
@@ -480,6 +515,19 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-2 shrink-0 ml-2">
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopySong(song, e)}
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      title="Copy Song Title and Lyrics"
+                    >
+                      {copiedSongId === song.id ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+
                     {song.minusOneLink && (
                       <span className="p-1 rounded bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
                         Track

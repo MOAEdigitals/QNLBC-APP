@@ -21,7 +21,40 @@ const STORAGE_KEYS = {
   VISITORS: 'nlbc_visitors_v1',
   SPECIAL_RECOGNITIONS: 'nlbc_special_recognitions_v1',
   SPECIAL_NUMBERS: 'nlbc_special_numbers_v1',
+  SAVED_NAMES: 'nlbc_saved_names_v1',
+  WELCOME_SONGS: 'nlbc_welcome_songs_v1',
 };
+
+// Default saved ministry names directory for autofill
+export const DEFAULT_SAVED_NAMES: string[] = [
+  'Ptr. Jonathan Santos',
+  'Bro. Christian Ramos',
+  'Sis. Abigail Cruz',
+  'Bro. Mark Villanueva',
+  'Bro. Emmanuel Garcia',
+  'Sis. Kimberly Dela Cruz',
+  'Bro. Daniel Pascual',
+  'Sis. Grace David',
+  'Bro. Roberto Mendoza',
+  'Sis. Elena Morales',
+  'Bro. Joshua Fernando',
+  'Bro. Alvin Ramos',
+  'Sis. Maricel Ramos',
+  'Sis. Carmen Mendoza',
+  'NLBC Youth Choir',
+  'Men of Honor Quartet',
+  'Junior Church Worship Team',
+];
+
+// Default saved welcome songs
+export const DEFAULT_WELCOME_SONGS: string[] = [
+  'Napakaligaya',
+  'Tayo ay Magpuri',
+  'Maligayang Pagdating',
+  'Iba ang May Kasama',
+  'Sama-Samang Nagpupuri',
+  'Kay Buti ng Diyos',
+];
 
 // Default pre-seeded admin account per user spec
 export const DEFAULT_ADMIN: UserAccount = {
@@ -194,15 +227,19 @@ function getInitialData() {
   const initialSetlists: Setlist[] = [
     {
       id: 'setlist-next',
+      type: 'sunday',
       date: nextSunday,
       presider: 'Ptr. Jonathan Santos',
+      welcomeSong: 'Napakaligaya',
+      closingSong: 'Give Thanks',
+      themeSong: 'Dakilang Katapatan',
       sundaySchool: {
         songLeader: 'Bro. Christian Ramos',
         songs: [
           { id: 'ss-s1', songId: 'song-3', title: 'Amazing Grace (My Chains Are Gone)', keyNote: 'Key of G', notes: 'Warm acoustic start' },
           { id: 'ss-s2', songId: 'song-4', title: 'Salamat Panginoon', keyNote: 'Key of C', notes: 'With Sunday School children clapping' },
         ],
-        notes: 'Adult class & Youth combined study at 9:00 AM',
+        notes: 'Sunday School starts at 8:30 AM',
       },
       worshipService: {
         songLeader: 'Sis. Abigail Cruz',
@@ -211,7 +248,7 @@ function getInitialData() {
           { id: 'ws-s2', songId: 'song-2', title: '10,000 Reasons (Bless The Lord)', keyNote: 'Key of G', notes: 'Congregational singing' },
           { id: 'ws-s3', songId: 'song-5', title: 'Goodness of God', keyNote: 'Key of A', notes: 'Prayer response worship' },
         ],
-        notes: 'Theme: Faithfulness in Season and Out of Season',
+        notes: 'Worship Service begins promptly at 9:30 AM',
       },
       generalNotes: 'Communion preparation by Deaconess team after worship.',
       createdAt: new Date().toISOString(),
@@ -219,14 +256,19 @@ function getInitialData() {
     },
     {
       id: 'setlist-following',
+      type: 'sunday',
       date: followingSundayStr,
       presider: 'Bro. Emmanuel Garcia',
+      welcomeSong: 'Napakaligaya',
+      closingSong: 'Give Thanks',
+      themeSong: 'Dakilang Katapatan',
       sundaySchool: {
         songLeader: 'Sis. Kimberly Dela Cruz',
         songs: [
           { id: 'ss-f1', songId: 'song-4', title: 'Salamat Panginoon', keyNote: 'Key of C' },
           { id: 'ss-f2', songId: 'song-6', title: 'How Great Thou Art', keyNote: 'Key of Bb' },
         ],
+        notes: 'Sunday School starts at 8:30 AM',
       },
       worshipService: {
         songLeader: 'Bro. Mark Villanueva',
@@ -235,20 +277,26 @@ function getInitialData() {
           { id: 'ws-f2', songId: 'song-5', title: 'Goodness of God', keyNote: 'Key of A' },
           { id: 'ws-f3', songId: 'song-2', title: '10,000 Reasons (Bless The Lord)', keyNote: 'Key of G' },
         ],
+        notes: 'Worship Service begins promptly at 9:30 AM',
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
     {
       id: 'setlist-past',
+      type: 'sunday',
       date: pastSundayStr,
       presider: 'Bro. Roberto Mendoza',
+      welcomeSong: 'Napakaligaya',
+      closingSong: 'Give Thanks',
+      themeSong: 'Dakilang Katapatan',
       sundaySchool: {
         songLeader: 'Sis. Grace David',
         songs: [
           { id: 'ss-p1', songId: 'song-3', title: 'Amazing Grace', keyNote: 'Key of G' },
           { id: 'ss-p2', songId: 'song-6', title: 'How Great Thou Art', keyNote: 'Key of Bb' },
         ],
+        notes: 'Sunday School starts at 8:30 AM',
       },
       worshipService: {
         songLeader: 'Bro. Daniel Pascual',
@@ -256,6 +304,7 @@ function getInitialData() {
           { id: 'ws-p1', songId: 'song-1', title: 'Dakilang Katapatan', keyNote: 'Key of D' },
           { id: 'ws-p2', songId: 'song-4', title: 'Salamat Panginoon', keyNote: 'Key of C' },
         ],
+        notes: 'Worship Service begins promptly at 9:30 AM',
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -628,6 +677,104 @@ export function saveSpecialNumbers(items: SpecialNumberEntry[]): void {
   localStorage.setItem(STORAGE_KEYS.SPECIAL_NUMBERS, JSON.stringify(items));
 }
 
+export function loadSavedNames(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SAVED_NAMES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(DEFAULT_SAVED_NAMES));
+      return DEFAULT_SAVED_NAMES;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_SAVED_NAMES;
+  }
+}
+
+export function saveSavedNames(names: string[]): void {
+  localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(names));
+}
+
+export function loadWelcomeSongs(): string[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.WELCOME_SONGS);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.WELCOME_SONGS, JSON.stringify(DEFAULT_WELCOME_SONGS));
+      return DEFAULT_WELCOME_SONGS;
+    }
+    return JSON.parse(raw);
+  } catch {
+    return DEFAULT_WELCOME_SONGS;
+  }
+}
+
+export function saveWelcomeSongs(songs: string[]): void {
+  localStorage.setItem(STORAGE_KEYS.WELCOME_SONGS, JSON.stringify(songs));
+}
+
+/**
+ * Returns all distinct names found across saved ministry directory, setlists, celebrants, visitors, and special numbers
+ */
+export function getAllDirectoryNames(): string[] {
+  const nameSet = new Set<string>(loadSavedNames());
+
+  // Collect from setlists
+  const setlists = loadSetlists();
+  setlists.forEach((s) => {
+    if (s.presider?.trim()) nameSet.add(s.presider.trim());
+    if (s.sundaySchool?.songLeader?.trim()) nameSet.add(s.sundaySchool.songLeader.trim());
+    if (s.worshipService?.songLeader?.trim()) nameSet.add(s.worshipService.songLeader.trim());
+    if (s.program?.songLeader?.trim()) nameSet.add(s.program.songLeader.trim());
+  });
+
+  // Collect from special numbers
+  const specialNumbers = loadSpecialNumbers();
+  specialNumbers.forEach((sp) => {
+    if (sp.performerName?.trim()) nameSet.add(sp.performerName.trim());
+  });
+
+  // Collect from birthdays, anniversaries, visitors
+  loadBirthdays().forEach((b) => {
+    if (b.name?.trim()) nameSet.add(b.name.trim());
+  });
+  loadVisitors().forEach((v) => {
+    if (v.name?.trim()) nameSet.add(v.name.trim());
+  });
+
+  return Array.from(nameSet).filter(Boolean).sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * Month Theme Song Rule:
+ * The first theme song scheduled for the first Sunday of the month will auto-populate
+ * for all upcoming setlists within that same month and year.
+ */
+export function getThemeSongForMonth(setlists: Setlist[], targetDateStr: string): string {
+  if (!targetDateStr) return '';
+  const [year, month] = targetDateStr.split('-');
+  if (!year || !month) return '';
+
+  const prefix = `${year}-${month}`;
+  // Find setlists in that month sorted by date ascending
+  const monthSetlists = setlists
+    .filter((s) => s.date.startsWith(prefix) && (!s.type || s.type === 'sunday'))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const firstSunday = monthSetlists.find((s) => s.themeSong?.trim());
+  return firstSunday?.themeSong?.trim() || '';
+}
+
+/**
+ * Formats duplicate song titles with # count if identical title exists with different ID or lyrics
+ */
+export function formatDuplicateTitle(baseTitle: string, existingSongs: Song[], currentSongId?: string): string {
+  const cleanBase = baseTitle.trim().replace(/\s*\(\d+\)$/, '').trim();
+  const sameTitles = existingSongs.filter(
+    (s) => s.id !== currentSongId && s.title.trim().toLowerCase().startsWith(cleanBase.toLowerCase())
+  );
+  if (sameTitles.length === 0) return baseTitle.trim();
+  return `${cleanBase} (${sameTitles.length + 1})`;
+}
+
 /**
  * Synchronizes or creates a Song in the Song Library when special number lyrics/song title are provided.
  */
@@ -647,6 +794,7 @@ export function upsertSongFromSpecialNumber(songTitle: string, lyrics: string, m
     saveSongs(currentSongs);
     return updated;
   } else {
+    // If not existing, add to song library
     const newSong: Song = {
       id: `song-${Date.now()}`,
       title: songTitle.trim(),
@@ -668,6 +816,8 @@ export function resetAppToDefaults(): void {
   sessionStorage.clear();
   loadUsers();
   loadSongs();
+  loadSavedNames();
+  loadWelcomeSongs();
   getInitialData();
 }
 
@@ -676,7 +826,8 @@ export function resetAppToDefaults(): void {
  */
 export function exportChurchDataJSON(): string {
   const data = {
-    appName: 'New Life Baptist Church Program App',
+    version: '2.0',
+    appName: 'New Life Baptist Church Program App - Full Backup',
     exportedAt: new Date().toISOString(),
     setlists: loadSetlists(),
     songs: loadSongs(),
@@ -685,6 +836,79 @@ export function exportChurchDataJSON(): string {
     visitors: loadVisitors(),
     specialRecognitions: loadSpecialRecognitions(),
     specialNumbers: loadSpecialNumbers(),
+    savedNames: loadSavedNames(),
+    welcomeSongs: loadWelcomeSongs(),
   };
   return JSON.stringify(data, null, 2);
 }
+
+/**
+ * Imports and restores all tables from an exported JSON backup
+ */
+export function importChurchDataJSON(jsonStr: string): {
+  success: boolean;
+  message: string;
+  stats?: {
+    setlists: number;
+    songs: number;
+    birthdays: number;
+    anniversaries: number;
+    visitors: number;
+    specialRecognitions: number;
+    specialNumbers: number;
+  };
+} {
+  try {
+    const parsed = JSON.parse(jsonStr);
+
+    if (Array.isArray(parsed.setlists)) {
+      saveSetlists(parsed.setlists);
+    }
+    if (Array.isArray(parsed.songs)) {
+      saveSongs(parsed.songs);
+    }
+    if (Array.isArray(parsed.birthdays)) {
+      saveBirthdays(parsed.birthdays);
+    }
+    if (Array.isArray(parsed.anniversaries)) {
+      saveAnniversaries(parsed.anniversaries);
+    }
+    if (Array.isArray(parsed.visitors)) {
+      saveVisitors(parsed.visitors);
+    }
+    if (Array.isArray(parsed.specialRecognitions)) {
+      saveSpecialRecognitions(parsed.specialRecognitions);
+    }
+    if (Array.isArray(parsed.specialNumbers)) {
+      saveSpecialNumbers(parsed.specialNumbers);
+    }
+    if (Array.isArray(parsed.savedNames)) {
+      saveSavedNames(parsed.savedNames);
+    }
+    if (Array.isArray(parsed.welcomeSongs)) {
+      saveWelcomeSongs(parsed.welcomeSongs);
+    }
+
+    const stats = {
+      setlists: parsed.setlists?.length || 0,
+      songs: parsed.songs?.length || 0,
+      birthdays: parsed.birthdays?.length || 0,
+      anniversaries: parsed.anniversaries?.length || 0,
+      visitors: parsed.visitors?.length || 0,
+      specialRecognitions: parsed.specialRecognitions?.length || 0,
+      specialNumbers: parsed.specialNumbers?.length || 0,
+    };
+
+    return {
+      success: true,
+      message: `Data successfully loaded! Restored ${stats.setlists} setlists, ${stats.songs} songs, ${stats.specialNumbers} special numbers, and all recognitions.`,
+      stats,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Failed to restore backup: ${err.message || 'Invalid JSON format'}`,
+    };
+  }
+}
+
