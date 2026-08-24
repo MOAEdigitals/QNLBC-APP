@@ -70,6 +70,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<AppTab>('home');
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
   const tabHistoryRef = useRef<AppTab[]>(['home']);
+  const hasActiveSubViewRef = useRef(false);
 
   // Cross-tab deep links
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
@@ -120,7 +121,13 @@ export default function App() {
         setCurrentTab(targetTab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        // If we are already on Home and the user presses/swipes back again:
+        // If we are on Home and an expanded setlist or editor modal is active,
+        // SetlistsTab's handler takes precedence (collapses setlist or closes editor)
+        if (hasActiveSubViewRef.current) {
+          return;
+        }
+
+        // If we are already on Home with nothing expanded and press/swipe back:
         // Prompt for logout or cancel per specification
         setShowLogoutConfirmModal(true);
         // Push a state again to prevent immediately leaving window if they cancel
@@ -372,6 +379,9 @@ export default function App() {
             onSaveSetlist={handleSaveSetlist}
             onDeleteSetlist={handleDeleteSetlist}
             onOpenSongDetail={handleOpenSongDetail}
+            onSubViewChange={(hasActive) => {
+              hasActiveSubViewRef.current = hasActive;
+            }}
           />
         )}
 

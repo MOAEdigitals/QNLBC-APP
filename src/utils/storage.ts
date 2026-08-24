@@ -912,3 +912,54 @@ export function importChurchDataJSON(jsonStr: string): {
   }
 }
 
+/**
+ * Batch import lyrics from text files (.txt).
+ * 1 txt file = 1 song.
+ * Title of the song is the name of the text file (without .txt).
+ * File content is the song lyrics.
+ */
+export function importBatchLyricsTxt(files: { fileName: string; content: string }[]): {
+  importedCount: number;
+  updatedCount: number;
+  totalSongs: number;
+} {
+  const currentSongs = loadSongs();
+  let importedCount = 0;
+  let updatedCount = 0;
+
+  files.forEach((file) => {
+    // Strip .txt extension and trim title
+    const songTitle = file.fileName.replace(/\.txt$/i, '').trim();
+    if (!songTitle) return;
+    const lyrics = file.content.trim();
+
+    const existingIdx = currentSongs.findIndex(
+      (s) => s.title.trim().toLowerCase() === songTitle.toLowerCase()
+    );
+
+    if (existingIdx >= 0) {
+      currentSongs[existingIdx] = {
+        ...currentSongs[existingIdx],
+        lyrics: lyrics || currentSongs[existingIdx].lyrics,
+        updatedAt: new Date().toISOString(),
+      };
+      updatedCount++;
+    } else {
+      currentSongs.push({
+        id: `song-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        title: songTitle,
+        lyrics: lyrics,
+        updatedAt: new Date().toISOString(),
+      });
+      importedCount++;
+    }
+  });
+
+  saveSongs(currentSongs);
+  return {
+    importedCount,
+    updatedCount,
+    totalSongs: currentSongs.length,
+  };
+}
+
