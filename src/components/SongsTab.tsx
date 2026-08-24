@@ -33,6 +33,7 @@ interface SongsTabProps {
   onAddSongToExistingUpcomingSetlist: (song: Song, targetSetlistId: string, part: 'sundaySchool' | 'worshipService') => void;
   initialSelectedSongId?: string | null;
   onClearInitialSelectedSongId?: () => void;
+  collapseSignal?: number;
 }
 
 export const SongsTab: React.FC<SongsTabProps> = ({
@@ -44,11 +45,41 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   onAddSongToExistingUpcomingSetlist,
   initialSelectedSongId,
   onClearInitialSelectedSongId,
+  collapseSignal,
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
+
+  // Collapse active container if songs tab icon is tapped
+  React.useEffect(() => {
+    if (collapseSignal !== undefined && collapseSignal > 0) {
+      setSelectedSongId(null);
+      setIsEditing(false);
+      setEditingSong(null);
+      setIsAddToSetlistOpen(false);
+      onClearInitialSelectedSongId?.();
+    }
+  }, [collapseSignal, onClearInitialSelectedSongId]);
+
+  // Back swipe / popstate listener to collapse container
+  React.useEffect(() => {
+    const handlePopState = () => {
+      if (isEditing) {
+        setIsEditing(false);
+        setEditingSong(null);
+        return;
+      }
+      if (selectedSongId) {
+        setSelectedSongId(null);
+        onClearInitialSelectedSongId?.();
+        return;
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isEditing, selectedSongId, onClearInitialSelectedSongId]);
 
   // Large lyrics reading mode for stage worship singing
   const [largeFontMode, setLargeFontMode] = useState(false);
@@ -259,12 +290,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       {/* Selected Song Detail View */}
       {selectedSong && !isEditing && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-300 dark:border-slate-700 p-5 sm:p-6 shadow-md space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div
+            onClick={() => {
+              setSelectedSongId(null);
+              onClearInitialSelectedSongId?.();
+            }}
+            className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 cursor-pointer group"
+            title="Click header to collapse"
+          >
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Song Library Entry
-              </span>
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Song Library Entry
+                </span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+                  (Tap header to collapse)
+                </span>
+              </div>
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-0.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 {selectedSong.title}
               </h3>
               {selectedSong.artist && (
@@ -274,7 +317,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => handleCopySong(selectedSong)}
                 className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -298,7 +341,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');
                   setIsAddToSetlistOpen(true);
                 }}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:bg-slate-800 dark:hover:bg-white"
+                className="px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold flex items-center gap-1.5 shadow-xs hover:bg-slate-800 dark:hover:bg-white cursor-pointer"
               >
                 <CalendarPlus className="w-3.5 h-3.5" />
                 <span>Add to Setlist</span>
@@ -306,7 +349,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
               <button
                 onClick={() => setLargeFontMode(!largeFontMode)}
-                className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                   largeFontMode
                     ? 'bg-amber-100 dark:bg-amber-950/70 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
                     : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -319,7 +362,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
               <button
                 onClick={() => handleStartEditSong(selectedSong)}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5"
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Edit</span>
@@ -333,9 +376,20 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                     onClearInitialSelectedSongId?.();
                   }
                 }}
-                className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs"
+                className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setSelectedSongId(null);
+                  onClearInitialSelectedSongId?.();
+                }}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs transition-colors cursor-pointer"
+                title="Collapse Song"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>

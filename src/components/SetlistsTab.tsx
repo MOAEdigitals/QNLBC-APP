@@ -35,8 +35,10 @@ interface SetlistsTabProps {
   songs: Song[];
   onSaveSetlist: (setlist: Setlist) => void;
   onDeleteSetlist: (id: string) => void;
-  onOpenSongDetail: (songId: string) => void;
+  onOpenSongDetail: (songId: string, returnSetlistId?: string) => void;
   onSubViewChange?: (hasActiveSubView: boolean) => void;
+  initialSelectedSetlistId?: string | null;
+  collapseSignal?: number;
 }
 
 export const SetlistsTab: React.FC<SetlistsTabProps> = ({
@@ -46,14 +48,35 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   onDeleteSetlist,
   onOpenSongDetail,
   onSubViewChange,
+  initialSelectedSetlistId,
+  collapseSignal,
 }) => {
-  const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(null);
+  const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(initialSelectedSetlistId || null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
+  const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [welcomeSongsList, setWelcomeSongsList] = useState<string[]>(() => loadWelcomeSongs());
   const [newWelcomeSongInput, setNewWelcomeSongInput] = useState('');
   const [showAddWelcomeSong, setShowAddWelcomeSong] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
+
+  // Sync initialSelectedSetlistId prop if provided
+  useEffect(() => {
+    if (initialSelectedSetlistId) {
+      setSelectedSetlistId(initialSelectedSetlistId);
+    }
+  }, [initialSelectedSetlistId]);
+
+  // Collapse active expanded setlist / editor if home tab icon is tapped
+  useEffect(() => {
+    if (collapseSignal !== undefined && collapseSignal > 0) {
+      setSelectedSetlistId(null);
+      setIsEditing(false);
+      setEditingSetlist(null);
+      setEditPromptMsg(null);
+      setShowTypeSelector(false);
+    }
+  }, [collapseSignal]);
 
   // Back swipe & dirty state tracking
   const initialEditingJsonRef = useRef<string>('');
@@ -186,7 +209,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         songs: [
           { id: `ws-1`, title: '' },
           { id: `ws-2`, title: '' },
-          { id: `ws-3`, title: '' },
         ],
         notes: '',
       },
@@ -197,6 +219,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
     initialEditingJsonRef.current = JSON.stringify(initialData);
     setEditingSetlist(initialData);
+    setShowCustomTitle(false);
     setIsEditing(true);
     setEditPromptMsg(null);
     backSwipeCountRef.current = 0;
@@ -285,6 +308,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     const cloned = JSON.parse(JSON.stringify(setlist));
     initialEditingJsonRef.current = JSON.stringify(cloned);
     setEditingSetlist(cloned);
+    setShowCustomTitle(!!cloned.title);
     setIsEditing(true);
     setEditPromptMsg(null);
     backSwipeCountRef.current = 0;
@@ -449,7 +473,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       {/* Selected Setlist Detail Display */}
       {selectedSetlist && !isEditing && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-300 dark:border-slate-700 p-5 sm:p-6 shadow-md space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div
+            onClick={() => setSelectedSetlistId(null)}
+            className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 cursor-pointer group"
+            title="Click to collapse setlist"
+          >
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -477,7 +505,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 )}
               </div>
 
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 {selectedSetlist.title || formatDateStr(selectedSetlist.date, { showDayOfWeek: true })}
               </h3>
 
@@ -488,10 +516,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     ? 'Sunday School • Worship Service'
                     : `Scheduled for ${formatDateStr(selectedSetlist.date, { showDayOfWeek: true })}`}
                 </span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic ml-2">
+                  (Tap header to collapse)
+                </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => handleStartEdit(selectedSetlist)}
                 className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -511,13 +542,21 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               >
                 <Trash2 className="w-4 h-4" />
               </button>
+
+              <button
+                onClick={() => setSelectedSetlistId(null)}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs transition-colors cursor-pointer"
+                title="Collapse Setlist"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
           {/* Sunday Service Layout */}
           {(!selectedSetlist.type || selectedSetlist.type === 'sunday') && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Presider & Service Header Badges */}
+              {/* Presider & Service Header Badges (Month theme song is now under Worship Service, not presider) */}
               <div className="md:col-span-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700">
@@ -533,7 +572,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   </div>
                 </div>
 
-                {/* Badges: Welcome Song, Closing Song, and Month Theme Song (Matched Styling) */}
+                {/* Badges: Welcome Song & Closing Song */}
                 <div className="flex flex-wrap items-center gap-2.5 text-xs">
                   {selectedSetlist.welcomeSong && (
                     <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -549,15 +588,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       <span className="text-slate-400 font-medium mr-1.5">Closing Song:</span>
                       <span className="font-bold text-slate-900 dark:text-white">
                         {selectedSetlist.closingSong}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedSetlist.themeSong && (
-                    <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-400 font-medium mr-1.5">Month theme song:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.themeSong}
                       </span>
                     </div>
                   )}
@@ -591,7 +621,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </span>
                       {song.songId && (
                         <button
-                          onClick={() => onOpenSongDetail(song.songId!)}
+                          onClick={() => onOpenSongDetail(song.songId!, selectedSetlist.id)}
                           className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
                         >
                           Lyrics
@@ -635,7 +665,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </span>
                       {song.songId && (
                         <button
-                          onClick={() => onOpenSongDetail(song.songId!)}
+                          onClick={() => onOpenSongDetail(song.songId!, selectedSetlist.id)}
                           className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
                         >
                           Lyrics
@@ -644,7 +674,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </div>
                   ))}
 
-                  {/* Month Theme Song displayed in line-up with matching font size and color */}
+                  {/* Month Theme Song displayed in Worship Service lineup with working Lyrics link */}
                   {selectedSetlist.themeSong && (
                     <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                       <div className="min-w-0 pr-2">
@@ -655,6 +685,22 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {selectedSetlist.themeSong}
                         </span>
                       </div>
+                      {(() => {
+                        const matchedSong = songs.find(
+                          (s) => s.title.trim().toLowerCase() === selectedSetlist.themeSong?.trim().toLowerCase()
+                        );
+                        if (matchedSong) {
+                          return (
+                            <button
+                              onClick={() => onOpenSongDetail(matchedSong.id, selectedSetlist.id)}
+                              className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
+                            >
+                              Lyrics
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
                 </div>
@@ -730,7 +776,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </span>
                     {song.songId && (
                       <button
-                        onClick={() => onOpenSongDetail(song.songId!)}
+                        onClick={() => onOpenSongDetail(song.songId!, selectedSetlist.id)}
                         className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 underline shrink-0 ml-2 cursor-pointer"
                       >
                         Lyrics
@@ -955,29 +1001,70 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    {editingSetlist.type === 'event'
-                      ? 'Event Title *'
-                      : editingSetlist.type === 'fellowship'
-                      ? 'Fellowship Group Name *'
-                      : 'Setlist Title'}
-                  </label>
-                  <input
-                    type="text"
-                    required={editingSetlist.type === 'event' || editingSetlist.type === 'fellowship'}
-                    value={editingSetlist.title || ''}
-                    onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
-                    placeholder={
-                      editingSetlist.type === 'event'
-                        ? 'e.g. 15th Church Anniversary'
+                {editingSetlist.type === 'event' || editingSetlist.type === 'fellowship' || editingSetlist.type === 'prayer_meeting' ? (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                      {editingSetlist.type === 'event'
+                        ? 'Event Title *'
                         : editingSetlist.type === 'fellowship'
-                        ? "e.g. Youth Fellowship"
-                        : 'e.g. Regular Sunday Worship'
-                    }
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
-                  />
-                </div>
+                        ? 'Fellowship Group Name *'
+                        : 'Prayer Meeting Title'}
+                    </label>
+                    <input
+                      type="text"
+                      required={editingSetlist.type === 'event' || editingSetlist.type === 'fellowship'}
+                      value={editingSetlist.title || ''}
+                      onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
+                      placeholder={
+                        editingSetlist.type === 'event'
+                          ? 'e.g. 15th Church Anniversary'
+                          : editingSetlist.type === 'fellowship'
+                          ? "e.g. Youth Fellowship"
+                          : 'e.g. Midweek Prayer Meeting'
+                      }
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col justify-end">
+                    {!showCustomTitle && !editingSetlist.title ? (
+                      <div className="py-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setShowCustomTitle(true)}
+                          className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          + Custom Setlist Title
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                            SETLIST TITLE
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowCustomTitle(false);
+                              setEditingSetlist({ ...editingSetlist, title: undefined });
+                            }}
+                            className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
+                          >
+                            Remove custom title
+                          </button>
+                        </div>
+                        <input
+                          type="text"
+                          value={editingSetlist.title || ''}
+                          onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
+                          placeholder="e.g. Easter Sunday Service"
+                          className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Presider */}

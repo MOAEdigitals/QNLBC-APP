@@ -38,6 +38,7 @@ interface SpecialNumberTabProps {
   onSaveSpecialNumber: (entry: SpecialNumberEntry) => void;
   onDeleteSpecialNumber: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
+  collapseSignal?: number;
 }
 
 export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
@@ -47,12 +48,39 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onSaveSpecialNumber,
   onDeleteSpecialNumber,
   onOpenSongDetail,
+  collapseSignal,
 }) => {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Partial<SpecialNumberEntry> | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [syncedNotice, setSyncedNotice] = useState(false);
+
+  // Collapse active container if tab icon is tapped
+  React.useEffect(() => {
+    if (collapseSignal !== undefined && collapseSignal > 0) {
+      setSelectedEntryId(null);
+      setIsEditing(false);
+      setEditingEntry(null);
+    }
+  }, [collapseSignal]);
+
+  // Back swipe / popstate listener to collapse container
+  React.useEffect(() => {
+    const handlePopState = () => {
+      if (isEditing) {
+        setIsEditing(false);
+        setEditingEntry(null);
+        return;
+      }
+      if (selectedEntryId) {
+        setSelectedEntryId(null);
+        return;
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isEditing, selectedEntryId]);
 
   const directoryNames = getAllDirectoryNames();
   const songTitleSuggestions = songs.map((s) => s.title);
@@ -284,11 +312,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* Selected Entry Detail View */}
       {selectedEntry && !isEditing && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-300 dark:border-slate-700 p-5 sm:p-6 shadow-md space-y-5">
-          <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div
+            onClick={() => setSelectedEntryId(null)}
+            className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4 cursor-pointer group"
+            title="Click header to collapse"
+          >
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                   Special Song Number Details
+                </span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
+                  (Tap header to collapse)
                 </span>
                 {isToday(selectedEntry.scheduledDate) ? (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white">
@@ -306,7 +341,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
 
               {/* Performer Name in Large Font per user instruction */}
-              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1.5">
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1.5 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                 {selectedEntry.performerName}
               </h3>
 
@@ -328,10 +363,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <button
                 onClick={() => handleStartEdit(selectedEntry)}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5"
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Edit</span>
@@ -343,9 +378,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     setSelectedEntryId(null);
                   }
                 }}
-                className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-medium"
+                className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-medium cursor-pointer"
               >
                 <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setSelectedEntryId(null)}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs transition-colors cursor-pointer"
+                title="Collapse Special Number"
+              >
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>

@@ -71,9 +71,12 @@ export default function App() {
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
   const tabHistoryRef = useRef<AppTab[]>(['home']);
   const hasActiveSubViewRef = useRef(false);
+  const [collapseSignals, setCollapseSignals] = useState<Record<string, number>>({});
 
   // Cross-tab deep links
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
+  const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
+  const returnSetlistIdRef = useRef<string | null>(null);
 
   // 4. Core Church Data Entities
   const [setlists, setSetlists] = useState<Setlist[]>(() => loadSetlists());
@@ -95,9 +98,16 @@ export default function App() {
     setSpecialNumbers(loadSpecialNumbers());
   };
 
-  // Navigate to a new tab with history tracking
+  // Navigate to a new tab with history tracking (or collapse active container if clicking same tab)
   const handleNavigateTab = useCallback((newTab: AppTab) => {
-    if (newTab === currentTab) return;
+    if (newTab === currentTab) {
+      // Tapping the active tab icon triggers container collapse
+      setCollapseSignals((prev) => ({
+        ...prev,
+        [newTab]: (prev[newTab] || 0) + 1,
+      }));
+      return;
+    }
 
     // Push new state to browser history for standard back/swipe gestures
     window.history.pushState({ tab: newTab }, '', `#${newTab}`);
@@ -117,6 +127,12 @@ export default function App() {
       const targetTab: AppTab = event.state?.tab || 'home';
 
       if (currentTab !== 'home') {
+        // If we are returning from songs tab back to home, restore expanded setlist if we came from lyrics link
+        if (targetTab === 'home' && returnSetlistIdRef.current) {
+          setInitialSelectedSetlistId(returnSetlistIdRef.current);
+          returnSetlistIdRef.current = null;
+        }
+
         // If we are not on home, go back to targetTab or home
         setCurrentTab(targetTab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -276,7 +292,8 @@ export default function App() {
   };
 
   // Cross-Navigation: Open song in Song Library
-  const handleOpenSongDetail = (songId: string) => {
+  const handleOpenSongDetail = (songId: string, returnSetlistId?: string) => {
+    returnSetlistIdRef.current = returnSetlistId || null;
     setSelectedSongIdForTab(songId);
     handleNavigateTab('songs');
   };
@@ -382,6 +399,8 @@ export default function App() {
             onSubViewChange={(hasActive) => {
               hasActiveSubViewRef.current = hasActive;
             }}
+            initialSelectedSetlistId={initialSelectedSetlistId}
+            collapseSignal={collapseSignals.home}
           />
         )}
 
@@ -410,6 +429,7 @@ export default function App() {
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
             onOpenSongDetail={handleOpenSongDetail}
+            collapseSignal={collapseSignals['special-numbers']}
           />
         )}
 
@@ -423,6 +443,7 @@ export default function App() {
             onAddSongToExistingUpcomingSetlist={handleAddSongToExistingUpcomingSetlist}
             initialSelectedSongId={selectedSongIdForTab}
             onClearInitialSelectedSongId={() => setSelectedSongIdForTab(null)}
+            collapseSignal={collapseSignals.songs}
           />
         )}
 
