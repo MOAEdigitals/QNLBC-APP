@@ -15,6 +15,7 @@ import {
   loadCurrentSession,
   saveCurrentSession,
   loadUsers,
+  saveUsers,
   loadTheme,
   saveTheme,
   loadSetlists,
@@ -35,6 +36,27 @@ import {
   savePracticeEntries,
   upsertSongFromSpecialNumber,
 } from './utils/storage';
+import {
+  subscribeToCollection,
+  syncSaveSetlist,
+  syncDeleteSetlist,
+  syncSaveSong,
+  syncDeleteSong,
+  syncSaveSpecialNumber,
+  syncDeleteSpecialNumber,
+  syncSavePracticeEntry,
+  syncDeletePracticeEntry,
+  syncSaveBirthday,
+  syncDeleteBirthday,
+  syncSaveAnniversary,
+  syncDeleteAnniversary,
+  syncSaveVisitor,
+  syncDeleteVisitor,
+  syncSaveSpecialRecognition,
+  syncDeleteSpecialRecognition,
+  syncSaveUser,
+  initializeFirestoreCloudSeed,
+} from './firestoreSync';
 import {
   categorizeAnnualCelebrants,
   isPastDate,
@@ -92,6 +114,87 @@ export default function App() {
   const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>(() => loadSpecialRecognitions());
   const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>(() => loadSpecialNumbers());
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>(() => loadPracticeEntries());
+
+  // Subscribe to real-time Firestore synchronization across all devices
+  useEffect(() => {
+    // Seed cloud database on first setup if empty
+    initializeFirestoreCloudSeed();
+
+    const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
+      if (items.length > 0) {
+        setSetlists(items);
+        saveSetlists(items);
+      }
+    });
+
+    const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
+      if (items.length > 0) {
+        setSongs(items);
+        saveSongs(items);
+      }
+    });
+
+    const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
+      if (items.length > 0) {
+        setBirthdays(items);
+        saveBirthdays(items);
+      }
+    });
+
+    const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
+      if (items.length > 0) {
+        setAnniversaries(items);
+        saveAnniversaries(items);
+      }
+    });
+
+    const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
+      if (items.length > 0) {
+        setVisitors(items);
+        saveVisitors(items);
+      }
+    });
+
+    const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
+      if (items.length > 0) {
+        setSpecialRecognitions(items);
+        saveSpecialRecognitions(items);
+      }
+    });
+
+    const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
+      if (items.length > 0) {
+        setSpecialNumbers(items);
+        saveSpecialNumbers(items);
+      }
+    });
+
+    const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
+      if (items.length > 0) {
+        setPracticeEntries(items);
+        savePracticeEntries(items);
+      }
+    });
+
+    const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
+      if (items.length > 0) {
+        setUsers(items);
+        saveUsers(items);
+      }
+    });
+
+    return () => {
+      unsubSetlists();
+      unsubSongs();
+      unsubBirthdays();
+      unsubAnniv();
+      unsubVisitors();
+      unsubRecognitions();
+      unsubSpecials();
+      unsubPractice();
+      unsubUsers();
+    };
+  }, []);
 
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {
@@ -197,12 +300,14 @@ export default function App() {
     }
     setSetlists(updated);
     saveSetlists(updated);
+    syncSaveSetlist(newOrUpdated);
   };
 
   const handleDeleteSetlist = (id: string) => {
     const updated = setlists.filter((s) => s.id !== id);
     setSetlists(updated);
     saveSetlists(updated);
+    syncDeleteSetlist(id);
   };
 
   // Song Operations
@@ -217,12 +322,14 @@ export default function App() {
     }
     setSongs(updated);
     saveSongs(updated);
+    syncSaveSong(newOrUpdated);
   };
 
   const handleDeleteSong = (id: string) => {
     const updated = songs.filter((s) => s.id !== id);
     setSongs(updated);
     saveSongs(updated);
+    syncDeleteSong(id);
   };
 
   // Special Number Operations
@@ -231,6 +338,7 @@ export default function App() {
       const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
       entry.songId = syncedSong.id;
       setSongs(loadSongs());
+      syncSaveSong(syncedSong);
     }
 
     const idx = specialNumbers.findIndex((s) => s.id === entry.id);
@@ -243,12 +351,14 @@ export default function App() {
     }
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
+    syncSaveSpecialNumber(entry);
   };
 
   const handleDeleteSpecialNumber = (id: string) => {
     const updated = specialNumbers.filter((s) => s.id !== id);
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
+    syncDeleteSpecialNumber(id);
   };
 
   // Practice Group / Song Operations
@@ -263,12 +373,14 @@ export default function App() {
     }
     setPracticeEntries(updated);
     savePracticeEntries(updated);
+    syncSavePracticeEntry(entry);
   };
 
   const handleDeletePracticeEntry = (id: string) => {
     const updated = practiceEntries.filter((p) => p.id !== id);
     setPracticeEntries(updated);
     savePracticeEntries(updated);
+    syncDeletePracticeEntry(id);
   };
 
   // Recognitions Operations
@@ -276,48 +388,56 @@ export default function App() {
     const updated = [...birthdays, item];
     setBirthdays(updated);
     saveBirthdays(updated);
+    syncSaveBirthday(item);
   };
 
   const handleDeleteBirthday = (id: string) => {
     const updated = birthdays.filter((b) => b.id !== id);
     setBirthdays(updated);
     saveBirthdays(updated);
+    syncDeleteBirthday(id);
   };
 
   const handleSaveAnniversary = (item: AnniversaryCelebrant) => {
     const updated = [...anniversaries, item];
     setAnniversaries(updated);
     saveAnniversaries(updated);
+    syncSaveAnniversary(item);
   };
 
   const handleDeleteAnniversary = (id: string) => {
     const updated = anniversaries.filter((a) => a.id !== id);
     setAnniversaries(updated);
     saveAnniversaries(updated);
+    syncDeleteAnniversary(id);
   };
 
   const handleSaveVisitor = (item: Visitor) => {
     const updated = [item, ...visitors];
     setVisitors(updated);
     saveVisitors(updated);
+    syncSaveVisitor(item);
   };
 
   const handleDeleteVisitor = (id: string) => {
     const updated = visitors.filter((v) => v.id !== id);
     setVisitors(updated);
     saveVisitors(updated);
+    syncDeleteVisitor(id);
   };
 
   const handleSaveSpecialRecognition = (item: SpecialRecognition) => {
     const updated = [item, ...specialRecognitions];
     setSpecialRecognitions(updated);
     saveSpecialRecognitions(updated);
+    syncSaveSpecialRecognition(item);
   };
 
   const handleDeleteSpecialRecognition = (id: string) => {
     const updated = specialRecognitions.filter((r) => r.id !== id);
     setSpecialRecognitions(updated);
     saveSpecialRecognitions(updated);
+    syncDeleteSpecialRecognition(id);
   };
 
   // Cross-Navigation: Open song in Song Library

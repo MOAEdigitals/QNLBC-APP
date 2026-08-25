@@ -12,6 +12,7 @@ import {
   loadSavedNames,
   saveSavedNames,
 } from '../utils/storage';
+import { syncSaveUser } from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
   Settings,
@@ -80,6 +81,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const compressed = await compressImageToAvatar(file, 256, 0.85);
       const { updatedUser, allUsers } = updateUserAvatar(userId, compressed);
       onUpdateUsers(allUsers);
+      if (updatedUser) {
+        syncSaveUser(updatedUser);
+      }
       if (userId === currentUser.id && updatedUser) {
         onUpdateCurrentUser(updatedUser);
       }
@@ -93,6 +97,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleRemoveAvatarForUser = (userId: string) => {
     const { updatedUser, allUsers } = updateUserAvatar(userId, undefined);
     onUpdateUsers(allUsers);
+    if (updatedUser) {
+      syncSaveUser(updatedUser);
+    }
     if (userId === currentUser.id && updatedUser) {
       onUpdateCurrentUser(updatedUser);
     }
@@ -129,6 +136,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
     const updated = [...users, newUser];
     saveUsers(updated);
+    syncSaveUser(newUser);
     onUpdateUsers(updated);
     setNewUsername('');
     setNewPassword('');

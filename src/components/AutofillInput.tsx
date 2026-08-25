@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Song, Setlist } from '../types';
 import { fuzzyMatchString, searchSong, getSongUsageHistory, SongUsageHistory } from '../utils/songSearch';
-import { Clock, AlertTriangle } from 'lucide-react';
+import { Clock, AlertTriangle, Check, CornerDownLeft } from 'lucide-react';
 
 export interface DisplaySuggestionItem {
   title: string;
@@ -15,7 +15,7 @@ export interface DisplaySuggestionItem {
 interface AutofillInputProps {
   value: string;
   onChange: (val: string) => void;
-  suggestions: string[]; // Primary suggestions (e.g. marked welcome/closing songs)
+  suggestions: string[]; // Primary suggestions (e.g. marked welcome/closing songs or song titles)
   allSuggestions?: string[]; // Fallback full library suggestions when user types
   defaultValue?: string; // Default song (e.g. 'Napakaligaya' or 'Give Thanks')
   songs?: Song[]; // Full song library for lyrics search and metadata
@@ -33,7 +33,7 @@ interface AutofillInputProps {
 export const AutofillInput: React.FC<AutofillInputProps> = ({
   value,
   onChange,
-  suggestions,
+  suggestions = [],
   allSuggestions,
   defaultValue,
   songs,
@@ -50,6 +50,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
@@ -67,7 +68,9 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
     const songMap = new Map<string, Song>();
     if (songs) {
       for (const s of songs) {
-        songMap.set(s.title.toLowerCase().trim(), s);
+        if (s.title) {
+          songMap.set(s.title.toLowerCase().trim(), s);
+        }
       }
     }
 
@@ -91,20 +94,24 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
 
     // 1. If empty query OR matching default value
     if (!lowerVal || (cleanDefault && lowerVal === cleanDefault)) {
-      return suggestions.map((s) => buildItem(s, 'none', undefined, 100));
+      if (suggestions && suggestions.length > 0) {
+        return suggestions.map((s) => buildItem(s, 'none', undefined, 100));
+      }
+      if (songs && songs.length > 0) {
+        return songs.slice(0, 20).map((s) => buildItem(s.title, 'none', undefined, 100));
+      }
+      return [];
     }
 
-    // 2. If songs array is available, perform full fuzzy search across titles, artists, and lyrics
+    // 2. If songs array is available, search across all songs in the library
     if (songs && songs.length > 0) {
-      const isDualMode = allSuggestions && allSuggestions.length > 0;
-      const targetSongList = isDualMode ? songs : songs.filter((s) => suggestions.includes(s.title));
-
       const scoredResults: DisplaySuggestionItem[] = [];
+      const primarySet = new Set(suggestions.map((t) => t.toLowerCase().trim()));
 
-      for (const s of targetSongList) {
+      for (const s of songs) {
         const searchRes = searchSong(s, lowerVal);
         if (searchRes.matches) {
-          const isPrimary = suggestions.includes(s.title);
+          const isPrimary = primarySet.has(s.title.toLowerCase().trim());
           const boostedScore = searchRes.score + (isPrimary ? 15 : 0);
           const history = setlists ? getSongUsageHistory(s.title, setlists) : undefined;
 
@@ -120,10 +127,10 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
       }
 
       // Also include any raw suggestions not in the song library that match fuzzy query
-      const knownTitles = new Set(scoredResults.map((r) => r.title.toLowerCase()));
+      const knownTitles = new Set(scoredResults.map((r) => r.title.toLowerCase().trim()));
       const pool = allSuggestions && allSuggestions.length > 0 ? allSuggestions : suggestions;
       for (const raw of pool) {
-        if (!knownTitles.has(raw.toLowerCase())) {
+        if (raw && !knownTitles.has(raw.toLowerCase().trim())) {
           const match = fuzzyMatchString(raw, lowerVal);
           if (match.matches) {
             scoredResults.push(buildItem(raw, 'title', undefined, match.score));
@@ -133,14 +140,15 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
 
       // Sort by score descending
       scoredResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-      return scoredResults;
+      return scoredResults.slice(0, 25);
     }
 
-    // 3. Fallback string-based fuzzy search
+    // 3. Fallback string-based fuzzy search for names or custom string lists
     const pool = allSuggestions && allSuggestions.length > 0 ? allSuggestions : suggestions;
     const results: DisplaySuggestionItem[] = [];
 
     for (const title of pool) {
+      if (!title) continue;
       const match = fuzzyMatchString(title, lowerVal);
       if (match.matches) {
         const isPrimary = suggestions.includes(title);
@@ -149,29 +157,42 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
     }
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
-    return results;
+    return results.slice(0, 25);
   }, [lowerVal, cleanDefault, suggestions, allSuggestions, songs, setlists]);
 
   // Active pool for ghost text prefix match
   const searchPool = useMemo(() => {
-    if (allSuggestions && allSuggestions.length > 0) return allSuggestions;
-    if (songs && songs.length > 0) return songs.map((s) => s.title);
-    return suggestions;
-  }, [allSuggestions, songs, suggestions]);
+    const poolList: string[] = [];
+    if (songs && songs.length > 0) {
+      poolList.push(...songs.map((s) => s.title));
+    }
+    if (suggestions && suggestions.length > 0) {
+      poolList.push(...suggestions);
+    }
+    if (allSuggestions && allSuggestions.length > 0) {
+      poolList.push(...allSuggestions);
+    }
+    // Remove duplicates while preserving order
+    return Array.from(new Set(poolList.filter(Boolean)));
+  }, [songs, suggestions, allSuggestions]);
 
-  const bestPrefixMatch = searchPool.find(
-    (s) =>
-      lowerVal &&
-      s.toLowerCase().startsWith(lowerVal) &&
-      s.length > (value || '').length
-  );
+  // Find exact prefix match for inline autocomplete ghost text
+  const bestPrefixMatch = useMemo(() => {
+    if (!lowerVal) return undefined;
+    return searchPool.find(
+      (s) =>
+        s.toLowerCase().startsWith(lowerVal) &&
+        s.length > (value || '').length
+    );
+  }, [searchPool, lowerVal, value]);
 
   const ghostSuffix = bestPrefixMatch
     ? bestPrefixMatch.slice((value || '').length)
     : '';
 
+  // Close dropdown on click outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (
         containerRef.current &&
         !containerRef.current.contains(event.target as Node)
@@ -180,8 +201,36 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
+
+  const handleAcceptPrefix = (e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (bestPrefixMatch) {
+      onChange(bestPrefixMatch);
+      onSelectSuggestion?.(bestPrefixMatch);
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    }
+  };
+
+  const handleSelect = (item: DisplaySuggestionItem, e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    onChange(item.title);
+    onSelectSuggestion?.(item.title);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
@@ -201,59 +250,72 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         );
       }
     } else if (e.key === 'Enter') {
+      // If user selected an item with arrow keys
       if (highlightedIndex >= 0 && displayedItems[highlightedIndex]) {
         e.preventDefault();
+        e.stopPropagation();
         const selected = displayedItems[highlightedIndex].title;
         onChange(selected);
         onSelectSuggestion?.(selected);
         setIsOpen(false);
         setHighlightedIndex(-1);
       } else if (bestPrefixMatch) {
+        // If inline ghost text exists, Enter fills it
         e.preventDefault();
+        e.stopPropagation();
         onChange(bestPrefixMatch);
         onSelectSuggestion?.(bestPrefixMatch);
         setIsOpen(false);
       } else if (displayedItems.length > 0 && isOpen) {
+        // If dropdown is open and user hits enter, pick top match
         e.preventDefault();
+        e.stopPropagation();
         const selected = displayedItems[0].title;
         onChange(selected);
         onSelectSuggestion?.(selected);
         setIsOpen(false);
       }
-    } else if (e.key === 'Tab' && bestPrefixMatch) {
-      e.preventDefault();
-      onChange(bestPrefixMatch);
-      onSelectSuggestion?.(bestPrefixMatch);
-      setIsOpen(false);
+    } else if (e.key === 'Tab') {
+      if (bestPrefixMatch) {
+        e.preventDefault();
+        onChange(bestPrefixMatch);
+        onSelectSuggestion?.(bestPrefixMatch);
+        setIsOpen(false);
+      }
     } else if (e.key === 'Escape') {
       setIsOpen(false);
     }
   };
 
-  const handleSelect = (item: DisplaySuggestionItem) => {
-    onChange(item.title);
-    onSelectSuggestion?.(item.title);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
-
   return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      {/* Ghost text display overlay behind input */}
+    <div ref={containerRef} className={`relative w-full ${className}`}>
+      {/* Ghost text display overlay behind input with clickable fill badge */}
       {bestPrefixMatch && (
-        <div className="absolute inset-0 pointer-events-none flex items-center px-3 py-2 text-sm select-none overflow-hidden pr-8">
+        <div
+          onClick={handleAcceptPrefix}
+          className="absolute inset-0 flex items-center px-3 py-2 text-sm select-none overflow-hidden pr-2 cursor-pointer pointer-events-none"
+        >
           <span className="opacity-0 whitespace-pre">{value}</span>
           <span className="text-slate-400/80 dark:text-slate-500 font-medium whitespace-pre">
             {ghostSuffix}
           </span>
-          <span className="ml-auto text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-            ↵ Enter
-          </span>
+          <button
+            type="button"
+            onMouseDown={handleAcceptPrefix}
+            onTouchStart={handleAcceptPrefix}
+            onClick={handleAcceptPrefix}
+            className="pointer-events-auto ml-auto shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/80 hover:bg-sky-200 dark:hover:bg-sky-900 px-2 py-0.5 rounded-md border border-sky-300 dark:border-sky-700 shadow-xs active:scale-95 transition-all cursor-pointer z-10"
+            title="Tap or press Enter to fill"
+          >
+            <CornerDownLeft className="w-3 h-3" />
+            <span>Fill</span>
+          </button>
         </div>
       )}
 
       <div className="relative flex items-center w-full">
         <input
+          ref={inputRef}
           id={id}
           type={type}
           required={required}
@@ -285,24 +347,22 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         </div>
       )}
 
-      {/* Suggestion Dropdown List */}
+      {/* Suggestion Dropdown List (High z-index to stay visible over dialogs and forms) */}
       {isOpen && displayedItems.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
+        <div className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
           {displayedItems.map((item, idx) => {
             const isSelected =
               idx === highlightedIndex ||
               item.title.toLowerCase() === lowerVal;
 
             return (
-              <button
+              <div
                 key={item.title + idx}
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleSelect(item);
-                }}
+                onMouseDown={(e) => handleSelect(item, e)}
+                onTouchStart={(e) => handleSelect(item, e)}
+                onClick={(e) => handleSelect(item, e)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`w-full px-4 py-3 text-left flex items-center justify-between cursor-pointer transition-colors ${
+                className={`w-full px-4 py-3 text-left flex items-center justify-between cursor-pointer transition-colors select-none ${
                   isSelected
                     ? 'bg-slate-100 dark:bg-slate-800/90 text-slate-900 dark:text-white'
                     : 'text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/60'
@@ -372,10 +432,17 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
                   </div>
                 </div>
 
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white px-2 py-1 shrink-0 transition-colors">
-                  Select
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => handleSelect(item, e)}
+                  onTouchStart={(e) => handleSelect(item, e)}
+                  onClick={(e) => handleSelect(item, e)}
+                  className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Select</span>
+                </button>
+              </div>
             );
           })}
         </div>

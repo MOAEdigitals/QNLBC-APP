@@ -35,6 +35,7 @@ import {
   X,
   Play,
   Pause,
+  RotateCcw,
   FileText,
   Check,
   Search,
@@ -175,6 +176,46 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   } | null>(null);
   const [isLooping, setIsLooping] = useState(false);
   const [isBgPlayEnabled, setIsBgPlayEnabled] = useState(false);
+  const [isMediaPlaying, setIsMediaPlaying] = useState(true);
+  const practiceMediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
+
+  const handleTogglePlayPauseMedia = () => {
+    if (practiceMediaRef.current) {
+      if (practiceMediaRef.current.paused) {
+        practiceMediaRef.current.play().catch(() => {});
+        setIsMediaPlaying(true);
+      } else {
+        practiceMediaRef.current.pause();
+        setIsMediaPlaying(false);
+      }
+    } else {
+      const el = document.querySelector('audio, video') as HTMLMediaElement | null;
+      if (el) {
+        if (el.paused) {
+          el.play().catch(() => {});
+          setIsMediaPlaying(true);
+        } else {
+          el.pause();
+          setIsMediaPlaying(false);
+        }
+      }
+    }
+  };
+
+  const handleReplayMedia = () => {
+    if (practiceMediaRef.current) {
+      practiceMediaRef.current.currentTime = 0;
+      practiceMediaRef.current.play().catch(() => {});
+      setIsMediaPlaying(true);
+    } else {
+      const el = document.querySelector('audio, video') as HTMLMediaElement | null;
+      if (el) {
+        el.currentTime = 0;
+        el.play().catch(() => {});
+        setIsMediaPlaying(true);
+      }
+    }
+  };
 
   // Collapse active container if tab icon is tapped
   React.useEffect(() => {
@@ -1238,7 +1279,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 ) {
                                   return (
                                     <div className="p-2 bg-slate-800/80 rounded-xl">
-                                      <audio src={activePracticeMedia.url} controls autoPlay loop={isLooping} className="w-full" />
+                                      <audio
+                                        ref={(el) => {
+                                          practiceMediaRef.current = el;
+                                        }}
+                                        src={activePracticeMedia.url}
+                                        controls
+                                        autoPlay
+                                        loop={isLooping}
+                                        onPlay={() => setIsMediaPlaying(true)}
+                                        onPause={() => setIsMediaPlaying(false)}
+                                        onEnded={() => setIsMediaPlaying(false)}
+                                        className="w-full"
+                                      />
                                     </div>
                                   );
                                 }
@@ -1249,10 +1302,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 ) {
                                   return (
                                     <video
+                                      ref={(el) => {
+                                        practiceMediaRef.current = el;
+                                      }}
                                       src={activePracticeMedia.url}
                                       controls
                                       autoPlay
                                       loop={isLooping}
+                                      onPlay={() => setIsMediaPlaying(true)}
+                                      onPause={() => setIsMediaPlaying(false)}
+                                      onEnded={() => setIsMediaPlaying(false)}
                                       className="w-full max-h-64 rounded-xl bg-black"
                                     />
                                   );
@@ -1337,15 +1396,23 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                               {formattedTitle}
                                             </span>
                                             {isPlaying && (
-                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 animate-pulse">
-                                                Playing
+                                              <span
+                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                  isMediaPlaying
+                                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 animate-pulse'
+                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                                }`}
+                                              >
+                                                {isMediaPlaying ? 'Playing' : 'Paused'}
                                               </span>
                                             )}
                                           </div>
                                           <span className="text-[10px] text-slate-400 block truncate">
                                             {part.audioUrl
                                               ? isPlaying
-                                                ? 'Now Playing in practice player'
+                                                ? isMediaPlaying
+                                                  ? 'Now Playing in practice player'
+                                                  : 'Paused • Click Play to resume'
                                                 : 'Audio stem attached • Click Play to listen'
                                               : 'No audio stem attached'}
                                           </span>
@@ -1355,27 +1422,60 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       {/* Right Action Buttons */}
                                       <div className="flex items-center gap-1.5 shrink-0 justify-end">
                                         {part.audioUrl ? (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setActivePracticeMedia({
-                                                id: part.id,
-                                                title: `${group.songTitle} - ${formattedTitle}`,
-                                                url: part.audioUrl!,
-                                                type: 'audio',
-                                                partLabel: part.partLabel,
-                                                groupId: group.id,
-                                              })
-                                            }
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
-                                              isPlaying
-                                                ? 'bg-sky-600 hover:bg-sky-700 text-white'
-                                                : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white'
-                                            }`}
-                                          >
-                                            <Play className="w-3.5 h-3.5" />
-                                            <span>{isPlaying ? 'Replay Stem' : 'Play Stem'}</span>
-                                          </button>
+                                          isPlaying ? (
+                                            <div className="flex items-center gap-1.5">
+                                              <button
+                                                type="button"
+                                                onClick={handleTogglePlayPauseMedia}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
+                                                  isMediaPlaying
+                                                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                }`}
+                                                title={isMediaPlaying ? 'Pause stem' : 'Resume stem'}
+                                              >
+                                                {isMediaPlaying ? (
+                                                  <>
+                                                    <Pause className="w-3.5 h-3.5" />
+                                                    <span>Pause</span>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Play className="w-3.5 h-3.5" />
+                                                    <span>Play</span>
+                                                  </>
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={handleReplayMedia}
+                                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
+                                                title="Replay stem from beginning"
+                                              >
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                                <span>Replay</span>
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActivePracticeMedia({
+                                                  id: part.id,
+                                                  title: `${group.songTitle} - ${formattedTitle}`,
+                                                  url: part.audioUrl!,
+                                                  type: 'audio',
+                                                  partLabel: part.partLabel,
+                                                  groupId: group.id,
+                                                });
+                                                setIsMediaPlaying(true);
+                                              }}
+                                              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                            >
+                                              <Play className="w-3.5 h-3.5" />
+                                              <span>Play Stem</span>
+                                            </button>
+                                          )
                                         ) : (
                                           <button
                                             type="button"
@@ -1478,7 +1578,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           </div>
                                           <span className="text-[10px] text-slate-400 block truncate mt-0.5">
                                             {isPlaying
-                                              ? 'Now Playing in practice player'
+                                              ? isMediaPlaying
+                                                ? 'Now Playing in practice player'
+                                                : 'Paused • Click Play to resume'
                                               : att.url
                                               ? att.url.startsWith('data:')
                                                 ? 'Attached media file'
@@ -1491,29 +1593,62 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       {/* Right Action Buttons */}
                                       <div className="flex items-center gap-1.5 shrink-0 justify-end">
                                         {att.url && (
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              setActivePracticeMedia({
-                                                id: att.id,
-                                                title: `${group.songTitle} - ${att.name}`,
-                                                url: att.url,
-                                                type:
-                                                  att.type === 'audio' || att.type === 'video'
-                                                    ? att.type
-                                                    : 'link',
-                                                groupId: group.id,
-                                              })
-                                            }
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
-                                              isPlaying
-                                                ? 'bg-sky-600 hover:bg-sky-700 text-white'
-                                                : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white'
-                                            }`}
-                                          >
-                                            <Play className="w-3.5 h-3.5" />
-                                            <span>{isPlaying ? 'Playing' : 'Play Track'}</span>
-                                          </button>
+                                          isPlaying ? (
+                                            <div className="flex items-center gap-1.5">
+                                              <button
+                                                type="button"
+                                                onClick={handleTogglePlayPauseMedia}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
+                                                  isMediaPlaying
+                                                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                }`}
+                                                title={isMediaPlaying ? 'Pause track' : 'Resume track'}
+                                              >
+                                                {isMediaPlaying ? (
+                                                  <>
+                                                    <Pause className="w-3.5 h-3.5" />
+                                                    <span>Pause</span>
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <Play className="w-3.5 h-3.5" />
+                                                    <span>Play</span>
+                                                  </>
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={handleReplayMedia}
+                                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
+                                                title="Replay track from beginning"
+                                              >
+                                                <RotateCcw className="w-3.5 h-3.5" />
+                                                <span>Replay</span>
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActivePracticeMedia({
+                                                  id: att.id,
+                                                  title: `${group.songTitle} - ${att.name}`,
+                                                  url: att.url,
+                                                  type:
+                                                    att.type === 'audio' || att.type === 'video'
+                                                      ? att.type
+                                                      : 'link',
+                                                  groupId: group.id,
+                                                });
+                                                setIsMediaPlaying(true);
+                                              }}
+                                              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                            >
+                                              <Play className="w-3.5 h-3.5" />
+                                              <span>Play Track</span>
+                                            </button>
+                                          )
                                         )}
 
                                         <button
@@ -1610,13 +1745,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Performer Name(s) *
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
                     value={editingSchedule.performerName || ''}
                     onChange={(val) => setEditingSchedule({ ...editingSchedule, performerName: val })}
                     suggestions={directoryNames}
                     placeholder="e.g. Bro. John Doe / Sis. Maria / Choir Ensemble"
-                    inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
+                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -1638,7 +1773,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Song Title (Optional / Autocomplete from library)
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
                     value={editingSchedule.songTitle || ''}
                     onChange={(val) => {
@@ -1657,7 +1792,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     songs={songs}
                     setlists={setlists}
                     placeholder="e.g. Dakilang Katapatan / Leave blank if undecided"
-                    inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
+                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -1750,7 +1885,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Group Name *
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
                     value={editingPractice.groupName || ''}
                     onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
@@ -1780,7 +1915,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Song Title *
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
                     value={editingPractice.songTitle || ''}
                     onChange={(val) => handleSelectSongForPractice(val)}
@@ -2119,7 +2254,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Assigned Member(s)
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
                     value={vocalPartAssignedUsers}
                     onChange={(val) => setVocalPartAssignedUsers(val)}
