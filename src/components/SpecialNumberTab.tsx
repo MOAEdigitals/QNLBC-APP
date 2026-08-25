@@ -567,8 +567,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 id: `prac-${Date.now()}`,
                 groupName: '',
                 songTitle: '',
-                targetDate: '',
-                assignedEvent: '',
+                assignedEvent: 'Sunday Service',
                 lyrics: '',
                 notes: '',
                 customAttachments: [],
@@ -1145,9 +1144,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
 
                             <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                              {group.targetDate && (
+                              {group.assignedEvent && (
                                 <span className="font-semibold text-slate-700 dark:text-slate-300">
-                                  Target: {formatDateStr(group.targetDate)}
+                                  Event: {group.assignedEvent}
                                 </span>
                               )}
                               <span>• {group.vocalParts?.length || 0} vocal parts</span>
@@ -1479,15 +1478,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
                           )}
 
-                          {/* Notes */}
-                          {group.notes && (
-                            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
-                              <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                                Rehearsal Instructions:
-                              </span>
-                              <p className="text-slate-600 dark:text-slate-400">{group.notes}</p>
-                            </div>
-                          )}
+                          {/* Rehearsal Instructions / Notes (In-Place in Container) */}
+                          <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Rehearsal Instructions / Notes</span>
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={group.notes || ''}
+                              onChange={(e) => {
+                                if (onSavePracticeEntry) {
+                                  onSavePracticeEntry({ ...group, notes: e.target.value });
+                                }
+                              }}
+                              placeholder="Add rehearsal instructions, vocal guidance, or practice schedule notes..."
+                              className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-colors"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1676,32 +1684,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </div>
               </div>
 
-              {/* 2. TARGET EVENT / OCCASION & TARGET DATE (OPTIONAL) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Target Event / Occasion (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingPractice.assignedEvent || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
-                    placeholder="e.g. Thanksgiving Sunday, Youth Service"
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Target Date (Optional)
-                  </label>
-                  <input
-                    type="date"
-                    value={editingPractice.targetDate || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, targetDate: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
+              {/* 2. TARGET EVENT / OCCASION (OPTIONAL) */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Target Event / Occasion (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent : 'Sunday Service'}
+                  onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
+                  placeholder="e.g. Sunday Service, Youth Fellowship"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white"
+                />
               </div>
 
               {/* 3. SONG SELECTION OR CREATE SONG */}
@@ -1744,6 +1738,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           }
                         }}
                         suggestions={songTitleSuggestions}
+                        songs={songs}
                         placeholder="Type to search song title from library (autofill)..."
                         inputClassName="p-2 text-sm font-semibold text-slate-900 dark:text-white"
                       />
@@ -1859,20 +1854,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* 4. REHEARSAL INSTRUCTIONS / NOTES */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Rehearsal Instructions / Notes (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={editingPractice.notes || ''}
-                  onChange={(e) => setEditingPractice({ ...editingPractice, notes: e.target.value })}
-                  placeholder="e.g. Saturday 4:00 PM rehearsal, key of D"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                />
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
