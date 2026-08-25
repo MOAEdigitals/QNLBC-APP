@@ -243,10 +243,80 @@ export interface SongUsageHistory {
   recentSetlistDate?: string;
 }
 
+// Global WeakMap / memoized map cache for setlists array reference
+let cachedSetlistsRef: Setlist[] | null = null;
+let cachedUsageMap: Map<string, string[]> = new Map();
+
 /**
- * Compute the usage history and repetition warning for a song
+ * Pre-builds an O(1) lookup Map from normalized song title -> sorted date array.
+ * This runs in <1ms and allows instant history lookups without looping.
  */
-export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]): SongUsageHistory {
+export function buildSongUsageMap(setlists: Setlist[]): Map<string, string[]> {
+  if (!setlists || setlists.length === 0) return new Map();
+
+  if (cachedSetlistsRef === setlists) {
+    return cachedUsageMap;
+  }
+
+  const map = new Map<string, string[]>();
+
+  const addEntry = (title: string | undefined, date: string) => {
+    if (!title || !date) return;
+    const key = normalizeForSearch(title);
+    if (!key) return;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, [date]);
+    } else {
+      existing.push(date);
+    }
+  };
+
+  for (const setlist of setlists) {
+    const date = setlist.date;
+    if (!date) continue;
+
+    if (setlist.welcomeSong) addEntry(setlist.welcomeSong, date);
+    if (setlist.closingSong) addEntry(setlist.closingSong, date);
+    if (setlist.themeSong) addEntry(setlist.themeSong, date);
+
+    if (setlist.sundaySchool?.songs) {
+      for (const s of setlist.sundaySchool.songs) {
+        if (s.title) addEntry(s.title, date);
+      }
+    }
+
+    if (setlist.worshipService?.songs) {
+      for (const s of setlist.worshipService.songs) {
+        if (s.title) addEntry(s.title, date);
+      }
+    }
+
+    if (setlist.program?.songs) {
+      for (const s of setlist.program.songs) {
+        if (s.title) addEntry(s.title, date);
+      }
+    }
+  }
+
+  // Sort dates descending for each song
+  for (const dates of map.values()) {
+    dates.sort((a, b) => b.localeCompare(a));
+  }
+
+  cachedSetlistsRef = setlists;
+  cachedUsageMap = map;
+  return map;
+}
+
+/**
+ * Instant O(1) usage history lookup using pre-computed usage map
+ */
+export function getSongUsageHistoryFromMap(
+  songTitleOrId: string,
+  usageMap: Map<string, string[]>,
+  todayStr: string = getTodayStr()
+): SongUsageHistory {
   if (!songTitleOrId || !songTitleOrId.trim()) {
     return {
       lastDate: null,
@@ -258,56 +328,9 @@ export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]):
   }
 
   const cleanTarget = normalizeForSearch(songTitleOrId);
-  const todayStr = getTodayStr();
+  const matchedDates = usageMap.get(cleanTarget);
 
-  // Find all dates where the song appears
-  const matchedDates: string[] = [];
-
-  for (const setlist of setlists) {
-    if (!setlist.date) continue;
-    let found = false;
-
-    if (setlist.welcomeSong && normalizeForSearch(setlist.welcomeSong) === cleanTarget) {
-      found = true;
-    } else if (setlist.closingSong && normalizeForSearch(setlist.closingSong) === cleanTarget) {
-      found = true;
-    } else if (setlist.themeSong && normalizeForSearch(setlist.themeSong) === cleanTarget) {
-      found = true;
-    }
-
-    if (!found && setlist.sundaySchool?.songs) {
-      for (const s of setlist.sundaySchool.songs) {
-        if (s.title && normalizeForSearch(s.title) === cleanTarget) {
-          found = true;
-          break;
-        }
-      }
-    }
-
-    if (!found && setlist.worshipService?.songs) {
-      for (const s of setlist.worshipService.songs) {
-        if (s.title && normalizeForSearch(s.title) === cleanTarget) {
-          found = true;
-          break;
-        }
-      }
-    }
-
-    if (!found && setlist.program?.songs) {
-      for (const s of setlist.program.songs) {
-        if (s.title && normalizeForSearch(s.title) === cleanTarget) {
-          found = true;
-          break;
-        }
-      }
-    }
-
-    if (found) {
-      matchedDates.push(setlist.date);
-    }
-  }
-
-  if (matchedDates.length === 0) {
+  if (!matchedDates || matchedDates.length === 0) {
     return {
       lastDate: null,
       formattedLastDate: 'Never scheduled',
@@ -317,11 +340,7 @@ export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]):
     };
   }
 
-  // Sort descending to find most recent date
-  matchedDates.sort((a, b) => b.localeCompare(a));
   const mostRecentDate = matchedDates[0];
-
-  // Calculate days ago relative to today
   const todayDate = parseDate(todayStr);
   const recentDateObj = parseDate(mostRecentDate);
   const diffTime = todayDate.getTime() - recentDateObj.getTime();
@@ -349,8 +368,6 @@ export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]):
   }
 
   const formattedDate = formatDateStr(mostRecentDate, { shortMonth: true });
-
-  // Sung recently if within last 14 days (repetition warning threshold)
   const isRecent = diffDays >= 0 && diffDays <= 14;
 
   return {
@@ -361,4 +378,22 @@ export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]):
     totalCount: matchedDates.length,
     recentSetlistDate: mostRecentDate,
   };
+}
+
+/**
+ * Compute the usage history and repetition warning for a song
+ */
+export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]): SongUsageHistory {
+  if (!songTitleOrId || !songTitleOrId.trim()) {
+    return {
+      lastDate: null,
+      formattedLastDate: null,
+      relativeTimeAgo: null,
+      isRecent: false,
+      totalCount: 0,
+    };
+  }
+
+  const map = buildSongUsageMap(setlists);
+  return getSongUsageHistoryFromMap(songTitleOrId, map);
 }

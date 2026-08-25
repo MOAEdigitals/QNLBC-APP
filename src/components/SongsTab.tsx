@@ -31,7 +31,13 @@ import {
   AlertTriangle,
   Radio,
 } from 'lucide-react';
-import { searchSong, getSongUsageHistory, SongUsageHistory } from '../utils/songSearch';
+import {
+  searchSong,
+  getSongUsageHistory,
+  getSongUsageHistoryFromMap,
+  buildSongUsageMap,
+  SongUsageHistory,
+} from '../utils/songSearch';
 
 interface SongsTabProps {
   songs: Song[];
@@ -213,15 +219,20 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     }, 2500);
   };
 
-  // Sorting: strictly A-Z or Newest
-  const sortedSongs = [...songs].sort((a, b) => {
-    if (sortMode === 'date') {
-      const dateA = a.updatedAt || '';
-      const dateB = b.updatedAt || '';
-      return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
-    }
-    return a.title.localeCompare(b.title);
-  });
+  // Sorting: strictly A-Z or Newest (memoized)
+  const sortedSongs = useMemo(() => {
+    return [...songs].sort((a, b) => {
+      if (sortMode === 'date') {
+        const dateA = a.updatedAt || '';
+        const dateB = b.updatedAt || '';
+        return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
+      }
+      return a.title.localeCompare(b.title);
+    });
+  }, [songs, sortMode]);
+
+  // Fast O(1) cached usage map
+  const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
 
   const songSearchResults = useMemo(() => {
     if (!searchQuery.trim()) {
@@ -231,14 +242,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         score: 100,
         matchedField: 'none' as const,
         lyricSnippet: undefined,
-        history: getSongUsageHistory(song.title, setlists),
+        history: getSongUsageHistoryFromMap(song.title, usageMap),
       }));
     }
 
     const results = sortedSongs
       .map((song) => {
         const searchRes = searchSong(song, searchQuery);
-        const history = getSongUsageHistory(song.title, setlists);
+        const history = getSongUsageHistoryFromMap(song.title, usageMap);
         return {
           ...searchRes,
           history,
@@ -249,16 +260,18 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     // When actively searching, sort by search match relevance score descending
     results.sort((a, b) => b.score - a.score);
     return results;
-  }, [sortedSongs, searchQuery, setlists]);
+  }, [sortedSongs, searchQuery, usageMap]);
 
-  const filteredSongs = songSearchResults.map((r) => r.song);
+  const filteredSongs = useMemo(() => songSearchResults.map((r) => r.song), [songSearchResults]);
 
-  const selectedSong = songs.find((s) => s.id === selectedSongId);
+  const selectedSong = useMemo(() => songs.find((s) => s.id === selectedSongId), [songs, selectedSongId]);
 
   // Filter upcoming setlists that have not passed
-  const upcomingSetlists = setlists
-    .filter((s) => !isPastDate(s.date))
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const upcomingSetlists = useMemo(() => {
+    return setlists
+      .filter((s) => !isPastDate(s.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [setlists]);
 
   const newestUpcomingSetlist = upcomingSetlists.length > 0 ? upcomingSetlists[0] : null;
 

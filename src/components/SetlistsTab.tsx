@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
   formatDateStr,
@@ -85,23 +85,40 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const backSwipeTimeoutRef = useRef<any>(null);
   const [editPromptMsg, setEditPromptMsg] = useState<{ type: 'info' | 'warn'; message: string } | null>(null);
 
-  // Directory names for autocomplete
-  const directoryNames = getAllDirectoryNames();
-  const songTitleSuggestions = songs.map((s) => s.title);
+  // Memoized directory names for autocomplete (only recompute when editing modal opens or songs change)
+  const directoryNames = useMemo(() => getAllDirectoryNames(), [isEditing]);
+  const songTitleSuggestions = useMemo(() => songs.map((s) => s.title), [songs]);
 
   // Marked songs from library (plus defaults)
-  const markedWelcomeSongs = Array.from(
-    new Set(['Napakaligaya', ...songs.filter((s) => s.isWelcomeSong).map((s) => s.title)])
-  ).filter(Boolean);
+  const markedWelcomeSongs = useMemo(
+    () =>
+      Array.from(
+        new Set(['Napakaligaya', ...songs.filter((s) => s.isWelcomeSong).map((s) => s.title)])
+      ).filter(Boolean),
+    [songs]
+  );
 
-  const markedClosingSongs = Array.from(
-    new Set(['Give Thanks', ...songs.filter((s) => s.isClosingSong).map((s) => s.title)])
-  ).filter(Boolean);
+  const markedClosingSongs = useMemo(
+    () =>
+      Array.from(
+        new Set(['Give Thanks', ...songs.filter((s) => s.isClosingSong).map((s) => s.title)])
+      ).filter(Boolean),
+    [songs]
+  );
 
   // Sort upcoming soonest first, then past below
-  const sortedSetlists = sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date);
-  const soonestUpcoming = sortedSetlists.find((s) => !isPastDate(s.date));
-  const selectedSetlist = setlists.find((s) => s.id === selectedSetlistId);
+  const sortedSetlists = useMemo(
+    () => sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date),
+    [setlists]
+  );
+  const soonestUpcoming = useMemo(
+    () => sortedSetlists.find((s) => !isPastDate(s.date)),
+    [sortedSetlists]
+  );
+  const selectedSetlist = useMemo(
+    () => setlists.find((s) => s.id === selectedSetlistId),
+    [setlists, selectedSetlistId]
+  );
 
   // Close popovers on outside click
   useEffect(() => {

@@ -271,48 +271,56 @@ export default function App() {
   };
 
   // Setlist Operations
-  const handleSaveSetlist = (newOrUpdated: Setlist) => {
-    const idx = setlists.findIndex((s) => s.id === newOrUpdated.id);
-    let updated: Setlist[];
-    if (idx >= 0) {
-      updated = [...setlists];
-      updated[idx] = newOrUpdated;
-    } else {
-      updated = [newOrUpdated, ...setlists];
-    }
-    setSetlists(updated);
-    saveSetlists(updated);
+  const handleSaveSetlist = useCallback((newOrUpdated: Setlist) => {
+    setSetlists((prev) => {
+      const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
+      let updated: Setlist[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = newOrUpdated;
+      } else {
+        updated = [newOrUpdated, ...prev];
+      }
+      saveSetlists(updated);
+      return updated;
+    });
     syncSaveSetlist(newOrUpdated);
-  };
+  }, []);
 
-  const handleDeleteSetlist = (id: string) => {
-    const updated = setlists.filter((s) => s.id !== id);
-    setSetlists(updated);
-    saveSetlists(updated);
+  const handleDeleteSetlist = useCallback((id: string) => {
+    setSetlists((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      saveSetlists(updated);
+      return updated;
+    });
     syncDeleteSetlist(id);
-  };
+  }, []);
 
   // Song Operations
-  const handleSaveSong = (newOrUpdated: Song) => {
-    const idx = songs.findIndex((s) => s.id === newOrUpdated.id);
-    let updated: Song[];
-    if (idx >= 0) {
-      updated = [...songs];
-      updated[idx] = newOrUpdated;
-    } else {
-      updated = [...songs, newOrUpdated];
-    }
-    setSongs(updated);
-    saveSongs(updated);
+  const handleSaveSong = useCallback((newOrUpdated: Song) => {
+    setSongs((prev) => {
+      const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
+      let updated: Song[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = newOrUpdated;
+      } else {
+        updated = [...prev, newOrUpdated];
+      }
+      saveSongs(updated);
+      return updated;
+    });
     syncSaveSong(newOrUpdated);
-  };
+  }, []);
 
-  const handleDeleteSong = (id: string) => {
-    const updated = songs.filter((s) => s.id !== id);
-    setSongs(updated);
-    saveSongs(updated);
+  const handleDeleteSong = useCallback((id: string) => {
+    setSongs((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      saveSongs(updated);
+      return updated;
+    });
     syncDeleteSong(id);
-  };
+  }, []);
 
   // Special Number Operations
   const handleSaveSpecialNumber = (entry: SpecialNumberEntry) => {

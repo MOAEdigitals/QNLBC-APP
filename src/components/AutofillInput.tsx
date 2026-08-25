@@ -1,6 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Song, Setlist } from '../types';
-import { fuzzyMatchString, searchSong, getSongUsageHistory, SongUsageHistory } from '../utils/songSearch';
+import {
+  fuzzyMatchString,
+  searchSong,
+  getSongUsageHistory,
+  getSongUsageHistoryFromMap,
+  buildSongUsageMap,
+  SongUsageHistory,
+} from '../utils/songSearch';
 import { Clock, AlertTriangle, Check, CornerDownLeft } from 'lucide-react';
 
 export interface DisplaySuggestionItem {
@@ -15,7 +22,7 @@ export interface DisplaySuggestionItem {
 interface AutofillInputProps {
   value: string;
   onChange: (val: string) => void;
-  suggestions: string[]; // Primary suggestions (e.g. marked welcome/closing songs or song titles)
+  suggestions?: string[]; // Primary suggestions (e.g. marked welcome/closing songs or song titles)
   allSuggestions?: string[]; // Fallback full library suggestions when user types
   defaultValue?: string; // Default song (e.g. 'Napakaligaya' or 'Give Thanks')
   songs?: Song[]; // Full song library for lyrics search and metadata
@@ -30,7 +37,7 @@ interface AutofillInputProps {
   showAllOnFocus?: boolean;
 }
 
-export const AutofillInput: React.FC<AutofillInputProps> = ({
+const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   value,
   onChange,
   suggestions = [],
@@ -45,9 +52,9 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
   type = 'text',
   onSelectSuggestion,
   id,
-  showAllOnFocus = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -56,14 +63,22 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
   const lowerVal = cleanVal.toLowerCase();
   const cleanDefault = (defaultValue || '').trim().toLowerCase();
 
-  // Pre-calculate usage history for current value (if setlists provided)
-  const currentValueHistory = useMemo(() => {
-    if (!setlists || !cleanVal) return null;
-    return getSongUsageHistory(cleanVal, setlists);
-  }, [cleanVal, setlists]);
+  // Fast O(1) cached usage map reference
+  const usageMap = useMemo(() => {
+    if (!setlists || setlists.length === 0) return null;
+    return buildSongUsageMap(setlists);
+  }, [setlists]);
 
-  // Compute displayed suggestions with fuzzy match, lyrics search, and usage history
+  // Pre-calculate usage history for current value only if setlists provided and value exists
+  const currentValueHistory = useMemo(() => {
+    if (!usageMap || !cleanVal) return null;
+    return getSongUsageHistoryFromMap(cleanVal, usageMap);
+  }, [cleanVal, usageMap]);
+
+  // Compute displayed suggestions ONLY when open to keep keyboard typing 100% instantaneous
   const displayedItems: DisplaySuggestionItem[] = useMemo(() => {
+    if (!isOpen) return [];
+
     // Lookup map for Song objects by lowercase title
     const songMap = new Map<string, Song>();
     if (songs) {
@@ -81,7 +96,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
       score: number = 50
     ): DisplaySuggestionItem => {
       const songObj = songMap.get(title.toLowerCase().trim());
-      const history = setlists ? getSongUsageHistory(title, setlists) : undefined;
+      const history = usageMap ? getSongUsageHistoryFromMap(title, usageMap) : undefined;
       return {
         title,
         songObj,
@@ -113,7 +128,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         if (searchRes.matches) {
           const isPrimary = primarySet.has(s.title.toLowerCase().trim());
           const boostedScore = searchRes.score + (isPrimary ? 15 : 0);
-          const history = setlists ? getSongUsageHistory(s.title, setlists) : undefined;
+          const history = usageMap ? getSongUsageHistoryFromMap(s.title, usageMap) : undefined;
 
           scoredResults.push({
             title: s.title,
@@ -158,33 +173,38 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
     return results.slice(0, 25);
-  }, [lowerVal, cleanDefault, suggestions, allSuggestions, songs, setlists]);
+  }, [isOpen, lowerVal, cleanDefault, suggestions, allSuggestions, songs, usageMap]);
 
-  // Active pool for ghost text prefix match
-  const searchPool = useMemo(() => {
-    const poolList: string[] = [];
-    if (songs && songs.length > 0) {
-      poolList.push(...songs.map((s) => s.title));
-    }
-    if (suggestions && suggestions.length > 0) {
-      poolList.push(...suggestions);
-    }
-    if (allSuggestions && allSuggestions.length > 0) {
-      poolList.push(...allSuggestions);
-    }
-    // Remove duplicates while preserving order
-    return Array.from(new Set(poolList.filter(Boolean)));
-  }, [songs, suggestions, allSuggestions]);
-
-  // Find exact prefix match for inline autocomplete ghost text
+  // Find exact prefix match for inline autocomplete ghost text only when focused & typing
   const bestPrefixMatch = useMemo(() => {
-    if (!lowerVal) return undefined;
-    return searchPool.find(
-      (s) =>
-        s.toLowerCase().startsWith(lowerVal) &&
-        s.length > (value || '').length
-    );
-  }, [searchPool, lowerVal, value]);
+    if (!isFocused || !lowerVal || lowerVal.length < 2) return undefined;
+
+    // Search fast in suggestions first
+    if (suggestions && suggestions.length > 0) {
+      const match = suggestions.find(
+        (s) => s && s.toLowerCase().startsWith(lowerVal) && s.length > cleanVal.length
+      );
+      if (match) return match;
+    }
+
+    // Search in songs next
+    if (songs && songs.length > 0) {
+      const songMatch = songs.find(
+        (s) => s.title && s.title.toLowerCase().startsWith(lowerVal) && s.title.length > cleanVal.length
+      );
+      if (songMatch) return songMatch.title;
+    }
+
+    // Search in allSuggestions
+    if (allSuggestions && allSuggestions.length > 0) {
+      const allMatch = allSuggestions.find(
+        (s) => s && s.toLowerCase().startsWith(lowerVal) && s.length > cleanVal.length
+      );
+      if (allMatch) return allMatch;
+    }
+
+    return undefined;
+  }, [isFocused, lowerVal, cleanVal.length, suggestions, songs, allSuggestions]);
 
   const ghostSuffix = bestPrefixMatch
     ? bestPrefixMatch.slice((value || '').length)
@@ -198,6 +218,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         !containerRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
+        setIsFocused(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -250,7 +271,6 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         );
       }
     } else if (e.key === 'Enter') {
-      // If user selected an item with arrow keys
       if (highlightedIndex >= 0 && displayedItems[highlightedIndex]) {
         e.preventDefault();
         e.stopPropagation();
@@ -260,14 +280,12 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         setIsOpen(false);
         setHighlightedIndex(-1);
       } else if (bestPrefixMatch) {
-        // If inline ghost text exists, Enter fills it
         e.preventDefault();
         e.stopPropagation();
         onChange(bestPrefixMatch);
         onSelectSuggestion?.(bestPrefixMatch);
         setIsOpen(false);
       } else if (displayedItems.length > 0 && isOpen) {
-        // If dropdown is open and user hits enter, pick top match
         e.preventDefault();
         e.stopPropagation();
         const selected = displayedItems[0].title;
@@ -290,7 +308,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
   return (
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Ghost text display overlay behind input with clickable fill badge */}
-      {bestPrefixMatch && (
+      {bestPrefixMatch && isFocused && (
         <div
           onClick={handleAcceptPrefix}
           className="absolute inset-0 flex items-center px-3 py-2 text-sm select-none overflow-hidden pr-2 cursor-pointer pointer-events-none"
@@ -326,9 +344,14 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
             setHighlightedIndex(-1);
           }}
           onFocus={() => {
+            setIsFocused(true);
             setIsOpen(true);
           }}
+          onBlur={() => {
+            setIsFocused(false);
+          }}
           onClick={() => {
+            setIsFocused(true);
             setIsOpen(true);
           }}
           onKeyDown={handleKeyDown}
@@ -450,3 +473,5 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
     </div>
   );
 };
+
+export const AutofillInput = React.memo(AutofillInputComponent);
