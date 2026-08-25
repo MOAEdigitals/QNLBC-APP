@@ -31,8 +31,10 @@ import {
   Sparkles,
   Trash2,
   Edit3,
+  Pencil,
   X,
   Play,
+  Pause,
   FileText,
   Check,
   Search,
@@ -47,6 +49,10 @@ import {
   ChevronUp,
   Clock,
   Layers,
+  FileAudio,
+  FileVideo,
+  FileImage,
+  Link2,
 } from 'lucide-react';
 
 interface SpecialNumberTabProps {
@@ -108,11 +114,31 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [newSongArtist, setNewSongArtist] = useState('');
   const [showSongArtistInput, setShowSongArtistInput] = useState(false);
 
+  // Modal 1: Add/Edit Track & Attachment Modal (Image 2 style)
+  const [isAddingTrackModal, setIsAddingTrackModal] = useState(false);
+  const [trackModalGroup, setTrackModalGroup] = useState<PracticeGroupEntry | null>(null);
+  const [editingTrackIndex, setEditingTrackIndex] = useState<number | null>(null);
+  const [trackCategory, setTrackCategory] = useState<'plus_one' | 'minus_one'>('minus_one');
+  const [trackTitle, setTrackTitle] = useState('');
+  const [trackUrlOrData, setTrackUrlOrData] = useState('');
+  const [trackFileName, setTrackFileName] = useState('');
+  const [trackType, setTrackType] = useState<'link' | 'audio' | 'video' | 'file'>('link');
+
+  // Modal 2: Add/Edit Vocal Part Modal
+  const [isAddingVocalPartModal, setIsAddingVocalPartModal] = useState(false);
+  const [vocalPartModalGroup, setVocalPartModalGroup] = useState<PracticeGroupEntry | null>(null);
+  const [editingVocalPartIndex, setEditingVocalPartIndex] = useState<number | null>(null);
+  const [vocalPartLabel, setVocalPartLabel] = useState<VocalPartLabel>('Soprano');
+  const [vocalPartCustomLabel, setVocalPartCustomLabel] = useState('');
+  const [vocalPartAssignedUsers, setVocalPartAssignedUsers] = useState('');
+  const [vocalPartAudioUrl, setVocalPartAudioUrl] = useState('');
+  const [vocalPartFileName, setVocalPartFileName] = useState('');
+
   // Hidden File input helper for paperclip attachments (vocal parts and practice tracks)
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const pendingFileCallbackRef = useRef<((fileUrl: string, fileName: string) => void) | null>(null);
+  const pendingFileCallbackRef = useRef<((fileUrl: string, fileName: string, fileType: 'audio' | 'video' | 'file') => void) | null>(null);
 
-  const handleTriggerFileUpload = (onFileLoaded: (fileUrl: string, fileName: string) => void) => {
+  const handleTriggerFileUpload = (onFileLoaded: (fileUrl: string, fileName: string, fileType: 'audio' | 'video' | 'file') => void) => {
     pendingFileCallbackRef.current = onFileLoaded;
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -126,8 +152,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
+      const fType: 'audio' | 'video' | 'file' = file.type.startsWith('audio/')
+        ? 'audio'
+        : file.type.startsWith('video/')
+        ? 'video'
+        : 'file';
       if (pendingFileCallbackRef.current) {
-        pendingFileCallbackRef.current(result, file.name);
+        pendingFileCallbackRef.current(result, file.name, fType);
       }
     };
     reader.readAsDataURL(file);
@@ -411,132 +442,156 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  // In-place vocal parts handlers (directly modifying group and persisting)
-  const handleInPlaceAddVocalPart = (group: PracticeGroupEntry) => {
-    const newPart: PracticePartTrack = {
-      id: `part-${Date.now()}`,
-      partLabel: 'Soprano',
-      assignedUsers: [],
-      audioUrl: '',
-      notes: '',
-    };
-    const updatedParts = [...(group.vocalParts || []), newPart];
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, vocalParts: updatedParts });
+  // Handlers for Add/Edit Track & Attachment Modal (Image 2 style)
+  const handleOpenAddTrackModal = (group: PracticeGroupEntry, trackIndex?: number) => {
+    setTrackModalGroup(group);
+    if (trackIndex !== undefined && group.customAttachments?.[trackIndex]) {
+      const track = group.customAttachments[trackIndex];
+      setEditingTrackIndex(trackIndex);
+      setTrackCategory(track.category || 'minus_one');
+      setTrackTitle(track.name || '');
+      setTrackUrlOrData(track.url || '');
+      setTrackFileName('');
+      setTrackType(track.type || 'link');
+    } else {
+      setEditingTrackIndex(null);
+      setTrackCategory('minus_one');
+      setTrackTitle('');
+      setTrackUrlOrData('');
+      setTrackFileName('');
+      setTrackType('link');
     }
+    setIsAddingTrackModal(true);
   };
 
-  const handleInPlaceUpdateVocalPart = (
-    group: PracticeGroupEntry,
-    partIndex: number,
-    patch: Partial<PracticePartTrack>
-  ) => {
-    const updatedParts = [...(group.vocalParts || [])];
-    updatedParts[partIndex] = { ...updatedParts[partIndex], ...patch };
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, vocalParts: updatedParts });
-    }
-  };
+  const handleSaveTrackModalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trackModalGroup) return;
 
-  const handleInPlaceRemoveVocalPart = (group: PracticeGroupEntry, partIndex: number) => {
-    const updatedParts = (group.vocalParts || []).filter((_, i) => i !== partIndex);
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, vocalParts: updatedParts });
-    }
-  };
+    const finalTitle =
+      trackTitle.trim() ||
+      (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Backing Track');
 
-  // In-place practice attachments handlers
-  const handleInPlaceAddTrack = (group: PracticeGroupEntry) => {
-    const newTrack: SongAttachment = {
-      id: `att-${Date.now()}`,
-      name: 'Minus One Track',
-      url: '',
-      type: 'link',
-      category: 'minus_one',
+    const attachmentObj: SongAttachment = {
+      id:
+        editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id
+          ? trackModalGroup.customAttachments[editingTrackIndex].id
+          : `att-${Date.now()}`,
+      name: finalTitle,
+      url: trackUrlOrData.trim(),
+      type: trackType,
+      category: trackCategory,
       uploadedAt: new Date().toISOString(),
     };
-    const updatedTracks = [...(group.customAttachments || []), newTrack];
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, customAttachments: updatedTracks });
-    }
-  };
 
-  const handleInPlaceUpdateTrack = (
-    group: PracticeGroupEntry,
-    trackIndex: number,
-    patch: Partial<SongAttachment>
-  ) => {
-    const updatedTracks = [...(group.customAttachments || [])];
-    updatedTracks[trackIndex] = { ...updatedTracks[trackIndex], ...patch };
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, customAttachments: updatedTracks });
+    const currentList = [...(trackModalGroup.customAttachments || [])];
+    if (editingTrackIndex !== null) {
+      currentList[editingTrackIndex] = attachmentObj;
+    } else {
+      currentList.push(attachmentObj);
     }
-  };
 
-  const handleInPlaceRemoveTrack = (group: PracticeGroupEntry, trackIndex: number) => {
-    const updatedTracks = (group.customAttachments || []).filter((_, i) => i !== trackIndex);
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, customAttachments: updatedTracks });
-    }
-  };
-
-  // Manage Practice Attachments in Modal
-  const handleAddPracticeAttachment = () => {
-    if (!editingPractice) return;
-    const newAtt: SongAttachment = {
-      id: `att-${Date.now()}`,
-      name: 'Minus One Track',
-      url: '',
-      type: 'link',
-      category: 'minus_one',
-      uploadedAt: new Date().toISOString(),
+    const updatedGroup: PracticeGroupEntry = {
+      ...trackModalGroup,
+      customAttachments: currentList,
     };
-    setEditingPractice({
-      ...editingPractice,
-      customAttachments: [...(editingPractice.customAttachments || []), newAtt],
-    });
+
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry(updatedGroup);
+    }
+
+    setIsAddingTrackModal(false);
+    setTrackModalGroup(null);
+    setEditingTrackIndex(null);
   };
 
-  const handleUpdatePracticeAttachment = (idx: number, patch: Partial<SongAttachment>) => {
-    if (!editingPractice || !editingPractice.customAttachments) return;
-    const updated = [...editingPractice.customAttachments];
-    updated[idx] = { ...updated[idx], ...patch };
-    setEditingPractice({ ...editingPractice, customAttachments: updated });
+  const handleDeleteTrack = (group: PracticeGroupEntry, trackIndex: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const updated = (group.customAttachments || []).filter((_, i) => i !== trackIndex);
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, customAttachments: updated });
+    }
   };
 
-  const handleRemovePracticeAttachment = (idx: number) => {
-    if (!editingPractice || !editingPractice.customAttachments) return;
-    const updated = editingPractice.customAttachments.filter((_, i) => i !== idx);
-    setEditingPractice({ ...editingPractice, customAttachments: updated });
+  // Handlers for Add/Edit Vocal Part Modal
+  const handleOpenAddVocalPartModal = (group: PracticeGroupEntry, partIndex?: number) => {
+    setVocalPartModalGroup(group);
+    if (partIndex !== undefined && group.vocalParts?.[partIndex]) {
+      const part = group.vocalParts[partIndex];
+      setEditingVocalPartIndex(partIndex);
+      if (VOCAL_PART_OPTIONS.includes(part.partLabel)) {
+        setVocalPartLabel(part.partLabel);
+        setVocalPartCustomLabel('');
+      } else {
+        setVocalPartLabel('Custom');
+        setVocalPartCustomLabel(part.partLabel || '');
+      }
+      setVocalPartAssignedUsers((part.assignedUsers || []).join(', '));
+      setVocalPartAudioUrl(part.audioUrl || '');
+      setVocalPartFileName('');
+    } else {
+      setEditingVocalPartIndex(null);
+      setVocalPartLabel('Soprano');
+      setVocalPartCustomLabel('');
+      setVocalPartAssignedUsers('');
+      setVocalPartAudioUrl('');
+      setVocalPartFileName('');
+    }
+    setIsAddingVocalPartModal(true);
   };
 
-  // Manage Practice Vocal Parts in Modal
-  const handleAddVocalPart = () => {
-    if (!editingPractice) return;
-    const newPart: PracticePartTrack = {
-      id: `part-${Date.now()}`,
-      partLabel: 'Soprano',
-      assignedUsers: [],
-      audioUrl: '',
+  const handleSaveVocalPartModalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vocalPartModalGroup) return;
+
+    const label: VocalPartLabel =
+      vocalPartLabel === 'Custom' && vocalPartCustomLabel.trim()
+        ? (vocalPartCustomLabel.trim() as VocalPartLabel)
+        : vocalPartLabel;
+
+    const assigned = vocalPartAssignedUsers
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const partObj: PracticePartTrack = {
+      id:
+        editingVocalPartIndex !== null && vocalPartModalGroup.vocalParts?.[editingVocalPartIndex]?.id
+          ? vocalPartModalGroup.vocalParts[editingVocalPartIndex].id
+          : `part-${Date.now()}`,
+      partLabel: label,
+      assignedUsers: assigned,
+      audioUrl: vocalPartAudioUrl.trim(),
       notes: '',
     };
-    setEditingPractice({
-      ...editingPractice,
-      vocalParts: [...(editingPractice.vocalParts || []), newPart],
-    });
+
+    const currentList = [...(vocalPartModalGroup.vocalParts || [])];
+    if (editingVocalPartIndex !== null) {
+      currentList[editingVocalPartIndex] = partObj;
+    } else {
+      currentList.push(partObj);
+    }
+
+    const updatedGroup: PracticeGroupEntry = {
+      ...vocalPartModalGroup,
+      vocalParts: currentList,
+    };
+
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry(updatedGroup);
+    }
+
+    setIsAddingVocalPartModal(false);
+    setVocalPartModalGroup(null);
+    setEditingVocalPartIndex(null);
   };
 
-  const handleUpdateVocalPart = (idx: number, patch: Partial<PracticePartTrack>) => {
-    if (!editingPractice || !editingPractice.vocalParts) return;
-    const updated = [...editingPractice.vocalParts];
-    updated[idx] = { ...updated[idx], ...patch };
-    setEditingPractice({ ...editingPractice, vocalParts: updated });
-  };
-
-  const handleRemoveVocalPart = (idx: number) => {
-    if (!editingPractice || !editingPractice.vocalParts) return;
-    const updated = editingPractice.vocalParts.filter((_, i) => i !== idx);
-    setEditingPractice({ ...editingPractice, vocalParts: updated });
+  const handleDeleteVocalPart = (group: PracticeGroupEntry, partIndex: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const updated = (group.vocalParts || []).filter((_, i) => i !== partIndex);
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, vocalParts: updated });
+    }
   };
 
   return (
@@ -1220,17 +1275,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-5 cursor-default"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {/* Vocal Parts Section (Soprano, Alto, Tenor, Bass, etc.) */}
+                          {/* 1. Vocal Parts Section (Soprano, Alto, Tenor, Bass, etc.) */}
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
                                 <Layers className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
-                                <span>Vocal Parts & Assigned Members</span>
+                                <span>Vocal Parts & Assigned Members ({group.vocalParts?.length || 0})</span>
                               </span>
                               <button
                                 type="button"
-                                onClick={() => handleInPlaceAddVocalPart(group)}
-                                className="px-3 py-1 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                onClick={() => handleOpenAddVocalPartModal(group)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Add Vocal Part</span>
@@ -1238,144 +1293,134 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
 
                             {(!group.vocalParts || group.vocalParts.length === 0) ? (
-                              <div className="p-3 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
+                              <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
                                 No vocal parts added yet. Click <span className="font-semibold text-slate-800 dark:text-slate-200">"Add Vocal Part"</span> to assign parts (Soprano, Alto, Tenor, Bass) and attach vocal audio stems.
                               </div>
                             ) : (
-                              <div className="grid grid-cols-1 gap-2.5">
-                                {group.vocalParts.map((part, pIdx) => (
-                                  <div
-                                    key={part.id}
-                                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2.5"
-                                  >
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                      {/* Part Dropdown */}
-                                      <div className="w-full sm:w-1/3">
-                                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
-                                          Part
-                                        </label>
-                                        <select
-                                          value={part.partLabel}
-                                          onChange={(e) =>
-                                            handleInPlaceUpdateVocalPart(group, pIdx, {
-                                              partLabel: e.target.value as VocalPartLabel,
-                                            })
-                                          }
-                                          className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                              /* Vertically stacked full-width rows (on top of each other) */
+                              <div className="grid grid-cols-1 gap-2">
+                                {group.vocalParts.map((part, pIdx) => {
+                                  const formattedTitle = `${part.partLabel}${
+                                    part.assignedUsers && part.assignedUsers.length > 0
+                                      ? ` - ${part.assignedUsers.join(', ')}`
+                                      : ''
+                                  }`;
+                                  const isPlaying = activePracticeMedia?.id === part.id;
+
+                                  return (
+                                    <div
+                                      key={part.id || `part-${pIdx}`}
+                                      className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
+                                        isPlaying
+                                          ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-xs'
+                                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                      }`}
+                                    >
+                                      {/* Left: Part Label & Assigned Members (Format: Soprano - Marius) */}
+                                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                        <div
+                                          className={`p-2 rounded-lg shrink-0 border ${
+                                            isPlaying
+                                              ? 'bg-sky-600 text-white border-sky-600 animate-pulse'
+                                              : part.audioUrl
+                                              ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-sky-500'
+                                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400'
+                                          }`}
                                         >
-                                          {VOCAL_PART_OPTIONS.map((opt) => (
-                                            <option key={opt} value={opt}>
-                                              {opt}
-                                            </option>
-                                          ))}
-                                        </select>
-                                      </div>
-
-                                      {/* Assigned Member */}
-                                      <div className="w-full sm:w-2/3">
-                                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
-                                          Assigned Member(s)
-                                        </label>
-                                        <input
-                                          type="text"
-                                          value={(part.assignedUsers || []).join(', ')}
-                                          onChange={(e) =>
-                                            handleInPlaceUpdateVocalPart(group, pIdx, {
-                                              assignedUsers: e.target.value
-                                                .split(',')
-                                                .map((s) => s.trim())
-                                                .filter(Boolean),
-                                            })
-                                          }
-                                          placeholder="e.g. Sister Grace, Sister Hannah"
-                                          className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium"
-                                        />
-                                      </div>
-
-                                      {/* Delete Part Button */}
-                                      <div className="flex items-center justify-end sm:pt-4">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleInPlaceRemoveVocalPart(group, pIdx)}
-                                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
-                                          title="Remove vocal part"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {/* Link / Attachment Field with Paperclip at the end */}
-                                    <div>
-                                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
-                                        Part Stem / Vocal Audio Link or Attachment
-                                      </label>
-                                      <div className="flex items-center gap-2">
-                                        <div className="relative flex-1">
-                                          <input
-                                            type="text"
-                                            value={part.audioUrl || ''}
-                                            onChange={(e) =>
-                                              handleInPlaceUpdateVocalPart(group, pIdx, {
-                                                audioUrl: e.target.value,
-                                              })
-                                            }
-                                            placeholder="Paste link or click paperclip to attach file..."
-                                            className="w-full pl-3 pr-10 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() =>
-                                              handleTriggerFileUpload((url) =>
-                                                handleInPlaceUpdateVocalPart(group, pIdx, {
-                                                  audioUrl: url,
-                                                })
-                                              )
-                                            }
-                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-                                            title="Attach Audio File from Device"
-                                          >
-                                            <Paperclip className="w-4 h-4" />
-                                          </button>
+                                          <FileAudio className="w-4 h-4" />
                                         </div>
 
-                                        {part.audioUrl && (
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                                              {formattedTitle}
+                                            </span>
+                                            {isPlaying && (
+                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 animate-pulse">
+                                                Playing
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="text-[10px] text-slate-400 block truncate">
+                                            {part.audioUrl
+                                              ? isPlaying
+                                                ? 'Now Playing in practice player'
+                                                : 'Audio stem attached • Click Play to listen'
+                                              : 'No audio stem attached'}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Right Action Buttons */}
+                                      <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                                        {part.audioUrl ? (
                                           <button
                                             type="button"
                                             onClick={() =>
                                               setActivePracticeMedia({
                                                 id: part.id,
-                                                title: `${group.songTitle} - ${part.partLabel} Stem`,
+                                                title: `${group.songTitle} - ${formattedTitle}`,
                                                 url: part.audioUrl!,
                                                 type: 'audio',
                                                 partLabel: part.partLabel,
                                               })
                                             }
-                                            className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs transition-colors"
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
+                                              isPlaying
+                                                ? 'bg-sky-600 hover:bg-sky-700 text-white'
+                                                : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white'
+                                            }`}
                                           >
                                             <Play className="w-3.5 h-3.5" />
-                                            <span>Play Stem</span>
+                                            <span>{isPlaying ? 'Replay Stem' : 'Play Stem'}</span>
+                                          </button>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
+                                            className="px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-500 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                                          >
+                                            <Paperclip className="w-3.5 h-3.5" />
+                                            <span>Attach Stem</span>
                                           </button>
                                         )}
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
+                                          className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                          title="Edit Vocal Part"
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleDeleteVocalPart(group, pIdx, e)}
+                                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                          title="Remove Vocal Part"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
 
-                          {/* Specific Practice Attachments (Plus-Ones, Minus-Ones, Links) */}
+                          {/* 2. Rehearsal Tracks & Attachments (Plus-One / Minus-One) */}
                           <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
                                 <Paperclip className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
-                                <span>Rehearsal Tracks & Attachments (Plus-One / Minus-One)</span>
+                                <span>Rehearsal Tracks & Attachments ({group.customAttachments?.length || 0})</span>
                               </span>
                               <button
                                 type="button"
-                                onClick={() => handleInPlaceAddTrack(group)}
-                                className="px-3 py-1 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                onClick={() => handleOpenAddTrackModal(group)}
+                                className="px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Add Track</span>
@@ -1383,78 +1428,73 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
 
                             {(!group.customAttachments || group.customAttachments.length === 0) ? (
-                              <div className="p-3 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
+                              <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
                                 No tracks added yet. Click <span className="font-semibold text-slate-800 dark:text-slate-200">"Add Track"</span> to attach plus-one vocals or minus-one backing tracks.
                               </div>
                             ) : (
-                              <div className="grid grid-cols-1 gap-2.5">
-                                {group.customAttachments.map((att, aIdx) => (
-                                  <div
-                                    key={att.id}
-                                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2"
-                                  >
-                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                      <input
-                                        type="text"
-                                        value={att.name}
-                                        onChange={(e) =>
-                                          handleInPlaceUpdateTrack(group, aIdx, {
-                                            name: e.target.value,
-                                          })
-                                        }
-                                        placeholder="Track Name (e.g. Minus-One Backing Track)"
-                                        className="w-full sm:w-1/3 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
-                                      />
+                              /* Vertically stacked full-width rows (on top of each other) */
+                              <div className="grid grid-cols-1 gap-2">
+                                {group.customAttachments.map((att, aIdx) => {
+                                  const isPlaying = activePracticeMedia?.id === att.id;
+                                  const isPlusOne = att.category === 'plus_one';
 
-                                      <select
-                                        value={att.category || 'minus_one'}
-                                        onChange={(e) =>
-                                          handleInPlaceUpdateTrack(group, aIdx, {
-                                            category: e.target.value as 'plus_one' | 'minus_one',
-                                          })
-                                        }
-                                        className="w-full sm:w-1/4 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
-                                      >
-                                        <option value="minus_one">Minus One (-1)</option>
-                                        <option value="plus_one">Plus One (+1)</option>
-                                      </select>
+                                  return (
+                                    <div
+                                      key={att.id || `track-${aIdx}`}
+                                      className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
+                                        isPlaying
+                                          ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-xs'
+                                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                      }`}
+                                    >
+                                      {/* Left: Category Badge + Title & Status */}
+                                      <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                        <div className="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shrink-0">
+                                          {att.type === 'video' ? (
+                                            <FileVideo className="w-4 h-4 text-rose-500" />
+                                          ) : att.type === 'audio' ? (
+                                            <FileAudio className="w-4 h-4 text-sky-500" />
+                                          ) : (
+                                            <Link2 className="w-4 h-4 text-blue-500" />
+                                          )}
+                                        </div>
 
-                                      <div className="relative flex-1">
-                                        <input
-                                          type="text"
-                                          value={att.url}
-                                          onChange={(e) =>
-                                            handleInPlaceUpdateTrack(group, aIdx, {
-                                              url: e.target.value,
-                                            })
-                                          }
-                                          placeholder="Paste link or attach file..."
-                                          className="w-full pl-3 pr-10 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            handleTriggerFileUpload((url) =>
-                                              handleInPlaceUpdateTrack(group, aIdx, {
-                                                url: url,
-                                              })
-                                            )
-                                          }
-                                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
-                                          title="Attach Audio File from Device"
-                                        >
-                                          <Paperclip className="w-4 h-4" />
-                                        </button>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex flex-wrap items-center gap-2">
+                                            <span
+                                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                isPlusOne
+                                                  ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border-sky-200 dark:border-sky-800'
+                                                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                                              }`}
+                                            >
+                                              {isPlusOne ? 'Plus One (+1)' : 'Minus One (-1)'}
+                                            </span>
+                                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                              {att.name}
+                                            </span>
+                                          </div>
+                                          <span className="text-[10px] text-slate-400 block truncate mt-0.5">
+                                            {isPlaying
+                                              ? 'Now Playing in practice player'
+                                              : att.url
+                                              ? att.url.startsWith('data:')
+                                                ? 'Attached media file'
+                                                : att.url
+                                              : 'No link provided'}
+                                          </span>
+                                        </div>
                                       </div>
 
-                                      <div className="flex items-center gap-1 justify-end shrink-0">
+                                      {/* Right Action Buttons */}
+                                      <div className="flex items-center gap-1.5 shrink-0 justify-end">
                                         {att.url && (
                                           <button
                                             type="button"
                                             onClick={() =>
                                               setActivePracticeMedia({
                                                 id: att.id,
-                                                title: att.name,
+                                                title: `${group.songTitle} - ${att.name}`,
                                                 url: att.url,
                                                 type:
                                                   att.type === 'audio' || att.type === 'video'
@@ -1462,30 +1502,43 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                     : 'link',
                                               })
                                             }
-                                            className="px-2.5 py-2 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-xs flex items-center gap-1 cursor-pointer hover:bg-slate-800 transition-colors shadow-xs"
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
+                                              isPlaying
+                                                ? 'bg-sky-600 hover:bg-sky-700 text-white'
+                                                : 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white'
+                                            }`}
                                           >
                                             <Play className="w-3.5 h-3.5" />
-                                            <span>Play</span>
+                                            <span>{isPlaying ? 'Playing' : 'Play Track'}</span>
                                           </button>
                                         )}
 
                                         <button
                                           type="button"
-                                          onClick={() => handleInPlaceRemoveTrack(group, aIdx)}
-                                          className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
-                                          title="Remove track"
+                                          onClick={() => handleOpenAddTrackModal(group, aIdx)}
+                                          className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                          title="Edit Track"
                                         >
-                                          <Trash2 className="w-4 h-4" />
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleDeleteTrack(group, aIdx, e)}
+                                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                          title="Remove Track"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                       </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
 
-                          {/* Practice Rehearsal Lyrics */}
+                          {/* 3. Practice Rehearsal Lyrics */}
                           {group.lyrics && (
                             <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
@@ -1497,7 +1550,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
                           )}
 
-                          {/* Rehearsal Instructions / Notes (In-Place in Container) */}
+                          {/* 4. Rehearsal Instructions / Notes */}
                           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                               <FileText className="w-3.5 h-3.5 text-slate-500" />
@@ -1801,6 +1854,348 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   Save Practice Session
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD / EDIT TRACK OR ATTACHMENT MODAL (IMAGE 2 STYLE) */}
+      {/* ========================================================================= */}
+      {isAddingTrackModal && trackModalGroup && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0">
+                  <Paperclip className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {editingTrackIndex !== null ? 'Edit Track or Attachment' : 'Add Track or Attachment'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Attach minus-one backing tracks or plus-one vocal reference files.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingTrackModal(false);
+                  setTrackModalGroup(null);
+                  setEditingTrackIndex(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveTrackModalSubmit} className="p-4 sm:p-5 space-y-4">
+              {/* Attachment Category (Segmented Buttons matching Image 2) */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Attachment Category *
+                </label>
+                <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setTrackCategory('plus_one')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      trackCategory === 'plus_one'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Mic2 className="w-3.5 h-3.5 text-sky-500" />
+                    <span>Plus One (+1)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTrackCategory('minus_one')}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      trackCategory === 'minus_one'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    }`}
+                  >
+                    <Music className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Minus One (-1)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Track / Attachment Title */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Track / Attachment Title
+                </label>
+                <input
+                  type="text"
+                  value={trackTitle}
+                  onChange={(e) => setTrackTitle(e.target.value)}
+                  placeholder={
+                    trackCategory === 'plus_one'
+                      ? 'e.g. Studio Vocal Reference / Plus One'
+                      : 'e.g. Acoustic Backing Track / Key of G'
+                  }
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              {/* URL or File Attachment with Paperclip Inside */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Paste Web / YouTube Link or Attach Sound/Video File *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={trackUrlOrData}
+                    onChange={(e) => {
+                      setTrackUrlOrData(e.target.value);
+                      setTrackFileName('');
+                      setTrackType(
+                        e.target.value.includes('youtube.com') ||
+                        e.target.value.includes('youtu.be') ||
+                        e.target.value.endsWith('.mp4')
+                          ? 'video'
+                          : 'link'
+                      );
+                    }}
+                    placeholder="https://... or click paperclip on the right"
+                    className="w-full pl-3 pr-11 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleTriggerFileUpload((url, fileName, fileType) => {
+                        setTrackUrlOrData(url);
+                        setTrackFileName(fileName);
+                        setTrackType(fileType);
+                        if (!trackTitle.trim()) {
+                          setTrackTitle(fileName.replace(/\.[^/.]+$/, ''));
+                        }
+                      })
+                    }
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                    title="Attach Audio or Video File from Device"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Paste any YouTube/audio link or click the paperclip icon on the right to attach sound or video files.
+                </p>
+
+                {trackFileName && (
+                  <div className="mt-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                    <span className="truncate font-semibold">✓ Attached: {trackFileName}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTrackUrlOrData('');
+                        setTrackFileName('');
+                      }}
+                      className="text-emerald-600 hover:text-emerald-800 dark:hover:text-white ml-2 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingTrackModal(false);
+                    setTrackModalGroup(null);
+                    setEditingTrackIndex(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!trackUrlOrData.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  Save Attachment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ADD / EDIT VOCAL PART MODAL */}
+      {/* ========================================================================= */}
+      {isAddingVocalPartModal && vocalPartModalGroup && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                    {editingVocalPartIndex !== null ? 'Edit Vocal Part' : 'Add Vocal Part'}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Assign vocal parts (Soprano, Alto, Tenor, Bass) and attach vocal audio stems.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingVocalPartModal(false);
+                  setVocalPartModalGroup(null);
+                  setEditingVocalPartIndex(null);
+                }}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveVocalPartModalSubmit} className="p-4 sm:p-5 space-y-4">
+              {/* Vocal Part Selection */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Vocal Part *
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {VOCAL_PART_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setVocalPartLabel(opt)}
+                      className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
+                        vocalPartLabel === opt
+                          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900 dark:border-slate-100 shadow-xs'
+                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+
+                {vocalPartLabel === 'Custom' && (
+                  <div className="mt-2">
+                    <input
+                      type="text"
+                      value={vocalPartCustomLabel}
+                      onChange={(e) => setVocalPartCustomLabel(e.target.value)}
+                      placeholder="Enter custom vocal part (e.g. Descant, Trio Lead)..."
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
+                      autoFocus
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Assigned Member(s) with Autofill */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Assigned Member(s)
+                </label>
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                  <AutofillInput
+                    value={vocalPartAssignedUsers}
+                    onChange={(val) => setVocalPartAssignedUsers(val)}
+                    suggestions={directoryNames}
+                    placeholder="e.g. Marius, Sis. Grace, Sis. Hannah"
+                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Type a name to autofill from directory. Comma-separate for multiple singers.
+                </p>
+              </div>
+
+              {/* Vocal Stem Audio Link or Upload */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Vocal Stem Audio Link or File
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={vocalPartAudioUrl}
+                    onChange={(e) => {
+                      setVocalPartAudioUrl(e.target.value);
+                      setVocalPartFileName('');
+                    }}
+                    placeholder="Paste audio link or click paperclip on the right..."
+                    className="w-full pl-3 pr-11 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleTriggerFileUpload((url, fileName) => {
+                        setVocalPartAudioUrl(url);
+                        setVocalPartFileName(fileName);
+                      })
+                    }
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                    title="Attach Audio Stem File from Device"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Paste any audio link or click the paperclip icon on the right to attach vocal stem audio.
+                </p>
+
+                {vocalPartFileName && (
+                  <div className="mt-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                    <span className="truncate font-semibold">✓ Attached Stem: {vocalPartFileName}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVocalPartAudioUrl('');
+                        setVocalPartFileName('');
+                      }}
+                      className="text-emerald-600 hover:text-emerald-800 dark:hover:text-white ml-2 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingVocalPartModal(false);
+                    setVocalPartModalGroup(null);
+                    setEditingVocalPartIndex(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer"
+                >
+                  Save Vocal Part
                 </button>
               </div>
             </form>
