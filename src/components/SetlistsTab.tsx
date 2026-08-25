@@ -55,11 +55,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
   const [showCustomTitle, setShowCustomTitle] = useState(false);
-  const [welcomeSongsList, setWelcomeSongsList] = useState<string[]>(() => loadWelcomeSongs());
-  const [newWelcomeSongInput, setNewWelcomeSongInput] = useState('');
-  const [showAddWelcomeSong, setShowAddWelcomeSong] = useState(false);
-  const [newClosingSongInput, setNewClosingSongInput] = useState('');
-  const [showAddClosingSong, setShowAddClosingSong] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
 
   // Sync initialSelectedSetlistId prop if provided
@@ -90,13 +85,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const directoryNames = getAllDirectoryNames();
   const songTitleSuggestions = songs.map((s) => s.title);
 
-  // Marked songs from library
-  const markedWelcomeSongs = songs.filter((s) => s.isWelcomeSong).map((s) => s.title);
-  const welcomeOptions = Array.from(new Set([...markedWelcomeSongs, ...welcomeSongsList, 'Napakaligaya'])).filter(Boolean);
+  // Marked songs from library (plus defaults)
+  const markedWelcomeSongs = Array.from(
+    new Set(['Napakaligaya', ...songs.filter((s) => s.isWelcomeSong).map((s) => s.title)])
+  ).filter(Boolean);
 
-  const markedClosingSongs = songs.filter((s) => s.isClosingSong).map((s) => s.title);
-  const defaultClosingSongs = ['Give Thanks', 'Salamat Panginoon', 'Dakilang Katapatan', 'Goodness of God', 'Tanging Alay'];
-  const closingOptions = Array.from(new Set([...markedClosingSongs, ...defaultClosingSongs])).filter(Boolean);
+  const markedClosingSongs = Array.from(
+    new Set(['Give Thanks', ...songs.filter((s) => s.isClosingSong).map((s) => s.title)])
+  ).filter(Boolean);
 
   // Sort upcoming soonest first, then past below
   const sortedSetlists = sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date);
@@ -177,33 +173,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     };
   }, [isEditing, editingSetlist, selectedSetlistId]);
 
-  // Handle adding a new custom welcome song
-  const handleAddNewWelcomeSong = () => {
-    if (!newWelcomeSongInput.trim()) return;
-    const clean = newWelcomeSongInput.trim();
-    if (!welcomeSongsList.includes(clean)) {
-      const updated = [...welcomeSongsList, clean];
-      saveWelcomeSongs(updated);
-      setWelcomeSongsList(updated);
-    }
-    if (editingSetlist) {
-      setEditingSetlist({ ...editingSetlist, welcomeSong: clean });
-    }
-    setNewWelcomeSongInput('');
-    setShowAddWelcomeSong(false);
-  };
-
-  // Handle adding a new custom closing song
-  const handleAddNewClosingSong = () => {
-    if (!newClosingSongInput.trim()) return;
-    const clean = newClosingSongInput.trim();
-    if (editingSetlist) {
-      setEditingSetlist({ ...editingSetlist, closingSong: clean });
-    }
-    setNewClosingSongInput('');
-    setShowAddClosingSong(false);
-  };
-
   // Start creating Sunday Setlist
   const handleStartCreateSunday = () => {
     const nextSun = getNextSundayStr();
@@ -214,8 +183,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       type: 'sunday',
       date: nextSun,
       presider: '',
-      welcomeSong: welcomeOptions[0] || 'Napakaligaya',
-      closingSong: closingOptions[0] || 'Give Thanks',
+      welcomeSong: 'Napakaligaya',
+      closingSong: 'Give Thanks',
       themeSong: monthTheme || '',
       sundaySchool: {
         songLeader: '',
@@ -278,7 +247,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         title: 'Youth Fellowship',
         date: nextSun,
         presider: '',
-        welcomeSong: welcomeOptions[0] || 'Napakaligaya',
+        welcomeSong: 'Napakaligaya',
         closingSong: '',
         program: {
           songLeader: '',
@@ -299,8 +268,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         title: '',
         date: nextSun,
         presider: '',
-        welcomeSong: welcomeOptions[0] || 'Napakaligaya',
-        closingSong: closingOptions[0] || 'Give Thanks',
+        welcomeSong: 'Napakaligaya',
+        closingSong: 'Give Thanks',
         program: {
           songLeader: '',
           songs: [
@@ -1135,101 +1104,45 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {/* Welcome Song & Closing Song & Month Theme Song */}
               {editingSetlist.type !== 'prayer_meeting' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  {/* Welcome Song Dropdown */}
+                  {/* Welcome Song Selection */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                         Welcome Song
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddWelcomeSong(!showAddWelcomeSong)}
-                        className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
-                      >
-                        {showAddWelcomeSong ? 'Select from list' : '+ Custom song'}
-                      </button>
                     </div>
 
-                    <div className="space-y-1.5">
-                      {!showAddWelcomeSong ? (
-                        <select
-                          value={editingSetlist.welcomeSong || welcomeOptions[0] || 'Napakaligaya'}
-                          onChange={(e) => setEditingSetlist({ ...editingSetlist, welcomeSong: e.target.value })}
-                          className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white"
-                        >
-                          {welcomeOptions.map((ws) => (
-                            <option key={ws} value={ws}>
-                              {markedWelcomeSongs.includes(ws) ? `★ ${ws} (Marked Welcome Song)` : ws}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={newWelcomeSongInput}
-                            onChange={(e) => setNewWelcomeSongInput(e.target.value)}
-                            placeholder="Type new welcome song title..."
-                            className="flex-1 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddNewWelcomeSong}
-                            className="px-3 py-2 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold cursor-pointer"
-                          >
-                            Set
-                          </button>
-                        </div>
-                      )}
+                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                      <AutofillInput
+                        value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
+                        onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
+                        suggestions={markedWelcomeSongs}
+                        allSuggestions={songTitleSuggestions}
+                        defaultValue="Napakaligaya"
+                        placeholder="Type or select welcome song..."
+                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                      />
                     </div>
                   </div>
 
-                  {/* Closing Song Dropdown */}
+                  {/* Closing Song Selection */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                         Closing Song
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddClosingSong(!showAddClosingSong)}
-                        className="text-[11px] text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline cursor-pointer"
-                      >
-                        {showAddClosingSong ? 'Select from list' : '+ Custom song'}
-                      </button>
                     </div>
 
-                    <div className="space-y-1.5">
-                      {!showAddClosingSong ? (
-                        <select
-                          value={editingSetlist.closingSong || closingOptions[0] || 'Give Thanks'}
-                          onChange={(e) => setEditingSetlist({ ...editingSetlist, closingSong: e.target.value })}
-                          className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white"
-                        >
-                          {closingOptions.map((cs) => (
-                            <option key={cs} value={cs}>
-                              {markedClosingSongs.includes(cs) ? `★ ${cs} (Marked Closing Song)` : cs}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            type="text"
-                            value={newClosingSongInput}
-                            onChange={(e) => setNewClosingSongInput(e.target.value)}
-                            placeholder="Type new closing song title..."
-                            className="flex-1 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddNewClosingSong}
-                            className="px-3 py-2 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold cursor-pointer"
-                          >
-                            Set
-                          </button>
-                        </div>
-                      )}
+                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                      <AutofillInput
+                        value={editingSetlist.closingSong ?? 'Give Thanks'}
+                        onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
+                        suggestions={markedClosingSongs}
+                        allSuggestions={songTitleSuggestions}
+                        defaultValue="Give Thanks"
+                        placeholder="Type or select closing song..."
+                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                      />
                     </div>
                   </div>
 
