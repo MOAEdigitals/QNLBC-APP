@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle } from '../utils/storage';
@@ -27,7 +27,10 @@ import {
   Repeat,
   Sparkles,
   BookmarkCheck,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
+import { searchSong, getSongUsageHistory, SongUsageHistory } from '../utils/songSearch';
 
 interface SongsTabProps {
   songs: Song[];
@@ -189,15 +192,35 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     return a.title.localeCompare(b.title);
   });
 
-  const filteredSongs = sortedSongs.filter((song) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      song.title.toLowerCase().includes(q) ||
-      (song.artist && song.artist.toLowerCase().includes(q)) ||
-      song.lyrics.toLowerCase().includes(q)
-    );
-  });
+  const songSearchResults = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return sortedSongs.map((song) => ({
+        song,
+        matches: true,
+        score: 100,
+        matchedField: 'none' as const,
+        lyricSnippet: undefined,
+        history: getSongUsageHistory(song.title, setlists),
+      }));
+    }
+
+    const results = sortedSongs
+      .map((song) => {
+        const searchRes = searchSong(song, searchQuery);
+        const history = getSongUsageHistory(song.title, setlists);
+        return {
+          ...searchRes,
+          history,
+        };
+      })
+      .filter((r) => r.matches);
+
+    // When actively searching, sort by search match relevance score descending
+    results.sort((a, b) => b.score - a.score);
+    return results;
+  }, [sortedSongs, searchQuery, setlists]);
+
+  const filteredSongs = songSearchResults.map((r) => r.song);
 
   const selectedSong = songs.find((s) => s.id === selectedSongId);
 
@@ -452,13 +475,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       </div>
 
       {/* Songs List with In-Place Accordion Expansion */}
-      {filteredSongs.length === 0 ? (
+      {songSearchResults.length === 0 ? (
         <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
           No songs found matching "{searchQuery}".
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredSongs.map((song) => {
+          {songSearchResults.map((result) => {
+            const { song, history, matchedField, lyricSnippet } = result;
             const isSelected = selectedSongId === song.id;
             const attachments = song.attachments || [];
             const plusOneList = attachments.filter((a) => a.category === 'plus_one');
@@ -511,12 +535,39 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           Closing
                         </span>
                       )}
+
+                      {/* Repetition Warning: Sung recently (within 14 days) */}
+                      {history.isRecent && (
+                        <span
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60 shrink-0"
+                          title={`Sung recently on ${history.formattedLastDate || 'recent date'}`}
+                        >
+                          <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                          <span>Sung {history.relativeTimeAgo}</span>
+                        </span>
+                      )}
                     </div>
 
-                    {song.artist && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                        {song.artist}
-                      </p>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap mt-0.5">
+                      {song.artist && <span className="truncate">{song.artist}</span>}
+                      {song.artist && <span className="opacity-30">•</span>}
+                      {history.relativeTimeAgo ? (
+                        <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1 text-[11px]">
+                          <Clock className="w-3 h-3 opacity-60 inline" />
+                          <span>Last sung: {history.relativeTimeAgo}</span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-400/70 dark:text-slate-600 text-[11px]">
+                          Not scheduled yet
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Matched Lyric Snippet on Search */}
+                    {matchedField === 'lyrics' && lyricSnippet && (
+                      <div className="text-xs text-emerald-600 dark:text-emerald-400 italic mt-1 truncate max-w-md">
+                        🎵 {lyricSnippet}
+                      </div>
                     )}
                   </div>
 
@@ -553,6 +604,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 {/* IN-LINE EXPANDED VIEW (When clicked directly in place!) */}
                 {isSelected && (
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
+                    {/* Usage history summary */}
+                    <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2 pt-1 border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                      <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>
+                        {history.totalCount > 0
+                          ? `Scheduled in ${history.totalCount} ${history.totalCount === 1 ? 'setlist' : 'setlists'} • Last sung on ${history.formattedLastDate} (${history.relativeTimeAgo})`
+                          : 'Not yet scheduled in any church setlist'}
+                      </span>
+                    </div>
                     {/* Action Bar (With 3-dot menu for Mark as Welcome/Closing, Edit, and Delete) */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                       <div className="flex flex-wrap items-center gap-2">

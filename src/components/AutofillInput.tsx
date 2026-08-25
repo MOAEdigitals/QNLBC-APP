@@ -1,4 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Song, Setlist } from '../types';
+import { fuzzyMatchString, searchSong, getSongUsageHistory, SongUsageHistory } from '../utils/songSearch';
+import { Clock, AlertTriangle } from 'lucide-react';
+
+export interface DisplaySuggestionItem {
+  title: string;
+  songObj?: Song;
+  matchedField?: 'title' | 'artist' | 'lyrics' | 'none';
+  lyricSnippet?: string;
+  score?: number;
+  history?: SongUsageHistory;
+}
 
 interface AutofillInputProps {
   value: string;
@@ -6,6 +18,8 @@ interface AutofillInputProps {
   suggestions: string[]; // Primary suggestions (e.g. marked welcome/closing songs)
   allSuggestions?: string[]; // Fallback full library suggestions when user types
   defaultValue?: string; // Default song (e.g. 'Napakaligaya' or 'Give Thanks')
+  songs?: Song[]; // Full song library for lyrics search and metadata
+  setlists?: Setlist[]; // Setlists for last-sung history & repetition warnings
   placeholder?: string;
   className?: string;
   inputClassName?: string;
@@ -22,6 +36,8 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
   suggestions,
   allSuggestions,
   defaultValue,
+  songs,
+  setlists,
   placeholder,
   className = '',
   inputClassName = '',
@@ -35,51 +51,121 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const cleanVal = (value || '').trim().toLowerCase();
+  const cleanVal = (value || '').trim();
+  const lowerVal = cleanVal.toLowerCase();
   const cleanDefault = (defaultValue || '').trim().toLowerCase();
 
-  // Determine suggestions list based on user typing & defaults
-  let displayedItems: string[] = [];
+  // Pre-calculate usage history for current value (if setlists provided)
+  const currentValueHistory = useMemo(() => {
+    if (!setlists || !cleanVal) return null;
+    return getSongUsageHistory(cleanVal, setlists);
+  }, [cleanVal, setlists]);
 
-  if (allSuggestions && allSuggestions.length > 0) {
-    // 1. If empty or matching default value, show marked badge songs only
-    if (!cleanVal || (cleanDefault && cleanVal === cleanDefault)) {
-      displayedItems = suggestions;
-    } else {
-      // 2. If user deleted default or typed custom text, search across the whole song list
-      const filteredAll = allSuggestions.filter((s) =>
-        s.toLowerCase().includes(cleanVal)
-      );
-
-      // Prioritize marked badge songs that match the search query, then the rest
-      const primaryMatches = suggestions.filter((s) =>
-        s.toLowerCase().includes(cleanVal)
-      );
-      const otherMatches = filteredAll.filter((s) => !primaryMatches.includes(s));
-
-      displayedItems = [...primaryMatches, ...otherMatches];
+  // Compute displayed suggestions with fuzzy match, lyrics search, and usage history
+  const displayedItems: DisplaySuggestionItem[] = useMemo(() => {
+    // Lookup map for Song objects by lowercase title
+    const songMap = new Map<string, Song>();
+    if (songs) {
+      for (const s of songs) {
+        songMap.set(s.title.toLowerCase().trim(), s);
+      }
     }
-  } else {
-    // Standard single-list autofill
-    if (!cleanVal) {
-      displayedItems = showAllOnFocus ? suggestions : [];
-    } else {
-      displayedItems = suggestions.filter((s) =>
-        s.toLowerCase().includes(cleanVal)
-      );
-    }
-  }
 
-  // Active pool for prefix match
-  const searchPool = allSuggestions && allSuggestions.length > 0 ? allSuggestions : suggestions;
+    const buildItem = (
+      title: string,
+      matchedField: 'title' | 'artist' | 'lyrics' | 'none' = 'title',
+      lyricSnippet?: string,
+      score: number = 50
+    ): DisplaySuggestionItem => {
+      const songObj = songMap.get(title.toLowerCase().trim());
+      const history = setlists ? getSongUsageHistory(title, setlists) : undefined;
+      return {
+        title,
+        songObj,
+        matchedField,
+        lyricSnippet,
+        score,
+        history,
+      };
+    };
+
+    // 1. If empty query OR matching default value
+    if (!lowerVal || (cleanDefault && lowerVal === cleanDefault)) {
+      return suggestions.map((s) => buildItem(s, 'none', undefined, 100));
+    }
+
+    // 2. If songs array is available, perform full fuzzy search across titles, artists, and lyrics
+    if (songs && songs.length > 0) {
+      const isDualMode = allSuggestions && allSuggestions.length > 0;
+      const targetSongList = isDualMode ? songs : songs.filter((s) => suggestions.includes(s.title));
+
+      const scoredResults: DisplaySuggestionItem[] = [];
+
+      for (const s of targetSongList) {
+        const searchRes = searchSong(s, lowerVal);
+        if (searchRes.matches) {
+          const isPrimary = suggestions.includes(s.title);
+          const boostedScore = searchRes.score + (isPrimary ? 15 : 0);
+          const history = setlists ? getSongUsageHistory(s.title, setlists) : undefined;
+
+          scoredResults.push({
+            title: s.title,
+            songObj: s,
+            matchedField: searchRes.matchedField,
+            lyricSnippet: searchRes.lyricSnippet,
+            score: boostedScore,
+            history,
+          });
+        }
+      }
+
+      // Also include any raw suggestions not in the song library that match fuzzy query
+      const knownTitles = new Set(scoredResults.map((r) => r.title.toLowerCase()));
+      const pool = allSuggestions && allSuggestions.length > 0 ? allSuggestions : suggestions;
+      for (const raw of pool) {
+        if (!knownTitles.has(raw.toLowerCase())) {
+          const match = fuzzyMatchString(raw, lowerVal);
+          if (match.matches) {
+            scoredResults.push(buildItem(raw, 'title', undefined, match.score));
+          }
+        }
+      }
+
+      // Sort by score descending
+      scoredResults.sort((a, b) => (b.score || 0) - (a.score || 0));
+      return scoredResults;
+    }
+
+    // 3. Fallback string-based fuzzy search
+    const pool = allSuggestions && allSuggestions.length > 0 ? allSuggestions : suggestions;
+    const results: DisplaySuggestionItem[] = [];
+
+    for (const title of pool) {
+      const match = fuzzyMatchString(title, lowerVal);
+      if (match.matches) {
+        const isPrimary = suggestions.includes(title);
+        results.push(buildItem(title, 'title', undefined, match.score + (isPrimary ? 10 : 0)));
+      }
+    }
+
+    results.sort((a, b) => (b.score || 0) - (a.score || 0));
+    return results;
+  }, [lowerVal, cleanDefault, suggestions, allSuggestions, songs, setlists]);
+
+  // Active pool for ghost text prefix match
+  const searchPool = useMemo(() => {
+    if (allSuggestions && allSuggestions.length > 0) return allSuggestions;
+    if (songs && songs.length > 0) return songs.map((s) => s.title);
+    return suggestions;
+  }, [allSuggestions, songs, suggestions]);
+
   const bestPrefixMatch = searchPool.find(
     (s) =>
-      cleanVal &&
-      s.toLowerCase().startsWith(cleanVal) &&
+      lowerVal &&
+      s.toLowerCase().startsWith(lowerVal) &&
       s.length > (value || '').length
   );
 
-  // Compute ghost suffix text
   const ghostSuffix = bestPrefixMatch
     ? bestPrefixMatch.slice((value || '').length)
     : '';
@@ -117,7 +203,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
     } else if (e.key === 'Enter') {
       if (highlightedIndex >= 0 && displayedItems[highlightedIndex]) {
         e.preventDefault();
-        const selected = displayedItems[highlightedIndex];
+        const selected = displayedItems[highlightedIndex].title;
         onChange(selected);
         onSelectSuggestion?.(selected);
         setIsOpen(false);
@@ -129,8 +215,9 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         setIsOpen(false);
       } else if (displayedItems.length > 0 && isOpen) {
         e.preventDefault();
-        onChange(displayedItems[0]);
-        onSelectSuggestion?.(displayedItems[0]);
+        const selected = displayedItems[0].title;
+        onChange(selected);
+        onSelectSuggestion?.(selected);
         setIsOpen(false);
       }
     } else if (e.key === 'Tab' && bestPrefixMatch) {
@@ -143,9 +230,9 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
     }
   };
 
-  const handleSelect = (val: string) => {
-    onChange(val);
-    onSelectSuggestion?.(val);
+  const handleSelect = (item: DisplaySuggestionItem) => {
+    onChange(item.title);
+    onSelectSuggestion?.(item.title);
     setIsOpen(false);
     setHighlightedIndex(-1);
   };
@@ -188,32 +275,90 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
         />
       </div>
 
-      {/* Suggestion Dropdown - Matches Image 1 */}
+      {/* Subtle Inline Repetition Warning (if entered song was sung recently in the last 14 days) */}
+      {currentValueHistory?.isRecent && !isOpen && (
+        <div className="flex items-center gap-1.5 mt-1 px-1 text-[11px] text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="w-3 h-3 shrink-0" />
+          <span>
+            Sung recently on {currentValueHistory.formattedLastDate} ({currentValueHistory.relativeTimeAgo})
+          </span>
+        </div>
+      )}
+
+      {/* Suggestion Dropdown List */}
       {isOpen && displayedItems.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-h-60 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-h-64 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
           {displayedItems.map((item, idx) => {
             const isSelected =
               idx === highlightedIndex ||
-              item.toLowerCase() === cleanVal;
+              item.title.toLowerCase() === lowerVal;
 
             return (
               <button
-                key={item + idx}
+                key={item.title + idx}
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleSelect(item);
                 }}
                 onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`w-full px-4 py-3 text-left flex items-center justify-between cursor-pointer transition-colors ${
+                className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between cursor-pointer transition-colors ${
                   isSelected
                     ? 'bg-slate-100 dark:bg-slate-800/90 text-slate-900 dark:text-white font-semibold'
                     : 'text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                 }`}
               >
-                <span className="text-sm font-medium truncate pr-4">
-                  {item}
-                </span>
+                <div className="min-w-0 pr-3 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                      {item.title}
+                    </span>
+
+                    {/* Subtle Repetition Warning Pill */}
+                    {item.history?.isRecent && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60 shrink-0">
+                        <AlertTriangle className="w-2.5 h-2.5" />
+                        <span>Sung {item.history.relativeTimeAgo}</span>
+                      </span>
+                    )}
+
+                    {/* Welcome / Closing Badges if present */}
+                    {item.songObj?.isWelcomeSong && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shrink-0">
+                        Welcome
+                      </span>
+                    )}
+                    {item.songObj?.isClosingSong && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
+                        Closing
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Subtitle: Lyric match snippet OR subtle Last Sung indicator */}
+                  <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap">
+                    {item.matchedField === 'lyrics' && item.lyricSnippet && (
+                      <span className="text-emerald-600 dark:text-emerald-400 italic text-[11px] truncate max-w-xs">
+                        🎵 {item.lyricSnippet}
+                      </span>
+                    )}
+
+                    {/* Subtle/grayed last sung indicator */}
+                    {item.history && item.history.relativeTimeAgo && !item.history.isRecent && (
+                      <span className="text-slate-400 dark:text-slate-500 text-[11px] flex items-center gap-1">
+                        <Clock className="w-3 h-3 opacity-60" />
+                        <span>Last: {item.history.relativeTimeAgo}</span>
+                      </span>
+                    )}
+
+                    {item.history && !item.history.relativeTimeAgo && (
+                      <span className="text-slate-400/80 dark:text-slate-600 text-[11px]">
+                        Not yet scheduled
+                      </span>
+                    )}
+                  </div>
+                </div>
+
                 <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 shrink-0">
                   Select
                 </span>
