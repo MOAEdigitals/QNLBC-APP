@@ -46,15 +46,30 @@ const COLLECTIONS = {
   USERS: 'users',
 };
 
-// Generic sanitize helper to avoid undefined fields in Firestore
+// Generic recursive sanitize helper to avoid undefined fields anywhere in Firestore documents
 function sanitizeDoc<T>(data: T): Record<string, any> {
-  const clean: Record<string, any> = {};
-  for (const [key, value] of Object.entries(data as any)) {
-    if (value !== undefined) {
-      clean[key] = value;
+  if (data === null || data === undefined) return {} as Record<string, any>;
+
+  const cleanObject = (obj: any): any => {
+    if (obj === null || obj === undefined) return null;
+    if (typeof obj !== 'object') return obj;
+
+    if (Array.isArray(obj)) {
+      return obj
+        .filter((item) => item !== undefined)
+        .map((item) => cleanObject(item));
     }
-  }
-  return clean;
+
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        clean[key] = cleanObject(value);
+      }
+    }
+    return clean;
+  };
+
+  return cleanObject(data);
 }
 
 // Subscribe to real-time updates for any collection
@@ -248,6 +263,15 @@ export async function initializeFirestoreCloudSeed() {
       const initialSetlists = loadSetlists();
       for (const setlist of initialSetlists) {
         await setDoc(doc(db, COLLECTIONS.SETLISTS, setlist.id), sanitizeDoc(setlist), { merge: true });
+      }
+    } else {
+      // If user created local setlists before internet connected or while offline, ensure they are synced to Firestore
+      const localSetlists = loadSetlists();
+      const existingIds = new Set(existingSetlists.docs.map((d) => d.id));
+      for (const s of localSetlists) {
+        if (!existingIds.has(s.id)) {
+          await setDoc(doc(db, COLLECTIONS.SETLISTS, s.id), sanitizeDoc(s), { merge: true });
+        }
       }
     }
 
