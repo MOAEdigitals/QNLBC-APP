@@ -104,8 +104,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
 
-  // Song creation inside Practice session state
-  const [isCreatingSongInPractice, setIsCreatingSongInPractice] = useState(false);
+  // Song artist input inside Practice session state
   const [newSongArtist, setNewSongArtist] = useState('');
   const [showSongArtistInput, setShowSongArtistInput] = useState(false);
 
@@ -328,27 +327,38 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const trimmedTitle = editingPractice.songTitle.trim();
     let effectiveSongId = editingPractice.songId;
 
-    // If user created a new song or typed a song not yet in the library, save it to the Songs library
+    // Check if song exists in songs library
     const matchedSong = songs.find(
       (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
     );
 
-    if (isCreatingSongInPractice || !matchedSong) {
-      if (!matchedSong && onSaveSong) {
-        const newSong: Song = {
-          id: `song-${Date.now()}`,
-          title: trimmedTitle,
-          artist: newSongArtist.trim() || undefined,
-          lyrics: editingPractice.lyrics || '',
-          updatedAt: new Date().toISOString(),
-        };
-        onSaveSong(newSong);
-        effectiveSongId = newSong.id;
-      } else if (matchedSong) {
-        effectiveSongId = matchedSong.id;
-      }
+    // If song is not in the library, save it to the Songs library so it's persisted in the Songs Tab
+    if (!matchedSong && onSaveSong) {
+      const newSong: Song = {
+        id: `song-${Date.now()}`,
+        title: trimmedTitle,
+        artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : undefined,
+        lyrics: editingPractice.lyrics || '',
+        updatedAt: new Date().toISOString(),
+      };
+      onSaveSong(newSong);
+      effectiveSongId = newSong.id;
     } else if (matchedSong) {
       effectiveSongId = matchedSong.id;
+      // If user provided/updated artist or lyrics, save update to the song in library
+      if (
+        (showSongArtistInput && newSongArtist.trim() && matchedSong.artist !== newSongArtist.trim()) ||
+        (editingPractice.lyrics && editingPractice.lyrics !== matchedSong.lyrics)
+      ) {
+        if (onSaveSong) {
+          onSaveSong({
+            ...matchedSong,
+            artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : matchedSong.artist,
+            lyrics: editingPractice.lyrics || matchedSong.lyrics,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
     }
 
     const entryToSave: PracticeGroupEntry = {
@@ -356,8 +366,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       groupName: editingPractice.groupName.trim(),
       songTitle: trimmedTitle,
       songId: effectiveSongId,
-      targetDate: editingPractice.targetDate || '',
-      assignedEvent: editingPractice.assignedEvent?.trim() || '',
+      assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
       lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
       notes: editingPractice.notes?.trim() || '',
       customAttachments: editingPractice.customAttachments || [],
@@ -372,28 +381,32 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     setSelectedPracticeId(entryToSave.id);
     setIsEditingPractice(false);
     setEditingPractice(null);
-    setIsCreatingSongInPractice(false);
     setNewSongArtist('');
     setShowSongArtistInput(false);
   };
 
-  // Select song from library for Practice (Title & Lyrics ONLY, NO attachments inherited)
+  // Select song from library for Practice (Title, Artist & Lyrics Autofilled)
   const handleSelectSongForPractice = (songTitleInput: string) => {
+    const trimmed = songTitleInput.trim();
     const matched = songs.find(
-      (s) => s.title.toLowerCase() === songTitleInput.trim().toLowerCase()
+      (s) => s.title.toLowerCase() === trimmed.toLowerCase()
     );
     if (matched) {
       setEditingPractice((prev) => ({
         ...prev,
         songTitle: matched.title,
         songId: matched.id,
-        lyrics: matched.lyrics || '', // Clean slate: title & lyrics only!
+        lyrics: matched.lyrics || prev?.lyrics || '',
       }));
-      setIsCreatingSongInPractice(false);
+      if (matched.artist) {
+        setNewSongArtist(matched.artist);
+        setShowSongArtistInput(true);
+      }
     } else {
       setEditingPractice((prev) => ({
         ...prev,
         songTitle: songTitleInput,
+        songId: undefined,
       }));
     }
   };
@@ -560,7 +573,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         ) : (
           <button
             onClick={() => {
-              setIsCreatingSongInPractice(false);
               setNewSongArtist('');
               setShowSongArtistInput(false);
               setEditingPractice({
@@ -1163,9 +1175,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              setIsCreatingSongInPractice(false);
-                              setNewSongArtist('');
-                              setShowSongArtistInput(false);
+                              const matchedSong = songs.find(
+                                (s) => s.id === group.songId || s.title.toLowerCase() === group.songTitle.toLowerCase()
+                              );
+                              if (matchedSong?.artist) {
+                                setNewSongArtist(matchedSong.artist);
+                                setShowSongArtistInput(true);
+                              } else {
+                                setNewSongArtist('');
+                                setShowSongArtistInput(false);
+                              }
                               setEditingPractice(group);
                               setIsEditingPractice(true);
                             }}
@@ -1648,27 +1667,27 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* PRACTICE MODAL (Create / Edit Singing Group Practice) */}
       {/* ========================================================================= */}
       {isEditingPractice && editingPractice && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-6">
+            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Users className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                 <span>
                   {editingPractice.id && practiceEntries.some((p) => p.id === editingPractice.id)
-                    ? 'Edit Practice Session & Vocal Stems'
-                    : 'New Practice Session & Vocal Stems'}
+                    ? 'Edit Practice Session'
+                    : 'Add New Practice Session'}
                 </span>
               </h3>
               <button
                 onClick={() => setIsEditingPractice(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePracticeSubmit} className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
-              {/* 1. SINGER / GROUP NAME */}
+            <form onSubmit={handleSavePracticeSubmit} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Singer / Group Name */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Group Name *
@@ -1679,12 +1698,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
                     suggestions={directoryNames}
                     placeholder="e.g. Sunday Choir, Sis. Sarah, Youth Trio, Men's Ensemble"
-                    inputClassName="p-2 text-sm font-bold text-slate-900 dark:text-white"
+                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>
               </div>
 
-              {/* 2. TARGET EVENT / OCCASION (OPTIONAL) */}
+              {/* Target Event / Occasion (Optional) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Target Event / Occasion (Optional)
@@ -1694,182 +1713,92 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   value={editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent : 'Sunday Service'}
                   onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
                   placeholder="e.g. Sunday Service, Youth Fellowship"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-900 dark:text-white"
+                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium"
                 />
               </div>
 
-              {/* 3. SONG SELECTION OR CREATE SONG */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                {!isCreatingSongInPractice ? (
-                  <div className="space-y-2">
+              {/* Song Title (Autofill from Songs tab database) */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Song Title *
+                </label>
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                  <AutofillInput
+                    value={editingPractice.songTitle || ''}
+                    onChange={(val) => handleSelectSongForPractice(val)}
+                    suggestions={songTitleSuggestions}
+                    songs={songs}
+                    placeholder="e.g. Dakilang Katapatan"
+                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Optional Artist / Origin with "Add artist/origin" button (exact match of Songs Tab!) */}
+              <div>
+                {showSongArtistInput ? (
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Search Song from Library *
+                        Artist / Composer / Hymn Origin
                       </label>
                       <button
                         type="button"
                         onClick={() => {
-                          setIsCreatingSongInPractice(true);
-                          setEditingPractice({
-                            ...editingPractice,
-                            songId: undefined,
-                          });
+                          setShowSongArtistInput(false);
+                          setNewSongArtist('');
                         }}
-                        className="text-xs font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 flex items-center gap-1 cursor-pointer"
+                        className="text-[11px] text-slate-400 hover:text-rose-500 cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Create Song</span>
+                        Remove
                       </button>
                     </div>
-
-                    <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
-                      <AutofillInput
-                        value={editingPractice.songTitle || ''}
-                        onChange={(val) => {
-                          if (!val.trim()) {
-                            setEditingPractice({
-                              ...editingPractice,
-                              songTitle: '',
-                              songId: undefined,
-                              lyrics: '',
-                            });
-                          } else {
-                            handleSelectSongForPractice(val);
-                          }
-                        }}
-                        suggestions={songTitleSuggestions}
-                        songs={songs}
-                        placeholder="Type to search song title from library (autofill)..."
-                        inputClassName="p-2 text-sm font-semibold text-slate-900 dark:text-white"
-                      />
-                    </div>
-
-                    {editingPractice.songTitle && editingPractice.songId ? (
-                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                        <div className="min-w-0 pr-2">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                            Selected: {editingPractice.songTitle}
-                          </span>
-                          {editingPractice.lyrics && (
-                            <span className="text-[11px] text-slate-500 block truncate">
-                              {editingPractice.lyrics.slice(0, 70)}...
-                            </span>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingPractice({
-                              ...editingPractice,
-                              songTitle: '',
-                              songId: undefined,
-                              lyrics: '',
-                            });
-                          }}
-                          className="text-xs text-rose-500 hover:text-rose-600 font-semibold px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between text-[11px] text-slate-500 px-0.5">
-                        <span>Select a song from library or create a new one.</span>
-                        <button
-                          type="button"
-                          onClick={() => setIsCreatingSongInPractice(true)}
-                          className="underline hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer font-medium"
-                        >
-                          Song not in library? Click Create Song
-                        </button>
-                      </div>
-                    )}
+                    <input
+                      type="text"
+                      value={newSongArtist}
+                      onChange={(e) => setNewSongArtist(e.target.value)}
+                      placeholder="e.g. Papuri / Arnel De Pano / Hymn"
+                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
+                      autoFocus
+                    />
                   </div>
                 ) : (
-                  /* Inline "Create Song" matching Add Song from Songs Tab */
-                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <Music className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
-                        <span>Create New Song (Adds to Songs tab & Practice)</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsCreatingSongInPractice(false)}
-                        className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer underline"
-                      >
-                        Search Library Instead
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                        Song Title *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={editingPractice.songTitle || ''}
-                        onChange={(e) => setEditingPractice({ ...editingPractice, songTitle: e.target.value })}
-                        placeholder="Song Title..."
-                        className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
-                      />
-                    </div>
-
-                    {!showSongArtistInput ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowSongArtistInput(true)}
-                        className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-400 font-semibold flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Songwriter / Artist (Optional)</span>
-                      </button>
-                    ) : (
-                      <div>
-                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                          Songwriter / Artist (Optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={newSongArtist}
-                          onChange={(e) => setNewSongArtist(e.target.value)}
-                          placeholder="e.g. Gary Valenciano, Hillsong, Don Moen"
-                          className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                        Lyrics *
-                      </label>
-                      <textarea
-                        rows={4}
-                        required
-                        value={editingPractice.lyrics || ''}
-                        onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
-                        placeholder="Paste lyrics or stanzas here..."
-                        className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSongArtistInput(true)}
+                    className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:underline flex items-center gap-1 cursor-pointer py-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add artist/origin</span>
+                  </button>
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Lyrics Field */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Lyrics
+                </label>
+                <textarea
+                  rows={9}
+                  value={editingPractice.lyrics || ''}
+                  onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
+                  placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
+                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsEditingPractice(false);
-                    setIsCreatingSongInPractice(false);
-                  }}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  onClick={() => setIsEditingPractice(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-white shadow-xs cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   Save Practice Session
                 </button>
