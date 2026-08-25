@@ -3,12 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
-    <meta name="description" content="An application built with Google AI Studio." />
-    <meta property="og:title" content="My Google AI Studio App" />
-    <meta property="og:description" content="An application built with Google AI Studio." />
+    <title>Song Schedule & Music Library</title>
+    <meta name="description" content="Song scheduling, practice session stems, and music ministry management." />
+    <meta property="og:title" content="Song Schedule & Music Library" />
+    <meta property="og:description" content="Song scheduling, practice session stems, and music ministry management." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <script>
+      (function () {
+        try {
+          var ua = navigator.userAgent || navigator.vendor || (window.opera ? window.opera.toString() : '');
+          var isFBorMessenger = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line/i.test(ua);
+          var isAndroid = /Android/i.test(ua);
+          var isIOS = /iPhone|iPad|iPod/i.test(ua);
+
+          if (isFBorMessenger) {
+            var currentUrl = window.location.href;
+            if (isAndroid) {
+              // Android Chrome intent redirect to launch directly in external Chrome / Default Browser
+              var urlWithoutScheme = currentUrl.replace(/^https?:\/\//, '');
+              var intentUrl = 'intent://' + urlWithoutScheme + '#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end;';
+              window.location.replace(intentUrl);
+            }
+          }
+        } catch (e) {
+          console.warn('Browser redirect check failed', e);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

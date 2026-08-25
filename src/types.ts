@@ -26,11 +26,13 @@ export interface Song {
   id: string;
   title: string;
   artist?: string;
+  category?: string;
   lyrics: string;
   minusOneLink?: string;
   attachments?: SongAttachment[];
   isWelcomeSong?: boolean;
   isClosingSong?: boolean;
+  isSpecialNumber?: boolean;
   updatedAt: string;
 }
 

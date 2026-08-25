@@ -171,6 +171,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     url: string;
     type: 'audio' | 'video' | 'link' | 'file';
     partLabel?: string;
+    groupId?: string;
   } | null>(null);
   const [isLooping, setIsLooping] = useState(false);
   const [isBgPlayEnabled, setIsBgPlayEnabled] = useState(false);
@@ -1025,129 +1026,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {activeSubTab === 'practice' && (
         <div className="space-y-4">
-          {/* Active Practice Media Player */}
-          {activePracticeMedia && (
-            <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <div className="flex items-center space-x-2 min-w-0">
-                  <Volume2 className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />
-                  <span className="text-xs font-bold truncate">
-                    Rehearsal Track: {activePracticeMedia.title}
-                    {activePracticeMedia.partLabel && ` (${activePracticeMedia.partLabel})`}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {/* BG Play toggle */}
-                  <button
-                    type="button"
-                    onClick={() => setIsBgPlayEnabled(!isBgPlayEnabled)}
-                    className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                      isBgPlayEnabled
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-                    }`}
-                    title={
-                      isBgPlayEnabled
-                        ? 'Background Play ON: Keeps playing even when minimized'
-                        : 'Background Play OFF: Click to enable background audio'
-                    }
-                  >
-                    <Radio className="w-3.5 h-3.5" />
-                    <span className="text-[10px]">{isBgPlayEnabled ? 'BG Play ON' : 'BG Play'}</span>
-                  </button>
-
-                  {/* Repeat toggle for attached files */}
-                  {(activePracticeMedia.type === 'audio' ||
-                    activePracticeMedia.type === 'video' ||
-                    activePracticeMedia.type === 'file' ||
-                    activePracticeMedia.url.startsWith('data:')) && (
-                    <button
-                      type="button"
-                      onClick={() => setIsLooping(!isLooping)}
-                      className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                        isLooping
-                          ? 'bg-sky-500 text-white'
-                          : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-                      }`}
-                      title={isLooping ? 'Repeat ON (Looping enabled)' : 'Repeat OFF'}
-                    >
-                      <Repeat className="w-3.5 h-3.5" />
-                      <span className="text-[10px]">{isLooping ? 'Repeat ON' : 'Repeat'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => setActivePracticeMedia(null)}
-                    className="text-slate-400 hover:text-white p-1 cursor-pointer"
-                    title="Close Player"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* YouTube or Audio Player */}
-              {(() => {
-                const ytEmbed = getYouTubeEmbedUrl(activePracticeMedia.url);
-                if (ytEmbed) {
-                  return (
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                      <iframe
-                        src={ytEmbed}
-                        title={activePracticeMedia.title}
-                        className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    </div>
-                  );
-                }
-
-                if (
-                  activePracticeMedia.type === 'audio' ||
-                  activePracticeMedia.url.startsWith('data:audio/')
-                ) {
-                  return (
-                    <div className="p-2 bg-slate-800/80 rounded-xl">
-                      <audio src={activePracticeMedia.url} controls autoPlay loop={isLooping} className="w-full" />
-                    </div>
-                  );
-                }
-
-                if (
-                  activePracticeMedia.type === 'video' ||
-                  activePracticeMedia.url.startsWith('data:video/')
-                ) {
-                  return (
-                    <video
-                      src={activePracticeMedia.url}
-                      controls
-                      autoPlay
-                      loop={isLooping}
-                      className="w-full max-h-64 rounded-xl bg-black"
-                    />
-                  );
-                }
-
-                return (
-                  <div className="p-3 rounded-xl bg-slate-800/80 flex items-center justify-between text-xs">
-                    <span className="truncate pr-2">{activePracticeMedia.url}</span>
-                    <a
-                      href={activePracticeMedia.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-900 font-bold flex items-center gap-1 shrink-0 hover:bg-white"
-                    >
-                      <span>Open Link</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
           {/* Search Practice Groups */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1275,6 +1153,129 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-5 cursor-default"
                           onClick={(e) => e.stopPropagation()}
                         >
+                          {/* Practice Audio/Video Player inside each container (Above Vocal Parts) */}
+                          {activePracticeMedia && activePracticeMedia.groupId === group.id && (
+                            <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
+                              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                                <div className="flex items-center space-x-2 min-w-0">
+                                  <Volume2 className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />
+                                  <span className="text-xs font-bold truncate">
+                                    Rehearsal Track: {activePracticeMedia.title}
+                                    {activePracticeMedia.partLabel && ` (${activePracticeMedia.partLabel})`}
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {/* BG Play toggle */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsBgPlayEnabled(!isBgPlayEnabled)}
+                                    className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                                      isBgPlayEnabled
+                                        ? 'bg-emerald-500 text-white'
+                                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                                    }`}
+                                    title={
+                                      isBgPlayEnabled
+                                        ? 'Background Play ON: Keeps playing even when minimized'
+                                        : 'Background Play OFF: Click to enable background audio'
+                                    }
+                                  >
+                                    <Radio className="w-3.5 h-3.5" />
+                                    <span className="text-[10px]">{isBgPlayEnabled ? 'BG Play ON' : 'BG Play'}</span>
+                                  </button>
+
+                                  {/* Repeat toggle for attached files */}
+                                  {(activePracticeMedia.type === 'audio' ||
+                                    activePracticeMedia.type === 'video' ||
+                                    activePracticeMedia.type === 'file' ||
+                                    activePracticeMedia.url.startsWith('data:')) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsLooping(!isLooping)}
+                                      className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                                        isLooping
+                                          ? 'bg-sky-500 text-white'
+                                          : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                                      }`}
+                                      title={isLooping ? 'Repeat ON (Looping enabled)' : 'Repeat OFF'}
+                                    >
+                                      <Repeat className="w-3.5 h-3.5" />
+                                      <span className="text-[10px]">{isLooping ? 'Repeat ON' : 'Repeat'}</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    onClick={() => setActivePracticeMedia(null)}
+                                    className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                                    title="Close Player"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* YouTube or Audio Player */}
+                              {(() => {
+                                const ytEmbed = getYouTubeEmbedUrl(activePracticeMedia.url);
+                                if (ytEmbed) {
+                                  return (
+                                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+                                      <iframe
+                                        src={ytEmbed}
+                                        title={activePracticeMedia.title}
+                                        className="w-full h-full border-0"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                      />
+                                    </div>
+                                  );
+                                }
+
+                                if (
+                                  activePracticeMedia.type === 'audio' ||
+                                  activePracticeMedia.url.startsWith('data:audio/')
+                                ) {
+                                  return (
+                                    <div className="p-2 bg-slate-800/80 rounded-xl">
+                                      <audio src={activePracticeMedia.url} controls autoPlay loop={isLooping} className="w-full" />
+                                    </div>
+                                  );
+                                }
+
+                                if (
+                                  activePracticeMedia.type === 'video' ||
+                                  activePracticeMedia.url.startsWith('data:video/')
+                                ) {
+                                  return (
+                                    <video
+                                      src={activePracticeMedia.url}
+                                      controls
+                                      autoPlay
+                                      loop={isLooping}
+                                      className="w-full max-h-64 rounded-xl bg-black"
+                                    />
+                                  );
+                                }
+
+                                return (
+                                  <div className="p-3 rounded-xl bg-slate-800/80 flex items-center justify-between text-xs">
+                                    <span className="truncate pr-2">{activePracticeMedia.url}</span>
+                                    <a
+                                      href={activePracticeMedia.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-900 font-bold flex items-center gap-1 shrink-0 hover:bg-white"
+                                    >
+                                      <span>Open Link</span>
+                                      <ExternalLink className="w-3 h-3" />
+                                    </a>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+
                           {/* 1. Vocal Parts Section (Soprano, Alto, Tenor, Bass, etc.) */}
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
@@ -1363,6 +1364,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                 url: part.audioUrl!,
                                                 type: 'audio',
                                                 partLabel: part.partLabel,
+                                                groupId: group.id,
                                               })
                                             }
                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
@@ -1500,6 +1502,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                   att.type === 'audio' || att.type === 'video'
                                                     ? att.type
                                                     : 'link',
+                                                groupId: group.id,
                                               })
                                             }
                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
@@ -1651,6 +1654,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       });
                     }}
                     suggestions={songTitleSuggestions}
+                    songs={songs}
+                    setlists={setlists}
                     placeholder="e.g. Dakilang Katapatan / Leave blank if undecided"
                     inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
                   />
@@ -1781,6 +1786,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     onChange={(val) => handleSelectSongForPractice(val)}
                     suggestions={songTitleSuggestions}
                     songs={songs}
+                    setlists={setlists}
                     placeholder="e.g. Dakilang Katapatan"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />

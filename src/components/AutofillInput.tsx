@@ -287,7 +287,7 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
 
       {/* Suggestion Dropdown List */}
       {isOpen && displayedItems.length > 0 && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-h-64 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
           {displayedItems.map((item, idx) => {
             const isSelected =
               idx === highlightedIndex ||
@@ -302,64 +302,77 @@ export const AutofillInput: React.FC<AutofillInputProps> = ({
                   handleSelect(item);
                 }}
                 onMouseEnter={() => setHighlightedIndex(idx)}
-                className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between cursor-pointer transition-colors ${
+                className={`w-full px-4 py-3 text-left flex items-center justify-between cursor-pointer transition-colors ${
                   isSelected
-                    ? 'bg-slate-100 dark:bg-slate-800/90 text-slate-900 dark:text-white font-semibold'
+                    ? 'bg-slate-100 dark:bg-slate-800/90 text-slate-900 dark:text-white'
                     : 'text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/60'
                 }`}
               >
                 <div className="min-w-0 pr-3 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                    <span className="text-[14px] font-bold text-slate-900 dark:text-white truncate">
                       {item.title}
                     </span>
 
-                    {/* Subtle Repetition Warning Pill */}
+                    {/* Welcome / Closing / Special Badges */}
+                    {item.songObj?.isWelcomeSong && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-100 dark:bg-sky-950/90 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/80 shrink-0">
+                        Welcome
+                      </span>
+                    )}
+                    {item.songObj?.isClosingSong && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-100 dark:bg-indigo-950/90 text-indigo-700 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-800/80 shrink-0">
+                        Closing
+                      </span>
+                    )}
+                    {item.songObj?.isSpecialNumber && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-purple-100 dark:bg-purple-950/90 text-purple-700 dark:text-purple-400 border border-purple-300 dark:border-purple-800/80 shrink-0">
+                        Special
+                      </span>
+                    )}
+                    {item.songObj?.category &&
+                      item.songObj.category !== 'Praise & Worship' &&
+                      !item.songObj?.isWelcomeSong &&
+                      !item.songObj?.isClosingSong &&
+                      !item.songObj?.isSpecialNumber && (
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 shrink-0">
+                          {item.songObj.category}
+                        </span>
+                      )}
+
+                    {/* Repetition Warning Pill (if recent) */}
                     {item.history?.isRecent && (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60 shrink-0">
                         <AlertTriangle className="w-2.5 h-2.5" />
                         <span>Sung {item.history.relativeTimeAgo}</span>
                       </span>
                     )}
-
-                    {/* Welcome / Closing Badges if present */}
-                    {item.songObj?.isWelcomeSong && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 shrink-0">
-                        Welcome
-                      </span>
-                    )}
-                    {item.songObj?.isClosingSong && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">
-                        Closing
-                      </span>
-                    )}
                   </div>
 
-                  {/* Subtitle: Lyric match snippet OR subtle Last Sung indicator */}
-                  <div className="flex items-center gap-2 text-xs mt-0.5 flex-wrap">
-                    {item.matchedField === 'lyrics' && item.lyricSnippet && (
-                      <span className="text-emerald-600 dark:text-emerald-400 italic text-[11px] truncate max-w-xs">
-                        🎵 {item.lyricSnippet}
+                  {/* Subtitle: Clock Icon + Last Scheduled / Not yet scheduled / Lyric snippet */}
+                  <div className="flex items-center gap-2 text-xs mt-1 flex-wrap">
+                    {item.matchedField === 'lyrics' && item.lyricSnippet ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 italic text-xs truncate max-w-xs">
+                        🎵 "{item.lyricSnippet}"
                       </span>
-                    )}
-
-                    {/* Subtle/grayed last sung indicator */}
-                    {item.history && item.history.relativeTimeAgo && !item.history.isRecent && (
-                      <span className="text-slate-400 dark:text-slate-500 text-[11px] flex items-center gap-1">
-                        <Clock className="w-3 h-3 opacity-60" />
+                    ) : item.history && item.history.relativeTimeAgo ? (
+                      <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         <span>Last: {item.history.relativeTimeAgo}</span>
                       </span>
-                    )}
-
-                    {item.history && !item.history.relativeTimeAgo && (
-                      <span className="text-slate-400/80 dark:text-slate-600 text-[11px]">
+                    ) : item.history && !item.history.relativeTimeAgo ? (
+                      <span className="text-slate-400 dark:text-slate-500 text-xs">
                         Not yet scheduled
                       </span>
-                    )}
+                    ) : item.songObj?.artist ? (
+                      <span className="text-slate-400 dark:text-slate-500 text-xs">
+                        {item.songObj.artist}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
-                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 shrink-0">
+                <span className="text-xs font-semibold text-slate-400 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white px-2 py-1 shrink-0 transition-colors">
                   Select
                 </span>
               </button>
