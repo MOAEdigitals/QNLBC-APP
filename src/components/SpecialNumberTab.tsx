@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   SpecialNumberEntry,
   PracticeGroupEntry,
@@ -59,6 +59,7 @@ interface SpecialNumberTabProps {
   onSavePracticeEntry?: (entry: PracticeGroupEntry) => void;
   onDeletePracticeEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
+  onSaveSong?: (song: Song) => void;
   collapseSignal?: number;
 }
 
@@ -84,6 +85,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onSavePracticeEntry,
   onDeletePracticeEntry,
   onOpenSongDetail,
+  onSaveSong,
   collapseSignal,
 }) => {
   // Sub-tabs: Schedules (default) or Practice
@@ -101,6 +103,36 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [isEditingPractice, setIsEditingPractice] = useState(false);
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
+
+  // Song creation inside Practice session state
+  const [isCreatingSongInPractice, setIsCreatingSongInPractice] = useState(false);
+  const [newSongArtist, setNewSongArtist] = useState('');
+  const [showSongArtistInput, setShowSongArtistInput] = useState(false);
+
+  // Hidden File input helper for paperclip attachments (vocal parts and practice tracks)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFileCallbackRef = useRef<((fileUrl: string, fileName: string) => void) | null>(null);
+
+  const handleTriggerFileUpload = (onFileLoaded: (fileUrl: string, fileName: string) => void) => {
+    pendingFileCallbackRef.current = onFileLoaded;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !pendingFileCallbackRef.current) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      if (pendingFileCallbackRef.current) {
+        pendingFileCallbackRef.current(result, file.name);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Practice Audio Player state
   const [activePracticeMedia, setActivePracticeMedia] = useState<{
@@ -293,16 +325,40 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     e.preventDefault();
     if (!editingPractice || !editingPractice.groupName?.trim() || !editingPractice.songTitle?.trim()) return;
 
+    const trimmedTitle = editingPractice.songTitle.trim();
+    let effectiveSongId = editingPractice.songId;
+
+    // If user created a new song or typed a song not yet in the library, save it to the Songs library
+    const matchedSong = songs.find(
+      (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
+    );
+
+    if (isCreatingSongInPractice || !matchedSong) {
+      if (!matchedSong && onSaveSong) {
+        const newSong: Song = {
+          id: `song-${Date.now()}`,
+          title: trimmedTitle,
+          artist: newSongArtist.trim() || undefined,
+          lyrics: editingPractice.lyrics || '',
+          updatedAt: new Date().toISOString(),
+        };
+        onSaveSong(newSong);
+        effectiveSongId = newSong.id;
+      } else if (matchedSong) {
+        effectiveSongId = matchedSong.id;
+      }
+    } else if (matchedSong) {
+      effectiveSongId = matchedSong.id;
+    }
+
     const entryToSave: PracticeGroupEntry = {
       id: editingPractice.id || `prac-${Date.now()}`,
       groupName: editingPractice.groupName.trim(),
-      songTitle: editingPractice.songTitle.trim(),
-      songId: editingPractice.songId,
-      practiceDate: editingPractice.practiceDate || '',
-      practiceTime: editingPractice.practiceTime || '',
+      songTitle: trimmedTitle,
+      songId: effectiveSongId,
       targetDate: editingPractice.targetDate || '',
       assignedEvent: editingPractice.assignedEvent?.trim() || '',
-      lyrics: editingPractice.lyrics || '',
+      lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
       notes: editingPractice.notes?.trim() || '',
       customAttachments: editingPractice.customAttachments || [],
       vocalParts: editingPractice.vocalParts || [],
@@ -312,8 +368,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     if (onSavePracticeEntry) {
       onSavePracticeEntry(entryToSave);
     }
+    // Automatically select and expand the newly created practice session container
+    setSelectedPracticeId(entryToSave.id);
     setIsEditingPractice(false);
     setEditingPractice(null);
+    setIsCreatingSongInPractice(false);
+    setNewSongArtist('');
+    setShowSongArtistInput(false);
   };
 
   // Select song from library for Practice (Title & Lyrics ONLY, NO attachments inherited)
@@ -328,6 +389,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         songId: matched.id,
         lyrics: matched.lyrics || '', // Clean slate: title & lyrics only!
       }));
+      setIsCreatingSongInPractice(false);
     } else {
       setEditingPractice((prev) => ({
         ...prev,
@@ -336,12 +398,81 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  // Manage Practice Attachments
+  // In-place vocal parts handlers (directly modifying group and persisting)
+  const handleInPlaceAddVocalPart = (group: PracticeGroupEntry) => {
+    const newPart: PracticePartTrack = {
+      id: `part-${Date.now()}`,
+      partLabel: 'Soprano',
+      assignedUsers: [],
+      audioUrl: '',
+      notes: '',
+    };
+    const updatedParts = [...(group.vocalParts || []), newPart];
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, vocalParts: updatedParts });
+    }
+  };
+
+  const handleInPlaceUpdateVocalPart = (
+    group: PracticeGroupEntry,
+    partIndex: number,
+    patch: Partial<PracticePartTrack>
+  ) => {
+    const updatedParts = [...(group.vocalParts || [])];
+    updatedParts[partIndex] = { ...updatedParts[partIndex], ...patch };
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, vocalParts: updatedParts });
+    }
+  };
+
+  const handleInPlaceRemoveVocalPart = (group: PracticeGroupEntry, partIndex: number) => {
+    const updatedParts = (group.vocalParts || []).filter((_, i) => i !== partIndex);
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, vocalParts: updatedParts });
+    }
+  };
+
+  // In-place practice attachments handlers
+  const handleInPlaceAddTrack = (group: PracticeGroupEntry) => {
+    const newTrack: SongAttachment = {
+      id: `att-${Date.now()}`,
+      name: 'Minus One Track',
+      url: '',
+      type: 'link',
+      category: 'minus_one',
+      uploadedAt: new Date().toISOString(),
+    };
+    const updatedTracks = [...(group.customAttachments || []), newTrack];
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, customAttachments: updatedTracks });
+    }
+  };
+
+  const handleInPlaceUpdateTrack = (
+    group: PracticeGroupEntry,
+    trackIndex: number,
+    patch: Partial<SongAttachment>
+  ) => {
+    const updatedTracks = [...(group.customAttachments || [])];
+    updatedTracks[trackIndex] = { ...updatedTracks[trackIndex], ...patch };
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, customAttachments: updatedTracks });
+    }
+  };
+
+  const handleInPlaceRemoveTrack = (group: PracticeGroupEntry, trackIndex: number) => {
+    const updatedTracks = (group.customAttachments || []).filter((_, i) => i !== trackIndex);
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({ ...group, customAttachments: updatedTracks });
+    }
+  };
+
+  // Manage Practice Attachments in Modal
   const handleAddPracticeAttachment = () => {
     if (!editingPractice) return;
     const newAtt: SongAttachment = {
       id: `att-${Date.now()}`,
-      name: 'Rehearsal Track',
+      name: 'Minus One Track',
       url: '',
       type: 'link',
       category: 'minus_one',
@@ -366,7 +497,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     setEditingPractice({ ...editingPractice, customAttachments: updated });
   };
 
-  // Manage Practice Vocal Parts
+  // Manage Practice Vocal Parts in Modal
   const handleAddVocalPart = () => {
     if (!editingPractice) return;
     const newPart: PracticePartTrack = {
@@ -429,56 +560,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         ) : (
           <button
             onClick={() => {
+              setIsCreatingSongInPractice(false);
+              setNewSongArtist('');
+              setShowSongArtistInput(false);
               setEditingPractice({
                 id: `prac-${Date.now()}`,
                 groupName: '',
                 songTitle: '',
-                practiceDate: getNextSundayStr(),
-                practiceTime: '16:00',
-                targetDate: getNextSundayStr(),
-                assignedEvent: 'Sunday Worship Service',
+                targetDate: '',
+                assignedEvent: '',
                 lyrics: '',
                 notes: '',
-                customAttachments: [
-                  {
-                    id: `att-${Date.now()}`,
-                    name: 'Minus-One Accompaniment',
-                    url: '',
-                    type: 'link',
-                    category: 'minus_one',
-                    uploadedAt: new Date().toISOString(),
-                  },
-                ],
-                vocalParts: [
-                  {
-                    id: `part-${Date.now()}-1`,
-                    partLabel: 'Soprano',
-                    assignedUsers: [],
-                    audioUrl: '',
-                    notes: '',
-                  },
-                  {
-                    id: `part-${Date.now()}-2`,
-                    partLabel: 'Alto',
-                    assignedUsers: [],
-                    audioUrl: '',
-                    notes: '',
-                  },
-                  {
-                    id: `part-${Date.now()}-3`,
-                    partLabel: 'Tenor',
-                    assignedUsers: [],
-                    audioUrl: '',
-                    notes: '',
-                  },
-                  {
-                    id: `part-${Date.now()}-4`,
-                    partLabel: 'Bass',
-                    assignedUsers: [],
-                    audioUrl: '',
-                    notes: '',
-                  },
-                ],
+                customAttachments: [],
+                vocalParts: [],
                 createdAt: new Date().toISOString(),
               });
               setIsEditingPractice(true);
@@ -1051,8 +1145,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
 
                             <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                              {group.practiceDate && (
-                                <span>Rehearsal: {formatDateStr(group.practiceDate)} {group.practiceTime && `@ ${group.practiceTime}`}</span>
+                              {group.targetDate && (
+                                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                  Target: {formatDateStr(group.targetDate)}
+                                </span>
                               )}
                               <span>• {group.vocalParts?.length || 0} vocal parts</span>
                               <span>• {group.customAttachments?.length || 0} tracks</span>
@@ -1068,6 +1164,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           <button
                             type="button"
                             onClick={() => {
+                              setIsCreatingSongInPractice(false);
+                              setNewSongArtist('');
+                              setShowSongArtistInput(false);
                               setEditingPractice(group);
                               setIsEditingPractice(true);
                             }}
@@ -1100,114 +1199,277 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       {/* IN-PLACE EXPANDED PRACTICE DETAILS */}
                       {isSelected && (
                         <div
-                          className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4 cursor-default"
+                          className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-5 cursor-default"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {/* Vocal Parts Section (Soprano, Alto, Tenor, Bass, etc.) */}
-                          <div className="space-y-2">
-                            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                              <Layers className="w-3.5 h-3.5" />
-                              <span>Vocal Parts & Assigned Members</span>
-                            </span>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                                <span>Vocal Parts & Assigned Members</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleInPlaceAddVocalPart(group)}
+                                className="px-3 py-1 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Vocal Part</span>
+                              </button>
+                            </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                              {(group.vocalParts || []).map((part) => (
-                                <div
-                                  key={part.id}
-                                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-2"
-                                >
-                                  <div>
-                                    <div className="flex items-center justify-between">
-                                      <span className="font-bold text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white">
-                                        {part.partLabel}
-                                      </span>
-                                      {part.audioUrl && (
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            setActivePracticeMedia({
-                                              id: part.id,
-                                              title: `${group.songTitle} - ${part.partLabel} Stem`,
-                                              url: part.audioUrl!,
-                                              type: 'audio',
-                                              partLabel: part.partLabel,
+                            {(!group.vocalParts || group.vocalParts.length === 0) ? (
+                              <div className="p-3 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
+                                No vocal parts added yet. Click <span className="font-semibold text-slate-800 dark:text-slate-200">"Add Vocal Part"</span> to assign parts (Soprano, Alto, Tenor, Bass) and attach vocal audio stems.
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {group.vocalParts.map((part, pIdx) => (
+                                  <div
+                                    key={part.id}
+                                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2.5"
+                                  >
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                      {/* Part Dropdown */}
+                                      <div className="w-full sm:w-1/3">
+                                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
+                                          Part
+                                        </label>
+                                        <select
+                                          value={part.partLabel}
+                                          onChange={(e) =>
+                                            handleInPlaceUpdateVocalPart(group, pIdx, {
+                                              partLabel: e.target.value as VocalPartLabel,
                                             })
                                           }
-                                          className="px-2 py-1 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                                          className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
                                         >
-                                          <Play className="w-3 h-3" />
-                                          <span>Play Stem</span>
+                                          {VOCAL_PART_OPTIONS.map((opt) => (
+                                            <option key={opt} value={opt}>
+                                              {opt}
+                                            </option>
+                                          ))}
+                                        </select>
+                                      </div>
+
+                                      {/* Assigned Member */}
+                                      <div className="w-full sm:w-2/3">
+                                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
+                                          Assigned Member(s)
+                                        </label>
+                                        <input
+                                          type="text"
+                                          value={(part.assignedUsers || []).join(', ')}
+                                          onChange={(e) =>
+                                            handleInPlaceUpdateVocalPart(group, pIdx, {
+                                              assignedUsers: e.target.value
+                                                .split(',')
+                                                .map((s) => s.trim())
+                                                .filter(Boolean),
+                                            })
+                                          }
+                                          placeholder="e.g. Sister Grace, Sister Hannah"
+                                          className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium"
+                                        />
+                                      </div>
+
+                                      {/* Delete Part Button */}
+                                      <div className="flex items-center justify-end sm:pt-4">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleInPlaceRemoveVocalPart(group, pIdx)}
+                                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
+                                          title="Remove vocal part"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
                                         </button>
-                                      )}
+                                      </div>
                                     </div>
 
-                                    <div className="mt-2 text-xs text-slate-700 dark:text-slate-300">
-                                      <span className="font-semibold text-slate-500 dark:text-slate-400">Assigned: </span>
-                                      {part.assignedUsers && part.assignedUsers.length > 0 ? (
-                                        <span className="font-bold">{part.assignedUsers.join(', ')}</span>
-                                      ) : (
-                                        <span className="italic text-slate-400">Open / Unassigned</span>
-                                      )}
+                                    {/* Link / Attachment Field with Paperclip at the end */}
+                                    <div>
+                                      <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
+                                        Part Stem / Vocal Audio Link or Attachment
+                                      </label>
+                                      <div className="flex items-center gap-2">
+                                        <div className="relative flex-1">
+                                          <input
+                                            type="text"
+                                            value={part.audioUrl || ''}
+                                            onChange={(e) =>
+                                              handleInPlaceUpdateVocalPart(group, pIdx, {
+                                                audioUrl: e.target.value,
+                                              })
+                                            }
+                                            placeholder="Paste link or click paperclip to attach file..."
+                                            className="w-full pl-3 pr-10 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleTriggerFileUpload((url) =>
+                                                handleInPlaceUpdateVocalPart(group, pIdx, {
+                                                  audioUrl: url,
+                                                })
+                                              )
+                                            }
+                                            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+                                            title="Attach Audio File from Device"
+                                          >
+                                            <Paperclip className="w-4 h-4" />
+                                          </button>
+                                        </div>
+
+                                        {part.audioUrl && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActivePracticeMedia({
+                                                id: part.id,
+                                                title: `${group.songTitle} - ${part.partLabel} Stem`,
+                                                url: part.audioUrl!,
+                                                type: 'audio',
+                                                partLabel: part.partLabel,
+                                              })
+                                            }
+                                            className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs transition-colors"
+                                          >
+                                            <Play className="w-3.5 h-3.5" />
+                                            <span>Play Stem</span>
+                                          </button>
+                                        )}
+                                      </div>
                                     </div>
-
-                                    {part.notes && (
-                                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 italic">
-                                        Note: {part.notes}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Specific Practice Attachments (Plus-Ones, Minus-Ones, Links) */}
-                          {group.customAttachments && group.customAttachments.length > 0 && (
-                            <div className="space-y-2">
-                              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                <Paperclip className="w-3.5 h-3.5" />
-                                <span>Practice Tracks & Rehearsal Files</span>
-                              </span>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {group.customAttachments.map((att) => (
-                                  <div
-                                    key={att.id}
-                                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs"
-                                  >
-                                    <div className="min-w-0 pr-2">
-                                      <span className="font-bold text-slate-900 dark:text-white block truncate">
-                                        {att.name}
-                                      </span>
-                                      <span className="text-[10px] text-slate-500 uppercase font-semibold">
-                                        {att.category === 'minus_one' ? 'Minus-One' : 'Plus-One'}
-                                      </span>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setActivePracticeMedia({
-                                          id: att.id,
-                                          title: att.name,
-                                          url: att.url,
-                                          type: att.type === 'audio' || att.type === 'video' ? att.type : 'link',
-                                        })
-                                      }
-                                      className="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold flex items-center gap-1 shrink-0 cursor-pointer hover:bg-slate-800 transition-colors"
-                                    >
-                                      <Play className="w-3 h-3" />
-                                      <span>Play</span>
-                                    </button>
                                   </div>
                                 ))}
                               </div>
+                            )}
+                          </div>
+
+                          {/* Specific Practice Attachments (Plus-Ones, Minus-Ones, Links) */}
+                          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <Paperclip className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                                <span>Rehearsal Tracks & Attachments (Plus-One / Minus-One)</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleInPlaceAddTrack(group)}
+                                className="px-3 py-1 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Track</span>
+                              </button>
                             </div>
-                          )}
+
+                            {(!group.customAttachments || group.customAttachments.length === 0) ? (
+                              <div className="p-3 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
+                                No tracks added yet. Click <span className="font-semibold text-slate-800 dark:text-slate-200">"Add Track"</span> to attach plus-one vocals or minus-one backing tracks.
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-2.5">
+                                {group.customAttachments.map((att, aIdx) => (
+                                  <div
+                                    key={att.id}
+                                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2"
+                                  >
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                      <input
+                                        type="text"
+                                        value={att.name}
+                                        onChange={(e) =>
+                                          handleInPlaceUpdateTrack(group, aIdx, {
+                                            name: e.target.value,
+                                          })
+                                        }
+                                        placeholder="Track Name (e.g. Minus-One Backing Track)"
+                                        className="w-full sm:w-1/3 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
+                                      />
+
+                                      <select
+                                        value={att.category || 'minus_one'}
+                                        onChange={(e) =>
+                                          handleInPlaceUpdateTrack(group, aIdx, {
+                                            category: e.target.value as 'plus_one' | 'minus_one',
+                                          })
+                                        }
+                                        className="w-full sm:w-1/4 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                                      >
+                                        <option value="minus_one">Minus One (-1)</option>
+                                        <option value="plus_one">Plus One (+1)</option>
+                                      </select>
+
+                                      <div className="relative flex-1">
+                                        <input
+                                          type="text"
+                                          value={att.url}
+                                          onChange={(e) =>
+                                            handleInPlaceUpdateTrack(group, aIdx, {
+                                              url: e.target.value,
+                                            })
+                                          }
+                                          placeholder="Paste link or attach file..."
+                                          className="w-full pl-3 pr-10 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            handleTriggerFileUpload((url) =>
+                                              handleInPlaceUpdateTrack(group, aIdx, {
+                                                url: url,
+                                              })
+                                            )
+                                          }
+                                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
+                                          title="Attach Audio File from Device"
+                                        >
+                                          <Paperclip className="w-4 h-4" />
+                                        </button>
+                                      </div>
+
+                                      <div className="flex items-center gap-1 justify-end shrink-0">
+                                        {att.url && (
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActivePracticeMedia({
+                                                id: att.id,
+                                                title: att.name,
+                                                url: att.url,
+                                                type:
+                                                  att.type === 'audio' || att.type === 'video'
+                                                    ? att.type
+                                                    : 'link',
+                                              })
+                                            }
+                                            className="px-2.5 py-2 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold text-xs flex items-center gap-1 cursor-pointer hover:bg-slate-800 transition-colors shadow-xs"
+                                          >
+                                            <Play className="w-3.5 h-3.5" />
+                                            <span>Play</span>
+                                          </button>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleInPlaceRemoveTrack(group, aIdx)}
+                                          className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
+                                          title="Remove track"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Practice Rehearsal Lyrics */}
                           {group.lyrics && (
-                            <div className="space-y-2">
+                            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
                                 Rehearsal Lyrics
                               </span>
@@ -1398,268 +1660,217 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             <form onSubmit={handleSavePracticeSubmit} className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
+              {/* 1. SINGER / GROUP NAME */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                  Singer / Group Name *
+                </label>
+                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                  <AutofillInput
+                    value={editingPractice.groupName || ''}
+                    onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
+                    suggestions={directoryNames}
+                    placeholder="e.g. Sunday Choir, Sis. Sarah, Youth Trio, Men's Ensemble"
+                    inputClassName="p-2 text-sm font-bold text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* 2. TARGET EVENT / OCCASION & TARGET DATE (OPTIONAL) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Group / Choir Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={editingPractice.groupName || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, groupName: e.target.value })}
-                    placeholder="e.g. Sunday Choir, Youth Trio, Men's Quartet"
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Target Event / Occasion
+                    Target Event / Occasion (Optional)
                   </label>
                   <input
                     type="text"
                     value={editingPractice.assignedEvent || ''}
                     onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
-                    placeholder="e.g. Thanksgiving Sunday, Youth Fellowship"
+                    placeholder="e.g. Thanksgiving Sunday, Youth Service"
                     className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
-              </div>
 
-              {/* Song Selection from Library (Title & Lyrics ONLY, NO attachments inherited) */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Select Song from Song Library *
-                </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
-                  <AutofillInput
-                    value={editingPractice.songTitle || ''}
-                    onChange={(val) => handleSelectSongForPractice(val)}
-                    suggestions={songTitleSuggestions}
-                    placeholder="Search song title from library..."
-                    inputClassName="p-1.5 text-sm font-semibold text-slate-900 dark:text-white"
-                  />
-                </div>
-                <span className="text-[11px] text-slate-500 mt-1 block">
-                  Selects title and lyrics from library. You can add customized practice stems & attachments below.
-                </span>
-              </div>
-
-              {/* Rehearsal Date & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Practice Date
+                    Target Date (Optional)
                   </label>
                   <input
                     type="date"
-                    value={editingPractice.practiceDate || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, practiceDate: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Practice Time
-                  </label>
-                  <input
-                    type="time"
-                    value={editingPractice.practiceTime || '16:00'}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, practiceTime: e.target.value })}
+                    value={editingPractice.targetDate || ''}
+                    onChange={(e) => setEditingPractice({ ...editingPractice, targetDate: e.target.value })}
                     className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
-              {/* VOCAL PARTS SECTION */}
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white block">
-                      Vocal Parts & Member Assignment
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Assign members and vocal rehearsal tracks (Soprano, Alto, Tenor, Bass, Lead, etc.)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddVocalPart}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Vocal Part</span>
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {(editingPractice.vocalParts || []).map((part, idx) => (
-                    <div
-                      key={part.id}
-                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="w-1/3">
-                          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
-                            Part
-                          </label>
-                          <select
-                            value={part.partLabel}
-                            onChange={(e) =>
-                              handleUpdateVocalPart(idx, { partLabel: e.target.value as VocalPartLabel })
-                            }
-                            className="w-full p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
-                          >
-                            {VOCAL_PART_OPTIONS.map((opt) => (
-                              <option key={opt} value={opt}>
-                                {opt}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="w-2/3">
-                          <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
-                            Assigned Member(s) (Comma separated)
-                          </label>
-                          <input
-                            type="text"
-                            value={(part.assignedUsers || []).join(', ')}
-                            onChange={(e) =>
-                              handleUpdateVocalPart(idx, {
-                                assignedUsers: e.target.value
-                                  .split(',')
-                                  .map((s) => s.trim())
-                                  .filter(Boolean),
-                              })
-                            }
-                            placeholder="e.g. Sister Grace, Sister Hannah"
-                            className="w-full p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveVocalPart(idx)}
-                          className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg shrink-0 mt-3.5 cursor-pointer"
-                          title="Remove part"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10px] font-bold uppercase text-slate-500 mb-0.5">
-                          Part Stem Track / Audio URL (Optional)
-                        </label>
-                        <input
-                          type="url"
-                          value={part.audioUrl || ''}
-                          onChange={(e) => handleUpdateVocalPart(idx, { audioUrl: e.target.value })}
-                          placeholder="https://... (mp3, stem link, or cloud audio)"
-                          className="w-full p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* SPECIFIC PRACTICE ATTACHMENTS (Plus-Ones, Minus-Ones, Links) */}
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white block">
-                      Rehearsal Attachments & Tracks
-                    </span>
-                    <span className="text-[11px] text-slate-500">
-                      Add plus-ones, minus-ones, or backing track links
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddPracticeAttachment}
-                    className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Track</span>
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {(editingPractice.customAttachments || []).map((att, idx) => (
-                    <div
-                      key={att.id}
-                      className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-2"
-                    >
-                      <input
-                        type="text"
-                        value={att.name}
-                        onChange={(e) => handleUpdatePracticeAttachment(idx, { name: e.target.value })}
-                        placeholder="Track Name (e.g. Minus One)"
-                        className="w-full sm:w-1/3 p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white"
-                      />
-
-                      <select
-                        value={att.category || 'minus_one'}
-                        onChange={(e) =>
-                          handleUpdatePracticeAttachment(idx, {
-                            category: e.target.value as 'plus_one' | 'minus_one',
-                          })
-                        }
-                        className="w-full sm:w-1/4 p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                      >
-                        <option value="minus_one">Minus One (-1)</option>
-                        <option value="plus_one">Plus One (+1)</option>
-                      </select>
-
-                      <input
-                        type="url"
-                        value={att.url}
-                        onChange={(e) => handleUpdatePracticeAttachment(idx, { url: e.target.value })}
-                        placeholder="URL (YouTube, Drive, etc.)"
-                        className="w-full sm:w-5/12 p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                      />
-
+              {/* 3. SONG SELECTION OR CREATE SONG */}
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                {!isCreatingSongInPractice ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                        Search Song from Library *
+                      </label>
                       <button
                         type="button"
-                        onClick={() => handleRemovePracticeAttachment(idx)}
-                        className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg shrink-0 cursor-pointer"
-                        title="Remove track"
+                        onClick={() => {
+                          setIsCreatingSongInPractice(true);
+                          setEditingPractice({
+                            ...editingPractice,
+                            songId: undefined,
+                          });
+                        }}
+                        className="text-xs font-bold text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 flex items-center gap-1 cursor-pointer"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Create Song</span>
                       </button>
                     </div>
-                  ))}
-                </div>
+
+                    <div className="rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-50 dark:bg-slate-800">
+                      <AutofillInput
+                        value={editingPractice.songTitle || ''}
+                        onChange={(val) => {
+                          if (!val.trim()) {
+                            setEditingPractice({
+                              ...editingPractice,
+                              songTitle: '',
+                              songId: undefined,
+                              lyrics: '',
+                            });
+                          } else {
+                            handleSelectSongForPractice(val);
+                          }
+                        }}
+                        suggestions={songTitleSuggestions}
+                        placeholder="Type to search song title from library (autofill)..."
+                        inputClassName="p-2 text-sm font-semibold text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    {editingPractice.songTitle && editingPractice.songId ? (
+                      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                        <div className="min-w-0 pr-2">
+                          <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                            Selected: {editingPractice.songTitle}
+                          </span>
+                          {editingPractice.lyrics && (
+                            <span className="text-[11px] text-slate-500 block truncate">
+                              {editingPractice.lyrics.slice(0, 70)}...
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingPractice({
+                              ...editingPractice,
+                              songTitle: '',
+                              songId: undefined,
+                              lyrics: '',
+                            });
+                          }}
+                          className="text-xs text-rose-500 hover:text-rose-600 font-semibold px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 px-0.5">
+                        <span>Select a song from library or create a new one.</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsCreatingSongInPractice(true)}
+                          className="underline hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer font-medium"
+                        >
+                          Song not in library? Click Create Song
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Inline "Create Song" matching Add Song from Songs Tab */
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Music className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                        <span>Create New Song (Adds to Songs tab & Practice)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsCreatingSongInPractice(false)}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer underline"
+                      >
+                        Search Library Instead
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                        Song Title *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editingPractice.songTitle || ''}
+                        onChange={(e) => setEditingPractice({ ...editingPractice, songTitle: e.target.value })}
+                        placeholder="Song Title..."
+                        className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    {!showSongArtistInput ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowSongArtistInput(true)}
+                        className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-400 font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Songwriter / Artist (Optional)</span>
+                      </button>
+                    ) : (
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                          Songwriter / Artist (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={newSongArtist}
+                          onChange={(e) => setNewSongArtist(e.target.value)}
+                          placeholder="e.g. Gary Valenciano, Hillsong, Don Moen"
+                          className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase text-slate-600 dark:text-slate-400 mb-1">
+                        Lyrics *
+                      </label>
+                      <textarea
+                        rows={4}
+                        required
+                        value={editingPractice.lyrics || ''}
+                        onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
+                        placeholder="Paste lyrics or stanzas here..."
+                        className="w-full p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Rehearsal Lyrics / Performance Text */}
+              {/* 4. REHEARSAL INSTRUCTIONS / NOTES */}
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Rehearsal Lyrics
-                </label>
-                <textarea
-                  rows={4}
-                  value={editingPractice.lyrics || ''}
-                  onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
-                  placeholder="Song lyrics..."
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white"
-                />
-              </div>
-
-              {/* Instructions / Notes */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Rehearsal Instructions / Notes
+                  Rehearsal Instructions / Notes (Optional)
                 </label>
                 <input
                   type="text"
                   value={editingPractice.notes || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, notes: e.target.value })}
-                  placeholder="e.g. Work on 3-part harmony on verse 2"
+                  placeholder="e.g. Saturday 4:00 PM rehearsal, key of D"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -1667,7 +1878,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsEditingPractice(false)}
+                  onClick={() => {
+                    setIsEditingPractice(false);
+                    setIsCreatingSongInPractice(false);
+                  }}
                   className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
@@ -1683,6 +1897,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Hidden File Input for Paperclip Audio / Track Uploads */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        accept="audio/*,video/*"
+        className="hidden"
+      />
     </div>
   );
 };

@@ -462,6 +462,7 @@ export default function App() {
             onSavePracticeEntry={handleSavePracticeEntry}
             onDeletePracticeEntry={handleDeletePracticeEntry}
             onOpenSongDetail={handleOpenSongDetail}
+            onSaveSong={handleSaveSong}
             collapseSignal={collapseSignals['special-numbers']}
           />
         )}
