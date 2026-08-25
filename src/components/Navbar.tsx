@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserAccount, AppTab } from '../types';
-import { Church, ShieldCheck, User } from 'lucide-react';
+import { Church } from 'lucide-react';
 import { getTodayStr, formatDateStr } from '../utils/dateUtils';
+import { subscribeToPresence } from '../utils/presence';
 
 interface NavbarProps {
   currentUser: UserAccount | null;
@@ -12,15 +13,27 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ currentUser, users = [], onNavigateToSettings }) => {
   const todayStr = getTodayStr();
+  const [onlineUsers, setOnlineUsers] = useState<UserAccount[]>(() =>
+    currentUser ? [currentUser] : []
+  );
 
-  // Order users with currentUser first, followed by other active webapp users
-  const otherUsers = users.filter((u) => u.id !== currentUser?.id);
-  const orderedUsers: UserAccount[] = currentUser
-    ? [currentUser, ...otherUsers]
-    : users;
+  useEffect(() => {
+    if (!currentUser) {
+      setOnlineUsers([]);
+      return;
+    }
 
-  const firstTwoUsers = orderedUsers.slice(0, 2);
-  const remainingCount = orderedUsers.length > 2 ? orderedUsers.length - 2 : 0;
+    const unsubscribe = subscribeToPresence(currentUser, users, (activeList) => {
+      setOnlineUsers(activeList);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [currentUser, users]);
+
+  const firstTwoUsers = onlineUsers.slice(0, 2);
+  const remainingCount = onlineUsers.length > 2 ? onlineUsers.length - 2 : 0;
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
@@ -47,13 +60,13 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, users = [], onNavig
             className="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 cursor-pointer select-none"
             title="User Profile & Settings"
           >
-            {/* Circular Profile Pictures Stack (Max 2 avatars, + 3rd circle with +# if > 2) */}
+            {/* Circular Profile Pictures Stack of currently online users */}
             <div className="flex items-center -space-x-2 mr-1">
               {firstTwoUsers.map((u, idx) => (
                 <div
                   key={u.id}
                   className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white flex items-center justify-center text-[10px] font-bold overflow-hidden shrink-0 shadow-xs"
-                  title={`${u.username}${u.id === currentUser.id ? ' (You)' : ''}`}
+                  title={`${u.username}${u.id === currentUser.id ? ' (You - Online)' : ' (Online)'}`}
                   style={{ zIndex: 10 - idx }}
                 >
                   {u.avatar ? (
@@ -74,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, users = [], onNavig
                 <div
                   className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 flex items-center justify-center text-[10px] font-bold shrink-0 shadow-xs"
                   style={{ zIndex: 5 }}
-                  title={`${remainingCount} more user${remainingCount > 1 ? 's' : ''}: ${orderedUsers
+                  title={`${remainingCount} more online user${remainingCount > 1 ? 's' : ''}: ${onlineUsers
                     .slice(2)
                     .map((u) => u.username)
                     .join(', ')}`}

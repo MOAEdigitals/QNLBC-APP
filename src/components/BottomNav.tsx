@@ -79,7 +79,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   <Icon className="w-5 h-5" />
                 </div>
                 {tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
                     {tab.badge}
                   </span>
                 )}

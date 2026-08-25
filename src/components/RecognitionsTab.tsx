@@ -154,7 +154,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     switch (tier) {
       case '1st timer':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900">
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
             ★ 1st Timer
           </span>
         );
@@ -253,7 +253,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           <Cake className="w-4 h-4" />
           <span>Birthdays</span>
           {currentBirthdays.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
               {currentBirthdays.length}
             </span>
           )}
@@ -270,7 +270,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           <Heart className="w-4 h-4" />
           <span>Anniversaries</span>
           {currentAnniversaries.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
               {currentAnniversaries.length}
             </span>
           )}
@@ -323,8 +323,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           {/* Current Recognition Window Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
                 This Week's Celebrants ({currentBirthdays.length})
               </span>
               <span className="text-[11px] text-slate-400">
@@ -333,7 +333,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             </div>
 
             {currentBirthdays.length === 0 ? (
-              <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-center text-xs text-slate-500 dark:text-slate-400">
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
                 No birthday celebrants for this week's recognition window.
               </div>
             ) : (
@@ -341,17 +341,17 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {currentBirthdays.map((item) => (
                   <div
                     key={item.id}
-                    className="p-4 rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 shadow-sm flex items-start justify-between"
+                    className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex items-start justify-between"
                   >
                     <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
                         <Cake className="w-5 h-5" />
                       </div>
                       <div>
                         <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                           {item.name}
                         </h4>
-                        <div className="text-xs text-amber-800 dark:text-amber-300 font-semibold mt-0.5">
+                        <div className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold mt-0.5">
                           {formatDateStr(item.birthDate, { showDayOfWeek: true })}
                         </div>
                         {item.ministryOrGroup && (
@@ -659,7 +659,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               {Object.entries(groupedSpecial).map(([category, items]) => (
                 <div key={category} className="space-y-3">
                   <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-                    <Award className="w-4 h-4 text-amber-500" />
+                    <Award className="w-4 h-4 text-sky-500" />
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                       {category} ({items.length})
                     </h4>
@@ -713,7 +713,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Cake className="w-4 h-4 text-amber-500" />
+                <Cake className="w-4 h-4 text-indigo-500" />
                 <span>Add Birthday Celebrant</span>
               </h3>
               <button onClick={() => setIsAddingBirthday(false)} className="text-slate-400 hover:text-slate-600 p-1">
@@ -1021,7 +1021,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-500" />
+                <Award className="w-4 h-4 text-sky-500" />
                 <span>Add Special Recognition</span>
               </h3>
               <button onClick={() => setIsAddingSpecial(false)} className="text-slate-400 hover:text-slate-600 p-1">

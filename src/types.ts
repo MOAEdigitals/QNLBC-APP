@@ -27,6 +27,8 @@ export interface Song {
   lyrics: string;
   minusOneLink?: string;
   attachments?: SongAttachment[];
+  isWelcomeSong?: boolean;
+  isClosingSong?: boolean;
   updatedAt: string;
 }
 

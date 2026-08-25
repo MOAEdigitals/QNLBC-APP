@@ -202,6 +202,35 @@ Then sings my soul, my Savior God, to Thee
 How great Thou art, how great Thou art!`,
     updatedAt: '2026-08-16',
   },
+  {
+    id: 'song-welcome-1',
+    title: 'Napakaligaya',
+    artist: 'Tagalog Praise',
+    lyrics: `[Verse]
+Napakaligaya at kahanga-hanga
+Kung ang magkakapatid ay magkasama-sama
+May pagkakaisa at pagmamahalan
+Panginoon ay pinupuri magpakailanman!`,
+    isWelcomeSong: true,
+    updatedAt: '2026-08-18',
+  },
+  {
+    id: 'song-closing-1',
+    title: 'Give Thanks',
+    artist: 'Don Moen / Henry Smith',
+    lyrics: `[Verse]
+Give thanks with a grateful heart
+Give thanks to the Holy One
+Give thanks because He's given Jesus Christ, His Son
+
+[Chorus]
+And now let the weak say, "I am strong"
+Let the poor say, "I am rich
+Because of what the Lord has done for us"
+Give thanks!`,
+    isClosingSong: true,
+    updatedAt: '2026-08-18',
+  },
 ];
 
 // Helper to seed dynamic current dates

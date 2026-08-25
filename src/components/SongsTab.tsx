@@ -12,7 +12,6 @@ import {
   Trash2,
   Edit3,
   X,
-  Play,
   CalendarPlus,
   Type,
   Check,
@@ -21,11 +20,13 @@ import {
   FileAudio,
   FileVideo,
   Copy,
-  ArrowUpDown,
-  Calendar,
   Volume2,
   ChevronDown,
   ChevronUp,
+  MoreVertical,
+  Repeat,
+  Sparkles,
+  BookmarkCheck,
 } from 'lucide-react';
 
 interface SongsTabProps {
@@ -71,6 +72,12 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
   const [showArtistInput, setShowArtistInput] = useState(false);
 
+  // 3-dot dropdown menu open state for song id
+  const [openMenuSongId, setOpenMenuSongId] = useState<string | null>(null);
+
+  // Repeat / Loop mode for audio & video player (resets on reload / sign out)
+  const [isLooping, setIsLooping] = useState(false);
+
   // Large lyrics reading mode for stage worship singing
   const [largeFontMode, setLargeFontMode] = useState(false);
 
@@ -100,6 +107,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expandedItemRef = useRef<HTMLDivElement>(null);
 
+  // Close 3-dot menus when clicking outside
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setOpenMenuSongId(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
   // Collapse active container if songs tab icon is tapped
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0) {
@@ -109,6 +125,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       setIsAddToSetlistOpen(false);
       setIsAddingAttachment(false);
       setActiveMedia(null);
+      setOpenMenuSongId(null);
       onClearInitialSelectedSongId?.();
     }
   }, [collapseSignal, onClearInitialSelectedSongId]);
@@ -132,6 +149,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       if (selectedSongId) {
         setSelectedSongId(null);
         setActiveMedia(null);
+        setOpenMenuSongId(null);
         onClearInitialSelectedSongId?.();
         return;
       }
@@ -143,7 +161,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   useEffect(() => {
     if (initialSelectedSongId) {
       setSelectedSongId(initialSelectedSongId);
-      // Automatically scroll to the expanded item after render
       setTimeout(() => {
         expandedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
@@ -162,7 +179,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     }, 2500);
   };
 
-  // Sorting
+  // Sorting: strictly A-Z or Newest
   const sortedSongs = [...songs].sort((a, b) => {
     if (sortMode === 'date') {
       const dateA = a.updatedAt || '';
@@ -206,9 +223,32 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   const handleStartEditSong = (song: Song, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    setOpenMenuSongId(null);
     setEditingSong(JSON.parse(JSON.stringify(song)));
     setShowArtistInput(Boolean(song.artist && song.artist.trim().length > 0));
     setIsEditing(true);
+  };
+
+  const handleToggleWelcomeSong = (song: Song, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setOpenMenuSongId(null);
+    const updated: Song = {
+      ...song,
+      isWelcomeSong: !song.isWelcomeSong,
+      updatedAt: new Date().toISOString(),
+    };
+    onSaveSong(updated);
+  };
+
+  const handleToggleClosingSong = (song: Song, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setOpenMenuSongId(null);
+    const updated: Song = {
+      ...song,
+      isClosingSong: !song.isClosingSong,
+      updatedAt: new Date().toISOString(),
+    };
+    onSaveSong(updated);
   };
 
   const handleSaveSongForm = (e: React.FormEvent) => {
@@ -224,6 +264,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       lyrics: editingSong.lyrics || '',
       minusOneLink: editingSong.minusOneLink,
       attachments: editingSong.attachments || [],
+      isWelcomeSong: editingSong.isWelcomeSong,
+      isClosingSong: editingSong.isClosingSong,
       updatedAt: new Date().toISOString(),
     };
 
@@ -329,7 +371,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   return (
     <div className="space-y-5">
       {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Music className="w-5 h-5 text-slate-800 dark:text-slate-200" />
@@ -342,7 +384,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
         <button
           onClick={handleStartCreateSong}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-sm shrink-0 cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs shrink-0 cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Add Song</span>
@@ -356,49 +398,57 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         </div>
       )}
 
-      {/* Search Bar & Interactive Sort Toggle */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by song title, composer/artist, or lyrics phrase..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Sort Toggle Button (Tap to switch between A-Z and Date/Newest) */}
-        <button
-          type="button"
-          onClick={() => setSortMode(sortMode === 'alpha' ? 'date' : 'alpha')}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:border-slate-400 dark:hover:border-slate-600 transition-all shadow-xs cursor-pointer select-none shrink-0"
-          title="Tap to toggle sorting order"
-        >
-          <ArrowUpDown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-          <span>
-            {sortMode === 'alpha' ? 'Sorted A–Z (Tap to switch)' : 'Newest on Top (Tap to switch)'}
-          </span>
-        </button>
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by song title, composer/artist, or lyrics phrase..."
+          className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
-      {/* Song List Header */}
+      {/* Song List Header with Sorted A-Z / Newest button strictly on the right */}
       <div className="flex items-center justify-between px-1">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           All Songs ({filteredSongs.length})
         </span>
-        <span className="text-xs text-slate-400">
-          {sortMode === 'alpha' ? 'Alphabetical A–Z' : 'Date / Newest'}
-        </span>
+
+        {/* Sorted button located in text part on the right (2 options: A-Z, Newest) */}
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setSortMode('alpha')}
+            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none ${
+              sortMode === 'alpha'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            A–Z
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortMode('date')}
+            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none ${
+              sortMode === 'date'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+          >
+            Newest
+          </button>
+        </div>
       </div>
 
       {/* Songs List with In-Place Accordion Expansion */}
@@ -414,6 +464,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             const plusOneList = attachments.filter((a) => a.category === 'plus_one');
             const minusOneList = attachments.filter((a) => a.category === 'minus_one' || !a.category);
             const hasAttachments = attachments.length > 0 || Boolean(song.minusOneLink);
+            const isMenuOpen = openMenuSongId === song.id;
 
             return (
               <div
@@ -421,28 +472,47 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 ref={isSelected ? expandedItemRef : null}
                 className={`rounded-2xl transition-all border overflow-hidden ${
                   isSelected
-                    ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 shadow-lg'
+                    ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 shadow-md'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-xs'
                 }`}
               >
-                {/* Song Card Header (Click to expand / collapse in-place) */}
+                {/* Song Card Header (Tapping/clicking expands/collapses in-place) */}
                 <div
                   onClick={() => {
                     if (isSelected) {
                       setSelectedSongId(null);
                       setActiveMedia(null);
+                      setOpenMenuSongId(null);
                       onClearInitialSelectedSongId?.();
                     } else {
                       setSelectedSongId(song.id);
                       setActiveMedia(null);
+                      setOpenMenuSongId(null);
                     }
                   }}
                   className="p-4 flex items-center justify-between cursor-pointer select-none group"
                 >
                   <div className="min-w-0 pr-3">
-                    <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
-                      {song.title}
-                    </h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors truncate">
+                        {song.title}
+                      </h4>
+
+                      {/* Welcome Song Badge */}
+                      {song.isWelcomeSong && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                          Welcome
+                        </span>
+                      )}
+
+                      {/* Closing Song Badge */}
+                      {song.isClosingSong && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                          Closing
+                        </span>
+                      )}
+                    </div>
+
                     {song.artist && (
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
                         {song.artist}
@@ -483,7 +553,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 {/* IN-LINE EXPANDED VIEW (When clicked directly in place!) */}
                 {isSelected && (
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
-                    {/* Action Bar */}
+                    {/* Action Bar (With 3-dot menu for Mark as Welcome/Closing, Edit, and Delete) */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -519,7 +589,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           onClick={() => setLargeFontMode(!largeFontMode)}
                           className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                             largeFontMode
-                              ? 'bg-amber-100 dark:bg-amber-950/70 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                              ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold'
                               : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                           }`}
                           title="Toggle Stage Font Size"
@@ -529,40 +599,67 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      {/* 3-Dot Menu Button (Contains Mark as Welcome, Mark as Closing, Edit, Delete) */}
+                      <div className="relative" onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={(e) => handleStartEditSong(song, e)}
-                          className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                          type="button"
+                          onClick={() => setOpenMenuSongId(isMenuOpen ? null : song.id)}
+                          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                          title="Song Options"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
+                          <MoreVertical className="w-4 h-4" />
                         </button>
 
-                        <button
-                          onClick={() => {
-                            if (confirm(`Remove "${song.title}" from Song Library?`)) {
-                              onDeleteSong(song.id);
-                              setSelectedSongId(null);
-                              onClearInitialSelectedSongId?.();
-                            }
-                          }}
-                          className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs cursor-pointer"
-                          title="Delete Song"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {/* 3-Dot Dropdown Menu Popover */}
+                        {isMenuOpen && (
+                          <div className="absolute right-0 top-full mt-1.5 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleWelcomeSong(song, e)}
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-sky-500" />
+                              <span>{song.isWelcomeSong ? 'Remove Welcome Song Badge' : 'Mark as Welcome Song'}</span>
+                            </button>
 
-                        <button
-                          onClick={() => {
-                            setSelectedSongId(null);
-                            setActiveMedia(null);
-                            onClearInitialSelectedSongId?.();
-                          }}
-                          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 text-xs transition-colors cursor-pointer"
-                          title="Close"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleToggleClosingSong(song, e)}
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                            >
+                              <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500" />
+                              <span>{song.isClosingSong ? 'Remove Closing Song Badge' : 'Mark as Closing Song'}</span>
+                            </button>
+
+                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+
+                            <button
+                              type="button"
+                              onClick={(e) => handleStartEditSong(song, e)}
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span>Edit Song Details</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuSongId(null);
+                                if (confirm(`Remove "${song.title}" from Song Library?`)) {
+                                  onDeleteSong(song.id);
+                                  setSelectedSongId(null);
+                                  onClearInitialSelectedSongId?.();
+                                }
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete Song</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -591,23 +688,41 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       </div>
                     </div>
 
-                    {/* VIDEO / SOUND PLAYER (Placed right after the lyrics!) */}
+                    {/* VIDEO / SOUND PLAYER (Placed right after the lyrics with Repeat / Loop button) */}
                     {activeMedia && (
                       <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                           <div className="flex items-center space-x-2 min-w-0">
-                            <Volume2 className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+                            <Volume2 className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />
                             <span className="text-xs font-bold truncate">
                               Playing: {activeMedia.name}
                             </span>
                           </div>
-                          <button
-                            onClick={() => setActiveMedia(null)}
-                            className="text-slate-400 hover:text-white p-1 cursor-pointer"
-                            title="Close Player"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Repeat / Loop toggle button (Default is off, resets on app restart) */}
+                            <button
+                              type="button"
+                              onClick={() => setIsLooping(!isLooping)}
+                              className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                                isLooping
+                                  ? 'bg-sky-500 text-white'
+                                  : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                              }`}
+                              title={isLooping ? 'Repeat Mode: ON (Looping enabled)' : 'Repeat Mode: OFF (Click to loop)'}
+                            >
+                              <Repeat className="w-3.5 h-3.5" />
+                              <span className="text-[10px]">{isLooping ? 'Repeat ON' : 'Repeat'}</span>
+                            </button>
+
+                            <button
+                              onClick={() => setActiveMedia(null)}
+                              className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                              title="Close Player"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
                         {/* YouTube Embed Player */}
@@ -633,6 +748,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                 src={activeMedia.url}
                                 controls
                                 autoPlay
+                                loop={isLooping}
                                 className="w-full max-h-72 rounded-xl bg-black"
                               />
                             );
@@ -641,7 +757,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           if (activeMedia.type === 'audio' || activeMedia.url.startsWith('data:audio/')) {
                             return (
                               <div className="p-2 bg-slate-800/80 rounded-xl">
-                                <audio src={activeMedia.url} controls autoPlay className="w-full" />
+                                <audio src={activeMedia.url} controls autoPlay loop={isLooping} className="w-full" />
                               </div>
                             );
                           }
@@ -654,7 +770,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                 href={activeMedia.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold flex items-center gap-1 shrink-0"
+                                className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-900 font-bold flex items-center gap-1 shrink-0 hover:bg-white"
                               >
                                 <span>Open Link</span>
                                 <ExternalLink className="w-3 h-3" />
@@ -690,7 +806,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                     }
                                     className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                                       isPlaying
-                                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600 ring-1 ring-amber-400'
+                                        ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100'
                                         : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-400'
                                     }`}
                                   >
@@ -699,7 +815,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                         {att.type === 'video' ? (
                                           <FileVideo className="w-3.5 h-3.5 text-rose-500" />
                                         ) : att.type === 'audio' ? (
-                                          <FileAudio className="w-3.5 h-3.5 text-amber-500" />
+                                          <FileAudio className="w-3.5 h-3.5 text-sky-500" />
                                         ) : att.type === 'image' ? (
                                           <FileImage className="w-3.5 h-3.5 text-emerald-500" />
                                         ) : (
@@ -716,15 +832,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                       </div>
                                     </div>
 
+                                    {/* Delete button only at far right (removed redundant Play button) */}
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                      <Play className="w-3.5 h-3.5 text-slate-500 hover:text-amber-500" />
                                       <button
                                         type="button"
                                         onClick={(e) => handleDeleteAttachment(att.id, e)}
-                                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                                        className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
                                         title="Delete attachment"
                                       >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   </div>
@@ -755,7 +871,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                 >
                                   <div className="flex items-center space-x-2.5 min-w-0">
                                     <div className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shrink-0">
-                                      <Play className="w-3.5 h-3.5 text-amber-500" />
+                                      <FileAudio className="w-3.5 h-3.5 text-sky-500" />
                                     </div>
                                     <div className="min-w-0">
                                       <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
@@ -766,7 +882,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                       </span>
                                     </div>
                                   </div>
-                                  <Play className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                                 </div>
                               )}
 
@@ -785,7 +900,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                     }
                                     className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                                       isPlaying
-                                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-400 dark:border-amber-600 ring-1 ring-amber-400'
+                                        ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100'
                                         : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-400'
                                     }`}
                                   >
@@ -794,7 +909,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                         {att.type === 'video' ? (
                                           <FileVideo className="w-3.5 h-3.5 text-rose-500" />
                                         ) : att.type === 'audio' ? (
-                                          <FileAudio className="w-3.5 h-3.5 text-amber-500" />
+                                          <FileAudio className="w-3.5 h-3.5 text-sky-500" />
                                         ) : att.type === 'image' ? (
                                           <FileImage className="w-3.5 h-3.5 text-emerald-500" />
                                         ) : (
@@ -811,15 +926,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                       </div>
                                     </div>
 
+                                    {/* Delete button only at far right (removed redundant Play button) */}
                                     <div className="flex items-center gap-1.5 shrink-0">
-                                      <Play className="w-3.5 h-3.5 text-slate-500 hover:text-amber-500" />
                                       <button
                                         type="button"
                                         onClick={(e) => handleDeleteAttachment(att.id, e)}
-                                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                                        className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
                                         title="Delete attachment"
                                       >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   </div>
@@ -831,15 +946,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       </div>
                     )}
 
-                    {/* Centered "+ Add Attachment" Button at the bottom (Requirement 10) */}
+                    {/* Centered "Add Attachment" Button at the bottom (Icon + Text without duplicate +) */}
                     <div className="flex justify-center pt-2">
                       <button
                         type="button"
                         onClick={(e) => handleOpenAddAttachment('minus_one', e)}
                         className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
                       >
-                        <Plus className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        <span>+ Add Attachment</span>
+                        <Plus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                        <span>Add Attachment</span>
                       </button>
                     </div>
                   </div>
@@ -886,7 +1001,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                         {formatDateStr(s.date, { showDayOfWeek: true })} (Presider: {s.presider})
                       </option>
                     ))}
-                  <option value="NEW">+ Create a Brand New Setlist with this song</option>
+                  <option value="NEW">Create Brand New Setlist with this song</option>
                 </select>
               </div>
 
@@ -939,7 +1054,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 <button
                   type="button"
                   onClick={handleExecuteAddToSetlist}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   {targetSetlistId === 'NEW' ? 'Create New Setlist' : 'Add to Setlist'}
                 </button>
@@ -949,13 +1064,13 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: ADD ATTACHMENT / TRACKS (Requirement 7) */}
+      {/* MODAL 2: ADD ATTACHMENT / TRACKS */}
       {isAddingAttachment && selectedSong && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Paperclip className="w-4 h-4 text-amber-500" />
+                <Paperclip className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                 <span>Add Track or Attachment</span>
               </h3>
               <button onClick={() => setIsAddingAttachment(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
@@ -1063,7 +1178,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   Save Attachment
                 </button>
@@ -1073,7 +1188,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         </div>
       )}
 
-      {/* MODAL 3: CREATE / EDIT SONG (Requirements 7 & 8) */}
+      {/* MODAL 3: CREATE / EDIT SONG */}
       {isEditing && editingSong && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-6">
@@ -1105,7 +1220,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 />
               </div>
 
-              {/* Optional Artist / Origin with "+ Add Artist/Origin" button (Requirement 8) */}
+              {/* Optional Artist / Origin with "Add Artist/Origin" button */}
               <div>
                 {showArtistInput ? (
                   <div className="space-y-1">
@@ -1137,10 +1252,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowArtistInput(true)}
-                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer py-1"
+                    className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:underline flex items-center gap-1 cursor-pointer py-1"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ Add artist/origin</span>
+                    <span>Add artist/origin</span>
                   </button>
                 )}
               </div>
@@ -1169,7 +1284,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-sm cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   Save Song
                 </button>
