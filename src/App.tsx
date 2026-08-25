@@ -121,66 +121,48 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      if (items.length > 0) {
-        setSetlists(items);
-        saveSetlists(items);
-      }
+      setSetlists(items);
+      saveSetlists(items);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      if (items.length > 0) {
-        setSongs(items);
-        saveSongs(items);
-      }
+      setSongs(items);
+      saveSongs(items);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      if (items.length > 0) {
-        setBirthdays(items);
-        saveBirthdays(items);
-      }
+      setBirthdays(items);
+      saveBirthdays(items);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      if (items.length > 0) {
-        setAnniversaries(items);
-        saveAnniversaries(items);
-      }
+      setAnniversaries(items);
+      saveAnniversaries(items);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      if (items.length > 0) {
-        setVisitors(items);
-        saveVisitors(items);
-      }
+      setVisitors(items);
+      saveVisitors(items);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      if (items.length > 0) {
-        setSpecialRecognitions(items);
-        saveSpecialRecognitions(items);
-      }
+      setSpecialRecognitions(items);
+      saveSpecialRecognitions(items);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      if (items.length > 0) {
-        setSpecialNumbers(items);
-        saveSpecialNumbers(items);
-      }
+      setSpecialNumbers(items);
+      saveSpecialNumbers(items);
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
-      if (items.length > 0) {
-        setPracticeEntries(items);
-        savePracticeEntries(items);
-      }
+      setPracticeEntries(items);
+      savePracticeEntries(items);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
-      if (items.length > 0) {
-        setUsers(items);
-        saveUsers(items);
-      }
+      setUsers(items);
+      saveUsers(items);
     });
 
     return () => {
@@ -385,7 +367,9 @@ export default function App() {
 
   // Recognitions Operations
   const handleSaveBirthday = (item: BirthdayCelebrant) => {
-    const updated = [...birthdays, item];
+    const idx = birthdays.findIndex((b) => b.id === item.id);
+    const updated = idx >= 0 ? [...birthdays] : [...birthdays, item];
+    if (idx >= 0) updated[idx] = item;
     setBirthdays(updated);
     saveBirthdays(updated);
     syncSaveBirthday(item);
@@ -399,7 +383,9 @@ export default function App() {
   };
 
   const handleSaveAnniversary = (item: AnniversaryCelebrant) => {
-    const updated = [...anniversaries, item];
+    const idx = anniversaries.findIndex((a) => a.id === item.id);
+    const updated = idx >= 0 ? [...anniversaries] : [...anniversaries, item];
+    if (idx >= 0) updated[idx] = item;
     setAnniversaries(updated);
     saveAnniversaries(updated);
     syncSaveAnniversary(item);
@@ -413,7 +399,9 @@ export default function App() {
   };
 
   const handleSaveVisitor = (item: Visitor) => {
-    const updated = [item, ...visitors];
+    const idx = visitors.findIndex((v) => v.id === item.id);
+    const updated = idx >= 0 ? [...visitors] : [item, ...visitors];
+    if (idx >= 0) updated[idx] = item;
     setVisitors(updated);
     saveVisitors(updated);
     syncSaveVisitor(item);
@@ -427,7 +415,9 @@ export default function App() {
   };
 
   const handleSaveSpecialRecognition = (item: SpecialRecognition) => {
-    const updated = [item, ...specialRecognitions];
+    const idx = specialRecognitions.findIndex((r) => r.id === item.id);
+    const updated = idx >= 0 ? [...specialRecognitions] : [item, ...specialRecognitions];
+    if (idx >= 0) updated[idx] = item;
     setSpecialRecognitions(updated);
     saveSpecialRecognitions(updated);
     syncSaveSpecialRecognition(item);

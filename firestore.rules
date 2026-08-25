@@ -1,8 +1,56 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+
+    // --- CHURCH DATA COLLECTIONS ---
+    match /songs/{songId} {
       allow read, write: if true;
+    }
+
+    match /setlists/{setlistId} {
+      allow read, write: if true;
+    }
+
+    match /special_numbers/{id} {
+      allow read, write: if true;
+    }
+
+    match /practice_entries/{id} {
+      allow read, write: if true;
+    }
+
+    match /birthdays/{id} {
+      allow read, write: if true;
+    }
+
+    match /anniversaries/{id} {
+      allow read, write: if true;
+    }
+
+    match /visitors/{id} {
+      allow read, write: if true;
+    }
+
+    match /special_recognitions/{id} {
+      allow read, write: if true;
+    }
+
+    match /saved_names/{id} {
+      allow read, write: if true;
+    }
+
+    match /welcome_songs/{id} {
+      allow read, write: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    // Deny access to any unspecified root path
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
+

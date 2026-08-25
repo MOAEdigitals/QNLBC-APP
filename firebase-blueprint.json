@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "Song": {
+      "title": "Song",
+      "description": "Church hymnal or worship song in the library",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "artist": { "type": "string" },
+        "lyrics": { "type": "string" },
+        "key": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
+    "Setlist": {
+      "title": "Setlist",
+      "description": "Sunday service worship setlist and lineup",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "title", "date"]
+    },
+    "SpecialNumber": {
+      "title": "SpecialNumber",
+      "description": "Special presentation or soloist performance entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "performerName": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "performerName", "date"]
+    },
+    "PracticeEntry": {
+      "title": "PracticeEntry",
+      "description": "Practice schedule and rehearsal entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "groupName": { "type": "string" },
+        "songTitle": { "type": "string" }
+      },
+      "required": ["id", "groupName", "songTitle"]
+    },
+    "Birthday": {
+      "title": "Birthday",
+      "description": "Church member birthday celebrant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "birthDate": { "type": "string" }
+      },
+      "required": ["id", "name", "birthDate"]
+    },
+    "Anniversary": {
+      "title": "Anniversary",
+      "description": "Wedding anniversary celebrant",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "coupleNames": { "type": "string" },
+        "anniversaryDate": { "type": "string" }
+      },
+      "required": ["id", "coupleNames", "anniversaryDate"]
+    },
+    "Visitor": {
+      "title": "Visitor",
+      "description": "Guest or visitor recognition record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "visitDate": { "type": "string" }
+      },
+      "required": ["id", "name", "visitDate"]
+    },
+    "SpecialRecognition": {
+      "title": "SpecialRecognition",
+      "description": "Special church milestone or recognition record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "personName": { "type": "string" },
+        "awardTitle": { "type": "string" }
+      },
+      "required": ["id", "personName", "awardTitle"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Church team member user profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["id", "username", "role"]
+    }
+  },
+  "firestore": {
+    "/songs/{songId}": {
+      "schema": "Song",
+      "description": "Church song library"
+    },
+    "/setlists/{setlistId}": {
+      "schema": "Setlist",
+      "description": "Service setlists"
+    },
+    "/special_numbers/{id}": {
+      "schema": "SpecialNumber",
+      "description": "Special numbers"
+    },
+    "/practice_entries/{id}": {
+      "schema": "PracticeEntry",
+      "description": "Rehearsal entries"
+    },
+    "/birthdays/{id}": {
+      "schema": "Birthday",
+      "description": "Member birthdays"
+    },
+    "/anniversaries/{id}": {
+      "schema": "Anniversary",
+      "description": "Member anniversaries"
+    },
+    "/visitors/{id}": {
+      "schema": "Visitor",
+      "description": "Visitors log"
+    },
+    "/special_recognitions/{id}": {
+      "schema": "SpecialRecognition",
+      "description": "Milestone recognitions"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Team member accounts"
+    }
+  }
+}

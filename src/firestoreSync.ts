@@ -226,55 +226,95 @@ export async function syncSaveUser(user: UserAccount) {
 
 /**
  * Initial Cloud Seeding:
- * If the cloud database is empty on first run, seed it with local data so all devices receive it.
+ * Checks each collection individually. If any collection is empty on Firestore,
+ * seeds it with default/local data so all devices immediately get in sync.
  */
 export async function initializeFirestoreCloudSeed() {
   try {
+    // 1. Songs
     const songsCol = collection(db, COLLECTIONS.SONGS);
     const existingSongs = await getDocs(songsCol);
-
     if (existingSongs.empty) {
-      console.log('Seeding initial cloud data to Firestore...');
       const initialSongs = loadSongs();
       for (const s of initialSongs) {
         await setDoc(doc(db, COLLECTIONS.SONGS, s.id), sanitizeDoc(s), { merge: true });
       }
+    }
 
+    // 2. Setlists
+    const setlistsCol = collection(db, COLLECTIONS.SETLISTS);
+    const existingSetlists = await getDocs(setlistsCol);
+    if (existingSetlists.empty) {
       const initialSetlists = loadSetlists();
       for (const setlist of initialSetlists) {
         await setDoc(doc(db, COLLECTIONS.SETLISTS, setlist.id), sanitizeDoc(setlist), { merge: true });
       }
+    }
 
+    // 3. Special Numbers
+    const specialCol = collection(db, COLLECTIONS.SPECIAL_NUMBERS);
+    const existingSpecials = await getDocs(specialCol);
+    if (existingSpecials.empty) {
       const initialSpecialNumbers = loadSpecialNumbers();
       for (const sp of initialSpecialNumbers) {
         await setDoc(doc(db, COLLECTIONS.SPECIAL_NUMBERS, sp.id), sanitizeDoc(sp), { merge: true });
       }
+    }
 
+    // 4. Practice Entries
+    const practiceCol = collection(db, COLLECTIONS.PRACTICE_ENTRIES);
+    const existingPractice = await getDocs(practiceCol);
+    if (existingPractice.empty) {
       const initialPractice = loadPracticeEntries();
       for (const pr of initialPractice) {
         await setDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, pr.id), sanitizeDoc(pr), { merge: true });
       }
+    }
 
+    // 5. Birthdays
+    const birthdaysCol = collection(db, COLLECTIONS.BIRTHDAYS);
+    const existingBirthdays = await getDocs(birthdaysCol);
+    if (existingBirthdays.empty) {
       const initialBirthdays = loadBirthdays();
       for (const b of initialBirthdays) {
         await setDoc(doc(db, COLLECTIONS.BIRTHDAYS, b.id), sanitizeDoc(b), { merge: true });
       }
+    }
 
+    // 6. Anniversaries
+    const annivCol = collection(db, COLLECTIONS.ANNIVERSARIES);
+    const existingAnniv = await getDocs(annivCol);
+    if (existingAnniv.empty) {
       const initialAnniv = loadAnniversaries();
       for (const a of initialAnniv) {
         await setDoc(doc(db, COLLECTIONS.ANNIVERSARIES, a.id), sanitizeDoc(a), { merge: true });
       }
+    }
 
+    // 7. Visitors
+    const visitorsCol = collection(db, COLLECTIONS.VISITORS);
+    const existingVisitors = await getDocs(visitorsCol);
+    if (existingVisitors.empty) {
       const initialVisitors = loadVisitors();
       for (const v of initialVisitors) {
         await setDoc(doc(db, COLLECTIONS.VISITORS, v.id), sanitizeDoc(v), { merge: true });
       }
+    }
 
+    // 8. Special Recognitions
+    const recognitionsCol = collection(db, COLLECTIONS.SPECIAL_RECOGNITIONS);
+    const existingRecognitions = await getDocs(recognitionsCol);
+    if (existingRecognitions.empty) {
       const initialRecognitions = loadSpecialRecognitions();
       for (const r of initialRecognitions) {
         await setDoc(doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, r.id), sanitizeDoc(r), { merge: true });
       }
+    }
 
+    // 9. Users
+    const usersCol = collection(db, COLLECTIONS.USERS);
+    const existingUsers = await getDocs(usersCol);
+    if (existingUsers.empty) {
       const initialUsers = loadUsers();
       for (const u of initialUsers) {
         await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
