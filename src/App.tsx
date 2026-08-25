@@ -9,6 +9,7 @@ import {
   Visitor,
   SpecialRecognition,
   SpecialNumberEntry,
+  PracticeGroupEntry,
 } from './types';
 import {
   loadCurrentSession,
@@ -30,6 +31,8 @@ import {
   saveSpecialRecognitions,
   loadSpecialNumbers,
   saveSpecialNumbers,
+  loadPracticeEntries,
+  savePracticeEntries,
   upsertSongFromSpecialNumber,
 } from './utils/storage';
 import {
@@ -88,6 +91,7 @@ export default function App() {
   const [visitors, setVisitors] = useState<Visitor[]>(() => loadVisitors());
   const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>(() => loadSpecialRecognitions());
   const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>(() => loadSpecialNumbers());
+  const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>(() => loadPracticeEntries());
 
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {
@@ -99,6 +103,7 @@ export default function App() {
     setVisitors(loadVisitors());
     setSpecialRecognitions(loadSpecialRecognitions());
     setSpecialNumbers(loadSpecialNumbers());
+    setPracticeEntries(loadPracticeEntries());
   };
 
   // Navigate to a new tab with history tracking (or collapse active container if clicking same tab)
@@ -244,6 +249,26 @@ export default function App() {
     const updated = specialNumbers.filter((s) => s.id !== id);
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
+  };
+
+  // Practice Group / Song Operations
+  const handleSavePracticeEntry = (entry: PracticeGroupEntry) => {
+    const idx = practiceEntries.findIndex((p) => p.id === entry.id);
+    let updated: PracticeGroupEntry[];
+    if (idx >= 0) {
+      updated = [...practiceEntries];
+      updated[idx] = entry;
+    } else {
+      updated = [entry, ...practiceEntries];
+    }
+    setPracticeEntries(updated);
+    savePracticeEntries(updated);
+  };
+
+  const handleDeletePracticeEntry = (id: string) => {
+    const updated = practiceEntries.filter((p) => p.id !== id);
+    setPracticeEntries(updated);
+    savePracticeEntries(updated);
   };
 
   // Recognitions Operations
@@ -429,10 +454,13 @@ export default function App() {
         {currentTab === 'special-numbers' && (
           <SpecialNumberTab
             specialNumbers={specialNumbers}
+            practiceEntries={practiceEntries}
             songs={songs}
             setlists={setlists}
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
+            onSavePracticeEntry={handleSavePracticeEntry}
+            onDeletePracticeEntry={handleDeletePracticeEntry}
             onOpenSongDetail={handleOpenSongDetail}
             collapseSignal={collapseSignals['special-numbers']}
           />

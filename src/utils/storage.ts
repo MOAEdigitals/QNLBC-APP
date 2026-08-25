@@ -7,6 +7,7 @@ import {
   Visitor,
   SpecialRecognition,
   SpecialNumberEntry,
+  PracticeGroupEntry,
 } from '../types';
 import { getNextSundayStr } from './dateUtils';
 
@@ -21,6 +22,7 @@ const STORAGE_KEYS = {
   VISITORS: 'nlbc_visitors_v1',
   SPECIAL_RECOGNITIONS: 'nlbc_special_recognitions_v1',
   SPECIAL_NUMBERS: 'nlbc_special_numbers_v1',
+  PRACTICE_ENTRIES: 'nlbc_practice_entries_v1',
   SAVED_NAMES: 'nlbc_saved_names_v1',
   WELCOME_SONGS: 'nlbc_welcome_songs_v1',
 };
@@ -995,4 +997,144 @@ export function importBatchLyricsTxt(files: { fileName: string; content: string 
     totalSongs: currentSongs.length,
   };
 }
+
+// Initial starter Practice Group songs for singing groups / choir
+export const DEFAULT_PRACTICE_ENTRIES: PracticeGroupEntry[] = [
+  {
+    id: 'prac-1',
+    groupName: 'NLBC Youth Choir',
+    targetDate: getNextSundayStr(),
+    songTitle: 'Total Praise',
+    artist: 'Richard Smallwood',
+    lyrics: `Lord, I will lift mine eyes to the hills
+Knowing my help is coming from You
+Your peace You give me
+In time of the storm
+
+You are the source of my strength
+You are the strength of my life
+I lift my hands in total praise to You
+
+Amen, Amen, Amen, Amen
+Amen, Amen, Amen, Amen`,
+    notes: 'Key of Eb. Practice four-part harmony at the Amen climax.',
+    attachments: [
+      {
+        id: 'att-prac-1',
+        name: 'Total Praise - Piano Accompaniment Track',
+        category: 'minus_one',
+        type: 'link',
+        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    parts: [
+      {
+        id: 'part-soprano',
+        partLabel: 'Soprano',
+        assignedTo: 'Sis. Abigail Cruz',
+        name: 'Soprano High Melody & Climax',
+        type: 'link',
+        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'part-alto',
+        partLabel: 'Alto',
+        assignedTo: 'Sis. Grace David',
+        name: 'Alto Inner Harmony Track',
+        type: 'link',
+        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'part-tenor',
+        partLabel: 'Tenor',
+        assignedTo: 'Bro. Christian Ramos',
+        name: 'Tenor Ascending Voice',
+        type: 'link',
+        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'part-bass',
+        partLabel: 'Bass',
+        assignedTo: 'Bro. Daniel Pascual',
+        name: 'Bass Foundation Stanza',
+        type: 'link',
+        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'prac-2',
+    groupName: 'Men of Honor Quartet',
+    targetDate: '',
+    songTitle: 'I Stand in Awe',
+    artist: 'Mark Altrogge',
+    lyrics: `You are beautiful beyond description
+Too marvelous for words
+Too wonderful for comprehension
+Like nothing ever seen or heard
+Who can grasp Your infinite wisdom
+Who can fathom the depth of Your love
+You are beautiful beyond description
+Majesty enthroned above
+
+And I stand, I stand in awe of You
+I stand, I stand in awe of You
+Holy God, to whom all praise is due
+I stand in awe of You`,
+    notes: 'A cappella opening verse, acoustic guitar enters on chorus.',
+    attachments: [],
+    parts: [
+      {
+        id: 'part-lead',
+        partLabel: 'Lead',
+        assignedTo: 'Bro. Alvin Ramos',
+        name: 'Lead Vocal Verse 1',
+        type: 'link',
+        urlOrData: '',
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'part-baritone',
+        partLabel: 'Baritone',
+        assignedTo: 'Bro. Emmanuel Garcia',
+        name: 'Baritone Harmony',
+        type: 'link',
+        urlOrData: '',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+export function loadPracticeEntries(): PracticeGroupEntry[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_ENTRIES);
+    if (!raw) {
+      savePracticeEntries(DEFAULT_PRACTICE_ENTRIES);
+      return DEFAULT_PRACTICE_ENTRIES;
+    }
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error loading practice entries:', err);
+    return DEFAULT_PRACTICE_ENTRIES;
+  }
+}
+
+export function savePracticeEntries(entries: PracticeGroupEntry[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_ENTRIES, JSON.stringify(entries));
+  } catch (err) {
+    console.error('Error saving practice entries:', err);
+  }
+}
+
 

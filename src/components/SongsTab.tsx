@@ -29,6 +29,7 @@ import {
   BookmarkCheck,
   Clock,
   AlertTriangle,
+  Radio,
 } from 'lucide-react';
 import { searchSong, getSongUsageHistory, SongUsageHistory } from '../utils/songSearch';
 
@@ -81,6 +82,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   // Repeat / Loop mode for audio & video player (resets on reload / sign out)
   const [isLooping, setIsLooping] = useState(false);
 
+  // Background play mode for tracks & links to keep playing even when minimized
+  const [isBgPlayEnabled, setIsBgPlayEnabled] = useState(false);
+
   // Large lyrics reading mode for stage worship singing
   const [largeFontMode, setLargeFontMode] = useState(false);
 
@@ -91,6 +95,33 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     url: string;
     type: 'link' | 'audio' | 'video' | 'image' | 'text' | 'file';
   } | null>(null);
+
+  // Background Audio / MediaSession integration when BG play is enabled
+  useEffect(() => {
+    if (!activeMedia) return;
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: activeMedia.name || 'Worship Track',
+        artist: 'Church Song Library',
+        album: 'Worship Service Resources',
+      });
+
+      navigator.mediaSession.setActionHandler('play', () => {
+        const audioEl = document.querySelector('audio') as HTMLAudioElement | null;
+        const videoEl = document.querySelector('video') as HTMLVideoElement | null;
+        if (audioEl) audioEl.play().catch(() => {});
+        if (videoEl) videoEl.play().catch(() => {});
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        const audioEl = document.querySelector('audio') as HTMLAudioElement | null;
+        const videoEl = document.querySelector('video') as HTMLVideoElement | null;
+        if (audioEl) audioEl.pause();
+        if (videoEl) videoEl.pause();
+      });
+    }
+  }, [activeMedia, isBgPlayEnabled]);
 
   // Add to Setlist Modal state
   const [isAddToSetlistOpen, setIsAddToSetlistOpen] = useState(false);
@@ -400,9 +431,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             <Music className="w-5 h-5 text-slate-800 dark:text-slate-200" />
             <span>Shared Song Library</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Central repository for praise & worship songs, hymns, plus-ones, and minus-ones
-          </p>
         </div>
 
         <button
@@ -760,24 +788,48 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {/* Repeat / Loop toggle button (Default is off, resets on app restart) */}
+                            {/* BG Play toggle button for background playback when minimized */}
                             <button
                               type="button"
-                              onClick={() => setIsLooping(!isLooping)}
+                              onClick={() => setIsBgPlayEnabled(!isBgPlayEnabled)}
                               className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
-                                isLooping
-                                  ? 'bg-sky-500 text-white'
+                                isBgPlayEnabled
+                                  ? 'bg-emerald-500 text-white shadow-xs'
                                   : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
                               }`}
-                              title={isLooping ? 'Repeat Mode: ON (Looping enabled)' : 'Repeat Mode: OFF (Click to loop)'}
+                              title={
+                                isBgPlayEnabled
+                                  ? 'Background Play ON: Continues playing even when browser/tab is minimized'
+                                  : 'Background Play OFF: Click to enable background audio playback'
+                              }
                             >
-                              <Repeat className="w-3.5 h-3.5" />
-                              <span className="text-[10px]">{isLooping ? 'Repeat ON' : 'Repeat'}</span>
+                              <Radio className="w-3.5 h-3.5" />
+                              <span className="text-[10px]">{isBgPlayEnabled ? 'BG Play ON' : 'BG Play'}</span>
                             </button>
+
+                            {/* Repeat / Loop toggle button (Only for attached files, not web/youtube links) */}
+                            {(activeMedia.type === 'audio' ||
+                              activeMedia.type === 'video' ||
+                              activeMedia.type === 'file' ||
+                              activeMedia.url.startsWith('data:')) && (
+                              <button
+                                type="button"
+                                onClick={() => setIsLooping(!isLooping)}
+                                className={`p-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                                  isLooping
+                                    ? 'bg-sky-500 text-white'
+                                    : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
+                                }`}
+                                title={isLooping ? 'Repeat Mode: ON (Looping enabled)' : 'Repeat Mode: OFF (Click to loop)'}
+                              >
+                                <Repeat className="w-3.5 h-3.5" />
+                                <span className="text-[10px]">{isLooping ? 'Repeat ON' : 'Repeat'}</span>
+                              </button>
+                            )}
 
                             <button
                               onClick={() => setActiveMedia(null)}
-                              className="text-slate-400 hover:text-white p-1 cursor-pointer"
+                              className="text-slate-400 hover:text-white p-1 cursor-pointer ml-0.5"
                               title="Close Player"
                             >
                               <X className="w-4 h-4" />

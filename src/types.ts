@@ -16,8 +16,10 @@ export interface SongAttachment {
   name: string;
   category?: AttachmentCategory;
   type: 'link' | 'audio' | 'video' | 'image' | 'text' | 'file';
-  urlOrData: string;
-  createdAt: string;
+  urlOrData?: string;
+  url?: string;
+  uploadedAt?: string;
+  createdAt?: string;
 }
 
 export interface Song {
@@ -133,4 +135,50 @@ export interface SpecialNumberEntry {
 
 export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'settings';
 export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
+export type SpecialNumbersSubTab = 'schedules' | 'practice';
+
+export type VocalPartLabel =
+  | 'Soprano'
+  | 'Alto'
+  | 'Tenor'
+  | 'Bass'
+  | 'Baritone'
+  | 'Lead'
+  | 'Harmony'
+  | 'Choir / All'
+  | 'Custom';
+
+export interface PracticePartTrack {
+  id: string;
+  partLabel: VocalPartLabel;
+  customLabel?: string;
+  assignedUsers?: string[];
+  assignedTo?: string; // e.g. "Sis. Grace", "Bro. John"
+  name?: string; // Track name e.g. "Alto Practice Vocal"
+  type?: 'link' | 'audio' | 'video' | 'file';
+  urlOrData?: string;
+  audioUrl?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface PracticeGroupEntry {
+  id: string;
+  groupName: string; // e.g. "Youth Choir", "Men's Quartet", "Praise Team Ensemble", "Sisters Trio"
+  targetDate?: string; // Optional upcoming presentation date
+  practiceDate?: string;
+  practiceTime?: string;
+  assignedEvent?: string;
+  songTitle: string;
+  artist?: string;
+  lyrics: string;
+  songId?: string; // reference to original song in songs library if linked
+  notes?: string;
+  attachments?: SongAttachment[]; // isolated practice plus_one / minus_one attachments
+  customAttachments?: SongAttachment[];
+  parts?: PracticePartTrack[]; // vocal parts tracks (Tenor, Alto, Soprano, Bass, Baritone, etc.)
+  vocalParts?: PracticePartTrack[];
+  createdAt: string;
+  updatedAt?: string;
+}
 

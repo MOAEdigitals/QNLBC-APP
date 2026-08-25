@@ -24,6 +24,8 @@ import {
   X,
   Sparkles,
   ChevronDown,
+  ChevronUp,
+  ExternalLink,
   Users,
   Flame,
   AlertCircle,
@@ -57,7 +59,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
   const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
-  const [showExpandedMenu, setShowExpandedMenu] = useState(false);
+  const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
 
   // Sync initialSelectedSetlistId prop if provided
   useEffect(() => {
@@ -104,16 +106,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   // Close popovers on outside click
   useEffect(() => {
     const handleDocumentClick = () => {
-      setShowExpandedMenu(false);
+      setOpenMenuSetlistId(null);
       setShowTypeSelector(false);
     };
-    if (showExpandedMenu || showTypeSelector) {
+    if (openMenuSetlistId || showTypeSelector) {
       document.addEventListener('click', handleDocumentClick);
     }
     return () => {
       document.removeEventListener('click', handleDocumentClick);
     };
-  }, [showExpandedMenu, showTypeSelector]);
+  }, [openMenuSetlistId, showTypeSelector]);
 
   // Notify parent App whether there is an active subview (expanded setlist or editor modal)
   useEffect(() => {
@@ -467,389 +469,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         </div>
       </div>
 
-      {/* Selected Setlist Detail Display */}
-      {selectedSetlist && !isEditing && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-300 dark:border-slate-700 p-5 sm:p-6 shadow-md space-y-6">
-          <div
-            onClick={() => setSelectedSetlistId(null)}
-            className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 cursor-pointer group"
-            title="Click to collapse setlist"
-          >
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  {selectedSetlist.type === 'prayer_meeting'
-                    ? 'Prayer Meeting Program'
-                    : selectedSetlist.type === 'fellowship'
-                    ? 'Fellowship Program'
-                    : selectedSetlist.type === 'event'
-                    ? 'Special Event Program'
-                    : 'Sunday Service Order'}
-                </span>
-
-                {isToday(selectedSetlist.date) ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
-                    Today
-                  </span>
-                ) : !isPastDate(selectedSetlist.date) ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-                    Upcoming Date
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                    Past Service
-                  </span>
-                )}
-              </div>
-
-              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors">
-                {selectedSetlist.title || formatDateStr(selectedSetlist.date, { showDayOfWeek: true })}
-              </h3>
-
-              <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                <Clock className="w-3.5 h-3.5" />
-                <span>
-                  {selectedSetlist.type === 'sunday' || !selectedSetlist.type
-                    ? 'Sunday School • Worship Service'
-                    : `Scheduled for ${formatDateStr(selectedSetlist.date, { showDayOfWeek: true })}`}
-                </span>
-              </div>
-            </div>
-
-            <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={() => setShowExpandedMenu(!showExpandedMenu)}
-                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
-                title="Program Options"
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-
-              {showExpandedMenu && (
-                <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowExpandedMenu(false);
-                      handleStartEdit(selectedSetlist);
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Edit Program</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowExpandedMenu(false);
-                      if (confirm(`Remove this setlist for ${selectedSetlist.date}?`)) {
-                        onDeleteSetlist(selectedSetlist.id);
-                        setSelectedSetlistId(null);
-                      }
-                    }}
-                    className="w-full px-3.5 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Setlist</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sunday Service Layout */}
-          {(!selectedSetlist.type || selectedSetlist.type === 'sunday') && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Presider & Service Header Badges */}
-              <div className="md:col-span-2 p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700">
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                      Presider
-                    </span>
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">
-                      {selectedSetlist.presider || 'Not assigned yet'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Badges: Welcome Song & Closing Song */}
-                <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                  {selectedSetlist.welcomeSong && (
-                    <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-400 font-medium mr-1.5">Welcome Song:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.welcomeSong}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectedSetlist.closingSong && (
-                    <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-400 font-medium mr-1.5">Closing Song:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.closingSong}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Sunday School */}
-              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                  <div>
-                    <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Part 1
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Sunday School
-                    </h4>
-                  </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    Leader: {selectedSetlist.sundaySchool?.songLeader || 'Unassigned'}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {(selectedSetlist.sundaySchool?.songs || []).map((song, idx) => {
-                    const matchedSong = song.songId
-                      ? songs.find((s) => s.id === song.songId)
-                      : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
-                    const targetSongId = matchedSong ? matchedSong.id : song.songId;
-
-                    return (
-                      <div
-                        key={song.id || idx}
-                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                      >
-                        <span
-                          onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, selectedSetlist.id) : null)}
-                          className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
-                            targetSongId
-                              ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
-                              : ''
-                          }`}
-                          title={targetSongId ? 'Click to open in Song Library' : undefined}
-                        >
-                          {idx + 1}. {song.title}
-                        </span>
-                        {song.keyNote && (
-                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
-                            {song.keyNote}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {selectedSetlist.sundaySchool?.notes && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-1">
-                    Note: {selectedSetlist.sundaySchool.notes}
-                  </p>
-                )}
-              </div>
-
-              {/* Worship Service */}
-              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                  <div>
-                    <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-                      Part 2
-                    </span>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                      Worship Service
-                    </h4>
-                  </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                    Leader: {selectedSetlist.worshipService?.songLeader || 'Unassigned'}
-                  </span>
-                </div>
-
-                <div className="space-y-2">
-                  {(selectedSetlist.worshipService?.songs || []).map((song, idx) => {
-                    const matchedSong = song.songId
-                      ? songs.find((s) => s.id === song.songId)
-                      : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
-                    const targetSongId = matchedSong ? matchedSong.id : song.songId;
-
-                    return (
-                      <div
-                        key={song.id || idx}
-                        className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                      >
-                        <span
-                          onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, selectedSetlist.id) : null)}
-                          className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
-                            targetSongId
-                              ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
-                              : ''
-                          }`}
-                          title={targetSongId ? 'Click to open in Song Library' : undefined}
-                        >
-                          {idx + 1}. {song.title}
-                        </span>
-                        {song.keyNote && (
-                          <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
-                            {song.keyNote}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Month Theme Song displayed in Worship Service lineup as the last sequence number */}
-                  {selectedSetlist.themeSong && (
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                      {(() => {
-                        const matchedSong = songs.find(
-                          (s) => s.title.trim().toLowerCase() === selectedSetlist.themeSong?.trim().toLowerCase()
-                        );
-                        const songNumber = (selectedSetlist.worshipService?.songs?.length || 0) + 1;
-                        const monthAbbr = selectedSetlist.date
-                          ? new Date(selectedSetlist.date).toLocaleString('en-US', { month: 'short' })
-                          : 'Month';
-
-                        return (
-                          <div className="min-w-0 pr-2">
-                            <span
-                              onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, selectedSetlist.id) : null)}
-                              className={`text-xs font-bold text-slate-900 dark:text-white ${
-                                matchedSong
-                                  ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
-                                  : ''
-                              }`}
-                              title={matchedSong ? 'Click to open in Song Library' : undefined}
-                            >
-                              {songNumber}. {selectedSetlist.themeSong} ({monthAbbr} - Theme song)
-                            </span>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </div>
-
-                {selectedSetlist.worshipService?.notes && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-1">
-                    Note: {selectedSetlist.worshipService.notes}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Non-Sunday Programs (Prayer Meeting, Fellowship, Event) */}
-          {selectedSetlist.type && selectedSetlist.type !== 'sunday' && (
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 pb-3">
-                <div className="flex items-center space-x-3">
-                  {selectedSetlist.presider && (
-                    <div>
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                        Presider
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.presider}
-                      </span>
-                    </div>
-                  )}
-                  {selectedSetlist.program?.songLeader && (
-                    <div className="pl-3 border-l border-slate-200 dark:border-slate-700">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                        Song Leader
-                      </span>
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.program.songLeader}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  {selectedSetlist.welcomeSong && (
-                    <div className="bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-400 font-medium mr-1.5">Welcome Song:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.welcomeSong}
-                      </span>
-                    </div>
-                  )}
-                  {selectedSetlist.closingSong && (
-                    <div className="bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <span className="text-slate-400 font-medium mr-1.5">Closing Song:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {selectedSetlist.closingSong}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Program Songs */}
-              <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                  Program Songs:
-                </span>
-                {(selectedSetlist.program?.songs || []).map((song, idx) => {
-                  const matchedSong = song.songId
-                    ? songs.find((s) => s.id === song.songId)
-                    : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
-                  const targetSongId = matchedSong ? matchedSong.id : song.songId;
-
-                  return (
-                    <div
-                      key={song.id || idx}
-                      className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
-                    >
-                      <span
-                        onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, selectedSetlist.id) : null)}
-                        className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
-                          targetSongId
-                            ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
-                            : ''
-                        }`}
-                        title={targetSongId ? 'Click to open in Song Library' : undefined}
-                      >
-                        {idx + 1}. {song.title}
-                      </span>
-                      {song.keyNote && (
-                        <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
-                          {song.keyNote}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {selectedSetlist.program?.notes && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                  Notes: {selectedSetlist.program.notes}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* General Notes */}
-          {selectedSetlist.generalNotes && (
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
-              <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                Announcements & Program Notes:
-              </span>
-              <p className="text-slate-600 dark:text-slate-400">{selectedSetlist.generalNotes}</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Setlists Listing */}
+      {/* Setlists Listing with In-Place Accordion Expansion */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -883,6 +503,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
+                  {/* Card Header Row with Far-Right 3-Dots / Actions */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3.5 min-w-0">
                       {/* Date Badge */}
@@ -908,7 +529,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4
-                            className={`text-sm font-bold truncate ${
+                            className={`text-base font-black truncate ${
                               isPast ? 'text-slate-600 dark:text-slate-400' : 'text-slate-900 dark:text-white'
                             }`}
                           >
@@ -959,12 +580,407 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center space-x-2 text-slate-400 shrink-0 ml-2">
-                      <span className="text-xs font-semibold hidden sm:inline text-slate-500">
-                        {isSelected ? 'Close' : 'View Program'}
-                      </span>
+                    {/* Far Right 3-dots Menu & Chevron */}
+                    <div
+                      className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setOpenMenuSetlistId(openMenuSetlistId === item.id ? null : item.id)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                        title="Program Options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+
+                      {openMenuSetlistId === item.id && (
+                        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuSetlistId(null);
+                              handleStartEdit(item);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Edit Program</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOpenMenuSetlistId(null);
+                              if (confirm(`Remove this setlist for ${item.date}?`)) {
+                                onDeleteSetlist(item.id);
+                                if (selectedSetlistId === item.id) setSelectedSetlistId(null);
+                              }
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete Setlist</span>
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="p-1 text-slate-400">
+                        {isSelected ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
                     </div>
                   </div>
+
+                  {/* IN-PLACE EXPANDED ACCORDION CONTENT */}
+                  {isSelected && (
+                    <div
+                      className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4 cursor-default"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {/* Sunday Service Layout */}
+                      {(!item.type || item.type === 'sunday') && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Presider & Service Header Badges */}
+                          <div className="md:col-span-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center space-x-3">
+                              <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700">
+                                <User className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                                  Presider
+                                </span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                                  {item.presider || 'Not assigned yet'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Badges: Welcome Song & Closing Song (With linkage to Song Library!) */}
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              {item.welcomeSong && (() => {
+                                const matchedSong = songs.find(
+                                  (s) => s.title.trim().toLowerCase() === item.welcomeSong?.trim().toLowerCase()
+                                );
+                                return (
+                                  <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                    <span className="text-slate-400 font-medium">Welcome Song:</span>
+                                    <span
+                                      onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                      className={`font-bold text-slate-900 dark:text-white ${
+                                        matchedSong
+                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          : ''
+                                      }`}
+                                      title={matchedSong ? 'Click to open in Song Library' : undefined}
+                                    >
+                                      {item.welcomeSong}
+                                    </span>
+                                    {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
+                                  </div>
+                                );
+                              })()}
+
+                              {item.closingSong && (() => {
+                                const matchedSong = songs.find(
+                                  (s) => s.title.trim().toLowerCase() === item.closingSong?.trim().toLowerCase()
+                                );
+                                return (
+                                  <div className="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                    <span className="text-slate-400 font-medium">Closing Song:</span>
+                                    <span
+                                      onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                      className={`font-bold text-slate-900 dark:text-white ${
+                                        matchedSong
+                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          : ''
+                                      }`}
+                                      title={matchedSong ? 'Click to open in Song Library' : undefined}
+                                    >
+                                      {item.closingSong}
+                                    </span>
+                                    {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* Sunday School */}
+                          <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                              <div>
+                                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                                  Part 1
+                                </span>
+                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                                  Sunday School
+                                </h4>
+                              </div>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                Leader: {item.sundaySchool?.songLeader || 'Unassigned'}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {(item.sundaySchool?.songs || []).map((song, idx) => {
+                                const matchedSong = song.songId
+                                  ? songs.find((s) => s.id === song.songId)
+                                  : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                                const targetSongId = matchedSong ? matchedSong.id : song.songId;
+
+                                return (
+                                  <div
+                                    key={song.id || idx}
+                                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                                  >
+                                    <span
+                                      onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                      className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                                        targetSongId
+                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                          : ''
+                                      }`}
+                                      title={targetSongId ? 'Click to open in Song Library' : undefined}
+                                    >
+                                      {idx + 1}. {song.title}
+                                    </span>
+                                    {song.keyNote && (
+                                      <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                                        {song.keyNote}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {item.sundaySchool?.notes && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-1">
+                                Note: {item.sundaySchool.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Worship Service */}
+                          <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                              <div>
+                                <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
+                                  Part 2
+                                </span>
+                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                                  Worship Service
+                                </h4>
+                              </div>
+                              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                Leader: {item.worshipService?.songLeader || 'Unassigned'}
+                              </span>
+                            </div>
+
+                            <div className="space-y-2">
+                              {(item.worshipService?.songs || []).map((song, idx) => {
+                                const matchedSong = song.songId
+                                  ? songs.find((s) => s.id === song.songId)
+                                  : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                                const targetSongId = matchedSong ? matchedSong.id : song.songId;
+
+                                return (
+                                  <div
+                                    key={song.id || idx}
+                                    className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                                  >
+                                    <span
+                                      onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                      className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                                        targetSongId
+                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                          : ''
+                                      }`}
+                                      title={targetSongId ? 'Click to open in Song Library' : undefined}
+                                    >
+                                      {idx + 1}. {song.title}
+                                    </span>
+                                    {song.keyNote && (
+                                      <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                                        {song.keyNote}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+
+                              {/* Month Theme Song in Worship Service */}
+                              {item.themeSong && (() => {
+                                const matchedSong = songs.find(
+                                  (s) => s.title.trim().toLowerCase() === item.themeSong?.trim().toLowerCase()
+                                );
+                                const songNumber = (item.worshipService?.songs?.length || 0) + 1;
+                                const monthAbbr = item.date
+                                  ? new Date(item.date).toLocaleString('en-US', { month: 'short' })
+                                  : 'Month';
+
+                                return (
+                                  <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                                    <div className="min-w-0 pr-2">
+                                      <span
+                                        onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                        className={`text-xs font-bold text-slate-900 dark:text-white ${
+                                          matchedSong
+                                            ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                            : ''
+                                        }`}
+                                        title={matchedSong ? 'Click to open in Song Library' : undefined}
+                                      >
+                                        {songNumber}. {item.themeSong} ({monthAbbr} - Theme song)
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {item.worshipService?.notes && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-1">
+                                Note: {item.worshipService.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Non-Sunday Programs (Prayer Meeting, Fellowship, Event) */}
+                      {item.type && item.type !== 'sunday' && (
+                        <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 pb-3">
+                            <div className="flex items-center space-x-3">
+                              {item.presider && (
+                                <div>
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Presider
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                    {item.presider}
+                                  </span>
+                                </div>
+                              )}
+                              {item.program?.songLeader && (
+                                <div className="pl-3 border-l border-slate-200 dark:border-slate-700">
+                                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Song Leader
+                                  </span>
+                                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                    {item.program.songLeader}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              {item.welcomeSong && (() => {
+                                const matchedSong = songs.find(
+                                  (s) => s.title.trim().toLowerCase() === item.welcomeSong?.trim().toLowerCase()
+                                );
+                                return (
+                                  <div className="bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                    <span className="text-slate-400 font-medium">Welcome Song:</span>
+                                    <span
+                                      onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                      className={`font-bold text-slate-900 dark:text-white ${
+                                        matchedSong
+                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          : ''
+                                      }`}
+                                      title={matchedSong ? 'Click to open in Song Library' : undefined}
+                                    >
+                                      {item.welcomeSong}
+                                    </span>
+                                    {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
+                                  </div>
+                                );
+                              })()}
+
+                              {item.closingSong && (() => {
+                                const matchedSong = songs.find(
+                                  (s) => s.title.trim().toLowerCase() === item.closingSong?.trim().toLowerCase()
+                                );
+                                return (
+                                  <div className="bg-white dark:bg-slate-900 px-3 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                                    <span className="text-slate-400 font-medium">Closing Song:</span>
+                                    <span
+                                      onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                      className={`font-bold text-slate-900 dark:text-white ${
+                                        matchedSong
+                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          : ''
+                                      }`}
+                                      title={matchedSong ? 'Click to open in Song Library' : undefined}
+                                    >
+                                      {item.closingSong}
+                                    </span>
+                                    {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+
+                          {/* Program Songs */}
+                          <div className="space-y-2">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                              Program Songs:
+                            </span>
+                            {(item.program?.songs || []).map((song, idx) => {
+                              const matchedSong = song.songId
+                                ? songs.find((s) => s.id === song.songId)
+                                : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                              const targetSongId = matchedSong ? matchedSong.id : song.songId;
+
+                              return (
+                                <div
+                                  key={song.id || idx}
+                                  className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between"
+                                >
+                                  <span
+                                    onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                    className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                                      targetSongId
+                                        ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                        : ''
+                                    }`}
+                                    title={targetSongId ? 'Click to open in Song Library' : undefined}
+                                  >
+                                    {idx + 1}. {song.title}
+                                  </span>
+                                  {song.keyNote && (
+                                    <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
+                                      {song.keyNote}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {item.program?.notes && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-1">
+                              Note: {item.program.notes}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* General Notes */}
+                      {item.generalNotes && (
+                        <div className="p-3.5 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs">
+                          <span className="font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                            Announcements & Program Notes:
+                          </span>
+                          <p className="text-slate-600 dark:text-slate-400">{item.generalNotes}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
