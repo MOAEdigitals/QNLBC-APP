@@ -148,17 +148,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setTimeout(() => setUserCreatedMsg(null), 4000);
   };
 
-  const handleDeleteUser = (userToDelete: UserAccount) => {
+  const handleDeleteUser = async (userToDelete: UserAccount) => {
     if (userToDelete.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase()) {
       alert('The root administrator account cannot be deleted.');
       return;
     }
 
     if (confirm(`Delete account for user "${userToDelete.username}"?`)) {
-      const updated = users.filter((u) => u.id !== userToDelete.id);
+      const updated = users.filter(
+        (u) =>
+          u.id !== userToDelete.id &&
+          u.username.toLowerCase() !== userToDelete.username.toLowerCase()
+      );
       saveUsers(updated);
       onUpdateUsers(updated);
-      syncDeleteUser(userToDelete.id);
+      await syncDeleteUser(userToDelete.id, userToDelete.username);
       if (expandedUserId === userToDelete.id) {
         setExpandedUserId(null);
       }

@@ -28,6 +28,7 @@ import {
 } from '../utils/audioStorage';
 import { AutofillInput } from './AutofillInput';
 import { InlinePracticeAudioPlayer } from './InlinePracticeAudioPlayer';
+import { PracticeAudioTrackRow } from './PracticeAudioTrackRow';
 import {
   Mic2,
   Mic,
@@ -67,6 +68,7 @@ import {
   FileImage,
   Link2,
   Copy,
+  MoreVertical,
 } from 'lucide-react';
 
 interface SpecialNumberTabProps {
@@ -244,6 +246,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [isMediaPlaying, setIsMediaPlaying] = useState(true);
   const practiceMediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
 
+  // Global active playing track ID for in-row practice player (only 1 track plays at a time)
+  const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
+
   // In-line Audio Player state for Vocal Parts & Audio Tracks
   const [activeInlineTrack, setActiveInlineTrack] = useState<{
     trackId: string;
@@ -413,15 +418,46 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-    setIsRecording(false);
+  const stopRecording = (): Promise<string> => {
+    return new Promise((resolve) => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+
+      if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+        setIsRecording(false);
+        resolve(vocalPartAudioUrl);
+        return;
+      }
+
+      const recorder = mediaRecorderRef.current;
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = (reader.result as string) || '';
+          setVocalPartAudioUrl(base64Data);
+          setVocalPartFileName(
+            `Voice Recording - ${vocalPartLabel} (${new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })})`
+          );
+          resolve(base64Data);
+        };
+        reader.readAsDataURL(audioBlob);
+
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+        }
+      };
+
+      recorder.stop();
+      setIsRecording(false);
+    });
   };
 
   const cancelRecording = () => {
@@ -1014,8 +1050,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     e.preventDefault();
     if (!vocalPartModalGroup) return;
 
+    let finalAudioUrl = vocalPartAudioUrl.trim();
     if (isRecording) {
-      stopRecording();
+      finalAudioUrl = (await stopRecording()).trim();
     }
 
     const label: VocalPartLabel =
@@ -1036,7 +1073,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         ? currentList[editingVocalPartIndex].id
         : `part-${Date.now()}`;
 
-    let finalAudioUrl = vocalPartAudioUrl.trim();
     if (finalAudioUrl) {
       await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
       if (finalAudioUrl.startsWith('data:')) {
@@ -1791,160 +1827,45 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               }
 
                               return (
-                                /* Vertically stacked vocal part rows */
-                                <div className="grid grid-cols-1 gap-2.5">
+                                /* Vertically stacked vocal part player cards */
+                                <div className="grid grid-cols-1 gap-3">
                                   {partsList.map((part, pIdx) => {
                                     const assignedNames =
                                       part.assignedUsers && part.assignedUsers.length > 0
                                         ? part.assignedUsers.join(', ')
                                         : part.assignedTo || '';
-                                    const formattedTitle = `${part.partLabel}${
-                                      assignedNames ? ` - ${assignedNames}` : ''
-                                    }`;
                                     const rawAudio = part.audioUrl || part.urlOrData || '';
-                                    const hasAudio = Boolean(rawAudio);
-                                    const isThisActive = activeInlineTrack?.trackId === part.id;
 
                                     return (
-                                      <div
+                                      <PracticeAudioTrackRow
                                         key={part.id || `part-${pIdx}`}
-                                        className={`p-3 rounded-2xl border transition-all ${
-                                          isThisActive
-                                            ? 'bg-slate-900 text-white border-slate-800 shadow-md ring-2 ring-sky-500/60 dark:ring-sky-400/60'
-                                            : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                                        }`}
-                                      >
-                                        <div className="flex items-center justify-between gap-3">
-                                          <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                                            <div
-                                              className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider shrink-0 flex items-center gap-1.5 ${
-                                                isThisActive
-                                                  ? 'bg-sky-500 text-white shadow-xs'
-                                                  : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
-                                              }`}
-                                            >
-                                              <Music className="w-3.5 h-3.5" />
-                                              <span>{part.partLabel}</span>
-                                            </div>
-
-                                            <div className="min-w-0 flex-1">
-                                              <div className="flex items-center gap-2">
-                                                <span
-                                                  className={`text-sm font-bold truncate block ${
-                                                    isThisActive
-                                                      ? 'text-white'
-                                                      : 'text-slate-900 dark:text-white'
-                                                  }`}
-                                                >
-                                                  {formattedTitle}
-                                                </span>
-                                                {isThisActive && (
-                                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1 shrink-0">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
-                                                    <span>Playing</span>
-                                                  </span>
-                                                )}
-                                              </div>
-                                              {part.name && part.name !== formattedTitle && (
-                                                <span className="text-[10px] text-slate-400 block truncate">
-                                                  {part.name}
-                                                </span>
-                                              )}
-                                            </div>
-                                          </div>
-
-                                          {/* Play / Record / Edit / Delete Vocal Part */}
-                                          <div className="flex items-center gap-1.5 shrink-0">
-                                            {hasAudio ? (
-                                              <button
-                                                type="button"
-                                                onClick={() =>
-                                                  handleTogglePlayInlineAudio(
-                                                    part.id,
-                                                    rawAudio,
-                                                    formattedTitle,
-                                                    'vocal_part',
-                                                    group.id
-                                                  )
-                                                }
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
-                                                  isThisActive
-                                                    ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                                                    : 'bg-sky-600 hover:bg-sky-500 text-white'
-                                                }`}
-                                                title={isThisActive ? 'Stop Vocal Track' : 'Play Vocal Track'}
-                                              >
-                                                {isThisActive ? (
-                                                  <>
-                                                    <Square className="w-3.5 h-3.5 fill-current" />
-                                                    <span>Active</span>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    <Play className="w-3.5 h-3.5 fill-current" />
-                                                    <span>Play</span>
-                                                  </>
-                                                )}
-                                              </button>
-                                            ) : (
-                                              <button
-                                                type="button"
-                                                onClick={() => handleOpenAddVocalPartModal(group, pIdx, 'record')}
-                                                className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                                                title="Record voice directly for this member"
-                                              >
-                                                <Mic className="w-3.5 h-3.5" />
-                                                <span>Record</span>
-                                              </button>
-                                            )}
-
-                                            <button
-                                              type="button"
-                                              onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
-                                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                                isThisActive
-                                                  ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                                                  : 'text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
-                                              }`}
-                                              title="Edit Vocal Part"
-                                            >
-                                              <Pencil className="w-3.5 h-3.5" />
-                                            </button>
-
-                                            <button
-                                              type="button"
-                                              onClick={(e) => handleDeleteVocalPart(group, pIdx, e)}
-                                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                                isThisActive
-                                                  ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800'
-                                                  : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700'
-                                              }`}
-                                              title="Remove Vocal Part"
-                                            >
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
+                                        id={part.id}
+                                        badgeLabel={part.partLabel}
+                                        badgeCategory="vocal_part"
+                                        performerName={assignedNames || 'UNASSIGNED'}
+                                        subtitle={
+                                          part.name && part.name !== part.partLabel && part.name !== assignedNames
+                                            ? part.name
+                                            : undefined
+                                        }
+                                        audioUrl={rawAudio}
+                                        isCurrentlyPlaying={playingTrackId === part.id}
+                                        onPlay={() => {
+                                          setActivePracticeMedia(null);
+                                          setPlayingTrackId(part.id);
+                                        }}
+                                        onPause={() => {
+                                          if (playingTrackId === part.id) setPlayingTrackId(null);
+                                        }}
+                                        onEdit={() => handleOpenAddVocalPartModal(group, pIdx)}
+                                        onDelete={() => handleDeleteVocalPart(group, pIdx)}
+                                        onRecordNewAudio={() => handleOpenAddVocalPartModal(group, pIdx, 'record')}
+                                      />
                                     );
                                   })}
                                 </div>
                               );
                             })()}
-
-                            {/* VOCAL PART AUDIO PLAYER (Appears directly under Vocal Parts & Assigned Members when triggered) */}
-                            {activeInlineTrack &&
-                              activeInlineTrack.groupId === group.id &&
-                              activeInlineTrack.trackCategory === 'vocal_part' && (
-                                <InlinePracticeAudioPlayer
-                                  trackId={activeInlineTrack.trackId}
-                                  url={activeInlineTrack.url}
-                                  trackLabel={activeInlineTrack.trackLabel}
-                                  trackCategory="vocal_part"
-                                  groupId={group.id}
-                                  onClose={() => setActiveInlineTrack(null)}
-                                />
-                              )}
                           </div>
 
                           {/* 3. Rehearsal Tracks & Attachments (Plus-One / Minus-One) */}
@@ -1964,83 +1885,42 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               </button>
                             </div>
 
-                            {/* Vertically stacked full-width rows (on top of each other) */}
+                            {/* Vertically stacked full-width player rows */}
                             {group.customAttachments && group.customAttachments.length > 0 && (
-                              <div className="grid grid-cols-1 gap-2">
+                              <div className="grid grid-cols-1 gap-3">
                                 {group.customAttachments.map((att, aIdx) => {
-                                  const isPlaying = activePracticeMedia?.id === att.id;
                                   const isPlusOne = att.category === 'plus_one';
-                                  const rawUrl = att.url || '';
+                                  const rawUrl = att.url || att.urlOrData || '';
                                   const isVideo =
                                     att.type === 'video' ||
                                     rawUrl.startsWith('data:video/') ||
                                     rawUrl.includes('youtube.com') ||
                                     rawUrl.includes('youtu.be');
-                                  const isAudio = !isVideo;
-                                  const isThisActive = activeInlineTrack?.trackId === att.id;
 
-                                  return (
-                                    <div
-                                      key={att.id || `track-${aIdx}`}
-                                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                                        isPlaying || isThisActive
-                                          ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-xs'
-                                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                                      }`}
-                                    >
-                                      {/* Header: Category Badge + Title & Status */}
-                                      <div className="flex items-center space-x-2.5 min-w-0 flex-1">
-                                        <div
-                                          className={`p-2 rounded-lg shrink-0 border ${
-                                            isThisActive
-                                              ? 'bg-slate-800 border-slate-700 text-white'
-                                              : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700'
-                                          }`}
-                                        >
-                                          {isVideo ? (
-                                            <FileVideo className="w-4 h-4 text-rose-500" />
-                                          ) : (
-                                            <FileAudio className="w-4 h-4 text-sky-500" />
-                                          )}
-                                        </div>
-
-                                        <div className="min-w-0 flex-1">
-                                          <div className="flex flex-wrap items-center gap-2">
-                                            <span
-                                              className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                                isPlusOne
-                                                  ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/70 dark:text-sky-300 border-sky-200 dark:border-sky-800'
-                                                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                                              }`}
-                                            >
-                                              {isPlusOne ? 'Plus One (+1)' : 'Minus One (-1)'}
+                                  if (isVideo) {
+                                    return (
+                                      <div
+                                        key={att.id || `track-${aIdx}`}
+                                        className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 sm:p-5 transition-all flex items-center justify-between gap-3"
+                                      >
+                                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 select-none">
+                                            <FileVideo className="w-3.5 h-3.5" />
+                                            <span className="text-xs font-black uppercase tracking-wider">
+                                              {isPlusOne ? 'VIDEO (+1)' : 'VIDEO (-1)'}
                                             </span>
-                                            <span
-                                              className={`text-xs font-bold truncate ${
-                                                isThisActive
-                                                  ? 'text-slate-900 dark:text-white font-black'
-                                                  : 'text-slate-900 dark:text-white'
-                                              }`}
-                                            >
-                                              {att.name}
-                                            </span>
-                                            {(isThisActive || isPlaying) && (
-                                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shrink-0">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                                <span>Playing</span>
-                                              </span>
-                                            )}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <h4 className="text-base font-black tracking-wide text-slate-900 dark:text-white uppercase truncate">
+                                              {att.name || 'VIDEO TRACK'}
+                                            </h4>
                                           </div>
                                         </div>
-                                      </div>
-
-                                      {/* Play / Watch / Edit / Delete Track */}
-                                      <div className="flex items-center gap-1.5 shrink-0">
-                                        {isVideo ? (
+                                        <div className="flex items-center space-x-2 shrink-0">
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              setActiveInlineTrack(null);
+                                              setPlayingTrackId(null);
                                               setActivePracticeMedia({
                                                 id: att.id,
                                                 title: `${group.songTitle} - ${att.name}`,
@@ -2049,73 +1929,51 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                 groupId: group.id,
                                               });
                                             }}
-                                            className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                                            className="px-3.5 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-transform hover:scale-105"
                                           >
-                                            <FileVideo className="w-3.5 h-3.5" />
+                                            <FileVideo className="w-4 h-4" />
                                             <span>Watch Video</span>
                                           </button>
-                                        ) : (
-                                          rawUrl && (
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                handleTogglePlayInlineAudio(
-                                                  att.id,
-                                                  rawUrl,
-                                                  att.name,
-                                                  'attachment',
-                                                  group.id
-                                                )
-                                              }
-                                              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
-                                                isThisActive
-                                                  ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
-                                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                              }`}
-                                              title={isThisActive ? 'Stop Audio Track' : 'Play Audio Track'}
-                                            >
-                                              {isThisActive ? (
-                                                <>
-                                                  <Square className="w-3.5 h-3.5 fill-current" />
-                                                  <span>Active</span>
-                                                </>
-                                              ) : (
-                                                <>
-                                                  <Play className="w-3.5 h-3.5 fill-current" />
-                                                  <span>Play</span>
-                                                </>
-                                              )}
-                                            </button>
-                                          )
-                                        )}
-
-                                        <button
-                                          type="button"
-                                          onClick={() => handleOpenAddTrackModal(group, aIdx)}
-                                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                            isThisActive
-                                              ? 'text-slate-400 hover:text-white hover:bg-slate-800'
-                                              : 'text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
-                                          }`}
-                                          title="Edit Track"
-                                        >
-                                          <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={(e) => handleDeleteTrack(group, aIdx, e)}
-                                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                            isThisActive
-                                              ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800'
-                                              : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700'
-                                          }`}
-                                          title="Remove Track"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenAddTrackModal(group, aIdx)}
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                            title="Edit Track"
+                                          >
+                                            <Pencil className="w-4 h-4" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleDeleteTrack(group, aIdx, e)}
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                            title="Delete Track"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        </div>
                                       </div>
-                                    </div>
+                                    );
+                                  }
+
+                                  return (
+                                    <PracticeAudioTrackRow
+                                      key={att.id || `track-${aIdx}`}
+                                      id={att.id}
+                                      badgeLabel={isPlusOne ? 'PLUS ONE' : 'MINUS ONE'}
+                                      badgeCategory={isPlusOne ? 'plus_one' : 'minus_one'}
+                                      performerName={att.name || (isPlusOne ? 'Plus One Track' : 'Minus One Track')}
+                                      audioUrl={rawUrl}
+                                      isCurrentlyPlaying={playingTrackId === att.id}
+                                      onPlay={() => {
+                                        setActivePracticeMedia(null);
+                                        setPlayingTrackId(att.id);
+                                      }}
+                                      onPause={() => {
+                                        if (playingTrackId === att.id) setPlayingTrackId(null);
+                                      }}
+                                      onEdit={() => handleOpenAddTrackModal(group, aIdx)}
+                                      onDelete={() => handleDeleteTrack(group, aIdx)}
+                                    />
                                   );
                                 })}
                               </div>

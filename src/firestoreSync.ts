@@ -245,9 +245,25 @@ export async function syncSaveUser(user: UserAccount) {
   }
 }
 
-export async function syncDeleteUser(id: string) {
+export async function syncDeleteUser(id: string, username?: string) {
   try {
-    await deleteDoc(doc(db, COLLECTIONS.USERS, id));
+    if (id) {
+      await deleteDoc(doc(db, COLLECTIONS.USERS, id));
+    }
+    if (username) {
+      const usersCol = collection(db, COLLECTIONS.USERS);
+      const snap = await getDocs(usersCol);
+      for (const d of snap.docs) {
+        const data = d.data();
+        if (
+          d.id === id ||
+          d.id.toLowerCase() === username.toLowerCase() ||
+          (data.username && data.username.toLowerCase() === username.toLowerCase())
+        ) {
+          await deleteDoc(doc(db, COLLECTIONS.USERS, d.id));
+        }
+      }
+    }
   } catch (err) {
     console.error('Error deleting user from Firestore:', err);
   }
