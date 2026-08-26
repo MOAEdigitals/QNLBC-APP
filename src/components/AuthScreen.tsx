@@ -54,8 +54,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 transition-colors">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-2xl bg-slate-900 dark:bg-slate-100 flex items-center justify-center text-white dark:text-slate-900 shadow-md">
-            <Church className="w-8 h-8 sm:w-9 sm:h-9" />
+          <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-md overflow-hidden">
+            <img
+              src="/favicon.svg"
+              alt="Quezon New Life Baptist Church"
+              className="w-full h-full object-contain"
+              referrerPolicy="no-referrer"
+            />
           </div>
         </div>
 
