@@ -161,13 +161,32 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     const handleLoadedMetadata = () => {
       if (audio.duration && isFinite(audio.duration)) {
         setDuration(audio.duration);
+      } else if (audio.duration === Infinity) {
+        // Chromium WebM duration fix: seek to far end to force duration calculation
+        audio.currentTime = 1e101;
+        audio.ontimeupdate = () => {
+          audio.ontimeupdate = null;
+          if (isFinite(audio.duration)) {
+            setDuration(audio.duration);
+          }
+          audio.currentTime = 0;
+        };
       }
       setAudioError(null);
+    };
+
+    const handleDurationChange = () => {
+      if (audio.duration && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
     };
 
     const handleTimeUpdate = () => {
       if (!isDragging) {
         setCurrentTime(audio.currentTime);
+        if ((!duration || !isFinite(duration)) && audio.duration && isFinite(audio.duration)) {
+          setDuration(audio.duration);
+        }
       }
     };
 
@@ -185,6 +204,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('durationchange', handleDurationChange);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('error', handleError);
@@ -195,6 +215,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         audio.src = '';
       } catch (_) {}
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('durationchange', handleDurationChange);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
@@ -466,11 +487,11 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           </div>
         </div>
 
-        {/* Elapsed Time & Repeat Loop Button */}
+        {/* Countdown Remaining Time & Repeat Loop Button */}
         <div className="flex items-center justify-between text-xs font-mono text-slate-800 dark:text-slate-200 select-none">
-          {/* Current Elapsed Time (e.g. 00:30) */}
-          <span className="font-bold text-xs tracking-wider">
-            {formatTime(currentTime)}
+          {/* Remaining Countdown Time (starts at total duration, counts down to 00:00) */}
+          <span className="font-bold text-xs tracking-wider" title="Remaining time">
+            {formatTime(Math.max(0, duration - currentTime))}
           </span>
 
           {/* Right Side: Loop / Repeat Icon Button */}
