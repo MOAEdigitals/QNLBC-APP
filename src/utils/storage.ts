@@ -1115,23 +1115,58 @@ I stand in awe of You`,
   },
 ];
 
+export function normalizePracticeEntry(entry: PracticeGroupEntry): PracticeGroupEntry {
+  const customAttachments = (entry.customAttachments || entry.attachments || []).map((att) => ({
+    ...att,
+    url: att.url || att.urlOrData || '',
+    category: att.category || 'minus_one',
+  }));
+
+  const vocalParts = (entry.vocalParts || entry.parts || []).map((p) => {
+    const assigned = Array.isArray(p.assignedUsers) && p.assignedUsers.length > 0
+      ? p.assignedUsers
+      : p.assignedTo
+      ? [p.assignedTo]
+      : [];
+
+    return {
+      ...p,
+      partLabel: p.partLabel || 'Soprano',
+      assignedUsers: assigned,
+      assignedTo: assigned.join(', '),
+      audioUrl: p.audioUrl || p.urlOrData || '',
+    };
+  });
+
+  return {
+    ...entry,
+    customAttachments,
+    attachments: customAttachments,
+    vocalParts,
+    parts: vocalParts,
+  };
+}
+
 export function loadPracticeEntries(): PracticeGroupEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_ENTRIES);
     if (!raw) {
-      savePracticeEntries(DEFAULT_PRACTICE_ENTRIES);
-      return DEFAULT_PRACTICE_ENTRIES;
+      const normalized = DEFAULT_PRACTICE_ENTRIES.map(normalizePracticeEntry);
+      savePracticeEntries(normalized);
+      return normalized;
     }
-    return JSON.parse(raw);
+    const parsed: PracticeGroupEntry[] = JSON.parse(raw);
+    return parsed.map(normalizePracticeEntry);
   } catch (err) {
     console.error('Error loading practice entries:', err);
-    return DEFAULT_PRACTICE_ENTRIES;
+    return DEFAULT_PRACTICE_ENTRIES.map(normalizePracticeEntry);
   }
 }
 
 export function savePracticeEntries(entries: PracticeGroupEntry[]): void {
   try {
-    localStorage.setItem(STORAGE_KEYS.PRACTICE_ENTRIES, JSON.stringify(entries));
+    const normalized = entries.map(normalizePracticeEntry);
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_ENTRIES, JSON.stringify(normalized));
   } catch (err) {
     console.error('Error saving practice entries:', err);
   }

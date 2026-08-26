@@ -857,7 +857,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                         }`}
                                         title={matchedSong ? 'Click to open in Song Library' : undefined}
                                       >
-                                        {songNumber}. {item.themeSong} ({monthAbbr} - Theme song)
+                                        {songNumber}. {item.themeSong} (Month Theme Song)
                                       </span>
                                     </div>
                                   </div>

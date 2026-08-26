@@ -46,13 +46,19 @@ const COLLECTIONS = {
   USERS: 'users',
 };
 
-// Generic recursive sanitize helper to avoid undefined fields anywhere in Firestore documents
+// Generic recursive sanitize helper to avoid undefined fields and payload limits in Firestore documents
 function sanitizeDoc<T>(data: T): Record<string, any> {
   if (data === null || data === undefined) return {} as Record<string, any>;
 
   const cleanObject = (obj: any): any => {
     if (obj === null || obj === undefined) return null;
-    if (typeof obj !== 'object') return obj;
+    if (typeof obj !== 'object') {
+      // Guard against oversized base64 data URLs in Firestore documents (> 200KB)
+      if (typeof obj === 'string' && obj.startsWith('data:') && obj.length > 200000) {
+        return 'indexeddb:local_storage';
+      }
+      return obj;
+    }
 
     if (Array.isArray(obj)) {
       return obj

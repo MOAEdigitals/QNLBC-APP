@@ -21,9 +21,17 @@ import {
   formatDuplicateTitle,
   upsertSongFromSpecialNumber,
 } from '../utils/storage';
+import {
+  saveAudioToStorage,
+  getAudioFromStorage,
+  deleteAudioFromStorage,
+} from '../utils/audioStorage';
 import { AutofillInput } from './AutofillInput';
 import {
   Mic2,
+  Mic,
+  Square,
+  Disc,
   Plus,
   Music,
   ExternalLink,
@@ -134,6 +142,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [vocalPartAssignedUsers, setVocalPartAssignedUsers] = useState('');
   const [vocalPartAudioUrl, setVocalPartAudioUrl] = useState('');
   const [vocalPartFileName, setVocalPartFileName] = useState('');
+  const [vocalPartAudioInputMode, setVocalPartAudioInputMode] = useState<'record' | 'attach'>('record');
+
+  // Direct Audio Recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
 
   // Hidden File input helper for paperclip attachments (vocal parts and practice tracks)
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -178,6 +196,161 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [isBgPlayEnabled, setIsBgPlayEnabled] = useState(false);
   const [isMediaPlaying, setIsMediaPlaying] = useState(true);
   const practiceMediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
+
+  // Direct Recording functions
+  const startRecording = async () => {
+    setRecordingError(null);
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setRecordingError('Microphone recording is not supported on this browser or platform.');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      let options: MediaRecorderOptions = {};
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          options = { mimeType: 'audio/webm;codecs=opus' };
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          options = { mimeType: 'audio/webm' };
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          options = { mimeType: 'audio/mp4' };
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          options = { mimeType: 'audio/ogg' };
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, options);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        const mime = recorder.mimeType || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mime });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64Data = reader.result as string;
+          setVocalPartAudioUrl(base64Data);
+          setVocalPartFileName(
+            `Voice Recording - ${vocalPartLabel} (${new Date().toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })})`
+          );
+        };
+        reader.readAsDataURL(audioBlob);
+
+        // Stop media stream tracks
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+          mediaStreamRef.current = null;
+        }
+      };
+
+      recorder.start(250);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } catch (err: any) {
+      console.error('Error starting audio recording:', err);
+      setRecordingError(err?.message || 'Could not access microphone. Please grant permission.');
+      setIsRecording(false);
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    audioChunksRef.current = [];
+    setIsRecording(false);
+    setRecordingSeconds(0);
+  };
+
+  const handleCloseVocalPartModal = () => {
+    if (isRecording) {
+      cancelRecording();
+    }
+    setIsAddingVocalPartModal(false);
+    setVocalPartModalGroup(null);
+    setEditingVocalPartIndex(null);
+    setRecordingError(null);
+  };
+
+  const formatRecordTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // Play vocal part with IndexedDB audio fallback
+  const handlePlayVocalPart = async (part: PracticePartTrack, group: PracticeGroupEntry, formattedTitle: string) => {
+    let playUrl = part.audioUrl || '';
+    if (!playUrl || playUrl.startsWith('indexeddb:')) {
+      const cached = await getAudioFromStorage(part.id);
+      if (cached) playUrl = cached;
+    }
+    if (!playUrl) return;
+
+    setActivePracticeMedia({
+      id: part.id,
+      title: `${group.songTitle} - ${formattedTitle}`,
+      url: playUrl,
+      type: 'audio',
+      partLabel: part.partLabel,
+      groupId: group.id,
+    });
+    setIsMediaPlaying(true);
+  };
+
+  // Play rehearsal track with IndexedDB fallback
+  const handlePlayAttachment = async (att: SongAttachment, group: PracticeGroupEntry) => {
+    let playUrl = att.url || att.urlOrData || '';
+    if (!playUrl || playUrl.startsWith('indexeddb:')) {
+      const cached = await getAudioFromStorage(att.id);
+      if (cached) playUrl = cached;
+    }
+    if (!playUrl) return;
+
+    setActivePracticeMedia({
+      id: att.id,
+      title: `${group.songTitle} - ${att.name}`,
+      url: playUrl,
+      type: att.type === 'audio' || att.type === 'video' ? att.type : 'audio',
+      groupId: group.id,
+    });
+    setIsMediaPlaying(true);
+  };
 
   const handleTogglePlayPauseMedia = () => {
     if (practiceMediaRef.current) {
@@ -558,8 +731,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Handlers for Add/Edit Vocal Part Modal
   const handleOpenAddVocalPartModal = (group: PracticeGroupEntry, partIndex?: number) => {
     setVocalPartModalGroup(group);
-    if (partIndex !== undefined && group.vocalParts?.[partIndex]) {
-      const part = group.vocalParts[partIndex];
+    setIsRecording(false);
+    setRecordingSeconds(0);
+    setRecordingError(null);
+
+    const partsList = group.vocalParts && group.vocalParts.length > 0 ? group.vocalParts : (group.parts || []);
+
+    if (partIndex !== undefined && partsList[partIndex]) {
+      const part = partsList[partIndex];
       setEditingVocalPartIndex(partIndex);
       if (VOCAL_PART_OPTIONS.includes(part.partLabel)) {
         setVocalPartLabel(part.partLabel);
@@ -568,9 +747,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         setVocalPartLabel('Custom');
         setVocalPartCustomLabel(part.partLabel || '');
       }
-      setVocalPartAssignedUsers((part.assignedUsers || []).join(', '));
-      setVocalPartAudioUrl(part.audioUrl || '');
-      setVocalPartFileName('');
+      const assigned = Array.isArray(part.assignedUsers) && part.assignedUsers.length > 0
+        ? part.assignedUsers.join(', ')
+        : part.assignedTo || '';
+      setVocalPartAssignedUsers(assigned);
+      setVocalPartAudioUrl(part.audioUrl || part.urlOrData || '');
+      setVocalPartFileName(part.name || '');
+      setVocalPartAudioInputMode(part.audioUrl?.startsWith('data:') ? 'record' : 'attach');
     } else {
       setEditingVocalPartIndex(null);
       setVocalPartLabel('Soprano');
@@ -578,13 +761,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setVocalPartAssignedUsers('');
       setVocalPartAudioUrl('');
       setVocalPartFileName('');
+      setVocalPartAudioInputMode('record');
     }
     setIsAddingVocalPartModal(true);
   };
 
-  const handleSaveVocalPartModalSubmit = (e: React.FormEvent) => {
+  const handleSaveVocalPartModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vocalPartModalGroup) return;
+
+    if (isRecording) {
+      stopRecording();
+    }
 
     const label: VocalPartLabel =
       vocalPartLabel === 'Custom' && vocalPartCustomLabel.trim()
@@ -596,43 +784,59 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       .map((s) => s.trim())
       .filter(Boolean);
 
+    const liveGroup = practiceEntries.find((p) => p.id === vocalPartModalGroup.id) || vocalPartModalGroup;
+    const currentList = [...(liveGroup.vocalParts && liveGroup.vocalParts.length > 0 ? liveGroup.vocalParts : (liveGroup.parts || []))];
+
+    const partId =
+      editingVocalPartIndex !== null && currentList[editingVocalPartIndex]?.id
+        ? currentList[editingVocalPartIndex].id
+        : `part-${Date.now()}`;
+
+    // Save audio blob in local IndexedDB for reliable offline playback & no data loss
+    if (vocalPartAudioUrl.trim()) {
+      await saveAudioToStorage(partId, vocalPartAudioUrl.trim(), vocalPartFileName || `${label} Vocal Part`);
+    }
+
     const partObj: PracticePartTrack = {
-      id:
-        editingVocalPartIndex !== null && vocalPartModalGroup.vocalParts?.[editingVocalPartIndex]?.id
-          ? vocalPartModalGroup.vocalParts[editingVocalPartIndex].id
-          : `part-${Date.now()}`,
+      id: partId,
       partLabel: label,
       assignedUsers: assigned,
+      assignedTo: assigned.join(', '),
+      name: vocalPartFileName || `${label} Practice Track`,
       audioUrl: vocalPartAudioUrl.trim(),
       notes: '',
     };
 
-    const currentList = [...(vocalPartModalGroup.vocalParts || [])];
-    if (editingVocalPartIndex !== null) {
+    if (editingVocalPartIndex !== null && editingVocalPartIndex < currentList.length) {
       currentList[editingVocalPartIndex] = partObj;
     } else {
       currentList.push(partObj);
     }
 
     const updatedGroup: PracticeGroupEntry = {
-      ...vocalPartModalGroup,
+      ...liveGroup,
       vocalParts: currentList,
+      parts: currentList,
+      updatedAt: new Date().toISOString(),
     };
 
     if (onSavePracticeEntry) {
       onSavePracticeEntry(updatedGroup);
     }
 
-    setIsAddingVocalPartModal(false);
-    setVocalPartModalGroup(null);
-    setEditingVocalPartIndex(null);
+    handleCloseVocalPartModal();
   };
 
-  const handleDeleteVocalPart = (group: PracticeGroupEntry, partIndex: number, e?: React.MouseEvent) => {
+  const handleDeleteVocalPart = async (group: PracticeGroupEntry, partIndex: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const updated = (group.vocalParts || []).filter((_, i) => i !== partIndex);
+    const currentList = [...(group.vocalParts && group.vocalParts.length > 0 ? group.vocalParts : (group.parts || []))];
+    const deletedPart = currentList[partIndex];
+    if (deletedPart?.id) {
+      await deleteAudioFromStorage(deletedPart.id);
+    }
+    const updated = currentList.filter((_, i) => i !== partIndex);
     if (onSavePracticeEntry) {
-      onSavePracticeEntry({ ...group, vocalParts: updated });
+      onSavePracticeEntry({ ...group, vocalParts: updated, parts: updated, updatedAt: new Date().toISOString() });
     }
   };
 
@@ -1340,7 +1544,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
                                 <Layers className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
-                                <span>Vocal Parts & Assigned Members ({group.vocalParts?.length || 0})</span>
+                                <span>
+                                  Vocal Parts & Assigned Members (
+                                  {(group.vocalParts?.length || group.parts?.length || 0)}
+                                  )
+                                </span>
                               </span>
                               <button
                                 type="button"
@@ -1352,164 +1560,168 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               </button>
                             </div>
 
-                            {(!group.vocalParts || group.vocalParts.length === 0) ? (
-                              <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
-                                No vocal parts added yet. Click <span className="font-semibold text-slate-800 dark:text-slate-200">"Add Vocal Part"</span> to assign parts (Soprano, Alto, Tenor, Bass) and attach vocal audio stems.
-                              </div>
-                            ) : (
-                              /* Vertically stacked full-width rows (on top of each other) */
-                              <div className="grid grid-cols-1 gap-2">
-                                {group.vocalParts.map((part, pIdx) => {
-                                  const formattedTitle = `${part.partLabel}${
-                                    part.assignedUsers && part.assignedUsers.length > 0
-                                      ? ` - ${part.assignedUsers.join(', ')}`
-                                      : ''
-                                  }`;
-                                  const isPlaying = activePracticeMedia?.id === part.id;
+                            {(() => {
+                              const partsList =
+                                group.vocalParts && group.vocalParts.length > 0
+                                  ? group.vocalParts
+                                  : group.parts || [];
 
-                                  return (
-                                    <div
-                                      key={part.id || `part-${pIdx}`}
-                                      className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
-                                        isPlaying
-                                          ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-xs'
-                                          : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
-                                      }`}
-                                    >
-                                      {/* Left: Part Label & Assigned Members (Format: Soprano - Marius) */}
-                                      <div className="flex items-center space-x-3 min-w-0 flex-1">
-                                        <div
-                                          className={`p-2 rounded-lg shrink-0 border ${
-                                            isPlaying
-                                              ? 'bg-sky-600 text-white border-sky-600 animate-pulse'
-                                              : part.audioUrl
-                                              ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-sky-500'
-                                              : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400'
-                                          }`}
-                                        >
-                                          <FileAudio className="w-4 h-4" />
-                                        </div>
+                              if (partsList.length === 0) {
+                                return (
+                                  <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500">
+                                    No vocal parts added yet. Click <span className="font-semibold text-slate-800 dark:text-slate-200">"Add Vocal Part"</span> to assign parts (Soprano, Alto, Tenor, Bass) and record or attach vocal audio stems.
+                                  </div>
+                                );
+                              }
 
-                                        <div className="min-w-0 flex-1">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
-                                              {formattedTitle}
-                                            </span>
-                                            {isPlaying && (
-                                              <span
-                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                  isMediaPlaying
-                                                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 animate-pulse'
-                                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                                                }`}
-                                              >
-                                                {isMediaPlaying ? 'Playing' : 'Paused'}
-                                              </span>
-                                            )}
+                              return (
+                                /* Vertically stacked full-width rows (on top of each other) */
+                                <div className="grid grid-cols-1 gap-2">
+                                  {partsList.map((part, pIdx) => {
+                                    const assignedNames =
+                                      part.assignedUsers && part.assignedUsers.length > 0
+                                        ? part.assignedUsers.join(', ')
+                                        : part.assignedTo || '';
+                                    const formattedTitle = `${part.partLabel}${
+                                      assignedNames ? ` - ${assignedNames}` : ''
+                                    }`;
+                                    const isPlaying = activePracticeMedia?.id === part.id;
+                                    const hasAudio = Boolean(part.audioUrl || part.urlOrData);
+
+                                    return (
+                                      <div
+                                        key={part.id || `part-${pIdx}`}
+                                        className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all ${
+                                          isPlaying
+                                            ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-xs'
+                                            : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                                        }`}
+                                      >
+                                        {/* Left: Part Label & Assigned Members (Format: Soprano - Marius) */}
+                                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                                          <div
+                                            className={`p-2 rounded-lg shrink-0 border ${
+                                              isPlaying
+                                                ? 'bg-sky-600 text-white border-sky-600 animate-pulse'
+                                                : hasAudio
+                                                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-sky-500'
+                                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400'
+                                            }`}
+                                          >
+                                            <FileAudio className="w-4 h-4" />
                                           </div>
-                                          <span className="text-[10px] text-slate-400 block truncate">
-                                            {part.audioUrl
-                                              ? isPlaying
-                                                ? isMediaPlaying
-                                                  ? 'Now Playing in practice player'
-                                                  : 'Paused • Click Play to resume'
-                                                : 'Audio stem attached • Click Play to listen'
-                                              : 'No audio stem attached'}
-                                          </span>
-                                        </div>
-                                      </div>
 
-                                      {/* Right Action Buttons */}
-                                      <div className="flex items-center gap-1.5 shrink-0 justify-end">
-                                        {part.audioUrl ? (
-                                          isPlaying ? (
-                                            <div className="flex items-center gap-1.5">
-                                              <button
-                                                type="button"
-                                                onClick={handleTogglePlayPauseMedia}
-                                                className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
-                                                  isMediaPlaying
-                                                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                                }`}
-                                                title={isMediaPlaying ? 'Pause stem' : 'Resume stem'}
-                                              >
-                                                {isMediaPlaying ? (
-                                                  <>
-                                                    <Pause className="w-3.5 h-3.5" />
-                                                    <span>Pause</span>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    <Play className="w-3.5 h-3.5" />
-                                                    <span>Play</span>
-                                                  </>
-                                                )}
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={handleReplayMedia}
-                                                className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
-                                                title="Replay stem from beginning"
-                                              >
-                                                <RotateCcw className="w-3.5 h-3.5" />
-                                                <span>Replay</span>
-                                              </button>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
+                                                {formattedTitle}
+                                              </span>
+                                              {isPlaying && (
+                                                <span
+                                                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                    isMediaPlaying
+                                                      ? 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300 animate-pulse'
+                                                      : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                                  }`}
+                                                >
+                                                  {isMediaPlaying ? 'Playing' : 'Paused'}
+                                                </span>
+                                              )}
                                             </div>
+                                            <span className="text-[10px] text-slate-400 block truncate">
+                                              {hasAudio
+                                                ? isPlaying
+                                                  ? isMediaPlaying
+                                                    ? 'Now Playing in practice player'
+                                                    : 'Paused • Click Play to resume'
+                                                  : 'Audio stem ready • Click Play to listen'
+                                                : 'No audio recorded or attached yet'}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Right Action Buttons */}
+                                        <div className="flex items-center gap-1.5 shrink-0 justify-end">
+                                          {hasAudio ? (
+                                            isPlaying ? (
+                                              <div className="flex items-center gap-1.5">
+                                                <button
+                                                  type="button"
+                                                  onClick={handleTogglePlayPauseMedia}
+                                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors ${
+                                                    isMediaPlaying
+                                                      ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                                                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                                  }`}
+                                                  title={isMediaPlaying ? 'Pause' : 'Resume'}
+                                                >
+                                                  {isMediaPlaying ? (
+                                                    <>
+                                                      <Pause className="w-3.5 h-3.5" />
+                                                      <span>Pause</span>
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <Play className="w-3.5 h-3.5" />
+                                                      <span>Play</span>
+                                                    </>
+                                                  )}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={handleReplayMedia}
+                                                  className="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-200"
+                                                  title="Replay from beginning"
+                                                >
+                                                  <RotateCcw className="w-3.5 h-3.5" />
+                                                  <span>Replay</span>
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                onClick={() => handlePlayVocalPart(part, group, formattedTitle)}
+                                                className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                              >
+                                                <Play className="w-3.5 h-3.5" />
+                                                <span>Play</span>
+                                              </button>
+                                            )
                                           ) : (
                                             <button
                                               type="button"
-                                              onClick={() => {
-                                                setActivePracticeMedia({
-                                                  id: part.id,
-                                                  title: `${group.songTitle} - ${formattedTitle}`,
-                                                  url: part.audioUrl!,
-                                                  type: 'audio',
-                                                  partLabel: part.partLabel,
-                                                  groupId: group.id,
-                                                });
-                                                setIsMediaPlaying(true);
-                                              }}
-                                              className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+                                              onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
+                                              className="px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-500 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                                             >
-                                              <Play className="w-3.5 h-3.5" />
-                                              <span>Play Stem</span>
+                                              <Mic className="w-3.5 h-3.5 text-rose-500" />
+                                              <span>Attach / Record</span>
                                             </button>
-                                          )
-                                        ) : (
+                                          )}
+
                                           <button
                                             type="button"
                                             onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
-                                            className="px-2.5 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-500 hover:text-slate-900 dark:hover:text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                                            className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                            title="Edit Vocal Part"
                                           >
-                                            <Paperclip className="w-3.5 h-3.5" />
-                                            <span>Attach Stem</span>
+                                            <Pencil className="w-3.5 h-3.5" />
                                           </button>
-                                        )}
 
-                                        <button
-                                          type="button"
-                                          onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
-                                          className="p-1.5 text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
-                                          title="Edit Vocal Part"
-                                        >
-                                          <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-
-                                        <button
-                                          type="button"
-                                          onClick={(e) => handleDeleteVocalPart(group, pIdx, e)}
-                                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
-                                          title="Remove Vocal Part"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => handleDeleteVocalPart(group, pIdx, e)}
+                                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-colors"
+                                            title="Remove Vocal Part"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                       </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* 2. Rehearsal Tracks & Attachments (Plus-One / Minus-One) */}
@@ -2268,53 +2480,190 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </p>
               </div>
 
-              {/* Vocal Stem Audio Link or Upload */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Vocal Stem Audio Link or File
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={vocalPartAudioUrl}
-                    onChange={(e) => {
-                      setVocalPartAudioUrl(e.target.value);
-                      setVocalPartFileName('');
-                    }}
-                    placeholder="Paste audio link or click paperclip on the right..."
-                    className="w-full pl-3 pr-11 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleTriggerFileUpload((url, fileName) => {
-                        setVocalPartAudioUrl(url);
-                        setVocalPartFileName(fileName);
-                      })
-                    }
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
-                    title="Attach Audio Stem File from Device"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Paste any audio link or click the paperclip icon on the right to attach vocal stem audio.
-                </p>
-
-                {vocalPartFileName && (
-                  <div className="mt-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
-                    <span className="truncate font-semibold">✓ Attached Stem: {vocalPartFileName}</span>
+              {/* Vocal Stem Audio: Direct Voice Recording or Attach */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Vocal Stem Audio / Recording
+                  </label>
+                  <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
                     <button
                       type="button"
-                      onClick={() => {
-                        setVocalPartAudioUrl('');
-                        setVocalPartFileName('');
-                      }}
-                      className="text-emerald-600 hover:text-emerald-800 dark:hover:text-white ml-2 cursor-pointer"
+                      onClick={() => setVocalPartAudioInputMode('record')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                        vocalPartAudioInputMode === 'record'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
                     >
-                      Clear
+                      <Mic className="w-3 h-3" />
+                      <span>Record</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setVocalPartAudioInputMode('attach')}
+                      className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                        vocalPartAudioInputMode === 'attach'
+                          ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <Paperclip className="w-3 h-3" />
+                      <span>Attach / Link</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Mode 1: Direct Voice Recording */}
+                {vocalPartAudioInputMode === 'record' && (
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3">
+                    {recordingError && (
+                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{recordingError}</span>
+                      </div>
+                    )}
+
+                    {isRecording ? (
+                      <div className="space-y-3">
+                        <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-300 dark:border-rose-700 flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <span className="relative flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                            </span>
+                            <span className="text-xs font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+                              Recording {vocalPartLabel}...
+                            </span>
+                          </div>
+                          <span className="text-sm font-mono font-bold text-rose-700 dark:text-rose-300 bg-white/80 dark:bg-slate-900/80 px-2.5 py-0.5 rounded-md border border-rose-200 dark:border-rose-800">
+                            {formatRecordTimer(recordingSeconds)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={stopRecording}
+                            className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all"
+                          >
+                            <Square className="w-4 h-4 fill-white" />
+                            <span>Stop & Save Take</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelRecording}
+                            className="py-2.5 px-3 rounded-xl border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : vocalPartAudioUrl ? (
+                      <div className="space-y-2.5">
+                        <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                          <span className="truncate font-semibold flex items-center gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span className="truncate">{vocalPartFileName || `Recorded Stem for ${vocalPartLabel}`}</span>
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-bold shrink-0 ml-2">Ready</span>
+                        </div>
+
+                        {/* Audio preview player */}
+                        <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                          <audio
+                            controls
+                            src={vocalPartAudioUrl}
+                            className="w-full h-8"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            type="button"
+                            onClick={startRecording}
+                            className="py-1.5 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-700 dark:text-rose-300 font-bold text-xs flex items-center gap-1.5 border border-rose-200 dark:border-rose-800 cursor-pointer transition-colors"
+                          >
+                            <Mic className="w-3.5 h-3.5" />
+                            <span>Re-record Take</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVocalPartAudioUrl('');
+                              setVocalPartFileName('');
+                            }}
+                            className="text-xs text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 font-semibold cursor-pointer"
+                          >
+                            Remove Recording
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-2 space-y-2">
+                        <button
+                          type="button"
+                          onClick={startRecording}
+                          className="w-full py-3 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs cursor-pointer transition-all active:scale-[0.99]"
+                        >
+                          <Mic className="w-4 h-4" />
+                          <span>Record {vocalPartLabel} Part Directly</span>
+                        </button>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Tap Record to sing or hum the vocal part directly into your microphone.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Mode 2: Attach File or Link */}
+                {vocalPartAudioInputMode === 'attach' && (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={vocalPartAudioUrl}
+                        onChange={(e) => {
+                          setVocalPartAudioUrl(e.target.value);
+                          setVocalPartFileName('');
+                        }}
+                        placeholder="Paste audio link or click paperclip on the right..."
+                        className="w-full pl-3 pr-11 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleTriggerFileUpload((url, fileName) => {
+                            setVocalPartAudioUrl(url);
+                            setVocalPartFileName(fileName);
+                          })
+                        }
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+                        title="Attach Audio Stem File from Device"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Paste any audio URL or click the paperclip to attach MP3/M4A/WAV files from your device.
+                    </p>
+
+                    {vocalPartFileName && (
+                      <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                        <span className="truncate font-semibold">✓ Attached: {vocalPartFileName}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVocalPartAudioUrl('');
+                            setVocalPartFileName('');
+                          }}
+                          className="text-emerald-600 hover:text-emerald-800 dark:hover:text-white ml-2 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -2323,11 +2672,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsAddingVocalPartModal(false);
-                    setVocalPartModalGroup(null);
-                    setEditingVocalPartIndex(null);
-                  }}
+                  onClick={handleCloseVocalPartModal}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel

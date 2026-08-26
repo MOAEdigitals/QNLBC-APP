@@ -1,6 +1,6 @@
 {
   "name": "New Life Baptist Church Program",
   "description": "Church program setlists, recognitions, special number scheduling, and song library for New Life Baptist Church (Quezon, Nueva Ecija).",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

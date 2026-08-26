@@ -34,6 +34,7 @@ import {
   saveSpecialNumbers,
   loadPracticeEntries,
   savePracticeEntries,
+  normalizePracticeEntry,
   upsertSongFromSpecialNumber,
 } from './utils/storage';
 import {
@@ -191,8 +192,9 @@ export default function App() {
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
-      setPracticeEntries(items);
-      savePracticeEntries(items);
+      const normalized = items.map(normalizePracticeEntry);
+      setPracticeEntries(normalized);
+      savePracticeEntries(normalized);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
