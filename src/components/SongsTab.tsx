@@ -156,19 +156,46 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
-  // Collapse active container if songs tab icon is tapped
+  // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0) {
-      setSelectedSongId(null);
-      setIsEditing(false);
-      setEditingSong(null);
-      setIsAddToSetlistOpen(false);
-      setIsAddingAttachment(false);
-      setActiveMedia(null);
-      setOpenMenuSongId(null);
-      onClearInitialSelectedSongId?.();
+      if (isEditing) {
+        setIsEditing(false);
+        setEditingSong(null);
+        return;
+      }
+      if (isAddingAttachment) {
+        setIsAddingAttachment(false);
+        return;
+      }
+      if (isAddToSetlistOpen) {
+        setIsAddToSetlistOpen(false);
+        return;
+      }
+
+      if (selectedSongId) {
+        const el = document.getElementById(`song-card-${selectedSongId}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + 80;
+          if (!inView) {
+            // Step 1: Return view smoothly to the currently open song container
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+        }
+        // Step 2: If already in view, collapse the open container
+        setSelectedSongId(null);
+        setActiveMedia(null);
+        setOpenMenuSongId(null);
+        onClearInitialSelectedSongId?.();
+        return;
+      }
+
+      // Step 3: If nothing is open, scroll smoothly to the top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal, onClearInitialSelectedSongId]);
+  }, [collapseSignal, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
 
   // Back swipe / popstate listener to collapse container
   useEffect(() => {
@@ -546,6 +573,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             return (
               <div
                 key={song.id}
+                id={`song-card-${song.id}`}
                 ref={isSelected ? expandedItemRef : null}
                 className={`rounded-2xl transition-all border overflow-hidden ${
                   isSelected

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   SpecialNumberEntry,
   PracticeGroupEntry,
@@ -214,6 +214,115 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     trackCategory?: 'vocal_part' | 'attachment';
     groupId?: string;
   } | null>(null);
+
+  // Expandable Lyrics state per practice group
+  const [expandedLyricsGroupIds, setExpandedLyricsGroupIds] = useState<Record<string, boolean>>({});
+  const [copiedLyricsGroupId, setCopiedLyricsGroupId] = useState<string | null>(null);
+
+  const toggleLyricsExpand = (groupId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setExpandedLyricsGroupIds((prev) => ({
+      ...prev,
+      [groupId]: !prev[groupId],
+    }));
+  };
+
+  const handleCopyLyrics = async (groupId: string, lyrics: string, songTitle: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const text = `${songTitle ? `${songTitle}\n\n` : ''}${lyrics}`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedLyricsGroupId(groupId);
+      setTimeout(() => {
+        setCopiedLyricsGroupId((prev) => (prev === groupId ? null : prev));
+      }, 2500);
+    } catch (err) {
+      console.error('Failed to copy lyrics:', err);
+    }
+  };
+
+  // Dedicated controlled Audio instance with cleanup to prevent memory leaks and Aw Snap crashes
+  useEffect(() => {
+    const audio = new Audio();
+    inlineAudioRef.current = audio;
+
+    const handleTimeUpdate = () => {
+      setInlineAudioState((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentTime: audio.currentTime,
+          duration: audio.duration || prev.duration,
+        };
+      });
+    };
+
+    const handleEnded = () => {
+      if (audio.loop) return;
+      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false, currentTime: 0 } : null));
+    };
+
+    const handleLoadedMetadata = () => {
+      setInlineAudioState((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          duration: audio.duration || prev.duration,
+        };
+      });
+    };
+
+    const handleError = () => {
+      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false } : null));
+    };
+
+    const handlePause = () => {
+      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false } : null));
+    };
+
+    const handlePlay = () => {
+      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: true } : null));
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('error', handleError);
+    audio.addEventListener('pause', handlePause);
+    audio.addEventListener('play', handlePlay);
+
+    return () => {
+      try {
+        audio.pause();
+        audio.src = '';
+      } catch (_) {}
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('error', handleError);
+      audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('play', handlePlay);
+      inlineAudioRef.current = null;
+    };
+  }, []);
 
   // Long press handling for Practice cards
   const longPressTimeoutRef = useRef<any>(null);
@@ -557,18 +666,70 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  // Collapse active container if tab icon is tapped
+  // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
   React.useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0) {
-      setSelectedEntryId(null);
-      setIsEditingSchedule(false);
-      setEditingSchedule(null);
-      setSelectedPracticeId(null);
-      setIsEditingPractice(false);
-      setEditingPractice(null);
-      setActivePracticeMedia(null);
+      if (isEditingSchedule) {
+        setIsEditingSchedule(false);
+        setEditingSchedule(null);
+        return;
+      }
+      if (isEditingPractice) {
+        setIsEditingPractice(false);
+        setEditingPractice(null);
+        return;
+      }
+      if (isAddingTrackModal) {
+        setIsAddingTrackModal(false);
+        return;
+      }
+      if (isAddingVocalPartModal) {
+        handleCloseVocalPartModal();
+        return;
+      }
+
+      if (activeSubTab === 'schedules' && selectedEntryId) {
+        const el = document.getElementById(`schedule-card-${selectedEntryId}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + 80;
+          if (!inView) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+        }
+        setSelectedEntryId(null);
+        return;
+      }
+
+      if (activeSubTab === 'practice' && selectedPracticeId) {
+        const el = document.getElementById(`practice-card-${selectedPracticeId}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + 80;
+          if (!inView) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+        }
+        setSelectedPracticeId(null);
+        setActivePracticeMedia(null);
+        return;
+      }
+
+      // If nothing is open, scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal]);
+  }, [
+    collapseSignal,
+    activeSubTab,
+    selectedEntryId,
+    selectedPracticeId,
+    isEditingSchedule,
+    isEditingPractice,
+    isAddingTrackModal,
+    isAddingVocalPartModal,
+  ]);
 
   // Back swipe / popstate listener to collapse container
   React.useEffect(() => {
@@ -1255,6 +1416,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   return (
                     <div
                       key={item.id}
+                      id={`schedule-card-${item.id}`}
                       onClick={() => setSelectedEntryId(isSelected ? null : item.id)}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                         isSelected
@@ -1497,6 +1659,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   return (
                     <div
                       key={group.id}
+                      id={`practice-card-${group.id}`}
                       onClick={() => {
                         if (!isLongPressActiveRef.current) {
                           setSelectedPracticeId(isSelected ? null : group.id);
@@ -1636,60 +1799,69 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-5 cursor-default"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {/* 1. TOP HEADER SECTION: Rehearsal Instructions / Notes & Rehearsal Lyrics right next to header */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2 border-b border-slate-100 dark:border-slate-800">
-                            {/* Left: Rehearsal Instructions / Notes */}
-                            <div className="space-y-2">
+                          {/* 1. TOP HEADER SECTION: Rehearsal Lyrics with Expand / Collapse Option */}
+                          <div className="space-y-2 pb-2 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-slate-500" />
-                                <span>Rehearsal Instructions / Notes</span>
+                                <Music className="w-3.5 h-3.5 text-sky-500" />
+                                <span>Rehearsal Lyrics</span>
                               </span>
-                              <textarea
-                                rows={3}
-                                value={group.notes || ''}
-                                onChange={(e) => {
-                                  if (onSavePracticeEntry) {
-                                    onSavePracticeEntry({ ...group, notes: e.target.value });
-                                  }
-                                }}
-                                placeholder="Add rehearsal instructions, vocal guidance, or practice schedule notes..."
-                                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-colors"
-                              />
-                            </div>
-
-                            {/* Right: Rehearsal Lyrics (Right next to header) */}
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                  <Music className="w-3.5 h-3.5 text-sky-500" />
-                                  <span>Rehearsal Lyrics</span>
-                                </span>
-                                {group.lyrics && (
+                              {group.lyrics && (
+                                <div className="flex items-center gap-2">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      if (navigator.clipboard) {
-                                        navigator.clipboard.writeText(group.lyrics);
-                                      }
-                                    }}
-                                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer"
+                                    onClick={(e) => toggleLyricsExpand(group.id, e)}
+                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                                    title={expandedLyricsGroupIds[group.id] ? 'Collapse Lyrics' : 'Expand Lyrics (No Scroll)'}
+                                  >
+                                    {expandedLyricsGroupIds[group.id] ? (
+                                      <>
+                                        <ChevronUp className="w-3 h-3" />
+                                        <span>Show Less</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="w-3 h-3" />
+                                        <span>Expand Lyrics</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleCopyLyrics(group.id, group.lyrics || '', group.songTitle, e)}
+                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
                                     title="Copy lyrics"
                                   >
-                                    <Copy className="w-3 h-3" />
-                                    <span>Copy</span>
+                                    {copiedLyricsGroupId === group.id ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-emerald-500" />
+                                        <span className="text-emerald-500">Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
                                   </button>
-                                )}
-                              </div>
-                              {group.lyrics ? (
-                                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">
-                                  {group.lyrics}
-                                </div>
-                              ) : (
-                                <div className="p-3 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400 italic">
-                                  No lyrics provided for this song yet.
                                 </div>
                               )}
                             </div>
+                            {group.lyrics ? (
+                              <div
+                                className={`p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed transition-all ${
+                                  expandedLyricsGroupIds[group.id]
+                                    ? 'max-h-none overflow-visible'
+                                    : 'max-h-40 overflow-y-auto'
+                                }`}
+                              >
+                                {group.lyrics}
+                              </div>
+                            ) : (
+                              <div className="p-3 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700 text-xs text-slate-400 italic">
+                                No lyrics provided for this song yet.
+                              </div>
+                            )}
                           </div>
 
                           {/* 2. Vocal Parts Section (Soprano, Alto, Tenor, Bass, etc.) */}
@@ -2430,6 +2602,25 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                   </div>
                                 </div>
                               )}
+                          </div>
+
+                          {/* 4. REHEARSAL INSTRUCTIONS / NOTES (ALWAYS AT THE BOTTOM) */}
+                          <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Rehearsal Instructions / Notes</span>
+                            </span>
+                            <textarea
+                              rows={3}
+                              value={group.notes || ''}
+                              onChange={(e) => {
+                                if (onSavePracticeEntry) {
+                                  onSavePracticeEntry({ ...group, notes: e.target.value });
+                                }
+                              }}
+                              placeholder="Add rehearsal instructions, vocal guidance, or practice schedule notes..."
+                              className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-colors"
+                            />
                           </div>
                         </div>
                       )}

@@ -31,7 +31,104 @@ import {
   AlertCircle,
   CheckCircle,
   MoreVertical,
+  Copy,
+  Check,
 } from 'lucide-react';
+
+export function formatSetlistForMessenger(setlist: Setlist): string {
+  const lines: string[] = [];
+
+  const dateObj = new Date(setlist.date + 'T00:00:00');
+  const dayName = isNaN(dateObj.getTime())
+    ? ''
+    : dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+  const dateFormatted = isNaN(dateObj.getTime())
+    ? setlist.date
+    : dateObj.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+  const displayTitle =
+    setlist.title?.trim() ||
+    (setlist.type === 'prayer_meeting'
+      ? 'Midweek Prayer Meeting'
+      : setlist.type === 'fellowship'
+      ? 'Youth Fellowship'
+      : setlist.type === 'event'
+      ? 'Special Church Event'
+      : 'Sunday Worship Program');
+
+  lines.push(`📋 ${displayTitle}`);
+  lines.push(`📅 ${dayName ? `${dayName}, ` : ''}${dateFormatted}`);
+
+  if (setlist.presider?.trim()) {
+    lines.push(`👤 Presider: ${setlist.presider.trim()}`);
+  }
+
+  if (setlist.welcomeSong?.trim()) {
+    lines.push(`🎵 Welcome Song: ${setlist.welcomeSong.trim()}`);
+  }
+
+  if (setlist.type === 'sunday' || !setlist.type) {
+    lines.push('');
+    // Part 1: Sunday School
+    lines.push('PART 1 | Sunday School');
+    if (setlist.sundaySchool?.songLeader?.trim()) {
+      lines.push(`👤 Song Leader: ${setlist.sundaySchool.songLeader.trim()}`);
+    }
+    const ssSongs = (setlist.sundaySchool?.songs || []).filter((s) => s.title.trim());
+    if (ssSongs.length > 0) {
+      ssSongs.forEach((song, idx) => {
+        lines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+      });
+    }
+    if (setlist.sundaySchool?.notes?.trim()) {
+      lines.push(`Note: ${setlist.sundaySchool.notes.trim()}`);
+    }
+
+    lines.push('');
+    // Part 2: Worship Service
+    lines.push('PART 2 | Worship Service');
+    if (setlist.worshipService?.songLeader?.trim()) {
+      lines.push(`👤 Song Leader: ${setlist.worshipService.songLeader.trim()}`);
+    }
+    const wsSongs = (setlist.worshipService?.songs || []).filter((s) => s.title.trim());
+    if (wsSongs.length > 0) {
+      wsSongs.forEach((song, idx) => {
+        lines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+      });
+    }
+    if (setlist.themeSong?.trim()) {
+      lines.push(`• Month Theme Song: ${setlist.themeSong.trim()}`);
+    }
+    if (setlist.worshipService?.notes?.trim()) {
+      lines.push(`Note: ${setlist.worshipService.notes.trim()}`);
+    }
+  } else {
+    lines.push('');
+    if (setlist.program?.songLeader?.trim()) {
+      lines.push(`👤 Song Leader: ${setlist.program.songLeader.trim()}`);
+    }
+    const progSongs = (setlist.program?.songs || []).filter((s) => s.title.trim());
+    if (progSongs.length > 0) {
+      progSongs.forEach((song, idx) => {
+        lines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+      });
+    }
+    if (setlist.program?.notes?.trim()) {
+      lines.push(`Note: ${setlist.program.notes.trim()}`);
+    }
+  }
+
+  if (setlist.closingSong?.trim()) {
+    lines.push('');
+    lines.push(`🎵 Closing Song: ${setlist.closingSong.trim()}`);
+  }
+
+  return lines.join('\n');
+}
 
 interface SetlistsTabProps {
   setlists: Setlist[];
@@ -60,6 +157,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
+  const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
 
   // Sync initialSelectedSetlistId prop if provided
   useEffect(() => {
@@ -68,16 +166,67 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     }
   }, [initialSelectedSetlistId]);
 
-  // Collapse active expanded setlist / editor if home tab icon is tapped
+  // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0) {
-      setSelectedSetlistId(null);
-      setIsEditing(false);
-      setEditingSetlist(null);
-      setEditPromptMsg(null);
-      setShowTypeSelector(false);
+      if (isEditing) {
+        setIsEditing(false);
+        setEditingSetlist(null);
+        setEditPromptMsg(null);
+        setShowTypeSelector(false);
+        return;
+      }
+
+      if (selectedSetlistId) {
+        const el = document.getElementById(`setlist-card-${selectedSetlistId}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + 80;
+          if (!inView) {
+            // Step 1: Return view smoothly to the currently open setlist container
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return;
+          }
+        }
+        // Step 2: If already in view, collapse the open container
+        setSelectedSetlistId(null);
+        setShowTypeSelector(false);
+        return;
+      }
+
+      // Step 3: If nothing is open, scroll smoothly to the top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal]);
+  }, [collapseSignal, selectedSetlistId, isEditing]);
+
+  const handleCopySetlist = async (setlist: Setlist, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const text = formatSetlistForMessenger(setlist);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedSetlistId(setlist.id);
+      setTimeout(() => {
+        setCopiedSetlistId((prev) => (prev === setlist.id ? null : prev));
+      }, 2500);
+    } catch (err) {
+      console.error('Failed to copy setlist:', err);
+    }
+  };
 
   // Back swipe & dirty state tracking
   const initialEditingJsonRef = useRef<string>('');
@@ -517,6 +666,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               return (
                 <div
                   key={item.id}
+                  id={`setlist-card-${item.id}`}
                   onClick={() => handleSelectSetlist(item.id)}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
@@ -605,11 +755,33 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </div>
                     </div>
 
-                    {/* Far Right 3-dots Menu & Chevron */}
+                    {/* Far Right Copy Button, 3-dots Menu & Chevron */}
                     <div
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopySetlist(item, e)}
+                        className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                          copiedSetlistId === item.id
+                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                        }`}
+                        title="Copy setlist for Messenger"
+                      >
+                        {copiedSetlistId === item.id ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
+                              Copied!
+                            </span>
+                          </>
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setOpenMenuSetlistId(openMenuSetlistId === item.id ? null : item.id)}
@@ -620,7 +792,19 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </button>
 
                       {openMenuSetlistId === item.id && (
-                        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                        <div className="absolute right-0 top-full mt-1.5 w-52 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              setOpenMenuSetlistId(null);
+                              handleCopySetlist(item, e);
+                            }}
+                            className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Copy for Messenger</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => {
@@ -665,7 +849,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       {/* Sunday Service Layout */}
                       {(!item.type || item.type === 'sunday') && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Presider & Service Header Badges */}
+                          {/* Presider & Service Header Badges + Quick Copy */}
                           <div className="md:col-span-2 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center space-x-3">
                               <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700">
@@ -728,20 +912,40 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                   </div>
                                 );
                               })()}
+
+                              <button
+                                type="button"
+                                onClick={(e) => handleCopySetlist(item, e)}
+                                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
+                                  copiedSetlistId === item.id
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800'
+                                }`}
+                                title="Copy setlist for Messenger"
+                              >
+                                {copiedSetlistId === item.id ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Copied to Clipboard!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy for Messenger</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
                           </div>
 
-                          {/* Sunday School */}
+                          {/* Sunday School (PART 1 | Sunday School side-by-side to save space) */}
                           <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
                             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
-                              <div>
-                                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                                  Part 1
-                                </span>
-                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                                  Sunday School
-                                </h4>
-                              </div>
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span>PART 1</span>
+                                <span className="text-slate-400 font-normal">|</span>
+                                <span>Sunday School</span>
+                              </h4>
                               <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                 Leader: {item.sundaySchool?.songLeader || 'Unassigned'}
                               </span>
@@ -787,17 +991,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             )}
                           </div>
 
-                          {/* Worship Service */}
+                          {/* Worship Service (PART 2 | Worship Service side-by-side to save space) */}
                           <div className="p-4 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3">
                             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
-                              <div>
-                                <span className="text-[11px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">
-                                  Part 2
-                                </span>
-                                <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                                  Worship Service
-                                </h4>
-                              </div>
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span>PART 2</span>
+                                <span className="text-slate-400 font-normal">|</span>
+                                <span>Worship Service</span>
+                              </h4>
                               <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                 Leader: {item.worshipService?.songLeader || 'Unassigned'}
                               </span>
@@ -947,6 +1148,29 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                   </div>
                                 );
                               })()}
+
+                              <button
+                                type="button"
+                                onClick={(e) => handleCopySetlist(item, e)}
+                                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
+                                  copiedSetlistId === item.id
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800'
+                                }`}
+                                title="Copy setlist for Messenger"
+                              >
+                                {copiedSetlistId === item.id ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Copied to Clipboard!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>Copy for Messenger</span>
+                                  </>
+                                )}
+                              </button>
                             </div>
                           </div>
 
