@@ -249,6 +249,52 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Global active playing track ID for in-row practice player (only 1 track plays at a time)
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 
+  // Expandable Lyrics states for modals and cards
+  const [isScheduleModalLyricsExpanded, setIsScheduleModalLyricsExpanded] = useState(false);
+  const [isPracticeModalLyricsExpanded, setIsPracticeModalLyricsExpanded] = useState(false);
+  const [expandedScheduleLyricsIds, setExpandedScheduleLyricsIds] = useState<Record<string, boolean>>({});
+  const [copiedScheduleLyricsId, setCopiedScheduleLyricsId] = useState<string | null>(null);
+
+  const toggleScheduleLyricsExpand = (id: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setExpandedScheduleLyricsIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const handleCopyScheduleLyrics = async (id: string, lyrics: string, songTitle: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const text = `${songTitle ? `${songTitle}\n\n` : ''}${lyrics}`;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedScheduleLyricsId(id);
+      setTimeout(() => {
+        setCopiedScheduleLyricsId((prev) => (prev === id ? null : prev));
+      }, 2500);
+    } catch (err) {
+      console.error('Failed to copy lyrics:', err);
+    }
+  };
+
   // In-line Audio Player state for Vocal Parts & Audio Tracks
   const [activeInlineTrack, setActiveInlineTrack] = useState<{
     trackId: string;
@@ -1528,13 +1574,67 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
                           </div>
 
-                          {/* Performance Lyrics / Text */}
+                          {/* Performance Lyrics / Text with Expand / Collapse Option */}
                           {(item.lyrics || matchedSong?.lyrics) && (
                             <div className="space-y-2">
-                              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
-                                Performance Lyrics
-                              </span>
-                              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap max-h-60 overflow-y-auto">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                  <Music className="w-3.5 h-3.5 text-sky-500" />
+                                  <span>Performance Lyrics</span>
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => toggleScheduleLyricsExpand(item.id, e)}
+                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                                    title={expandedScheduleLyricsIds[item.id] ? 'Collapse' : 'Expand'}
+                                  >
+                                    {expandedScheduleLyricsIds[item.id] ? (
+                                      <>
+                                        <ChevronUp className="w-3 h-3" />
+                                        <span>Collapse</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="w-3 h-3" />
+                                        <span>Expand</span>
+                                      </>
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) =>
+                                      handleCopyScheduleLyrics(
+                                        item.id,
+                                        item.lyrics || matchedSong?.lyrics || '',
+                                        item.songTitle || '',
+                                        e
+                                      )
+                                    }
+                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                                    title="Copy lyrics"
+                                  >
+                                    {copiedScheduleLyricsId === item.id ? (
+                                      <>
+                                        <Check className="w-3 h-3 text-emerald-500" />
+                                        <span className="text-emerald-500">Copied!</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        <span>Copy</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                              <div
+                                className={`p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed transition-all ${
+                                  expandedScheduleLyricsIds[item.id]
+                                    ? 'max-h-none overflow-visible'
+                                    : 'max-h-40 overflow-y-auto'
+                                }`}
+                              >
                                 {item.lyrics || matchedSong?.lyrics}
                               </div>
                             </div>
@@ -2193,16 +2293,37 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 />
               </div>
 
+              {/* Lyrics Field with Standard Sizing & Expand Toggle */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Lyrics / Performance Text (Optional)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Lyrics / Performance Text (Optional)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsScheduleModalLyricsExpanded(!isScheduleModalLyricsExpanded)}
+                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                    title={isScheduleModalLyricsExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    {isScheduleModalLyricsExpanded ? (
+                      <>
+                        <ChevronUp className="w-3 h-3" />
+                        <span>Collapse</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3 h-3" />
+                        <span>Expand</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
-                  rows={4}
+                  rows={isScheduleModalLyricsExpanded ? 18 : 9}
                   value={editingSchedule.lyrics || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, lyrics: e.target.value })}
-                  placeholder="Paste lyrics or stanzas here..."
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white"
+                  placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
+                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed"
                 />
               </div>
 
@@ -2338,13 +2459,33 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 )}
               </div>
 
-              {/* Lyrics Field */}
+              {/* Lyrics Field with Expand Toggle */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Lyrics
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Lyrics
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsPracticeModalLyricsExpanded(!isPracticeModalLyricsExpanded)}
+                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
+                    title={isPracticeModalLyricsExpanded ? 'Collapse' : 'Expand'}
+                  >
+                    {isPracticeModalLyricsExpanded ? (
+                      <>
+                        <ChevronUp className="w-3 h-3" />
+                        <span>Collapse</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3 h-3" />
+                        <span>Expand</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
-                  rows={9}
+                  rows={isPracticeModalLyricsExpanded ? 18 : 9}
                   value={editingPractice.lyrics || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
