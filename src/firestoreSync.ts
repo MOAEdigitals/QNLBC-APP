@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   setDoc,
+  getDoc,
   deleteDoc,
   onSnapshot,
   getDocs,
@@ -43,6 +44,8 @@ const COLLECTIONS = {
   PRACTICE_ENTRIES: 'practice_entries',
   SAVED_NAMES: 'saved_names',
   WELCOME_SONGS: 'welcome_songs',
+  PRACTICE_AUDIOS: 'practice_audios',
+  APP_SETTINGS: 'app_settings',
   USERS: 'users',
 };
 
@@ -269,6 +272,172 @@ export async function syncDeleteUser(id: string, username?: string) {
   }
 }
 
+// --- Practice Audio Cloud Sync (Cross-Device Audio Stem & Voice Memo Sync) ---
+const MAX_CHUNK_SIZE = 700000; // 700KB chunk size to stay safely within Firestore 1MB document limit
+
+export async function syncSavePracticeAudio(id: string, dataUrl: string, title?: string): Promise<void> {
+  if (!id || !dataUrl) return;
+  const cleanId = id.replace(/^indexeddb:/, '');
+
+  try {
+    if (dataUrl.length <= MAX_CHUNK_SIZE) {
+      // Single document
+      const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
+      await setDoc(
+        docRef,
+        {
+          id: cleanId,
+          dataUrl,
+          title: title || '',
+          isChunked: false,
+          size: dataUrl.length,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } else {
+      // Chunked document for larger recordings/files
+      const totalChunks = Math.ceil(dataUrl.length / MAX_CHUNK_SIZE);
+      const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
+      await setDoc(
+        docRef,
+        {
+          id: cleanId,
+          title: title || '',
+          isChunked: true,
+          totalChunks,
+          size: dataUrl.length,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+
+      for (let i = 0; i < totalChunks; i++) {
+        const chunk = dataUrl.substring(i * MAX_CHUNK_SIZE, (i + 1) * MAX_CHUNK_SIZE);
+        const chunkDocRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, `${cleanId}_chunk_${i}`);
+        await setDoc(chunkDocRef, { chunkIndex: i, data: chunk, parentId: cleanId });
+      }
+    }
+  } catch (err) {
+    console.error(`Error saving audio to Firestore (${cleanId}):`, err);
+  }
+}
+
+export async function fetchPracticeAudioFromCloud(id: string): Promise<string | null> {
+  if (!id) return null;
+  const cleanId = id.replace(/^indexeddb:/, '');
+
+  try {
+    const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+
+    const data = docSnap.data();
+    if (!data.isChunked && data.dataUrl) {
+      return data.dataUrl;
+    }
+
+    if (data.isChunked && data.totalChunks) {
+      let combined = '';
+      for (let i = 0; i < data.totalChunks; i++) {
+        const chunkDocRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, `${cleanId}_chunk_${i}`);
+        const chunkSnap = await getDoc(chunkDocRef);
+        if (chunkSnap.exists() && chunkSnap.data().data) {
+          combined += chunkSnap.data().data;
+        } else {
+          return null; // Missing chunk
+        }
+      }
+      return combined || null;
+    }
+
+    return null;
+  } catch (err) {
+    console.warn(`Error fetching audio from cloud (${cleanId}):`, err);
+    return null;
+  }
+}
+
+export async function syncDeletePracticeAudio(id: string): Promise<void> {
+  if (!id) return;
+  const cleanId = id.replace(/^indexeddb:/, '');
+
+  try {
+    const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.isChunked && data.totalChunks) {
+        for (let i = 0; i < data.totalChunks; i++) {
+          await deleteDoc(doc(db, COLLECTIONS.PRACTICE_AUDIOS, `${cleanId}_chunk_${i}`));
+        }
+      }
+      await deleteDoc(docRef);
+    }
+  } catch (err) {
+    console.error(`Error deleting audio from cloud (${cleanId}):`, err);
+  }
+}
+
+// --- Settings Cloud Sync (Church Directory & Welcome Songs) ---
+
+export async function syncSaveSavedNames(names: string[]): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
+    await setDoc(docRef, { id: 'saved_names', names, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (err) {
+    console.error('Error syncing saved names to Firestore:', err);
+  }
+}
+
+export async function syncSaveWelcomeSongs(songs: string[]): Promise<void> {
+  try {
+    const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
+    await setDoc(docRef, { id: 'welcome_songs', songs, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (err) {
+    console.error('Error syncing welcome songs to Firestore:', err);
+  }
+}
+
+export function subscribeToAppSettings(
+  onUpdateSavedNames: (names: string[]) => void,
+  onUpdateWelcomeSongs: (songs: string[]) => void
+) {
+  const namesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
+  const songsDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
+
+  const unsubNames = onSnapshot(
+    namesDocRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.names)) {
+          onUpdateSavedNames(data.names);
+        }
+      }
+    },
+    (err) => console.warn('Error subscribing to saved_names:', err)
+  );
+
+  const unsubSongs = onSnapshot(
+    songsDocRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.songs)) {
+          onUpdateWelcomeSongs(data.songs);
+        }
+      }
+    },
+    (err) => console.warn('Error subscribing to welcome_songs:', err)
+  );
+
+  return () => {
+    unsubNames();
+    unsubSongs();
+  };
+}
+
 /**
  * Initial Cloud Seeding:
  * Checks each collection individually. If any collection is empty on Firestore,
@@ -373,6 +542,28 @@ export async function initializeFirestoreCloudSeed() {
       for (const u of initialUsers) {
         await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
       }
+    }
+
+    // 10. Saved Directory Names (App Settings)
+    const savedNamesDoc = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'));
+    if (!savedNamesDoc.exists()) {
+      const initialNames = loadSavedNames();
+      await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
+        id: 'saved_names',
+        names: initialNames,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
+    // 11. Welcome Songs (App Settings)
+    const welcomeSongsDoc = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'));
+    if (!welcomeSongsDoc.exists()) {
+      const initialWelcome = loadWelcomeSongs();
+      await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'), {
+        id: 'welcome_songs',
+        songs: initialWelcome,
+        updatedAt: new Date().toISOString(),
+      });
     }
   } catch (err) {
     console.warn('Initial cloud seed skipped or error:', err);

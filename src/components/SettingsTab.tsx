@@ -10,8 +10,26 @@ import {
   importBatchLyricsTxt,
   loadSavedNames,
   saveSavedNames,
+  loadSongs,
+  loadSetlists,
+  loadBirthdays,
+  loadAnniversaries,
+  loadVisitors,
+  loadSpecialRecognitions,
+  loadSpecialNumbers,
 } from '../utils/storage';
-import { syncSaveUser, syncDeleteUser } from '../firestoreSync';
+import {
+  syncSaveUser,
+  syncDeleteUser,
+  syncSaveSavedNames,
+  syncSaveSong,
+  syncSaveSetlist,
+  syncSaveBirthday,
+  syncSaveAnniversary,
+  syncSaveVisitor,
+  syncSaveSpecialRecognition,
+  syncSaveSpecialNumber,
+} from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
   Settings,
@@ -44,6 +62,8 @@ interface SettingsTabProps {
   onUpdateCurrentUser: (updatedUser: UserAccount) => void;
   users: UserAccount[];
   onUpdateUsers: (updatedUsers: UserAccount[]) => void;
+  savedNames?: string[];
+  onUpdateSavedNames?: (names: string[]) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onSignOut: () => void;
@@ -55,6 +75,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpdateCurrentUser,
   users,
   onUpdateUsers,
+  savedNames: propSavedNames,
+  onUpdateSavedNames,
   theme,
   onToggleTheme,
   onSignOut,
@@ -69,8 +91,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
   const [copiedPasswordUserId, setCopiedPasswordUserId] = useState<string | null>(null);
 
-  // Church directory names state for autofill management
-  const [savedNames, setSavedNames] = useState<string[]>(() => loadSavedNames());
+  // Church directory names state for autofill management (synced across all devices)
+  const [savedNames, setSavedNames] = useState<string[]>(() => propSavedNames || loadSavedNames());
+
+  // Sync internal state when prop changes from Firestore
+  React.useEffect(() => {
+    if (propSavedNames) {
+      setSavedNames(propSavedNames);
+    }
+  }, [propSavedNames]);
+
   const [newNameInput, setNewNameInput] = useState('');
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [lyricsImportStatus, setLyricsImportStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -200,6 +230,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     const updated = [...savedNames, clean].sort((a, b) => a.localeCompare(b));
     saveSavedNames(updated);
     setSavedNames(updated);
+    syncSaveSavedNames(updated);
+    if (onUpdateSavedNames) onUpdateSavedNames(updated);
     setNewNameInput('');
   };
 
@@ -207,6 +239,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     const updated = savedNames.filter((n) => n !== nameToDelete);
     saveSavedNames(updated);
     setSavedNames(updated);
+    syncSaveSavedNames(updated);
+    if (onUpdateSavedNames) onUpdateSavedNames(updated);
   };
 
   const handleExportBackup = () => {
@@ -231,7 +265,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         const res = importChurchDataJSON(text);
         if (res.success) {
           setImportStatus({ success: true, message: res.message });
-          setSavedNames(loadSavedNames());
+          const updatedNames = loadSavedNames();
+          setSavedNames(updatedNames);
+          syncSaveSavedNames(updatedNames);
+          if (onUpdateSavedNames) onUpdateSavedNames(updatedNames);
+
+          // Push restored database to Firestore Cloud for all devices
+          loadSongs().forEach(syncSaveSong);
+          loadSetlists().forEach(syncSaveSetlist);
+          loadBirthdays().forEach(syncSaveBirthday);
+          loadAnniversaries().forEach(syncSaveAnniversary);
+          loadVisitors().forEach(syncSaveVisitor);
+          loadSpecialRecognitions().forEach(syncSaveSpecialRecognition);
+          loadSpecialNumbers().forEach(syncSaveSpecialNumber);
+
           onDataReset();
         } else {
           setImportStatus({ success: false, message: res.message });
@@ -267,6 +314,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const fileContents = await Promise.all(fileReadPromises);
       const result = importBatchLyricsTxt(fileContents);
 
+      // Sync imported songs to Firestore Cloud
+      const allCurrentSongs = loadSongs();
+      for (const s of allCurrentSongs) {
+        syncSaveSong(s);
+      }
+
       setLyricsImportStatus({
         success: true,
         message: `Imported ${fileContents.length} text file(s): ${result.importedCount} new song(s) added, ${result.updatedCount} updated. Library now has ${result.totalSongs} songs.`,
@@ -289,7 +342,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       )
     ) {
       resetAppToDefaults();
-      setSavedNames(loadSavedNames());
+      const updatedNames = loadSavedNames();
+      setSavedNames(updatedNames);
+      syncSaveSavedNames(updatedNames);
+      if (onUpdateSavedNames) onUpdateSavedNames(updatedNames);
+
+      // Sync initial data to Firestore Cloud
+      loadSongs().forEach(syncSaveSong);
+      loadSetlists().forEach(syncSaveSetlist);
+      loadBirthdays().forEach(syncSaveBirthday);
+      loadAnniversaries().forEach(syncSaveAnniversary);
+      loadVisitors().forEach(syncSaveVisitor);
+      loadSpecialRecognitions().forEach(syncSaveSpecialRecognition);
+      loadSpecialNumbers().forEach(syncSaveSpecialNumber);
+
       onDataReset();
     }
   };

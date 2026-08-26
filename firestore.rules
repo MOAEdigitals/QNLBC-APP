@@ -43,6 +43,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /practice_audios/{id} {
+      allow read, write: if true;
+    }
+
+    match /app_settings/{id} {
+      allow read, write: if true;
+    }
+
     match /users/{userId} {
       allow read, write: if true;
     }

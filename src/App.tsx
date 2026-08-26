@@ -56,8 +56,16 @@ import {
   syncSaveSpecialRecognition,
   syncDeleteSpecialRecognition,
   syncSaveUser,
+  syncSaveSavedNames,
+  subscribeToAppSettings,
   initializeFirestoreCloudSeed,
 } from './firestoreSync';
+import {
+  loadSavedNames,
+  saveSavedNames,
+  loadWelcomeSongs,
+  saveWelcomeSongs,
+} from './utils/storage';
 import {
   categorizeAnnualCelebrants,
   isPastDate,
@@ -150,6 +158,7 @@ export default function App() {
   const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>(() => loadSpecialRecognitions());
   const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>(() => loadSpecialNumbers());
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>(() => loadPracticeEntries());
+  const [savedNames, setSavedNames] = useState<string[]>(() => loadSavedNames());
 
   // Subscribe to real-time Firestore synchronization across all devices
   useEffect(() => {
@@ -223,6 +232,16 @@ export default function App() {
       saveUsers(items);
     });
 
+    const unsubAppSettings = subscribeToAppSettings(
+      (remoteNames) => {
+        setSavedNames(remoteNames);
+        saveSavedNames(remoteNames);
+      },
+      (remoteSongs) => {
+        saveWelcomeSongs(remoteSongs);
+      }
+    );
+
     return () => {
       unsubSetlists();
       unsubSongs();
@@ -233,6 +252,7 @@ export default function App() {
       unsubSpecials();
       unsubPractice();
       unsubUsers();
+      unsubAppSettings();
     };
   }, []);
 
@@ -247,6 +267,7 @@ export default function App() {
     setSpecialRecognitions(loadSpecialRecognitions());
     setSpecialNumbers(loadSpecialNumbers());
     setPracticeEntries(loadPracticeEntries());
+    setSavedNames(loadSavedNames());
   };
 
   // Navigate to a new tab with history tracking (or collapse active container if clicking same tab)
@@ -663,6 +684,8 @@ export default function App() {
             onUpdateCurrentUser={setCurrentUser}
             users={users}
             onUpdateUsers={setUsers}
+            savedNames={savedNames}
+            onUpdateSavedNames={setSavedNames}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}
