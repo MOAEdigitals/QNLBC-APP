@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserAccount } from '../types';
 import { loadUsers, saveCurrentSession } from '../utils/storage';
 import { Church, Lock, User, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { ChurchLogo } from './ChurchLogo';
 
 interface AuthScreenProps {
   onSignInSuccess: (user: UserAccount) => void;
@@ -55,12 +56,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <div className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl bg-white dark:bg-slate-800 p-1 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-md overflow-hidden">
-            <img
-              src="/favicon.svg"
-              alt="Quezon New Life Baptist Church"
-              className="w-full h-full object-contain"
-              referrerPolicy="no-referrer"
-            />
+            <ChurchLogo className="w-full h-full object-contain" />
           </div>
         </div>
 

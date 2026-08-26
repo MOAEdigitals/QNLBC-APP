@@ -2,6 +2,7 @@ import React from 'react';
 import { UserAccount, AppTab } from '../types';
 import { Church } from 'lucide-react';
 import { formatDateStr, getTodayStr } from '../utils/dateUtils';
+import { ChurchLogo } from './ChurchLogo';
 
 interface NavbarProps {
   currentUser: UserAccount | null;
@@ -18,12 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentUser, onNavigateToSetting
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 p-0.5 border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
-            <img
-              src="/favicon.svg"
-              alt="Quezon New Life Baptist Church"
-              className="w-full h-full object-contain"
-              referrerPolicy="no-referrer"
-            />
+            <ChurchLogo className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
