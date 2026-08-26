@@ -32,6 +32,7 @@ export interface Song {
   attachments?: SongAttachment[];
   isWelcomeSong?: boolean;
   isClosingSong?: boolean;
+  isThemeSong?: boolean;
   isSpecialNumber?: boolean;
   updatedAt: string;
 }

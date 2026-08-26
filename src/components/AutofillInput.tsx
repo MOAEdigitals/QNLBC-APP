@@ -3,7 +3,6 @@ import { Song, Setlist } from '../types';
 import {
   fuzzyMatchString,
   searchSong,
-  getSongUsageHistory,
   getSongUsageHistoryFromMap,
   buildSongUsageMap,
   SongUsageHistory,
@@ -22,7 +21,7 @@ export interface DisplaySuggestionItem {
 interface AutofillInputProps {
   value: string;
   onChange: (val: string) => void;
-  suggestions?: string[]; // Primary suggestions (e.g. marked welcome/closing songs or song titles)
+  suggestions?: string[]; // Primary suggestions (e.g. marked welcome/closing/theme songs or song titles)
   allSuggestions?: string[]; // Fallback full library suggestions when user types
   defaultValue?: string; // Default song (e.g. 'Napakaligaya' or 'Give Thanks')
   songs?: Song[]; // Full song library for lyrics search and metadata
@@ -57,7 +56,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Touch gesture scroll tracking ref so finger swiping does not trigger accidental selection
+  const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isTouchScrollingRef = useRef(false);
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
@@ -113,7 +117,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         return suggestions.map((s) => buildItem(s, 'none', undefined, 100));
       }
       if (songs && songs.length > 0) {
-        return songs.slice(0, 20).map((s) => buildItem(s.title, 'none', undefined, 100));
+        return songs.slice(0, 25).map((s) => buildItem(s.title, 'none', undefined, 100));
       }
       return [];
     }
@@ -155,7 +159,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
       // Sort by score descending
       scoredResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-      return scoredResults.slice(0, 25);
+      return scoredResults.slice(0, 30);
     }
 
     // 3. Fallback string-based fuzzy search for names or custom string lists
@@ -172,7 +176,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     }
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
-    return results.slice(0, 25);
+    return results.slice(0, 30);
   }, [isOpen, lowerVal, cleanDefault, suggestions, allSuggestions, songs, usageMap]);
 
   // Find exact prefix match for inline autocomplete ghost text only when focused & typing
@@ -210,22 +214,26 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     ? bestPrefixMatch.slice((value || '').length)
     : '';
 
-  // Close dropdown on click outside
+  // Handle outside clicks/taps cleanly without instantly closing suggestions when dismissing mobile keyboard
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
         setIsFocused(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+
+    document.addEventListener('mousedown', handlePointerDownOutside);
+    document.addEventListener('touchstart', handlePointerDownOutside, { passive: true });
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      document.removeEventListener('mousedown', handlePointerDownOutside);
+      document.removeEventListener('touchstart', handlePointerDownOutside);
     };
   }, []);
 
@@ -243,6 +251,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   };
 
   const handleSelect = (item: DisplaySuggestionItem, e?: React.MouseEvent | React.TouchEvent) => {
+    if (isTouchScrollingRef.current) {
+      // User was scrolling, not tapping with intention of selecting
+      return;
+    }
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -251,6 +263,41 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     onSelectSuggestion?.(item.title);
     setIsOpen(false);
     setHighlightedIndex(-1);
+  };
+
+  // Touch handlers to distinguish scrolling vs. tapping
+  const handleItemTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+    isTouchScrollingRef.current = false;
+  };
+
+  const handleItemTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current) return;
+    const touch = e.touches[0];
+    const diffX = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const diffY = Math.abs(touch.clientY - touchStartPosRef.current.y);
+
+    // If movement is more than 8px, flag as scrolling
+    if (diffX > 8 || diffY > 8) {
+      isTouchScrollingRef.current = true;
+    }
+  };
+
+  const handleItemTouchEnd = (item: DisplaySuggestionItem, e: React.TouchEvent) => {
+    if (isTouchScrollingRef.current) {
+      // Finger moved -> scroll intent, do not select
+      touchStartPosRef.current = null;
+      isTouchScrollingRef.current = false;
+      return;
+    }
+
+    // Finger stayed within threshold -> user meant to tap & select
+    e.preventDefault();
+    e.stopPropagation();
+    handleSelect(item, e);
+    touchStartPosRef.current = null;
+    isTouchScrollingRef.current = false;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -320,7 +367,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           <button
             type="button"
             onMouseDown={handleAcceptPrefix}
-            onTouchStart={handleAcceptPrefix}
+            onTouchEnd={handleAcceptPrefix}
             onClick={handleAcceptPrefix}
             className="pointer-events-auto ml-auto shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-950/80 hover:bg-sky-200 dark:hover:bg-sky-900 px-2 py-0.5 rounded-md border border-sky-300 dark:border-sky-700 shadow-xs active:scale-95 transition-all cursor-pointer z-10"
             title="Tap or press Enter to fill"
@@ -347,9 +394,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             setIsFocused(true);
             setIsOpen(true);
           }}
-          onBlur={() => {
-            setIsFocused(false);
-          }}
           onClick={() => {
             setIsFocused(true);
             setIsOpen(true);
@@ -370,9 +414,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         </div>
       )}
 
-      {/* Suggestion Dropdown List (High z-index to stay visible over dialogs and forms) */}
+      {/* Suggestion Dropdown List (Scrollable on touch/mouse, high z-index) */}
       {isOpen && displayedItems.length > 0 && (
-        <div className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80">
+        <div
+          ref={dropdownRef}
+          className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {displayedItems.map((item, idx) => {
             const isSelected =
               idx === highlightedIndex ||
@@ -382,7 +430,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               <div
                 key={item.title + idx}
                 onMouseDown={(e) => handleSelect(item, e)}
-                onTouchStart={(e) => handleSelect(item, e)}
+                onTouchStart={handleItemTouchStart}
+                onTouchMove={handleItemTouchMove}
+                onTouchEnd={(e) => handleItemTouchEnd(item, e)}
                 onClick={(e) => handleSelect(item, e)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
                 className={`w-full px-4 py-3 text-left flex items-center justify-between cursor-pointer transition-colors select-none ${
@@ -397,7 +447,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                       {item.title}
                     </span>
 
-                    {/* Welcome / Closing / Special Badges */}
+                    {/* Theme / Welcome / Closing / Special Badges */}
+                    {item.songObj?.isThemeSong && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-100 dark:bg-amber-950/90 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800/80 shrink-0">
+                        Theme Song
+                      </span>
+                    )}
                     {item.songObj?.isWelcomeSong && (
                       <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-sky-100 dark:bg-sky-950/90 text-sky-700 dark:text-sky-400 border border-sky-300 dark:border-sky-800/80 shrink-0">
                         Welcome
@@ -415,6 +470,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                     )}
                     {item.songObj?.category &&
                       item.songObj.category !== 'Praise & Worship' &&
+                      !item.songObj?.isThemeSong &&
                       !item.songObj?.isWelcomeSong &&
                       !item.songObj?.isClosingSong &&
                       !item.songObj?.isSpecialNumber && (
@@ -458,7 +514,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 <button
                   type="button"
                   onMouseDown={(e) => handleSelect(item, e)}
-                  onTouchStart={(e) => handleSelect(item, e)}
+                  onTouchEnd={(e) => handleItemTouchEnd(item, e)}
                   onClick={(e) => handleSelect(item, e)}
                   className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
                 >

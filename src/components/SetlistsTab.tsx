@@ -106,6 +106,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     [songs]
   );
 
+  const markedThemeSongs = useMemo(
+    () =>
+      Array.from(
+        new Set(songs.filter((s) => s.isThemeSong).map((s) => s.title))
+      ).filter(Boolean),
+    [songs]
+  );
+
   // Sort upcoming soonest first, then past below
   const sortedSetlists = useMemo(
     () => sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date),
@@ -220,7 +228,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       presider: '',
       welcomeSong: 'Napakaligaya',
       closingSong: 'Give Thanks',
-      themeSong: monthTheme || '',
+      themeSong: '',
       sundaySchool: {
         songLeader: '',
         songs: [
@@ -1066,11 +1074,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     value={editingSetlist.date || ''}
                     onChange={(e) => {
                       const newDate = e.target.value;
-                      const newMonthTheme = getThemeSongForMonth(setlists, newDate);
                       setEditingSetlist({
                         ...editingSetlist,
                         date: newDate,
-                        themeSong: editingSetlist.themeSong || newMonthTheme,
                       });
                     }}
                     className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
@@ -1224,10 +1230,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.themeSong || ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, themeSong: val })}
-                          suggestions={songTitleSuggestions}
+                          suggestions={markedThemeSongs}
+                          allSuggestions={songTitleSuggestions}
                           songs={songs}
                           setlists={setlists}
-                          placeholder="e.g. Dakilang Katapatan"
+                          placeholder="Type or select month theme song..."
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                         />
                       </div>
