@@ -36,8 +36,9 @@ import {
 } from 'lucide-react';
 
 export function formatSetlistForMessenger(setlist: Setlist): string {
-  const lines: string[] = [];
+  const sections: string[] = [];
 
+  // 1. Date Header: e.g. "Sunday, Aug 30, 2026"
   const dateObj = new Date(setlist.date + 'T00:00:00');
   const dayName = isNaN(dateObj.getTime())
     ? ''
@@ -50,84 +51,85 @@ export function formatSetlistForMessenger(setlist: Setlist): string {
         year: 'numeric',
       });
 
-  const displayTitle =
-    setlist.title?.trim() ||
-    (setlist.type === 'prayer_meeting'
-      ? 'Midweek Prayer Meeting'
-      : setlist.type === 'fellowship'
-      ? 'Youth Fellowship'
-      : setlist.type === 'event'
-      ? 'Special Church Event'
-      : 'Sunday Worship Program');
+  const headerDateLine = dayName ? `${dayName}, ${dateFormatted}` : dateFormatted;
+  sections.push(headerDateLine);
 
-  lines.push(`📋 ${displayTitle}`);
-  lines.push(`📅 ${dayName ? `${dayName}, ` : ''}${dateFormatted}`);
-
+  // 2. Presider, Welcome Song, Closing Song Block
+  const topMeta: string[] = [];
   if (setlist.presider?.trim()) {
-    lines.push(`👤 Presider: ${setlist.presider.trim()}`);
+    topMeta.push(`Presider: ${setlist.presider.trim()}`);
   }
-
   if (setlist.welcomeSong?.trim()) {
-    lines.push(`🎵 Welcome Song: ${setlist.welcomeSong.trim()}`);
+    topMeta.push(`Welcome Song: ${setlist.welcomeSong.trim()}`);
+  }
+  if (setlist.closingSong?.trim()) {
+    topMeta.push(`Closing Song: ${setlist.closingSong.trim()}`);
+  }
+  if (topMeta.length > 0) {
+    sections.push(topMeta.join('\n'));
   }
 
+  // 3. Program Sections
   if (setlist.type === 'sunday' || !setlist.type) {
-    lines.push('');
-    // Part 1: Sunday School
-    lines.push('PART 1 | Sunday School');
-    if (setlist.sundaySchool?.songLeader?.trim()) {
-      lines.push(`👤 Song Leader: ${setlist.sundaySchool.songLeader.trim()}`);
-    }
+    // Sunday School Section
+    const ssLeader = setlist.sundaySchool?.songLeader?.trim();
     const ssSongs = (setlist.sundaySchool?.songs || []).filter((s) => s.title.trim());
-    if (ssSongs.length > 0) {
-      ssSongs.forEach((song, idx) => {
-        lines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
-      });
-    }
+    const ssLines: string[] = [];
+    ssLines.push(`Sunday School: ${ssLeader || ''}`.trimEnd());
+    ssSongs.forEach((song, idx) => {
+      ssLines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+    });
     if (setlist.sundaySchool?.notes?.trim()) {
-      lines.push(`Note: ${setlist.sundaySchool.notes.trim()}`);
+      ssLines.push(`Note: ${setlist.sundaySchool.notes.trim()}`);
     }
+    sections.push(ssLines.join('\n'));
 
-    lines.push('');
-    // Part 2: Worship Service
-    lines.push('PART 2 | Worship Service');
-    if (setlist.worshipService?.songLeader?.trim()) {
-      lines.push(`👤 Song Leader: ${setlist.worshipService.songLeader.trim()}`);
-    }
+    // Worship Service Section
+    const wsLeader = setlist.worshipService?.songLeader?.trim();
     const wsSongs = (setlist.worshipService?.songs || []).filter((s) => s.title.trim());
-    if (wsSongs.length > 0) {
-      wsSongs.forEach((song, idx) => {
-        lines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
-      });
-    }
+    const wsLines: string[] = [];
+    wsLines.push(`Worship Service: ${wsLeader || ''}`.trimEnd());
+    wsSongs.forEach((song, idx) => {
+      wsLines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+    });
     if (setlist.themeSong?.trim()) {
-      lines.push(`• Month Theme Song: ${setlist.themeSong.trim()}`);
+      const themeNum = wsSongs.length + 1;
+      wsLines.push(`${themeNum}. ${setlist.themeSong.trim()} (Month Theme Song)`);
     }
     if (setlist.worshipService?.notes?.trim()) {
-      lines.push(`Note: ${setlist.worshipService.notes.trim()}`);
+      wsLines.push(`Note: ${setlist.worshipService.notes.trim()}`);
     }
+    sections.push(wsLines.join('\n'));
   } else {
-    lines.push('');
-    if (setlist.program?.songLeader?.trim()) {
-      lines.push(`👤 Song Leader: ${setlist.program.songLeader.trim()}`);
-    }
+    // Non-Sunday Programs (Prayer Meeting, Fellowship, Event)
+    const progTitle =
+      setlist.title?.trim() ||
+      (setlist.type === 'prayer_meeting'
+        ? 'Midweek Prayer Meeting'
+        : setlist.type === 'fellowship'
+        ? 'Youth Fellowship'
+        : setlist.type === 'event'
+        ? 'Special Church Event'
+        : 'Program');
+
+    const progLeader = setlist.program?.songLeader?.trim();
     const progSongs = (setlist.program?.songs || []).filter((s) => s.title.trim());
-    if (progSongs.length > 0) {
-      progSongs.forEach((song, idx) => {
-        lines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
-      });
+    const progLines: string[] = [];
+    progLines.push(`${progTitle}: ${progLeader || ''}`.trimEnd());
+    progSongs.forEach((song, idx) => {
+      progLines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+    });
+    if (setlist.themeSong?.trim()) {
+      const themeNum = progSongs.length + 1;
+      progLines.push(`${themeNum}. ${setlist.themeSong.trim()} (Month Theme Song)`);
     }
     if (setlist.program?.notes?.trim()) {
-      lines.push(`Note: ${setlist.program.notes.trim()}`);
+      progLines.push(`Note: ${setlist.program.notes.trim()}`);
     }
+    sections.push(progLines.join('\n'));
   }
 
-  if (setlist.closingSong?.trim()) {
-    lines.push('');
-    lines.push(`🎵 Closing Song: ${setlist.closingSong.trim()}`);
-  }
-
-  return lines.join('\n');
+  return sections.join('\n\n');
 }
 
 interface SetlistsTabProps {
@@ -802,7 +804,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                           >
                             <Copy className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Copy for Messenger</span>
+                            <span>Copy Setlist</span>
                           </button>
 
                           <button
@@ -916,23 +918,17 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               <button
                                 type="button"
                                 onClick={(e) => handleCopySetlist(item, e)}
-                                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
+                                className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
                                   copiedSetlistId === item.id
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                                 }`}
-                                title="Copy setlist for Messenger"
+                                title="Copy setlist"
                               >
                                 {copiedSetlistId === item.id ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Copied to Clipboard!</span>
-                                  </>
+                                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    <span>Copy for Messenger</span>
-                                  </>
+                                  <Copy className="w-4 h-4" />
                                 )}
                               </button>
                             </div>
@@ -1152,23 +1148,17 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               <button
                                 type="button"
                                 onClick={(e) => handleCopySetlist(item, e)}
-                                className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
+                                className={`p-1.5 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${
                                   copiedSetlistId === item.id
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800'
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
                                 }`}
-                                title="Copy setlist for Messenger"
+                                title="Copy setlist"
                               >
                                 {copiedSetlistId === item.id ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" />
-                                    <span>Copied to Clipboard!</span>
-                                  </>
+                                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    <span>Copy for Messenger</span>
-                                  </>
+                                  <Copy className="w-4 h-4" />
                                 )}
                               </button>
                             </div>
