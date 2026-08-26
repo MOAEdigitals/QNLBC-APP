@@ -245,6 +245,14 @@ export async function syncSaveUser(user: UserAccount) {
   }
 }
 
+export async function syncDeleteUser(id: string) {
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.USERS, id));
+  } catch (err) {
+    console.error('Error deleting user from Firestore:', err);
+  }
+}
+
 /**
  * Initial Cloud Seeding:
  * Checks each collection individually. If any collection is empty on Firestore,

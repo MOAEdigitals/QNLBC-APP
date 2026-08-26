@@ -27,6 +27,7 @@ import {
   deleteAudioFromStorage,
 } from '../utils/audioStorage';
 import { AutofillInput } from './AutofillInput';
+import { InlinePracticeAudioPlayer } from './InlinePracticeAudioPlayer';
 import {
   Mic2,
   Mic,
@@ -93,6 +94,48 @@ const VOCAL_PART_OPTIONS: VocalPartLabel[] = [
   'Choir / All',
   'Custom',
 ];
+
+// Debounced Rehearsal Instructions / Notes Input to prevent storage thrashing and crash
+const PracticeGroupNotesInput: React.FC<{
+  group: PracticeGroupEntry;
+  onSavePracticeEntry?: (entry: PracticeGroupEntry) => void;
+}> = ({ group, onSavePracticeEntry }) => {
+  const [localNotes, setLocalNotes] = useState(group.notes || '');
+  const timeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    setLocalNotes(group.notes || '');
+  }, [group.notes]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setLocalNotes(val);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      if (onSavePracticeEntry && val !== (group.notes || '')) {
+        onSavePracticeEntry({ ...group, notes: val });
+      }
+    }, 800);
+  };
+
+  const handleBlur = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (onSavePracticeEntry && localNotes !== (group.notes || '')) {
+      onSavePracticeEntry({ ...group, notes: localNotes });
+    }
+  };
+
+  return (
+    <textarea
+      rows={3}
+      value={localNotes}
+      onChange={handleChange}
+      onBlur={handleBlur}
+      placeholder="Add rehearsal instructions, vocal guidance, or practice schedule notes..."
+      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-colors"
+    />
+  );
+};
 
 export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   specialNumbers,
@@ -202,18 +245,34 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const practiceMediaRef = useRef<HTMLAudioElement | HTMLVideoElement | null>(null);
 
   // In-line Audio Player state for Vocal Parts & Audio Tracks
-  const inlineAudioRef = useRef<HTMLAudioElement | null>(null);
-  const [inlineAudioState, setInlineAudioState] = useState<{
+  const [activeInlineTrack, setActiveInlineTrack] = useState<{
     trackId: string;
     url: string;
-    isPlaying: boolean;
-    currentTime: number;
-    duration: number;
-    isLooping: boolean;
     trackLabel?: string;
-    trackCategory?: 'vocal_part' | 'attachment';
-    groupId?: string;
+    trackCategory: 'vocal_part' | 'attachment';
+    groupId: string;
   } | null>(null);
+
+  const handleTogglePlayInlineAudio = (
+    trackId: string,
+    rawUrl: string,
+    trackLabel?: string,
+    trackCategory: 'vocal_part' | 'attachment' = 'vocal_part',
+    groupId: string = ''
+  ) => {
+    if (activeInlineTrack?.trackId === trackId) {
+      setActiveInlineTrack(null);
+    } else {
+      setActivePracticeMedia(null);
+      setActiveInlineTrack({
+        trackId,
+        url: rawUrl,
+        trackLabel,
+        trackCategory,
+        groupId,
+      });
+    }
+  };
 
   // Expandable Lyrics state per practice group
   const [expandedLyricsGroupIds, setExpandedLyricsGroupIds] = useState<Record<string, boolean>>({});
@@ -259,108 +318,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  // Dedicated controlled Audio instance with cleanup to prevent memory leaks and Aw Snap crashes
-  useEffect(() => {
-    const audio = new Audio();
-    inlineAudioRef.current = audio;
 
-    const handleTimeUpdate = () => {
-      setInlineAudioState((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          currentTime: audio.currentTime,
-          duration: audio.duration || prev.duration,
-        };
-      });
-    };
-
-    const handleEnded = () => {
-      if (audio.loop) return;
-      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false, currentTime: 0 } : null));
-    };
-
-    const handleLoadedMetadata = () => {
-      setInlineAudioState((prev) => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          duration: audio.duration || prev.duration,
-        };
-      });
-    };
-
-    const handleError = () => {
-      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false } : null));
-    };
-
-    const handlePause = () => {
-      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false } : null));
-    };
-
-    const handlePlay = () => {
-      setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: true } : null));
-    };
-
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-    audio.addEventListener('error', handleError);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('play', handlePlay);
-
-    return () => {
-      try {
-        audio.pause();
-        audio.src = '';
-      } catch (_) {}
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('error', handleError);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('play', handlePlay);
-      inlineAudioRef.current = null;
-    };
-  }, []);
-
-  // Long press handling for Practice cards
-  const longPressTimeoutRef = useRef<any>(null);
-  const isLongPressActiveRef = useRef(false);
-
-  const handlePracticeTouchStart = (group: PracticeGroupEntry) => {
-    isLongPressActiveRef.current = false;
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current);
-    }
-    longPressTimeoutRef.current = setTimeout(() => {
-      isLongPressActiveRef.current = true;
-      handleTogglePracticeDone(group);
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        try {
-          navigator.vibrate(60);
-        } catch (_) {}
-      }
-    }, 550);
-  };
-
-  const handlePracticeTouchEnd = () => {
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-  };
-
-  const handlePracticeTouchMove = () => {
-    if (longPressTimeoutRef.current) {
-      clearTimeout(longPressTimeoutRef.current);
-      longPressTimeoutRef.current = null;
-    }
-  };
 
   const handleTogglePracticeDone = (group: PracticeGroupEntry, e?: React.MouseEvent) => {
     if (e) {
-      e.preventDefault();
       e.stopPropagation();
     }
     const updatedGroup: PracticeGroupEntry = {
@@ -378,99 +339,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const m = Math.floor(sec / 60);
     const s = Math.floor(sec % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
-  };
-
-  // Play / Pause In-line Audio directly inside vocal part / track container
-  const handlePlayInlineAudio = async (
-    trackId: string,
-    rawUrl: string,
-    trackLabel?: string,
-    trackCategory?: 'vocal_part' | 'attachment',
-    groupId?: string
-  ) => {
-    // If currently active and same track, toggle play/pause
-    if (inlineAudioState && inlineAudioState.trackId === trackId) {
-      if (inlineAudioRef.current) {
-        if (inlineAudioState.isPlaying) {
-          inlineAudioRef.current.pause();
-          setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: false } : null));
-        } else {
-          try {
-            await inlineAudioRef.current.play();
-            setInlineAudioState((prev) => (prev ? { ...prev, isPlaying: true } : null));
-          } catch (e) {
-            console.error('Error playing audio:', e);
-          }
-        }
-      }
-      return;
-    }
-
-    // Resolve audio (from IndexedDB if needed)
-    let playUrl = rawUrl;
-    if (!playUrl || playUrl.startsWith('indexeddb:')) {
-      const cached = await getAudioFromStorage(trackId);
-      if (cached) playUrl = cached;
-    }
-    if (!playUrl) return;
-
-    // Close any video player when playing inline audio
-    setActivePracticeMedia(null);
-
-    if (inlineAudioRef.current) {
-      inlineAudioRef.current.pause();
-      inlineAudioRef.current.src = playUrl;
-      inlineAudioRef.current.currentTime = 0;
-      try {
-        await inlineAudioRef.current.play();
-        setInlineAudioState({
-          trackId,
-          url: playUrl,
-          isPlaying: true,
-          currentTime: 0,
-          duration: inlineAudioRef.current.duration || 0,
-          isLooping: inlineAudioState?.isLooping || false,
-          trackLabel,
-          trackCategory,
-          groupId,
-        });
-      } catch (err) {
-        console.error('Audio play error:', err);
-      }
-    }
-  };
-
-  const handleInlineReplay = () => {
-    if (inlineAudioRef.current) {
-      inlineAudioRef.current.currentTime = 0;
-      inlineAudioRef.current.play().catch(() => {});
-      setInlineAudioState((prev) => (prev ? { ...prev, currentTime: 0, isPlaying: true } : null));
-    }
-  };
-
-  const handleInlineSkip = (deltaSeconds: number) => {
-    if (inlineAudioRef.current) {
-      const duration = inlineAudioRef.current.duration || 0;
-      const targetTime = inlineAudioRef.current.currentTime + deltaSeconds;
-      const newTime = duration > 0 ? Math.max(0, Math.min(duration, targetTime)) : Math.max(0, targetTime);
-      inlineAudioRef.current.currentTime = newTime;
-      setInlineAudioState((prev) => (prev ? { ...prev, currentTime: newTime } : null));
-    }
-  };
-
-  const handleInlineSeek = (newSeconds: number) => {
-    if (inlineAudioRef.current) {
-      inlineAudioRef.current.currentTime = newSeconds;
-      setInlineAudioState((prev) => (prev ? { ...prev, currentTime: newSeconds } : null));
-    }
-  };
-
-  const handleInlineToggleLoop = () => {
-    if (inlineAudioRef.current) {
-      const nextLoop = !inlineAudioRef.current.loop;
-      inlineAudioRef.current.loop = nextLoop;
-      setInlineAudioState((prev) => (prev ? { ...prev, isLooping: nextLoop } : null));
-    }
   };
 
   // Direct Recording functions
@@ -993,7 +861,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setEditingTrackIndex(trackIndex);
       setTrackCategory(track.category || 'minus_one');
       setTrackTitle(track.name || '');
-      setTrackUrlOrData(track.url || '');
+      const raw = track.url || '';
+      if (raw.startsWith('indexeddb:')) {
+        getAudioFromStorage(track.id).then((val) => {
+          if (val) setTrackUrlOrData(val);
+        });
+      }
+      setTrackUrlOrData(raw);
       setTrackFileName('');
       setTrackType(track.type || 'link');
     } else {
@@ -1007,7 +881,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     setIsAddingTrackModal(true);
   };
 
-  const handleSaveTrackModalSubmit = (e: React.FormEvent) => {
+  const handleSaveTrackModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!trackModalGroup) return;
 
@@ -1015,13 +889,23 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       trackTitle.trim() ||
       (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Backing Track');
 
+    const attId =
+      editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id
+        ? trackModalGroup.customAttachments[editingTrackIndex].id
+        : `att-${Date.now()}`;
+
+    let finalUrl = trackUrlOrData.trim();
+    if (finalUrl) {
+      await saveAudioToStorage(attId, finalUrl, finalTitle);
+      if (finalUrl.startsWith('data:')) {
+        finalUrl = `indexeddb:${attId}`;
+      }
+    }
+
     const attachmentObj: SongAttachment = {
-      id:
-        editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id
-          ? trackModalGroup.customAttachments[editingTrackIndex].id
-          : `att-${Date.now()}`,
+      id: attId,
       name: finalTitle,
-      url: trackUrlOrData.trim(),
+      url: finalUrl,
       type: trackType,
       category: trackCategory,
       uploadedAt: new Date().toISOString(),
@@ -1105,9 +989,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         ? part.assignedUsers.join(', ')
         : part.assignedTo || '';
       setVocalPartAssignedUsers(assigned);
-      setVocalPartAudioUrl(part.audioUrl || part.urlOrData || '');
+      const rawAudio = part.audioUrl || part.urlOrData || '';
+      if (rawAudio.startsWith('indexeddb:')) {
+        getAudioFromStorage(part.id).then((val) => {
+          if (val) setVocalPartAudioUrl(val);
+        });
+      }
+      setVocalPartAudioUrl(rawAudio);
       setVocalPartFileName(part.name || '');
-      setVocalPartAudioInputMode(initialMode || (part.audioUrl?.startsWith('data:') ? 'record' : 'record'));
+      setVocalPartAudioInputMode(initialMode || (rawAudio.startsWith('data:') ? 'record' : 'record'));
     } else {
       setEditingVocalPartIndex(null);
       setVocalPartLabel('Soprano');
@@ -1146,9 +1036,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         ? currentList[editingVocalPartIndex].id
         : `part-${Date.now()}`;
 
-    // Save audio blob in local IndexedDB for reliable offline playback & no data loss
-    if (vocalPartAudioUrl.trim()) {
-      await saveAudioToStorage(partId, vocalPartAudioUrl.trim(), vocalPartFileName || `${label} Vocal Part`);
+    let finalAudioUrl = vocalPartAudioUrl.trim();
+    if (finalAudioUrl) {
+      await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
+      if (finalAudioUrl.startsWith('data:')) {
+        finalAudioUrl = `indexeddb:${partId}`;
+      }
     }
 
     const partObj: PracticePartTrack = {
@@ -1157,7 +1050,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       assignedUsers: assigned,
       assignedTo: assigned.join(', '),
       name: vocalPartFileName || `${label} Practice Track`,
-      audioUrl: vocalPartAudioUrl.trim(),
+      audioUrl: finalAudioUrl,
       notes: '',
     };
 
@@ -1660,15 +1553,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
-                      onClick={() => {
-                        if (!isLongPressActiveRef.current) {
-                          setSelectedPracticeId(isSelected ? null : group.id);
-                        }
-                      }}
-                      onTouchStart={() => handlePracticeTouchStart(group)}
-                      onTouchEnd={handlePracticeTouchEnd}
-                      onTouchMove={handlePracticeTouchMove}
-                      onContextMenu={(e) => handleTogglePracticeDone(group, e)}
+                      onClick={() => setSelectedPracticeId(isSelected ? null : group.id)}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer select-none ${
                         isDone
                           ? isSelected
@@ -1678,7 +1563,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
                           : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                       }`}
-                      title="Tip: Right-click or long-press to mark as Done"
                     >
                       {/* Card Header */}
                       <div className="flex items-center justify-between">
@@ -1747,7 +1631,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-600'
                             }`}
-                            title={isDone ? 'Mark as Not Done' : 'Mark as Done (Right-click or Long-press also works)'}
+                            title={isDone ? 'Mark as Not Done' : 'Mark as Done'}
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
@@ -1812,17 +1696,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                     type="button"
                                     onClick={(e) => toggleLyricsExpand(group.id, e)}
                                     className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                                    title={expandedLyricsGroupIds[group.id] ? 'Collapse Lyrics' : 'Expand Lyrics (No Scroll)'}
+                                    title={expandedLyricsGroupIds[group.id] ? 'Collapse' : 'Expand'}
                                   >
                                     {expandedLyricsGroupIds[group.id] ? (
                                       <>
                                         <ChevronUp className="w-3 h-3" />
-                                        <span>Show Less</span>
+                                        <span>Collapse</span>
                                       </>
                                     ) : (
                                       <>
                                         <ChevronDown className="w-3 h-3" />
-                                        <span>Expand Lyrics</span>
+                                        <span>Expand</span>
                                       </>
                                     )}
                                   </button>
@@ -1919,17 +1803,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                     }`;
                                     const rawAudio = part.audioUrl || part.urlOrData || '';
                                     const hasAudio = Boolean(rawAudio);
-                                    const isThisActive = inlineAudioState?.trackId === part.id;
-                                    const isThisPlaying = Boolean(isThisActive && inlineAudioState?.isPlaying);
+                                    const isThisActive = activeInlineTrack?.trackId === part.id;
 
                                     return (
                                       <div
                                         key={part.id || `part-${pIdx}`}
                                         className={`p-3 rounded-2xl border transition-all ${
-                                          isThisPlaying
+                                          isThisActive
                                             ? 'bg-slate-900 text-white border-slate-800 shadow-md ring-2 ring-sky-500/60 dark:ring-sky-400/60'
-                                            : isThisActive
-                                            ? 'bg-slate-850 text-white border-slate-700 shadow-sm'
                                             : 'bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                                         }`}
                                       >
@@ -1937,10 +1818,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                                             <div
                                               className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase tracking-wider shrink-0 flex items-center gap-1.5 ${
-                                                isThisPlaying
-                                                  ? 'bg-sky-500 text-white shadow-xs animate-pulse'
-                                                  : isThisActive
-                                                  ? 'bg-sky-950 text-sky-300 border border-sky-800'
+                                                isThisActive
+                                                  ? 'bg-sky-500 text-white shadow-xs'
                                                   : 'bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200'
                                               }`}
                                             >
@@ -1952,14 +1831,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                               <div className="flex items-center gap-2">
                                                 <span
                                                   className={`text-sm font-bold truncate block ${
-                                                    isThisActive || isThisPlaying
+                                                    isThisActive
                                                       ? 'text-white'
                                                       : 'text-slate-900 dark:text-white'
                                                   }`}
                                                 >
                                                   {formattedTitle}
                                                 </span>
-                                                {isThisPlaying && (
+                                                {isThisActive && (
                                                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 flex items-center gap-1 shrink-0">
                                                     <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />
                                                     <span>Playing</span>
@@ -1980,7 +1859,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                               <button
                                                 type="button"
                                                 onClick={() =>
-                                                  handlePlayInlineAudio(
+                                                  handleTogglePlayInlineAudio(
                                                     part.id,
                                                     rawAudio,
                                                     formattedTitle,
@@ -1989,16 +1868,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                   )
                                                 }
                                                 className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
-                                                  isThisPlaying
+                                                  isThisActive
                                                     ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                                                     : 'bg-sky-600 hover:bg-sky-500 text-white'
                                                 }`}
-                                                title={isThisPlaying ? 'Pause Vocal Track' : 'Play Vocal Track'}
+                                                title={isThisActive ? 'Stop Vocal Track' : 'Play Vocal Track'}
                                               >
-                                                {isThisPlaying ? (
+                                                {isThisActive ? (
                                                   <>
-                                                    <Pause className="w-3.5 h-3.5 fill-current" />
-                                                    <span>Pause</span>
+                                                    <Square className="w-3.5 h-3.5 fill-current" />
+                                                    <span>Active</span>
                                                   </>
                                                 ) : (
                                                   <>
@@ -2023,7 +1902,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                               type="button"
                                               onClick={() => handleOpenAddVocalPartModal(group, pIdx)}
                                               className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                                isThisActive || isThisPlaying
+                                                isThisActive
                                                   ? 'text-slate-400 hover:text-white hover:bg-slate-800'
                                                   : 'text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
                                               }`}
@@ -2036,7 +1915,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                               type="button"
                                               onClick={(e) => handleDeleteVocalPart(group, pIdx, e)}
                                               className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                                isThisActive || isThisPlaying
+                                                isThisActive
                                                   ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800'
                                                   : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700'
                                               }`}
@@ -2054,152 +1933,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             })()}
 
                             {/* VOCAL PART AUDIO PLAYER (Appears directly under Vocal Parts & Assigned Members when triggered) */}
-                            {inlineAudioState &&
-                              inlineAudioState.groupId === group.id &&
-                              inlineAudioState.trackCategory === 'vocal_part' && (
-                                <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-lg space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                  {/* Player Header */}
-                                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                                    <div className="flex items-center space-x-2 min-w-0">
-                                      <div className="p-1.5 rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                                        <Music className="w-4 h-4" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-sky-400">
-                                          Now Playing Vocal Part
-                                        </div>
-                                        <div className="text-xs font-bold truncate text-white">
-                                          {inlineAudioState.trackLabel || 'Vocal Part Track'}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (inlineAudioRef.current) {
-                                          inlineAudioRef.current.pause();
-                                        }
-                                        setInlineAudioState(null);
-                                      }}
-                                      className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors"
-                                      title="Close Player"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-
-                                  {/* 1. Playing Line Bar (Progress Scrubber) */}
-                                  <div className="space-y-1">
-                                    <div className="relative flex items-center">
-                                      <input
-                                        type="range"
-                                        min="0"
-                                        max={inlineAudioState.duration > 0 ? inlineAudioState.duration : 100}
-                                        step="0.1"
-                                        value={inlineAudioState.currentTime}
-                                        onChange={(e) => {
-                                          const val = parseFloat(e.target.value);
-                                          handleInlineSeek(val);
-                                        }}
-                                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-sky-400 focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                                      <span>{formatAudioTime(inlineAudioState.currentTime)}</span>
-                                      <span>
-                                        {inlineAudioState.duration > 0
-                                          ? formatAudioTime(inlineAudioState.duration)
-                                          : '--:--'}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* 2. Real Music Player Icon Buttons */}
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={handleInlineReplay}
-                                        className="p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200"
-                                        title="Replay from Beginning"
-                                      >
-                                        <RotateCcw className="w-3.5 h-3.5" />
-                                        <span className="hidden xs:inline text-[10px]">Replay</span>
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => handleInlineSkip(-5)}
-                                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200"
-                                        title="Rewind 5 seconds"
-                                      >
-                                        <Rewind className="w-3.5 h-3.5" />
-                                        <span className="text-[11px] font-mono font-bold">-5s</span>
-                                      </button>
-                                    </div>
-
-                                    {/* Big Play / Pause Button */}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handlePlayInlineAudio(
-                                          inlineAudioState.trackId,
-                                          inlineAudioState.url,
-                                          inlineAudioState.trackLabel,
-                                          'vocal_part',
-                                          group.id
-                                        )
-                                      }
-                                      className={`px-5 sm:px-7 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
-                                        inlineAudioState.isPlaying
-                                          ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                                          : 'bg-sky-600 hover:bg-sky-500 text-white'
-                                      }`}
-                                      title={inlineAudioState.isPlaying ? 'Pause' : 'Play'}
-                                    >
-                                      {inlineAudioState.isPlaying ? (
-                                        <>
-                                          <Pause className="w-4 h-4 fill-slate-950" />
-                                          <span>PAUSE</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Play className="w-4 h-4 fill-white" />
-                                          <span>PLAY</span>
-                                        </>
-                                      )}
-                                    </button>
-
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleInlineSkip(10)}
-                                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200"
-                                        title="Forward 10 seconds"
-                                      >
-                                        <span className="text-[11px] font-mono font-bold">+10s</span>
-                                        <FastForward className="w-3.5 h-3.5" />
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={handleInlineToggleLoop}
-                                        className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                          inlineAudioState.isLooping
-                                            ? 'bg-sky-500 text-white shadow-xs'
-                                            : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white'
-                                        }`}
-                                        title={inlineAudioState.isLooping ? 'Repeat Loop ON' : 'Repeat Loop OFF'}
-                                      >
-                                        <Repeat className="w-3.5 h-3.5" />
-                                        <span className="hidden sm:inline text-[10px]">
-                                          {inlineAudioState.isLooping ? 'Loop' : 'Repeat'}
-                                        </span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
+                            {activeInlineTrack &&
+                              activeInlineTrack.groupId === group.id &&
+                              activeInlineTrack.trackCategory === 'vocal_part' && (
+                                <InlinePracticeAudioPlayer
+                                  trackId={activeInlineTrack.trackId}
+                                  url={activeInlineTrack.url}
+                                  trackLabel={activeInlineTrack.trackLabel}
+                                  trackCategory="vocal_part"
+                                  groupId={group.id}
+                                  onClose={() => setActiveInlineTrack(null)}
+                                />
                               )}
                           </div>
 
@@ -2233,14 +1977,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                     rawUrl.includes('youtube.com') ||
                                     rawUrl.includes('youtu.be');
                                   const isAudio = !isVideo;
-                                  const isThisActive = inlineAudioState?.trackId === att.id;
-                                  const isThisPlaying = Boolean(isThisActive && inlineAudioState?.isPlaying);
+                                  const isThisActive = activeInlineTrack?.trackId === att.id;
 
                                   return (
                                     <div
                                       key={att.id || `track-${aIdx}`}
                                       className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-all ${
-                                        isPlaying || isThisPlaying
+                                        isPlaying || isThisActive
                                           ? 'bg-slate-100 dark:bg-slate-800 border-slate-900 dark:border-slate-100 ring-1 ring-slate-900 dark:ring-slate-100 shadow-xs'
                                           : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                                       }`}
@@ -2249,7 +1992,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       <div className="flex items-center space-x-2.5 min-w-0 flex-1">
                                         <div
                                           className={`p-2 rounded-lg shrink-0 border ${
-                                            isThisActive || isThisPlaying
+                                            isThisActive
                                               ? 'bg-slate-800 border-slate-700 text-white'
                                               : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700'
                                           }`}
@@ -2274,14 +2017,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                             </span>
                                             <span
                                               className={`text-xs font-bold truncate ${
-                                                isThisActive || isThisPlaying
+                                                isThisActive
                                                   ? 'text-slate-900 dark:text-white font-black'
                                                   : 'text-slate-900 dark:text-white'
                                               }`}
                                             >
                                               {att.name}
                                             </span>
-                                            {(isThisPlaying || isPlaying) && (
+                                            {(isThisActive || isPlaying) && (
                                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 flex items-center gap-1 shrink-0">
                                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                                                 <span>Playing</span>
@@ -2297,12 +2040,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              if (inlineAudioRef.current) {
-                                                inlineAudioRef.current.pause();
-                                                setInlineAudioState((prev) =>
-                                                  prev ? { ...prev, isPlaying: false } : null
-                                                );
-                                              }
+                                              setActiveInlineTrack(null);
                                               setActivePracticeMedia({
                                                 id: att.id,
                                                 title: `${group.songTitle} - ${att.name}`,
@@ -2321,7 +2059,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                             <button
                                               type="button"
                                               onClick={() =>
-                                                handlePlayInlineAudio(
+                                                handleTogglePlayInlineAudio(
                                                   att.id,
                                                   rawUrl,
                                                   att.name,
@@ -2330,16 +2068,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                 )
                                               }
                                               className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-all ${
-                                                isThisPlaying
+                                                isThisActive
                                                   ? 'bg-amber-500 text-slate-950 hover:bg-amber-400'
                                                   : 'bg-emerald-600 hover:bg-emerald-500 text-white'
                                               }`}
-                                              title={isThisPlaying ? 'Pause Audio Track' : 'Play Audio Track'}
+                                              title={isThisActive ? 'Stop Audio Track' : 'Play Audio Track'}
                                             >
-                                              {isThisPlaying ? (
+                                              {isThisActive ? (
                                                 <>
-                                                  <Pause className="w-3.5 h-3.5 fill-current" />
-                                                  <span>Pause</span>
+                                                  <Square className="w-3.5 h-3.5 fill-current" />
+                                                  <span>Active</span>
                                                 </>
                                               ) : (
                                                 <>
@@ -2355,7 +2093,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           type="button"
                                           onClick={() => handleOpenAddTrackModal(group, aIdx)}
                                           className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                            isThisActive || isThisPlaying
+                                            isThisActive
                                               ? 'text-slate-400 hover:text-white hover:bg-slate-800'
                                               : 'text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700'
                                           }`}
@@ -2368,7 +2106,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           type="button"
                                           onClick={(e) => handleDeleteTrack(group, aIdx, e)}
                                           className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                            isThisActive || isThisPlaying
+                                            isThisActive
                                               ? 'text-slate-400 hover:text-rose-400 hover:bg-slate-800'
                                               : 'text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-700'
                                           }`}
@@ -2455,152 +2193,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               )}
 
                             {/* REHEARSAL AUDIO PLAYER (Appears directly under Rehearsal Tracks & Attachments when triggered) */}
-                            {inlineAudioState &&
-                              inlineAudioState.groupId === group.id &&
-                              inlineAudioState.trackCategory === 'attachment' && (
-                                <div className="p-4 rounded-2xl bg-slate-900 text-white border border-slate-800 shadow-lg space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                                  {/* Player Header */}
-                                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                                    <div className="flex items-center space-x-2 min-w-0">
-                                      <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                        <FileAudio className="w-4 h-4" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                                          Now Playing Rehearsal Track
-                                        </div>
-                                        <div className="text-xs font-bold truncate text-white">
-                                          {inlineAudioState.trackLabel || 'Rehearsal Track'}
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (inlineAudioRef.current) {
-                                          inlineAudioRef.current.pause();
-                                        }
-                                        setInlineAudioState(null);
-                                      }}
-                                      className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors"
-                                      title="Close Player"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  </div>
-
-                                  {/* Progress Scrubber */}
-                                  <div className="space-y-1">
-                                    <div className="relative flex items-center">
-                                      <input
-                                        type="range"
-                                        min="0"
-                                        max={inlineAudioState.duration > 0 ? inlineAudioState.duration : 100}
-                                        step="0.1"
-                                        value={inlineAudioState.currentTime}
-                                        onChange={(e) => {
-                                          const val = parseFloat(e.target.value);
-                                          handleInlineSeek(val);
-                                        }}
-                                        className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-400 focus:outline-none"
-                                      />
-                                    </div>
-                                    <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                                      <span>{formatAudioTime(inlineAudioState.currentTime)}</span>
-                                      <span>
-                                        {inlineAudioState.duration > 0
-                                          ? formatAudioTime(inlineAudioState.duration)
-                                          : '--:--'}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {/* Player Controls */}
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={handleInlineReplay}
-                                        className="p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200"
-                                        title="Replay from Beginning"
-                                      >
-                                        <RotateCcw className="w-3.5 h-3.5" />
-                                        <span className="hidden xs:inline text-[10px]">Replay</span>
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => handleInlineSkip(-5)}
-                                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200"
-                                        title="Rewind 5 seconds"
-                                      >
-                                        <Rewind className="w-3.5 h-3.5" />
-                                        <span className="text-[11px] font-mono font-bold">-5s</span>
-                                      </button>
-                                    </div>
-
-                                    {/* Big Play / Pause Button */}
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handlePlayInlineAudio(
-                                          inlineAudioState.trackId,
-                                          inlineAudioState.url,
-                                          inlineAudioState.trackLabel,
-                                          'attachment',
-                                          group.id
-                                        )
-                                      }
-                                      className={`px-5 sm:px-7 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
-                                        inlineAudioState.isPlaying
-                                          ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                                          : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                                      }`}
-                                      title={inlineAudioState.isPlaying ? 'Pause Track' : 'Play Track'}
-                                    >
-                                      {inlineAudioState.isPlaying ? (
-                                        <>
-                                          <Pause className="w-4 h-4 fill-slate-950" />
-                                          <span>PAUSE</span>
-                                        </>
-                                      ) : (
-                                        <>
-                                          <Play className="w-4 h-4 fill-white" />
-                                          <span>PLAY</span>
-                                        </>
-                                      )}
-                                    </button>
-
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleInlineSkip(10)}
-                                        className="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200"
-                                        title="Forward 10 seconds"
-                                      >
-                                        <span className="text-[11px] font-mono font-bold">+10s</span>
-                                        <FastForward className="w-3.5 h-3.5" />
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={handleInlineToggleLoop}
-                                        className={`p-2 rounded-xl text-xs font-bold flex items-center gap-1 transition-all cursor-pointer ${
-                                          inlineAudioState.isLooping
-                                            ? 'bg-emerald-500 text-white shadow-xs'
-                                            : 'bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white'
-                                        }`}
-                                        title={inlineAudioState.isLooping ? 'Repeat Loop ON' : 'Repeat Loop OFF'}
-                                      >
-                                        <Repeat className="w-3.5 h-3.5" />
-                                        <span className="hidden sm:inline text-[10px]">
-                                          {inlineAudioState.isLooping ? 'Loop' : 'Repeat'}
-                                        </span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
+                            {activeInlineTrack &&
+                              activeInlineTrack.groupId === group.id &&
+                              activeInlineTrack.trackCategory === 'attachment' && (
+                                <InlinePracticeAudioPlayer
+                                  trackId={activeInlineTrack.trackId}
+                                  url={activeInlineTrack.url}
+                                  trackLabel={activeInlineTrack.trackLabel}
+                                  trackCategory="attachment"
+                                  groupId={group.id}
+                                  onClose={() => setActiveInlineTrack(null)}
+                                />
                               )}
                           </div>
 
@@ -2610,16 +2213,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               <FileText className="w-3.5 h-3.5 text-slate-500" />
                               <span>Rehearsal Instructions / Notes</span>
                             </span>
-                            <textarea
-                              rows={3}
-                              value={group.notes || ''}
-                              onChange={(e) => {
-                                if (onSavePracticeEntry) {
-                                  onSavePracticeEntry({ ...group, notes: e.target.value });
-                                }
-                              }}
-                              placeholder="Add rehearsal instructions, vocal guidance, or practice schedule notes..."
-                              className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:bg-white dark:focus:bg-slate-900 transition-colors"
+                            <PracticeGroupNotesInput
+                              group={group}
+                              onSavePracticeEntry={onSavePracticeEntry}
                             />
                           </div>
                         </div>
@@ -2998,8 +2594,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   onChange={(e) => setTrackTitle(e.target.value)}
                   placeholder={
                     trackCategory === 'plus_one'
-                      ? 'e.g. Studio Vocal Reference / Plus One'
-                      : 'e.g. Acoustic Backing Track / Key of G'
+                      ? 'Vocal Reference Track Name'
+                      : 'Backing Track Name'
                   }
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
@@ -3157,7 +2753,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       type="text"
                       value={vocalPartCustomLabel}
                       onChange={(e) => setVocalPartCustomLabel(e.target.value)}
-                      placeholder="Enter custom vocal part (e.g. Descant, Trio Lead)..."
+                      placeholder="Enter custom vocal part name"
                       className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                       autoFocus
                     />

@@ -1302,8 +1302,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   onChange={(e) => setAttachmentName(e.target.value)}
                   placeholder={
                     attachmentCategory === 'plus_one'
-                      ? 'e.g. Vocal Reference / Studio Version'
-                      : 'e.g. Acoustic Backing Track / Key of G'
+                      ? 'Vocal Track Name'
+                      : 'Backing Track Name'
                   }
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
@@ -1396,7 +1396,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   required
                   value={editingSong.title || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, title: e.target.value })}
-                  placeholder="e.g. Dakilang Katapatan"
+                  placeholder="Enter song title"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium"
                 />
               </div>
@@ -1424,7 +1424,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       type="text"
                       value={editingSong.artist || ''}
                       onChange={(e) => setEditingSong({ ...editingSong, artist: e.target.value })}
-                      placeholder="e.g. Papuri / Arnel De Pano / Hymn"
+                      placeholder="Enter artist, composer, or hymn origin"
                       className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                       autoFocus
                     />

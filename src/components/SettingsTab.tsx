@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { UserAccount } from '../types';
 import {
-  loadUsers,
   saveUsers,
   updateUserAvatar,
   DEFAULT_ADMIN,
@@ -12,7 +11,7 @@ import {
   loadSavedNames,
   saveSavedNames,
 } from '../utils/storage';
-import { syncSaveUser } from '../firestoreSync';
+import { syncSaveUser, syncDeleteUser } from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
   Settings,
@@ -35,6 +34,9 @@ import {
   ChevronDown,
   Camera,
   Image as ImageIcon,
+  Copy,
+  Check,
+  UserCheck,
 } from 'lucide-react';
 
 interface SettingsTabProps {
@@ -65,6 +67,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [userCreatedMsg, setUserCreatedMsg] = useState<string | null>(null);
   const [userErrorMsg, setUserErrorMsg] = useState<string | null>(null);
   const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
+  const [copiedPasswordUserId, setCopiedPasswordUserId] = useState<string | null>(null);
 
   // Church directory names state for autofill management
   const [savedNames, setSavedNames] = useState<string[]>(() => loadSavedNames());
@@ -87,7 +90,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       if (userId === currentUser.id && updatedUser) {
         onUpdateCurrentUser(updatedUser);
       }
-      setAvatarNoticeMsg('Profile picture updated! Previous photo was completely purged to save space.');
+      setAvatarNoticeMsg('Profile picture updated successfully.');
       setTimeout(() => setAvatarNoticeMsg(null), 4000);
     } catch (err: any) {
       alert(err.message || 'Failed to process image');
@@ -103,7 +106,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     if (userId === currentUser.id && updatedUser) {
       onUpdateCurrentUser(updatedUser);
     }
-    setAvatarNoticeMsg('Profile picture removed from storage.');
+    setAvatarNoticeMsg('Profile picture removed.');
     setTimeout(() => setAvatarNoticeMsg(null), 4000);
   };
 
@@ -141,8 +144,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setNewUsername('');
     setNewPassword('');
     setNewUserAvatar(null);
-    setUserCreatedMsg(`User access successfully generated for "${cleanUser}".`);
+    setUserCreatedMsg(`User access successfully created for "${cleanUser}".`);
     setTimeout(() => setUserCreatedMsg(null), 4000);
+  };
+
+  const handleDeleteUser = (userToDelete: UserAccount) => {
+    if (userToDelete.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase()) {
+      alert('The root administrator account cannot be deleted.');
+      return;
+    }
+
+    if (confirm(`Delete account for user "${userToDelete.username}"?`)) {
+      const updated = users.filter((u) => u.id !== userToDelete.id);
+      saveUsers(updated);
+      onUpdateUsers(updated);
+      syncDeleteUser(userToDelete.id);
+      if (expandedUserId === userToDelete.id) {
+        setExpandedUserId(null);
+      }
+    }
+  };
+
+  const handleCopyPassword = (userId: string, passwordText: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(passwordText);
+      setCopiedPasswordUserId(userId);
+      setTimeout(() => setCopiedPasswordUserId(null), 2000);
+    }
   };
 
   const handleNewUserAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -264,7 +292,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-16">
-      {/* Top Banner */}
+      {/* Header Banner */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -273,240 +301,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             {isAdmin
-              ? 'Full data backup & restore, lyrics batch import, directory autofill, and account access'
+              ? 'Account profile, user access, directory autofill, and data management'
               : 'Theme appearance and account session settings'}
           </p>
         </div>
       </div>
 
-      {/* Section 1: Appearance & Theme (Accessible to Everyone) */}
+      {/* Section 1: Current Account Profile & Session */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-          Appearance & Theme
-        </h3>
-
-        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shadow-xs">
-              {theme === 'dark' ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-sky-600" />}
-            </div>
-            <div>
-              <span className="text-sm font-semibold text-slate-900 dark:text-white block">
-                {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {theme === 'dark' ? 'Eye-safe dark theme for sanctuary stage' : 'Crisp high-contrast daylight theme'}
-              </span>
-            </div>
-          </div>
-
-          <button
-            onClick={onToggleTheme}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition-all shadow-xs cursor-pointer"
-          >
-            Switch to {theme === 'dark' ? 'Light' : 'Dark'}
-          </button>
-        </div>
-      </div>
-
-      {/* Section 2: Batch TXT Lyrics Import (Admin Only) */}
-      {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <FileText className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-              <span>Batch Import Lyrics (.txt files)</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Import multiple text files at once. 1 text file = 1 song. The file name is used as the song title, and the text inside becomes the lyrics.
-            </p>
-          </div>
-
-          {lyricsImportStatus && (
-            <div
-              className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs font-semibold ${
-                lyricsImportStatus.success
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300'
-                  : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300'
-              }`}
-            >
-              {lyricsImportStatus.success ? (
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              )}
-              <span>{lyricsImportStatus.message}</span>
-            </div>
-          )}
-
-          <label className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs">
-            <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
-              <Music className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div className="flex-1">
-              <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                Select / Upload Multiple .txt Files
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                Click here to choose multiple .txt files from your device (e.g. "Amazing Grace.txt", "Dakilang Katapatan.txt").
-              </span>
-              <input
-                type="file"
-                multiple
-                accept=".txt,text/plain"
-                onChange={handleBatchLyricsImport}
-                className="hidden"
-              />
-            </div>
-          </label>
-        </div>
-      )}
-
-      {/* Section 3: Complete Data Backup & Restore (Admin Only) */}
-      {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <Database className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                <span>Full Data Export & Restore</span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Export all setlists, shared songs, special song numbers, recognitions, and directories into a single file to prevent data loss.
-              </p>
-            </div>
-          </div>
-
-          {importStatus && (
-            <div
-              className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs font-semibold ${
-                importStatus.success
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300'
-                  : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300'
-              }`}
-            >
-              {importStatus.success ? (
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              )}
-              <span>{importStatus.message}</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            {/* Export Button */}
-            <button
-              onClick={handleExportBackup}
-              className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs"
-            >
-              <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
-                <Download className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                  Export All Data (JSON)
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  Downloads all setlists, songs library, special song numbers, and member directories.
-                </span>
-              </div>
-            </button>
-
-            {/* Import / Load File */}
-            <label className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs">
-              <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
-                <Upload className="w-5 h-5 text-emerald-600" />
-              </div>
-              <div className="flex-1">
-                <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                  Load / Import Backup File
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                  Upload a previously saved JSON backup to restore everything instantly.
-                </span>
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  onChange={handleImportBackup}
-                  className="hidden"
-                />
-              </div>
-            </label>
-          </div>
-
-          <div className="pt-2">
-            <button
-              onClick={handleResetData}
-              className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1.5 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset to default Quezon sample data</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Section 4: Directory Names for Autofill (Admin Only) */}
-      {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <Users className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                <span>Church Directory & Autofill Suggestions ({savedNames.length})</span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Names listed here appear automatically as smart autocomplete suggestions for Presiders, Song Leaders, and Special Song Number performers.
-              </p>
-            </div>
-          </div>
-
-          {/* Add name input */}
-          <form onSubmit={handleAddDirectoryName} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={newNameInput}
-              onChange={(e) => setNewNameInput(e.target.value)}
-              placeholder="Enter member name to add to directory..."
-              className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shrink-0 hover:bg-slate-800"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Name</span>
-            </button>
-          </form>
-
-          {/* Directory badges */}
-          <div className="flex flex-wrap gap-2 pt-2 max-h-48 overflow-y-auto p-1">
-            {savedNames.map((name) => (
-              <span
-                key={name}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700"
-              >
-                <span>{name}</span>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteDirectoryName(name)}
-                  className="text-slate-400 hover:text-rose-500 p-0.5 cursor-pointer"
-                  title="Remove name"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Section 5: Current Account Session & Profile Picture (Accessible to Everyone) */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-            Account Profile & Session
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <UserCheck className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span>Account Profile & Session</span>
           </h3>
           <button
             onClick={onSignOut}
@@ -525,7 +331,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         )}
 
         <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          {/* Avatar Picture with Camera badge */}
+          {/* Avatar Picture */}
           <div className="relative shrink-0">
             <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full ring-3 ring-white dark:ring-slate-800 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-xl overflow-hidden shadow-sm">
               {currentUser.avatar ? (
@@ -557,7 +363,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </label>
           </div>
 
-          {/* User Details & Photo Controls */}
+          {/* User Details & Controls */}
           <div className="flex-1 min-w-0 space-y-2">
             <div>
               <div className="flex items-center gap-2">
@@ -576,7 +382,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 {isAdmin
-                  ? 'Administrator account with full ministry program privileges'
+                  ? 'Administrator account with full ministry privileges'
                   : 'Ministry team contributor account'}
               </p>
             </div>
@@ -585,7 +391,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-2xs">
                 <Camera className="w-3.5 h-3.5" />
-                <span>{currentUser.avatar ? 'Replace Photo' : 'Add Profile Picture'}</span>
+                <span>{currentUser.avatar ? 'Replace Photo' : 'Upload Profile Picture'}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -609,32 +415,59 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               )}
             </div>
-
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">
-              Photos are automatically optimized. When a new photo is uploaded, all previous photos are completely deleted from storage.
-            </p>
           </div>
         </div>
       </div>
 
-      {/* Section 6: User Access Accounts & Management (Admin Only) */}
+      {/* Section 2: Appearance & Theme */}
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+          Appearance & Theme
+        </h3>
+
+        <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center space-x-3">
+            <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shadow-xs">
+              {theme === 'dark' ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-sky-600" />}
+            </div>
+            <div>
+              <span className="text-sm font-semibold text-slate-900 dark:text-white block">
+                {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {theme === 'dark' ? 'Eye-safe dark theme for sanctuary stage' : 'Crisp high-contrast daylight theme'}
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={onToggleTheme}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition-all shadow-xs cursor-pointer"
+          >
+            Switch to {theme === 'dark' ? 'Light' : 'Dark'}
+          </button>
+        </div>
+      </div>
+
+      {/* Section 3: User Access & Accounts (Admin Only) */}
       {isAdmin && (
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span>Ministry User Access & Profiles ({users.length})</span>
+              <span>User Accounts & Permissions ({users.length})</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Click any user to expand and view their password and profile photo. Clicking a different user collapses the previous one.
+              Click any user to view credentials and manage profile photo.
             </p>
           </div>
 
-          {/* User list with expandable password and profile picture view */}
+          {/* User list */}
           <div className="space-y-2">
             {users.map((u) => {
               const isExpanded = expandedUserId === u.id;
               const isCurrent = u.id === currentUser.id;
+              const isRootAdmin = u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
 
               return (
                 <div
@@ -685,7 +518,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                           )}
                         </div>
                         <span className="text-[11px] text-slate-400 block">
-                          {isExpanded ? 'Click to collapse' : 'Click to view password & details'}
+                          {isExpanded ? 'Click to collapse' : 'Click to view password & photo options'}
                         </span>
                       </div>
                     </div>
@@ -699,7 +532,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Expanded Password & Photo Controls */}
+                  {/* Expanded User Credentials & Photo Options */}
                   {isExpanded && (
                     <div className="px-3.5 pb-3.5 pt-2 border-t border-slate-200/70 dark:border-slate-700/70 space-y-3 text-xs">
                       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -708,11 +541,26 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                             Password:
                           </span>
                           <code className="px-2.5 py-1 rounded bg-slate-200 dark:bg-slate-900 font-mono text-slate-900 dark:text-white font-bold text-xs select-all">
-                            {u.passwordHash || '(no password set)'}
+                            {u.passwordHash || '(none)'}
                           </code>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPassword(u.id, u.passwordHash || '');
+                            }}
+                            className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            title="Copy password"
+                          >
+                            {copiedPasswordUserId === u.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
                         </div>
 
-                        {/* Photo management for this user */}
+                        {/* Photo options */}
                         <div className="flex items-center gap-2">
                           <label className="cursor-pointer px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-[11px] font-semibold flex items-center gap-1 transition-colors">
                             <Camera className="w-3 h-3" />
@@ -739,29 +587,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                               className="px-2 py-1 rounded-lg text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
                             >
                               <Trash2 className="w-3 h-3" />
-                              <span>Clear Photo</span>
+                              <span>Clear</span>
                             </button>
                           )}
                         </div>
                       </div>
 
-                      {u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase() && (
+                      {!isRootAdmin && (
                         <div className="pt-2 border-t border-slate-200/50 dark:border-slate-700/50 flex justify-end">
                           <button
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (confirm(`Remove account for user "${u.username}"?`)) {
-                                const updated = users.filter((item) => item.id !== u.id);
-                                saveUsers(updated);
-                                onUpdateUsers(updated);
-                                setExpandedUserId(null);
-                              }
+                              handleDeleteUser(u);
                             }}
                             className="px-2.5 py-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete Account</span>
+                            <span>Delete User Account</span>
                           </button>
                         </div>
                       )}
@@ -772,11 +615,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             })}
           </div>
 
-          {/* Create User Form */}
+          {/* Add New User Form */}
           <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
               <UserPlus className="w-3.5 h-3.5" />
-              <span>Create New User Access</span>
+              <span>Add New User Account</span>
             </h4>
 
             {userCreatedMsg && (
@@ -797,34 +640,34 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    New Username *
+                    Username *
                   </label>
                   <input
                     type="text"
                     required
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="e.g. BroChristian / SisAbigail"
+                    placeholder="Enter username"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                    Assigned Password *
+                    Password *
                   </label>
                   <input
                     type="password"
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Private password"
+                    placeholder="Enter password"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                 </div>
               </div>
 
-              {/* Optional Profile Picture for New User */}
+              {/* Optional Profile Picture */}
               <div className="flex items-center gap-3 pt-1">
                 {newUserAvatar ? (
                   <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-slate-300 dark:ring-slate-600 shrink-0">
@@ -869,14 +712,203 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white shadow-xs cursor-pointer"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>Create User Access</span>
+                  <span>Add User</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Section 4: Church Directory & Autofill Suggestions (Admin Only) */}
+      {isAdmin && (
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <span>Church Directory & Autofill ({savedNames.length})</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Saved names appear as autocomplete suggestions across Presiders, Song Leaders, and Special Song Numbers.
+              </p>
+            </div>
+          </div>
+
+          {/* Add name input */}
+          <form onSubmit={handleAddDirectoryName} className="flex items-center gap-2">
+            <input
+              type="text"
+              value={newNameInput}
+              onChange={(e) => setNewNameInput(e.target.value)}
+              placeholder="Enter member name..."
+              className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+            />
+            <button
+              type="submit"
+              className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shrink-0 hover:bg-slate-800 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Name</span>
+            </button>
+          </form>
+
+          {/* Directory badges */}
+          <div className="flex flex-wrap gap-2 pt-2 max-h-48 overflow-y-auto p-1">
+            {savedNames.map((name) => (
+              <span
+                key={name}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700"
+              >
+                <span>{name}</span>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDirectoryName(name)}
+                  className="text-slate-400 hover:text-rose-500 p-0.5 cursor-pointer"
+                  title="Remove name"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 5: Data Library & Backup Tools (Admin Only) */}
+      {isAdmin && (
+        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+          <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+              <Database className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span>Data Library & Backup Tools</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Export data backups, restore from JSON files, and batch import text lyrics.
+            </p>
+          </div>
+
+          {/* Batch Lyrics Import */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              <span>Batch Import Lyrics (.txt files)</span>
+            </h4>
+
+            {lyricsImportStatus && (
+              <div
+                className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs font-semibold ${
+                  lyricsImportStatus.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300'
+                }`}
+              >
+                {lyricsImportStatus.success ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <span>{lyricsImportStatus.message}</span>
+              </div>
+            )}
+
+            <label className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs">
+              <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
+                <Music className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div className="flex-1">
+                <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                  Select Multiple .txt Files
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                  Choose multiple .txt files (1 text file = 1 song). The file name becomes the song title and text becomes the lyrics.
+                </span>
+                <input
+                  type="file"
+                  multiple
+                  accept=".txt,text/plain"
+                  onChange={handleBatchLyricsImport}
+                  className="hidden"
+                />
+              </div>
+            </label>
+          </div>
+
+          {/* Full Backup & Restore */}
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Database className="w-3.5 h-3.5" />
+              <span>Full Data Export & Restore (JSON)</span>
+            </h4>
+
+            {importStatus && (
+              <div
+                className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs font-semibold ${
+                  importStatus.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300'
+                }`}
+              >
+                {importStatus.success ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                <span>{importStatus.message}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <button
+                onClick={handleExportBackup}
+                className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs"
+              >
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
+                  <Download className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                    Export All Data (JSON)
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                    Downloads all setlists, songs library, special numbers, and member directories.
+                  </span>
+                </div>
+              </button>
+
+              <label className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs">
+                <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
+                  <Upload className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                    Load / Import Backup File
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                    Upload a previously saved JSON backup to restore everything instantly.
+                  </span>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={handleImportBackup}
+                    className="hidden"
+                  />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={handleResetData}
+              className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1.5 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reset to default Quezon sample data</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

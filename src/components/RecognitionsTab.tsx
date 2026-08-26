@@ -757,7 +757,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   type="text"
                   value={bdayForm.ministryOrGroup}
                   onChange={(e) => setBdayForm({ ...bdayForm, ministryOrGroup: e.target.value })}
-                  placeholder="Ministry or group (e.g. Youth, Choir)"
+                  placeholder="Enter ministry or group"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -865,7 +865,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   max={150}
                   value={annivForm.yearsCount}
                   onChange={(e) => setAnnivForm({ ...annivForm, yearsCount: e.target.value })}
-                  placeholder="e.g. 25"
+                  placeholder="Enter years"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -878,7 +878,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   type="text"
                   value={annivForm.notes}
                   onChange={(e) => setAnnivForm({ ...annivForm, notes: e.target.value })}
-                  placeholder="e.g. Silver Wedding Anniversary celebration"
+                  placeholder="Anniversary description or notes"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -990,7 +990,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   type="text"
                   value={visitorForm.notes}
                   onChange={(e) => setVisitorForm({ ...visitorForm, notes: e.target.value })}
-                  placeholder="e.g. Invited by Bro. Christian; wants to join youth"
+                  placeholder="Visitor notes and follow-up details"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -1039,7 +1039,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   required
                   value={specialForm.name}
                   onChange={(e) => setSpecialForm({ ...specialForm, name: e.target.value })}
-                  placeholder="e.g. Sis. Clarisse Anne Gutierrez"
+                  placeholder="Enter recipient's name"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -1067,7 +1067,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   {specialForm.recognitionType === 'Board Passer'
-                    ? 'Exam / License Name (e.g. LET / BLEPT)'
+                    ? 'Exam / License Name'
                     : specialForm.recognitionType === 'Newly Graduated'
                     ? 'Degree / Course & Honors'
                     : 'Specific Title / Subtitle'}
@@ -1076,7 +1076,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   type="text"
                   value={specialForm.customType}
                   onChange={(e) => setSpecialForm({ ...specialForm, customType: e.target.value })}
-                  placeholder="e.g. Licensure Examination for Teachers / BS Nursing"
+                  placeholder="Enter title, degree, or license details"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -1102,7 +1102,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   rows={2}
                   value={specialForm.description}
                   onChange={(e) => setSpecialForm({ ...specialForm, description: e.target.value })}
-                  placeholder="e.g. Passed the recent national board exam with high ratings. Glory to God!"
+                  placeholder="Enter recognition details and remarks"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>

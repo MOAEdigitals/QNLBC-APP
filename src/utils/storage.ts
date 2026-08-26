@@ -1129,12 +1129,17 @@ export function normalizePracticeEntry(entry: PracticeGroupEntry): PracticeGroup
       ? [p.assignedTo]
       : [];
 
+    let audioUrl = p.audioUrl || p.urlOrData || '';
+    if (audioUrl === 'indexeddb:local_storage' && p.id) {
+      audioUrl = `indexeddb:${p.id}`;
+    }
+
     return {
       ...p,
       partLabel: p.partLabel || 'Soprano',
       assignedUsers: assigned,
       assignedTo: assigned.join(', '),
-      audioUrl: p.audioUrl || p.urlOrData || '',
+      audioUrl,
     };
   });
 
@@ -1166,7 +1171,37 @@ export function loadPracticeEntries(): PracticeGroupEntry[] {
 export function savePracticeEntries(entries: PracticeGroupEntry[]): void {
   try {
     const normalized = entries.map(normalizePracticeEntry);
-    localStorage.setItem(STORAGE_KEYS.PRACTICE_ENTRIES, JSON.stringify(normalized));
+
+    // Sanitize heavy base64 strings before storing in localStorage to prevent Aw Snap crashes & quota overflow
+    const safeForStorage = normalized.map((entry) => ({
+      ...entry,
+      vocalParts: (entry.vocalParts || []).map((vp) => {
+        if (vp.audioUrl && vp.audioUrl.length > 1000 && vp.audioUrl.startsWith('data:')) {
+          return { ...vp, audioUrl: `indexeddb:${vp.id}` };
+        }
+        return vp;
+      }),
+      parts: (entry.parts || []).map((vp) => {
+        if (vp.audioUrl && vp.audioUrl.length > 1000 && vp.audioUrl.startsWith('data:')) {
+          return { ...vp, audioUrl: `indexeddb:${vp.id}` };
+        }
+        return vp;
+      }),
+      customAttachments: (entry.customAttachments || []).map((att) => {
+        if (att.url && att.url.length > 1000 && att.url.startsWith('data:')) {
+          return { ...att, url: `indexeddb:${att.id}` };
+        }
+        return att;
+      }),
+      attachments: (entry.attachments || []).map((att) => {
+        if (att.url && att.url.length > 1000 && att.url.startsWith('data:')) {
+          return { ...att, url: `indexeddb:${att.id}` };
+        }
+        return att;
+      }),
+    }));
+
+    localStorage.setItem(STORAGE_KEYS.PRACTICE_ENTRIES, JSON.stringify(safeForStorage));
   } catch (err) {
     console.error('Error saving practice entries:', err);
   }

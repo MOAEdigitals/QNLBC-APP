@@ -4,6 +4,7 @@ const STORE_NAME = 'audio_blobs';
 const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+const audioMemCache = new Map<string, string>();
 
 function getDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
@@ -44,10 +45,12 @@ export interface StoredAudioItem {
 }
 
 /**
- * Save audio dataUrl (or recording) in IndexedDB
+ * Save audio dataUrl (or recording) in IndexedDB and in-memory cache
  */
 export async function saveAudioToStorage(id: string, dataUrl: string, fileName?: string): Promise<void> {
   if (!id || !dataUrl) return;
+  audioMemCache.set(id, dataUrl);
+
   try {
     const db = await getDB();
     return new Promise((resolve, reject) => {
@@ -70,18 +73,25 @@ export async function saveAudioToStorage(id: string, dataUrl: string, fileName?:
 }
 
 /**
- * Get audio dataUrl by track/part ID
+ * Get audio dataUrl by track/part ID (checks memory cache first, then IndexedDB)
  */
 export async function getAudioFromStorage(id: string): Promise<string | null> {
   if (!id) return null;
+  const cleanId = id.replace(/^indexeddb:/, '');
+
+  if (audioMemCache.has(cleanId)) {
+    return audioMemCache.get(cleanId) || null;
+  }
+
   try {
     const db = await getDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.get(id);
+      const req = store.get(cleanId);
       req.onsuccess = () => {
         if (req.result && req.result.dataUrl) {
+          audioMemCache.set(cleanId, req.result.dataUrl);
           resolve(req.result.dataUrl);
         } else {
           resolve(null);
@@ -99,12 +109,15 @@ export async function getAudioFromStorage(id: string): Promise<string | null> {
  */
 export async function deleteAudioFromStorage(id: string): Promise<void> {
   if (!id) return;
+  const cleanId = id.replace(/^indexeddb:/, '');
+  audioMemCache.delete(cleanId);
+
   try {
     const db = await getDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(id);
+      const req = store.delete(cleanId);
       req.onsuccess = () => resolve();
       req.onerror = () => resolve();
     });
@@ -112,3 +125,4 @@ export async function deleteAudioFromStorage(id: string): Promise<void> {
     // ignore
   }
 }
+

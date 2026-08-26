@@ -1323,10 +1323,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
                       placeholder={
                         editingSetlist.type === 'event'
-                          ? 'e.g. 15th Church Anniversary'
+                          ? 'Enter event title'
                           : editingSetlist.type === 'fellowship'
-                          ? "e.g. Youth Fellowship"
-                          : 'e.g. Midweek Prayer Meeting'
+                          ? 'Enter fellowship title'
+                          : 'Enter setlist title'
                       }
                       className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
                     />
@@ -1365,7 +1365,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           type="text"
                           value={editingSetlist.title || ''}
                           onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
-                          placeholder="Setlist title (e.g. Easter Sunday, Youth Fellowship)"
+                          placeholder="Enter setlist title"
                           className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
                         />
                       </div>
