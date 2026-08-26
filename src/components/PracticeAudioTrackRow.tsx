@@ -326,9 +326,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             <h4 className="text-base sm:text-lg font-black tracking-wide text-slate-900 dark:text-white uppercase truncate">
               {performerName || 'UNASSIGNED'}
             </h4>
-            {subtitle && (
-              <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{subtitle}</p>
-            )}
           </div>
         </div>
 
@@ -469,20 +466,15 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           </div>
         </div>
 
-        {/* Timestamps & Repeat Loop Button */}
+        {/* Elapsed Time & Repeat Loop Button */}
         <div className="flex items-center justify-between text-xs font-mono text-slate-800 dark:text-slate-200 select-none">
           {/* Current Elapsed Time (e.g. 00:30) */}
           <span className="font-bold text-xs tracking-wider">
             {formatTime(currentTime)}
           </span>
 
-          {/* Right Side: Total Duration (e.g. 00:56) + Loop Icon */}
+          {/* Right Side: Loop / Repeat Icon Button */}
           <div className="flex items-center space-x-2">
-            <span className="font-bold text-xs tracking-wider text-slate-700 dark:text-slate-300">
-              {formatTime(duration)}
-            </span>
-
-            {/* Loop / Repeat Icon Button */}
             <button
               type="button"
               id={`loop-btn-${id}`}

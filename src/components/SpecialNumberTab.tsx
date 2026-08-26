@@ -1890,7 +1890,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
                                 <Layers className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
                                 <span>
-                                  Vocal Parts & Assigned Members (
+                                  Vocal Parts (
                                   {(group.vocalParts?.length || group.parts?.length || 0)}
                                   )
                                 </span>
@@ -1943,11 +1943,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                         badgeLabel={part.partLabel}
                                         badgeCategory="vocal_part"
                                         performerName={assignedNames || 'UNASSIGNED'}
-                                        subtitle={
-                                          part.name && part.name !== part.partLabel && part.name !== assignedNames
-                                            ? part.name
-                                            : undefined
-                                        }
                                         audioUrl={rawAudio}
                                         isCurrentlyPlaying={playingTrackId === part.id}
                                         onPlay={() => {
