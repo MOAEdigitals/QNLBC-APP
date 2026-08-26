@@ -93,12 +93,47 @@ export default function App() {
     saveTheme(theme);
   }, [theme]);
 
-  // 3. App Tab Navigation & History Stack
-  const [currentTab, setCurrentTab] = useState<AppTab>('home');
+  // 3. App Tab Navigation & History Stack (persisted across refreshes)
+  const [currentTab, setCurrentTab] = useState<AppTab>(() => {
+    // Check URL hash first (e.g. #songs, #recognitions, #settings, #special-numbers)
+    const hash = window.location.hash.replace('#', '');
+    const validTabs: AppTab[] = ['home', 'recognitions', 'special-numbers', 'songs', 'settings'];
+    if (hash && validTabs.includes(hash as AppTab)) {
+      return hash as AppTab;
+    }
+    // Check localStorage next
+    try {
+      const savedTab = localStorage.getItem('nlbc_active_tab_v1');
+      if (savedTab && validTabs.includes(savedTab as AppTab)) {
+        return savedTab as AppTab;
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return 'home';
+  });
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
-  const tabHistoryRef = useRef<AppTab[]>(['home']);
+  const tabHistoryRef = useRef<AppTab[]>([
+    (() => {
+      const hash = window.location.hash.replace('#', '');
+      const validTabs: AppTab[] = ['home', 'recognitions', 'special-numbers', 'songs', 'settings'];
+      if (hash && validTabs.includes(hash as AppTab)) return hash as AppTab;
+      try {
+        const savedTab = localStorage.getItem('nlbc_active_tab_v1');
+        if (savedTab && validTabs.includes(savedTab as AppTab)) return savedTab as AppTab;
+      } catch {}
+      return 'home';
+    })()
+  ]);
   const hasActiveSubViewRef = useRef(false);
   const [collapseSignals, setCollapseSignals] = useState<Record<string, number>>({});
+
+  // Save active tab on state changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('nlbc_active_tab_v1', currentTab);
+    } catch {}
+  }, [currentTab]);
 
   // Cross-tab deep links
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
@@ -211,9 +246,9 @@ export default function App() {
 
   // Browser Back / Swipe Back Interceptor
   useEffect(() => {
-    // Initialize base history state on load
+    // Initialize base history state on load with current active tab
     if (!window.history.state || !window.history.state.tab) {
-      window.history.replaceState({ tab: 'home' }, '', '#home');
+      window.history.replaceState({ tab: currentTab }, '', `#${currentTab}`);
     }
 
     const handlePopState = (event: PopStateEvent) => {

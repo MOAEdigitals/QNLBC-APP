@@ -1750,7 +1750,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     value={editingSchedule.performerName || ''}
                     onChange={(val) => setEditingSchedule({ ...editingSchedule, performerName: val })}
                     suggestions={directoryNames}
-                    placeholder="e.g. Bro. John Doe / Sis. Maria / Choir Ensemble"
+                    placeholder="Enter singer or group name"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
                   />
                 </div>
@@ -1791,7 +1791,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     suggestions={songTitleSuggestions}
                     songs={songs}
                     setlists={setlists}
-                    placeholder="e.g. Dakilang Katapatan / Leave blank if undecided"
+                    placeholder="Song title (optional / select from library)"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
                   />
                 </div>
@@ -1818,7 +1818,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   type="text"
                   value={editingSchedule.notes || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, notes: e.target.value })}
-                  placeholder="e.g. Practice on Saturday 4:00 PM, Key of D"
+                  placeholder="Rehearsal schedule, key, or practice notes..."
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -1890,7 +1890,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     value={editingPractice.groupName || ''}
                     onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
                     suggestions={directoryNames}
-                    placeholder="e.g. Sunday Choir, Sis. Sarah, Youth Trio, Men's Ensemble"
+                    placeholder="Enter singer or group name"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -1905,7 +1905,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   type="text"
                   value={editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent : 'Sunday Service'}
                   onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
-                  placeholder="e.g. Sunday Service, Youth Fellowship"
+                  placeholder="Sunday Service / Event occasion"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium"
                 />
               </div>
@@ -1922,7 +1922,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     suggestions={songTitleSuggestions}
                     songs={songs}
                     setlists={setlists}
-                    placeholder="e.g. Dakilang Katapatan"
+                    placeholder="Song title (select from library)"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -1951,7 +1951,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       type="text"
                       value={newSongArtist}
                       onChange={(e) => setNewSongArtist(e.target.value)}
-                      placeholder="e.g. Papuri / Arnel De Pano / Hymn"
+                      placeholder="Artist, composer, or origin"
                       className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                       autoFocus
                     />
@@ -2259,7 +2259,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     value={vocalPartAssignedUsers}
                     onChange={(val) => setVocalPartAssignedUsers(val)}
                     suggestions={directoryNames}
-                    placeholder="e.g. Marius, Sis. Grace, Sis. Hannah"
+                    placeholder="Enter member name(s)..."
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>

@@ -468,7 +468,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               type="text"
               value={newNameInput}
               onChange={(e) => setNewNameInput(e.target.value)}
-              placeholder="Add new member name (e.g. Bro. Juan Dela Cruz)..."
+              placeholder="Enter member name to add to directory..."
               className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
             />
             <button

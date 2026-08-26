@@ -731,7 +731,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   required
                   value={bdayForm.name}
                   onChange={(e) => setBdayForm({ ...bdayForm, name: e.target.value })}
-                  placeholder="e.g. Sis. Elena Morales"
+                  placeholder="Enter celebrant's name"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -757,7 +757,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   type="text"
                   value={bdayForm.ministryOrGroup}
                   onChange={(e) => setBdayForm({ ...bdayForm, ministryOrGroup: e.target.value })}
-                  placeholder="e.g. Youth, Women's, Men's, Sunday School, Choir"
+                  placeholder="Ministry or group (e.g. Youth, Choir)"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -770,7 +770,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   rows={2}
                   value={bdayForm.notes}
                   onChange={(e) => setBdayForm({ ...bdayForm, notes: e.target.value })}
-                  placeholder="e.g. God bless you on your special day!"
+                  placeholder="Birthday greeting or notes..."
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -819,7 +819,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   required
                   value={annivForm.title}
                   onChange={(e) => setAnnivForm({ ...annivForm, title: e.target.value })}
-                  placeholder="e.g. Bro. Roberto & Sis. Carmen Mendoza"
+                  placeholder="Enter couple or ministry name"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -927,7 +927,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   required
                   value={visitorForm.name}
                   onChange={(e) => setVisitorForm({ ...visitorForm, name: e.target.value })}
-                  placeholder="e.g. Bro. Karlo Bautista"
+                  placeholder="Enter visitor's full name"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
@@ -941,7 +941,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   required
                   value={visitorForm.barangay}
                   onChange={(e) => setVisitorForm({ ...visitorForm, barangay: e.target.value })}
-                  placeholder="e.g. Brgy. Dulong Bayan, Quezon / Guimba / Aliaga"
+                  placeholder="Barangay, town, or city of origin"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>

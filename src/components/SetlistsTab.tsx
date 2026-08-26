@@ -1141,7 +1141,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           type="text"
                           value={editingSetlist.title || ''}
                           onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
-                          placeholder="e.g. Easter Sunday Service"
+                          placeholder="Setlist title (e.g. Easter Sunday, Youth Fellowship)"
                           className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
                         />
                       </div>
@@ -1161,7 +1161,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       value={editingSetlist.presider || ''}
                       onChange={(val) => setEditingSetlist({ ...editingSetlist, presider: val })}
                       suggestions={directoryNames}
-                      placeholder="e.g. Ptr. Jonathan Santos"
+                      placeholder="Enter presider's name"
                       inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
                     />
                   </div>
@@ -1270,7 +1270,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             })
                           }
                           suggestions={directoryNames}
-                          placeholder="e.g. Bro. Christian Ramos"
+                          placeholder="Enter Sunday School song leader"
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                         />
                       </div>
@@ -1372,7 +1372,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             })
                           }
                           suggestions={directoryNames}
-                          placeholder="e.g. Sis. Abigail Cruz"
+                          placeholder="Enter Worship song leader"
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                         />
                       </div>
@@ -1477,7 +1477,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           })
                         }
                         suggestions={directoryNames}
-                        placeholder="e.g. Bro. Mark Villanueva"
+                        placeholder="Enter song leader's name"
                         inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                       />
                     </div>
@@ -1563,7 +1563,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   rows={2}
                   value={editingSetlist.generalNotes || ''}
                   onChange={(e) => setEditingSetlist({ ...editingSetlist, generalNotes: e.target.value })}
-                  placeholder="e.g. Fellowship lunch, Communion Sunday, Deacon meeting..."
+                  placeholder="Announcements, reminders, or program notes..."
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs"
                 />
               </div>

@@ -214,9 +214,49 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     ? bestPrefixMatch.slice((value || '').length)
     : '';
 
-  // Handle outside clicks/taps cleanly without instantly closing suggestions when dismissing mobile keyboard
+  // Handle outside clicks/taps cleanly without closing suggestions when scrolling container or page
   useEffect(() => {
-    const handlePointerDownOutside = (event: MouseEvent | TouchEvent) => {
+    let touchOutsideStart: { x: number; y: number; time: number } | null = null;
+    let isTouchMoveOutside = false;
+
+    const handleTouchStartOutside = (event: TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target)
+      ) {
+        const touch = event.touches[0];
+        touchOutsideStart = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+        isTouchMoveOutside = false;
+      } else {
+        touchOutsideStart = null;
+        isTouchMoveOutside = false;
+      }
+    };
+
+    const handleTouchMoveOutside = (event: TouchEvent) => {
+      if (!touchOutsideStart) return;
+      const touch = event.touches[0];
+      const diffX = Math.abs(touch.clientX - touchOutsideStart.x);
+      const diffY = Math.abs(touch.clientY - touchOutsideStart.y);
+      if (diffX > 8 || diffY > 8) {
+        isTouchMoveOutside = true;
+      }
+    };
+
+    const handleTouchEndOutside = (event: TouchEvent) => {
+      if (touchOutsideStart && !isTouchMoveOutside) {
+        // Was an intentional tap outside, not a scroll or swipe gesture
+        setIsOpen(false);
+        setIsFocused(false);
+      }
+      touchOutsideStart = null;
+      isTouchMoveOutside = false;
+    };
+
+    const handleMouseDownOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (
         containerRef.current &&
@@ -229,11 +269,16 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       }
     };
 
-    document.addEventListener('mousedown', handlePointerDownOutside);
-    document.addEventListener('touchstart', handlePointerDownOutside, { passive: true });
+    document.addEventListener('mousedown', handleMouseDownOutside);
+    document.addEventListener('touchstart', handleTouchStartOutside, { passive: true });
+    document.addEventListener('touchmove', handleTouchMoveOutside, { passive: true });
+    document.addEventListener('touchend', handleTouchEndOutside, { passive: true });
+
     return () => {
-      document.removeEventListener('mousedown', handlePointerDownOutside);
-      document.removeEventListener('touchstart', handlePointerDownOutside);
+      document.removeEventListener('mousedown', handleMouseDownOutside);
+      document.removeEventListener('touchstart', handleTouchStartOutside);
+      document.removeEventListener('touchmove', handleTouchMoveOutside);
+      document.removeEventListener('touchend', handleTouchEndOutside);
     };
   }, []);
 
