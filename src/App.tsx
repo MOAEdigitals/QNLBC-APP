@@ -192,9 +192,30 @@ export default function App() {
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
-      const normalized = items.map(normalizePracticeEntry);
-      setPracticeEntries(normalized);
-      savePracticeEntries(normalized);
+      const currentLocal = loadPracticeEntries();
+      const merged = items.map((remoteItem) => {
+        const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
+        const normalized = normalizePracticeEntry(remoteItem);
+        if (!localMatch) return normalized;
+
+        // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
+        const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
+          const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
+          if (localPart && localPart.audioUrl && (!vp.audioUrl || vp.audioUrl === 'indexeddb:local_storage')) {
+            return { ...vp, audioUrl: localPart.audioUrl };
+          }
+          return vp;
+        });
+
+        return {
+          ...normalized,
+          vocalParts: mergedVocalParts,
+          parts: mergedVocalParts,
+        };
+      });
+
+      setPracticeEntries(merged);
+      savePracticeEntries(merged);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {

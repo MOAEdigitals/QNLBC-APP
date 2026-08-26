@@ -238,36 +238,44 @@ export interface SongUsageHistory {
   lastDate: string | null;
   formattedLastDate: string | null;
   relativeTimeAgo: string | null;
-  isRecent: boolean; // Sung in the last 14 days or last setlist
+  isRecent: boolean; // Kept for type compatibility
+  isInCooldown: boolean; // 1-week allowance rule (sung within 7 days or scheduled within 7 days)
+  cooldownMessage?: string;
   totalCount: number;
   recentSetlistDate?: string;
+  upcomingDate?: string | null;
 }
 
 // Global WeakMap / memoized map cache for setlists array reference
 let cachedSetlistsRef: Setlist[] | null = null;
-let cachedUsageMap: Map<string, string[]> = new Map();
+let cachedPastUsageMap: Map<string, string[]> = new Map();
+let cachedUpcomingUsageMap: Map<string, string[]> = new Map();
+let cachedAllUsageMap: Map<string, string[]> = new Map();
 
 /**
- * Pre-builds an O(1) lookup Map from normalized song title -> sorted date array.
- * This runs in <1ms and allows instant history lookups without looping.
+ * Pre-builds O(1) lookup Maps:
+ * - Past dates Map (from grayed out / completed past setlists only)
+ * - Upcoming dates Map (from active / lined-up upcoming setlists)
  */
-export function buildSongUsageMap(setlists: Setlist[]): Map<string, string[]> {
+export function buildSongUsageMap(setlists: Setlist[], todayStr: string = getTodayStr()): Map<string, string[]> {
   if (!setlists || setlists.length === 0) return new Map();
 
   if (cachedSetlistsRef === setlists) {
-    return cachedUsageMap;
+    return cachedAllUsageMap;
   }
 
-  const map = new Map<string, string[]>();
+  const pastMap = new Map<string, string[]>();
+  const upcomingMap = new Map<string, string[]>();
+  const allMap = new Map<string, string[]>();
 
-  const addEntry = (title: string | undefined, date: string) => {
+  const addEntry = (map: Map<string, string[]>, title: string | undefined, date: string) => {
     if (!title || !date) return;
     const key = normalizeForSearch(title);
     if (!key) return;
     const existing = map.get(key);
     if (!existing) {
       map.set(key, [date]);
-    } else {
+    } else if (!existing.includes(date)) {
       existing.push(date);
     }
   };
@@ -276,41 +284,62 @@ export function buildSongUsageMap(setlists: Setlist[]): Map<string, string[]> {
     const date = setlist.date;
     if (!date) continue;
 
-    if (setlist.welcomeSong) addEntry(setlist.welcomeSong, date);
-    if (setlist.closingSong) addEntry(setlist.closingSong, date);
-    if (setlist.themeSong) addEntry(setlist.themeSong, date);
+    const isPast = date < todayStr;
+    const targetMap = isPast ? pastMap : upcomingMap;
+
+    const recordSong = (title?: string) => {
+      if (title) {
+        addEntry(targetMap, title, date);
+        addEntry(allMap, title, date);
+      }
+    };
+
+    if (setlist.welcomeSong) recordSong(setlist.welcomeSong);
+    if (setlist.closingSong) recordSong(setlist.closingSong);
+    if (setlist.themeSong) recordSong(setlist.themeSong);
 
     if (setlist.sundaySchool?.songs) {
       for (const s of setlist.sundaySchool.songs) {
-        if (s.title) addEntry(s.title, date);
+        if (s.title) recordSong(s.title);
       }
     }
 
     if (setlist.worshipService?.songs) {
       for (const s of setlist.worshipService.songs) {
-        if (s.title) addEntry(s.title, date);
+        if (s.title) recordSong(s.title);
       }
     }
 
     if (setlist.program?.songs) {
       for (const s of setlist.program.songs) {
-        if (s.title) addEntry(s.title, date);
+        if (s.title) recordSong(s.title);
       }
     }
   }
 
-  // Sort dates descending for each song
-  for (const dates of map.values()) {
+  // Sort dates descending for each map
+  for (const dates of pastMap.values()) {
+    dates.sort((a, b) => b.localeCompare(a));
+  }
+  for (const dates of upcomingMap.values()) {
+    dates.sort((a, b) => a.localeCompare(b)); // soonest first for upcoming
+  }
+  for (const dates of allMap.values()) {
     dates.sort((a, b) => b.localeCompare(a));
   }
 
   cachedSetlistsRef = setlists;
-  cachedUsageMap = map;
-  return map;
+  cachedPastUsageMap = pastMap;
+  cachedUpcomingUsageMap = upcomingMap;
+  cachedAllUsageMap = allMap;
+
+  return allMap;
 }
 
 /**
- * Instant O(1) usage history lookup using pre-computed usage map
+ * Instant O(1) usage history lookup:
+ * - Past History: strictly calculated from past completed setlists.
+ * - Cooldown Notice: warns only if sung within last 7 days or scheduled in upcoming setlist within 7 days.
  */
 export function getSongUsageHistoryFromMap(
   songTitleOrId: string,
@@ -323,60 +352,83 @@ export function getSongUsageHistoryFromMap(
       formattedLastDate: null,
       relativeTimeAgo: null,
       isRecent: false,
+      isInCooldown: false,
       totalCount: 0,
     };
   }
 
   const cleanTarget = normalizeForSearch(songTitleOrId);
-  const matchedDates = usageMap.get(cleanTarget);
+  const pastDates = cachedPastUsageMap.get(cleanTarget) || [];
+  const upcomingDates = cachedUpcomingUsageMap.get(cleanTarget) || [];
+  const allDates = usageMap.get(cleanTarget) || [];
 
-  if (!matchedDates || matchedDates.length === 0) {
-    return {
-      lastDate: null,
-      formattedLastDate: 'Never scheduled',
-      relativeTimeAgo: null,
-      isRecent: false,
-      totalCount: 0,
-    };
-  }
-
-  const mostRecentDate = matchedDates[0];
   const todayDate = parseDate(todayStr);
-  const recentDateObj = parseDate(mostRecentDate);
-  const diffTime = todayDate.getTime() - recentDateObj.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-  let relativeTimeAgo = '';
-  if (diffDays < 0) {
-    relativeTimeAgo = 'Scheduled upcoming';
-  } else if (diffDays === 0) {
-    relativeTimeAgo = 'Today';
-  } else if (diffDays === 7) {
-    relativeTimeAgo = '1 week ago';
-  } else if (diffDays < 7) {
-    relativeTimeAgo = `${diffDays}d ago`;
-  } else if (diffDays < 14) {
-    relativeTimeAgo = '1 week ago';
-  } else if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    relativeTimeAgo = `${weeks} wks ago`;
-  } else if (diffDays < 60) {
-    relativeTimeAgo = '1 month ago';
-  } else {
-    const months = Math.floor(diffDays / 30);
-    relativeTimeAgo = `${months} mos ago`;
+  // 1. Last Sung (from past setlists only)
+  let lastDate: string | null = null;
+  let formattedLastDate: string | null = null;
+  let relativeTimeAgo: string | null = null;
+  let isInCooldown = false;
+  let cooldownMessage: string | undefined = undefined;
+
+  if (pastDates.length > 0) {
+    lastDate = pastDates[0];
+    const pastDateObj = parseDate(lastDate);
+    const diffTime = todayDate.getTime() - pastDateObj.getTime();
+    const diffDays = Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+
+    if (diffDays === 0) {
+      relativeTimeAgo = 'Today';
+    } else if (diffDays === 7) {
+      relativeTimeAgo = '1 week ago';
+    } else if (diffDays < 7) {
+      relativeTimeAgo = `${diffDays}d ago`;
+    } else if (diffDays < 14) {
+      relativeTimeAgo = '1 week ago';
+    } else if (diffDays < 30) {
+      const weeks = Math.floor(diffDays / 7);
+      relativeTimeAgo = `${weeks} wks ago`;
+    } else if (diffDays < 60) {
+      relativeTimeAgo = '1 month ago';
+    } else {
+      const months = Math.floor(diffDays / 30);
+      relativeTimeAgo = `${months} mos ago`;
+    }
+
+    formattedLastDate = formatDateStr(lastDate, { shortMonth: true });
+
+    // 1-week allowance rule: song was sung within 7 days
+    if (diffDays <= 7) {
+      isInCooldown = true;
+      cooldownMessage = `Sung in last week's setlist (${formattedLastDate}) — 1 week rest recommended`;
+    }
   }
 
-  const formattedDate = formatDateStr(mostRecentDate, { shortMonth: true });
-  const isRecent = diffDays >= 0 && diffDays <= 14;
+  // 2. Check upcoming scheduled setlists for cooldown
+  let upcomingDate: string | null = null;
+  if (upcomingDates.length > 0) {
+    upcomingDate = upcomingDates[0];
+    const upcomingDateObj = parseDate(upcomingDate);
+    const diffTime = upcomingDateObj.getTime() - todayDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays >= 0 && diffDays <= 7) {
+      isInCooldown = true;
+      const formattedUpcoming = formatDateStr(upcomingDate, { shortMonth: true });
+      cooldownMessage = cooldownMessage || `Already scheduled in upcoming setlist on ${formattedUpcoming}`;
+    }
+  }
 
   return {
-    lastDate: mostRecentDate,
-    formattedLastDate: formattedDate,
+    lastDate,
+    formattedLastDate: formattedLastDate || (upcomingDate ? 'Scheduled upcoming' : 'Never scheduled'),
     relativeTimeAgo,
-    isRecent,
-    totalCount: matchedDates.length,
-    recentSetlistDate: mostRecentDate,
+    isRecent: false, // Disabling generic "sung recently" warning badge in favor of clean last sung history
+    isInCooldown,
+    cooldownMessage,
+    totalCount: allDates.length,
+    recentSetlistDate: lastDate || upcomingDate || undefined,
+    upcomingDate,
   };
 }
 
@@ -390,6 +442,7 @@ export function getSongUsageHistory(songTitleOrId: string, setlists: Setlist[]):
       formattedLastDate: null,
       relativeTimeAgo: null,
       isRecent: false,
+      isInCooldown: false,
       totalCount: 0,
     };
   }

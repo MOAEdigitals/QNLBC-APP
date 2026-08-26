@@ -181,6 +181,7 @@ export interface PracticeGroupEntry {
   customAttachments?: SongAttachment[];
   parts?: PracticePartTrack[]; // vocal parts tracks (Tenor, Alto, Soprano, Bass, Baritone, etc.)
   vocalParts?: PracticePartTrack[];
+  isDone?: boolean;
   createdAt: string;
   updatedAt?: string;
 }

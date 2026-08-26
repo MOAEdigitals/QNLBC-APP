@@ -449,13 +449,11 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         />
       </div>
 
-      {/* Subtle Inline Repetition Warning (if entered song was sung recently in the last 14 days) */}
-      {currentValueHistory?.isRecent && !isOpen && (
-        <div className="flex items-center gap-1.5 mt-1 px-1 text-[11px] text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="w-3 h-3 shrink-0" />
-          <span>
-            Sung recently on {currentValueHistory.formattedLastDate} ({currentValueHistory.relativeTimeAgo})
-          </span>
+      {/* 1-Week Rest Allowance Notice (if selected song was sung in last week's setlist or upcoming within 7 days) */}
+      {currentValueHistory?.isInCooldown && currentValueHistory.cooldownMessage && !isOpen && (
+        <div className="flex items-center gap-1.5 mt-1.5 px-2 py-1 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-900/60">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>Notice: {currentValueHistory.cooldownMessage}</span>
         </div>
       )}
 
@@ -524,11 +522,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                         </span>
                       )}
 
-                    {/* Repetition Warning Pill (if recent) */}
-                    {item.history?.isRecent && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/60 shrink-0">
-                        <AlertTriangle className="w-2.5 h-2.5" />
-                        <span>Sung {item.history.relativeTimeAgo}</span>
+                    {/* 1-Week Rest Notice Pill */}
+                    {item.history?.isInCooldown && (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/80 shrink-0"
+                        title={item.history.cooldownMessage}
+                      >
+                        <AlertTriangle className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
+                        <span>1-wk Rest Notice</span>
                       </span>
                     )}
                   </div>
@@ -539,14 +540,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                       <span className="text-emerald-600 dark:text-emerald-400 italic text-xs truncate max-w-xs">
                         🎵 "{item.lyricSnippet}"
                       </span>
-                    ) : item.history && item.history.relativeTimeAgo ? (
+                    ) : item.history && item.history.formattedLastDate && item.history.formattedLastDate !== 'Never scheduled' ? (
                       <span className="text-slate-500 dark:text-slate-400 text-xs flex items-center gap-1.5">
                         <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>Last: {item.history.relativeTimeAgo}</span>
+                        <span>Last sung: {item.history.formattedLastDate} {item.history.relativeTimeAgo ? `(${item.history.relativeTimeAgo})` : ''}</span>
                       </span>
-                    ) : item.history && !item.history.relativeTimeAgo ? (
+                    ) : item.history ? (
                       <span className="text-slate-400 dark:text-slate-500 text-xs">
-                        Not yet scheduled
+                        Never scheduled in past setlist
                       </span>
                     ) : item.songObj?.artist ? (
                       <span className="text-slate-400 dark:text-slate-500 text-xs">
