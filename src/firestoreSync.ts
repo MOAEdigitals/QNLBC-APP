@@ -379,6 +379,44 @@ export async function syncDeletePracticeAudio(id: string): Promise<void> {
   }
 }
 
+/**
+ * Real-time subscription to cloud practice audio attachments and voice takes.
+ * When any choir member/worship leader uploads or records on their device,
+ * other devices receive the audio updates automatically.
+ */
+export function subscribeToPracticeAudios(
+  onAudioUpdated: (audioId: string, dataUrl: string) => void
+) {
+  const colRef = collection(db, COLLECTIONS.PRACTICE_AUDIOS);
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === 'added' || change.type === 'modified') {
+          const data = change.doc.data();
+          const docId = change.doc.id;
+          // Skip internal child chunk documents
+          if (docId.includes('_chunk_') || data.chunkIndex !== undefined) {
+            return;
+          }
+
+          if (!data.isChunked && data.dataUrl) {
+            onAudioUpdated(docId, data.dataUrl);
+          } else if (data.isChunked) {
+            const fullData = await fetchPracticeAudioFromCloud(docId);
+            if (fullData) {
+              onAudioUpdated(docId, fullData);
+            }
+          }
+        }
+      });
+    },
+    (err) => {
+      console.warn('Real-time sync error on practice_audios:', err);
+    }
+  );
+}
+
 // --- Settings Cloud Sync (Church Directory & Welcome Songs) ---
 
 export async function syncSaveSavedNames(names: string[]): Promise<void> {

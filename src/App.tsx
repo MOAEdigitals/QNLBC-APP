@@ -58,6 +58,7 @@ import {
   syncSaveUser,
   syncSaveSavedNames,
   subscribeToAppSettings,
+  subscribeToPracticeAudios,
   initializeFirestoreCloudSeed,
 } from './firestoreSync';
 import {
@@ -66,6 +67,7 @@ import {
   loadWelcomeSongs,
   saveWelcomeSongs,
 } from './utils/storage';
+import { saveAudioToStorage } from './utils/audioStorage';
 import {
   categorizeAnnualCelebrants,
   isPastDate,
@@ -242,6 +244,11 @@ export default function App() {
       }
     );
 
+    // Auto-sync audio files & recordings from cloud in real time
+    const unsubPracticeAudios = subscribeToPracticeAudios((audioId, dataUrl) => {
+      saveAudioToStorage(audioId, dataUrl);
+    });
+
     return () => {
       unsubSetlists();
       unsubSongs();
@@ -253,6 +260,7 @@ export default function App() {
       unsubPractice();
       unsubUsers();
       unsubAppSettings();
+      unsubPracticeAudios();
     };
   }, []);
 
@@ -616,7 +624,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
-        {currentTab === 'home' && (
+        <div className={currentTab === 'home' ? 'block' : 'hidden'}>
           <SetlistsTab
             setlists={setlists}
             songs={songs}
@@ -629,9 +637,9 @@ export default function App() {
             initialSelectedSetlistId={initialSelectedSetlistId}
             collapseSignal={collapseSignals.home}
           />
-        )}
+        </div>
 
-        {currentTab === 'recognitions' && (
+        <div className={currentTab === 'recognitions' ? 'block' : 'hidden'}>
           <RecognitionsTab
             birthdays={birthdays}
             anniversaries={anniversaries}
@@ -646,9 +654,9 @@ export default function App() {
             onSaveSpecialRecognition={handleSaveSpecialRecognition}
             onDeleteSpecialRecognition={handleDeleteSpecialRecognition}
           />
-        )}
+        </div>
 
-        {currentTab === 'special-numbers' && (
+        <div className={currentTab === 'special-numbers' ? 'block' : 'hidden'}>
           <SpecialNumberTab
             specialNumbers={specialNumbers}
             practiceEntries={practiceEntries}
@@ -662,9 +670,9 @@ export default function App() {
             onSaveSong={handleSaveSong}
             collapseSignal={collapseSignals['special-numbers']}
           />
-        )}
+        </div>
 
-        {currentTab === 'songs' && (
+        <div className={currentTab === 'songs' ? 'block' : 'hidden'}>
           <SongsTab
             songs={songs}
             setlists={setlists}
@@ -676,9 +684,9 @@ export default function App() {
             onClearInitialSelectedSongId={() => setSelectedSongIdForTab(null)}
             collapseSignal={collapseSignals.songs}
           />
-        )}
+        </div>
 
-        {currentTab === 'settings' && (
+        <div className={currentTab === 'settings' ? 'block' : 'hidden'}>
           <SettingsTab
             currentUser={currentUser}
             onUpdateCurrentUser={setCurrentUser}
@@ -691,7 +699,7 @@ export default function App() {
             onSignOut={handleSignOut}
             onDataReset={reloadAllData}
           />
-        )}
+        </div>
       </main>
 
       {/* Mobile-First Bottom Navigation */}

@@ -13,7 +13,12 @@ import {
   Volume2,
   AlertCircle,
 } from 'lucide-react';
-import { getAudioFromStorage } from '../utils/audioStorage';
+import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStorage';
+import {
+  registerActiveAudio,
+  notifyAudioStopped,
+  subscribeToActiveAudioChange,
+} from '../utils/audioCoordinator';
 
 export interface PracticeAudioTrackRowProps {
   id: string;
@@ -230,12 +235,23 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     }
   }, [isLooping]);
 
+  // Listen to global coordinator: If another player across the app starts playing, pause this track cleanly
+  useEffect(() => {
+    const unsub = subscribeToActiveAudioChange((activeId) => {
+      if (activeId && activeId !== id && isCurrentlyPlaying) {
+        onPause();
+      }
+    });
+    return () => unsub();
+  }, [id, isCurrentlyPlaying, onPause]);
+
   // Sync isCurrentlyPlaying prop to HTML Audio element
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (isCurrentlyPlaying) {
+      registerActiveAudio(id, audio, onPause);
       const playPromise = audio.play();
       if (playPromise !== undefined) {
         playPromise.catch((err) => {
@@ -247,8 +263,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       if (!audio.paused) {
         audio.pause();
       }
+      notifyAudioStopped(id);
     }
-  }, [isCurrentlyPlaying, onPause]);
+  }, [isCurrentlyPlaying, id, onPause]);
 
   // Handle Play/Pause Toggle Button Click
   const handleTogglePlay = (e: React.MouseEvent) => {

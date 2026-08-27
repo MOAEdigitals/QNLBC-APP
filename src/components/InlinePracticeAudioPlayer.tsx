@@ -12,6 +12,11 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { getAudioFromStorage } from '../utils/audioStorage';
+import {
+  registerActiveAudio,
+  notifyAudioStopped,
+  subscribeToActiveAudioChange,
+} from '../utils/audioCoordinator';
 
 interface InlinePracticeAudioPlayerProps {
   trackId: string;
@@ -104,11 +109,18 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
       }
     };
 
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
+    const onPlay = () => {
+      setIsPlaying(true);
+      registerActiveAudio(trackId, audio, () => setIsPlaying(false));
+    };
+    const onPause = () => {
+      setIsPlaying(false);
+      notifyAudioStopped(trackId);
+    };
     const onError = () => {
       setHasError(true);
       setIsPlaying(false);
+      notifyAudioStopped(trackId);
     };
 
     audio.addEventListener('timeupdate', onTimeUpdate);
@@ -121,7 +133,10 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
     // Auto-play when ready
     audio
       .play()
-      .then(() => setIsPlaying(true))
+      .then(() => {
+        setIsPlaying(true);
+        registerActiveAudio(trackId, audio, () => setIsPlaying(false));
+      })
       .catch((err) => {
         console.warn('Auto-play hindered by browser:', err);
         setIsPlaying(false);
@@ -139,8 +154,22 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('error', onError);
       audioRef.current = null;
+      notifyAudioStopped(trackId);
     };
-  }, [resolvedUrl]);
+  }, [resolvedUrl, trackId]);
+
+  // Listen to global coordinator so when another player starts, this one pauses cleanly
+  useEffect(() => {
+    const unsub = subscribeToActiveAudioChange((activeId) => {
+      if (activeId && activeId !== trackId && isPlaying) {
+        setIsPlaying(false);
+        if (audioRef.current && !audioRef.current.paused) {
+          audioRef.current.pause();
+        }
+      }
+    });
+    return () => unsub();
+  }, [trackId, isPlaying]);
 
   // Controls
   const togglePlayPause = () => {

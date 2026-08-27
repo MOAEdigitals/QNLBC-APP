@@ -79,6 +79,9 @@ export async function saveAudioToStorage(id: string, dataUrl: string, fileName?:
     console.warn('Failed to save audio to IndexedDB:', err);
   }
 
+  // Notify active components in the current window
+  notifyAudioStored(cleanId, dataUrl);
+
   // 2. Asynchronously sync to Firestore so all other devices (Desktop, Mobile, Tablet) get it
   try {
     syncSavePracticeAudio(cleanId, dataUrl, fileName).catch((err) => {
@@ -88,6 +91,31 @@ export async function saveAudioToStorage(id: string, dataUrl: string, fileName?:
     console.warn('Failed to dispatch cloud audio sync:', err);
   }
 }
+
+/**
+ * Listen to audio storage updates across components in the same tab / browser window
+ */
+export const subscribeToAudioUpdates = (callback: (audioId: string, base64Data: string) => void) => {
+  const handler = (e: Event) => {
+    const customEvent = e as CustomEvent<{ id: string; data: string }>;
+    if (customEvent.detail) {
+      callback(customEvent.detail.id, customEvent.detail.data);
+    }
+  };
+  window.addEventListener('qnlbc_audio_stored', handler);
+  return () => window.removeEventListener('qnlbc_audio_stored', handler);
+};
+
+/**
+ * Notify other components that audio data has been saved or updated
+ */
+export const notifyAudioStored = (audioId: string, base64Data: string) => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('qnlbc_audio_stored', { detail: { id: audioId, data: base64Data } })
+    );
+  }
+};
 
 /**
  * Get audio dataUrl by track/part ID:
