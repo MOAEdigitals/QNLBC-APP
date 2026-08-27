@@ -621,9 +621,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
+  const lastProcessedSignalRef = React.useRef<number>(0);
+
   // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
   React.useEffect(() => {
-    if (collapseSignal !== undefined && collapseSignal > 0) {
+    if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
+      lastProcessedSignalRef.current = collapseSignal;
+
       if (isEditingSchedule) {
         setIsEditingSchedule(false);
         setEditingSchedule(null);

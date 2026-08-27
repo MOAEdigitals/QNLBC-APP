@@ -61,9 +61,11 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Touch gesture scroll tracking ref so finger swiping does not trigger accidental selection
+  // Touch gesture and scroll tracking refs so mobile scrolling never triggers accidental selection
   const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const isTouchScrollingRef = useRef(false);
+  const touchMovedRef = useRef<boolean>(false);
+  const lastScrollTimeRef = useRef<number>(0);
+  const ignoreClickUntilRef = useRef<number>(0);
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
@@ -298,10 +300,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   };
 
   const handleSelect = (item: DisplaySuggestionItem, e?: React.MouseEvent | React.TouchEvent) => {
-    if (isTouchScrollingRef.current) {
-      // User was scrolling, not tapping with intention of selecting
-      return;
-    }
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -316,7 +314,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const handleItemTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     touchStartPosRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
-    isTouchScrollingRef.current = false;
+    touchMovedRef.current = false;
   };
 
   const handleItemTouchMove = (e: React.TouchEvent) => {
@@ -325,26 +323,45 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const diffX = Math.abs(touch.clientX - touchStartPosRef.current.x);
     const diffY = Math.abs(touch.clientY - touchStartPosRef.current.y);
 
-    // If movement is more than 8px, flag as scrolling
-    if (diffX > 8 || diffY > 8) {
-      isTouchScrollingRef.current = true;
+    // If movement is more than 6px, flag as scrolling/dragging
+    if (diffX > 6 || diffY > 6) {
+      touchMovedRef.current = true;
+      lastScrollTimeRef.current = Date.now();
     }
   };
 
   const handleItemTouchEnd = (item: DisplaySuggestionItem, e: React.TouchEvent) => {
-    if (isTouchScrollingRef.current) {
-      // Finger moved -> scroll intent, do not select
+    const isScrolling =
+      touchMovedRef.current ||
+      Date.now() - lastScrollTimeRef.current < 350 ||
+      !touchStartPosRef.current ||
+      Date.now() - touchStartPosRef.current.time > 800;
+
+    if (isScrolling) {
+      // Finger moved or list was scrolling -> scroll intent, do not select and suppress synthetic clicks
+      ignoreClickUntilRef.current = Date.now() + 500;
       touchStartPosRef.current = null;
-      isTouchScrollingRef.current = false;
+      touchMovedRef.current = false;
       return;
     }
 
-    // Finger stayed within threshold -> user meant to tap & select
+    // Finger stayed within threshold & was quick tap -> user intentionally tapped to select
     e.preventDefault();
     e.stopPropagation();
+    ignoreClickUntilRef.current = Date.now() + 500;
     handleSelect(item, e);
     touchStartPosRef.current = null;
-    isTouchScrollingRef.current = false;
+    touchMovedRef.current = false;
+  };
+
+  const handleItemClick = (item: DisplaySuggestionItem, e: React.MouseEvent) => {
+    if (
+      Date.now() < ignoreClickUntilRef.current ||
+      Date.now() - lastScrollTimeRef.current < 350
+    ) {
+      return;
+    }
+    handleSelect(item, e);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -455,6 +472,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       {isOpen && displayedItems.length > 0 && (
         <div
           ref={dropdownRef}
+          onScroll={() => {
+            lastScrollTimeRef.current = Date.now();
+          }}
           className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
@@ -466,11 +486,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             return (
               <div
                 key={item.title + idx}
-                onMouseDown={(e) => handleSelect(item, e)}
+                onMouseDown={(e) => {
+                  // Prevent input focus loss without selecting on mousedown
+                  e.preventDefault();
+                }}
                 onTouchStart={handleItemTouchStart}
                 onTouchMove={handleItemTouchMove}
                 onTouchEnd={(e) => handleItemTouchEnd(item, e)}
-                onClick={(e) => handleSelect(item, e)}
+                onClick={(e) => handleItemClick(item, e)}
                 onMouseEnter={() => setHighlightedIndex(idx)}
                 className={`w-full px-4 py-3 text-left flex items-center justify-between cursor-pointer transition-colors select-none ${
                   isSelected
@@ -542,9 +565,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
                 <button
                   type="button"
-                  onMouseDown={(e) => handleSelect(item, e)}
+                  onMouseDown={(e) => e.preventDefault()}
                   onTouchEnd={(e) => handleItemTouchEnd(item, e)}
-                  onClick={(e) => handleSelect(item, e)}
+                  onClick={(e) => handleItemClick(item, e)}
                   className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 px-3 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/60 border border-sky-200 dark:border-sky-800 shrink-0 transition-colors flex items-center gap-1 cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />

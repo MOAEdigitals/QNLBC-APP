@@ -168,9 +168,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     }
   }, [initialSelectedSetlistId]);
 
+  const lastProcessedSignalRef = useRef<number>(0);
+
   // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
   useEffect(() => {
-    if (collapseSignal !== undefined && collapseSignal > 0) {
+    if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
+      lastProcessedSignalRef.current = collapseSignal;
+
       if (isEditing) {
         setIsEditing(false);
         setEditingSetlist(null);

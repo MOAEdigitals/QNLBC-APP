@@ -148,9 +148,13 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     return () => window.removeEventListener('click', handleGlobalClick);
   }, []);
 
+  const lastProcessedSignalRef = useRef<number>(0);
+
   // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
   useEffect(() => {
-    if (collapseSignal !== undefined && collapseSignal > 0) {
+    if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
+      lastProcessedSignalRef.current = collapseSignal;
+
       if (isEditing) {
         setIsEditing(false);
         setEditingSong(null);
