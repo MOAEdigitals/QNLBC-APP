@@ -101,6 +101,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
         setIsPlaying(false);
         setCurrentTime(0);
         audio.currentTime = 0;
+        notifyAudioStopped(trackId);
       }
     };
 
@@ -113,6 +114,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
         setIsPlaying(false);
         setCurrentTime(0);
         audio.currentTime = 0;
+        notifyAudioStopped(trackId);
       }
     };
 
@@ -121,8 +123,10 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
       registerActiveAudio(trackId, audio, () => setIsPlaying(false));
     };
     const onPause = () => {
-      setIsPlaying(false);
-      notifyAudioStopped(trackId);
+      if (!audio.seeking) {
+        setIsPlaying(false);
+        notifyAudioStopped(trackId);
+      }
     };
     const onError = () => {
       setHasError(true);

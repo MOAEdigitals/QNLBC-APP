@@ -131,18 +131,26 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
   }, [id, audioUrl]);
 
-  // Keep onPause reference fresh
+  // Keep onPause and isCurrentlyPlaying references fresh
   const onPauseRef = useRef(onPause);
   useEffect(() => {
     onPauseRef.current = onPause;
   }, [onPause]);
 
-  // Handle HTML Audio element setup
+  const isDraggingRef = useRef(false);
+  const isCurrentlyPlayingRef = useRef(isCurrentlyPlaying);
+  useEffect(() => {
+    isCurrentlyPlayingRef.current = isCurrentlyPlaying;
+  }, [isCurrentlyPlaying]);
+
+  // Handle HTML Audio element setup - only re-create when resolved audio source changes
   useEffect(() => {
     if (!resolvedAudioSrc) {
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
+        try {
+          audioRef.current.pause();
+          audioRef.current.src = '';
+        } catch (_) {}
         audioRef.current = null;
       }
       return;
@@ -178,9 +186,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
 
     const handleTimeUpdate = () => {
-      if (!isDragging) {
+      if (!isDraggingRef.current) {
         setCurrentTime(audio.currentTime);
-        if ((!duration || !isFinite(duration)) && audio.duration && isFinite(audio.duration)) {
+        if (audio.duration && isFinite(audio.duration)) {
           setDuration(audio.duration);
         }
         // Safety check for end of playback if ended event is missed
@@ -200,14 +208,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       }
     };
 
-    const handlePause = () => {
-      if (!audio.loop && audio.duration > 0 && audio.currentTime >= audio.duration - 0.1) {
-        setCurrentTime(0);
-        audio.currentTime = 0;
-      }
-      onPauseRef.current();
-    };
-
     const handleError = () => {
       console.warn(`Audio loading error for track ${id}`);
       setAudioError('Audio playback failed');
@@ -218,7 +218,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     audio.addEventListener('durationchange', handleDurationChange);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('pause', handlePause);
     audio.addEventListener('error', handleError);
 
     return () => {
@@ -230,11 +229,10 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.removeEventListener('durationchange', handleDurationChange);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('error', handleError);
       audioRef.current = null;
     };
-  }, [resolvedAudioSrc, isLooping, isDragging, duration, id]);
+  }, [resolvedAudioSrc, id]);
 
   // Sync Loop state to audio element
   useEffect(() => {
@@ -294,15 +292,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     }
   };
 
-  // Seeking via Scrubber bar click or drag
+  // Seeking via Scrubber bar click or drag - calculates exact position and updates audio
   const handleSeekFromEvent = useCallback(
-    (e: React.MouseEvent<HTMLDivElement> | MouseEvent) => {
+    (clientX: number) => {
       if (!progressBarRef.current || duration <= 0) return;
       const rect = progressBarRef.current.getBoundingClientRect();
-      const clientX = 'clientX' in e ? e.clientX : 0;
       const clickX = Math.max(0, Math.min(clientX - rect.left, rect.width));
       const percentage = clickX / rect.width;
-      const newTime = percentage * duration;
+      const newTime = Math.max(0, Math.min(duration, percentage * duration));
       setCurrentTime(newTime);
       if (audioRef.current) {
         audioRef.current.currentTime = newTime;
@@ -315,20 +312,46 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     e.stopPropagation();
     if (duration <= 0) return;
     setIsDragging(true);
-    handleSeekFromEvent(e);
+    isDraggingRef.current = true;
+    handleSeekFromEvent(e.clientX);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      handleSeekFromEvent(moveEvent);
+      handleSeekFromEvent(moveEvent.clientX);
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
+      isDraggingRef.current = false;
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleProgressBarTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    if (duration <= 0 || !e.touches[0]) return;
+    setIsDragging(true);
+    isDraggingRef.current = true;
+    handleSeekFromEvent(e.touches[0].clientX);
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      if (moveEvent.touches[0]) {
+        handleSeekFromEvent(moveEvent.touches[0].clientX);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      setIsDragging(false);
+      isDraggingRef.current = false;
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
   };
 
   // Download Audio Action
@@ -490,6 +513,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         <div
           ref={progressBarRef}
           onMouseDown={handleProgressBarMouseDown}
+          onTouchStart={handleProgressBarTouchStart}
           className="relative w-full h-4 flex items-center cursor-pointer group py-1"
           role="slider"
           aria-valuenow={currentTime}
