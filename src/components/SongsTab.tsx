@@ -41,7 +41,6 @@ import {
 import {
   resolveMediaUrl,
   getYouTubeEmbedUrl,
-  getGoogleDriveEmbedUrl,
 } from '../utils/mediaUtils';
 
 interface SongsTabProps {
@@ -919,21 +918,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                             );
                           }
 
-                          const driveEmbed = getGoogleDriveEmbedUrl(activeMedia.url);
-                          if (driveEmbed && activeMedia.type === 'video') {
-                            return (
-                              <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                                <iframe
-                                  src={driveEmbed}
-                                  title={activeMedia.name}
-                                  className="w-full h-full border-0"
-                                  allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
-                                  allowFullScreen
-                                />
-                              </div>
-                            );
-                          }
-
                           const resolvedUrl = resolveMediaUrl(activeMedia.url);
 
                           if (activeMedia.type === 'video' || activeMedia.url.startsWith('data:video/')) {
@@ -1304,10 +1288,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 </div>
               </div>
 
-              {/* Title / Description */}
+              {/* Attachment Title */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Track / Attachment Title
+                  Attachment Title
                 </label>
                 <input
                   type="text"
@@ -1316,7 +1300,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   placeholder={
                     attachmentCategory === 'plus_one'
                       ? 'Vocal Track Name'
-                      : 'Backing Track Name'
+                      : 'Track Name'
                   }
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
@@ -1337,7 +1321,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       setAttachmentType('link');
                       setAttachmentLinkOrData(e.target.value);
                     }}
-                    placeholder="https://www.youtube.com/watch?v=... or https://drive.google.com/..."
+                    placeholder="https://www.youtube.com/watch?v=... or direct audio/video link"
                     className="w-full pr-10 pl-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400"
                   />
                   {/* File Upload Trigger Icon at the farthest right */}

@@ -9,23 +9,16 @@ import {
   Mic,
   Download,
   Music,
-  FileAudio,
-  Volume2,
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
-import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStorage';
+import { getAudioFromStorage } from '../utils/audioStorage';
 import {
   registerActiveAudio,
   notifyAudioStopped,
   subscribeToActiveAudioChange,
 } from '../utils/audioCoordinator';
-import {
-  resolveMediaUrl,
-  isGoogleDriveUrl,
-  extractGoogleDriveFileId,
-  getGoogleDriveCandidateUrls,
-} from '../utils/mediaUtils';
+import { resolveMediaUrl } from '../utils/mediaUtils';
 
 export interface PracticeAudioTrackRowProps {
   id: string;
@@ -62,18 +55,13 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(0);
   const [isLooping, setIsLooping] = useState<boolean>(false);
-  const [isLoadingAudio, setIsLoadingAudio] = useState<boolean>(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-
-  const driveCandidateIndexRef = useRef<number>(0);
-  const driveCandidatesRef = useRef<string[]>([]);
+  const [, setIsDragging] = useState<boolean>(false);
 
   const isWebUrl = Boolean(
     audioUrl && (audioUrl.startsWith('http://') || audioUrl.startsWith('https://'))
   );
-  const isDrive = Boolean(audioUrl && isGoogleDriveUrl(audioUrl));
 
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,8 +92,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   useEffect(() => {
     let isCancelled = false;
     setAudioError(null);
-    driveCandidateIndexRef.current = 0;
-    driveCandidatesRef.current = [];
 
     const resolveSource = async () => {
       if (!audioUrl || !audioUrl.trim()) {
@@ -123,7 +109,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
       const raw = audioUrl.trim();
       if (raw.startsWith('indexeddb:')) {
-        setIsLoadingAudio(true);
         const stored = await getAudioFromStorage(id);
         if (!isCancelled) {
           if (stored) {
@@ -132,17 +117,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             setResolvedAudioSrc('');
             setAudioError('Saved audio recording not found on this device');
           }
-          setIsLoadingAudio(false);
-        }
-      } else if (isGoogleDriveUrl(raw)) {
-        const driveId = extractGoogleDriveFileId(raw);
-        if (driveId) {
-          const candidates = getGoogleDriveCandidateUrls(driveId);
-          driveCandidatesRef.current = candidates;
-          driveCandidateIndexRef.current = 0;
-          setResolvedAudioSrc(candidates[0]);
-        } else {
-          setResolvedAudioSrc(resolveMediaUrl(raw));
         }
       } else {
         const clean = resolveMediaUrl(raw);
@@ -157,17 +131,13 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
   }, [id, audioUrl]);
 
-  // Keep onPause and isCurrentlyPlaying references fresh
+  // Keep onPause reference fresh
   const onPauseRef = useRef(onPause);
   useEffect(() => {
     onPauseRef.current = onPause;
   }, [onPause]);
 
   const isDraggingRef = useRef(false);
-  const isCurrentlyPlayingRef = useRef(isCurrentlyPlaying);
-  useEffect(() => {
-    isCurrentlyPlayingRef.current = isCurrentlyPlaying;
-  }, [isCurrentlyPlaying]);
 
   // Handle HTML Audio element setup - only re-create when resolved audio source changes
   useEffect(() => {
@@ -235,26 +205,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
 
     const handleError = () => {
-      // Check if we have alternate candidate URLs (for Google Drive)
-      const nextIdx = driveCandidateIndexRef.current + 1;
-      if (
-        driveCandidatesRef.current.length > 0 &&
-        nextIdx < driveCandidatesRef.current.length
-      ) {
-        driveCandidateIndexRef.current = nextIdx;
-        const nextUrl = driveCandidatesRef.current[nextIdx];
-        setResolvedAudioSrc(nextUrl);
-        return;
-      }
-
       console.warn(`Audio loading error for track ${id}`);
-      if (isDrive) {
-        setAudioError(
-          "Google Drive audio stream restricted. Set Drive sharing to 'Anyone with the link can view' or open directly."
-        );
-      } else {
-        setAudioError('Audio playback failed');
-      }
+      setAudioError('Audio playback failed');
       onPauseRef.current();
     };
 
@@ -276,7 +228,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.removeEventListener('error', handleError);
       audioRef.current = null;
     };
-  }, [resolvedAudioSrc, id, isDrive]);
+  }, [resolvedAudioSrc, id]);
 
   // Sync Loop state to audio element
   useEffect(() => {
@@ -317,7 +269,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     }
   }, [isCurrentlyPlaying, id, onPause]);
 
-  // Open external audio/drive URL in new tab
+  // Open external audio URL in new tab if needed
   const handleOpenExternal = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (audioUrl) {
@@ -329,7 +281,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (audioError && isWebUrl && audioUrl) {
-      // If audio player failed to stream (e.g., Google Drive restricted), open directly
       handleOpenExternal();
       return;
     }
@@ -436,35 +387,40 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   return (
     <div
       id={`practice-audio-track-${id}`}
-      className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 sm:p-5 transition-all hover:border-slate-300 dark:hover:border-slate-700"
+      className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs px-3.5 py-2.5 sm:px-4 sm:py-3 transition-all hover:border-slate-300 dark:hover:border-slate-700"
     >
       {/* Top Row: [🎵 BADGE] PERFORMER NAME ............. [▶ PLAY] [⋮] */}
-      <div className="flex items-center justify-between gap-3 min-w-0">
+      <div className="flex items-center justify-between gap-2.5 min-w-0">
         {/* Left Side: Badge + Performer Name */}
-        <div className="flex items-center space-x-3 min-w-0 flex-1">
+        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
           {/* Pill Badge */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200/80 dark:border-slate-700 shrink-0 select-none">
-            <Music className="w-3.5 h-3.5 text-slate-800 dark:text-slate-200" />
-            <span className="text-xs font-black uppercase tracking-wider">{badgeLabel}</span>
+          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200/80 dark:border-slate-700 shrink-0 select-none">
+            <Music className="w-3 h-3 text-slate-800 dark:text-slate-200" />
+            <span className="text-[11px] font-black uppercase tracking-wider">{badgeLabel}</span>
           </div>
 
           {/* Performer / Assigned Name */}
           <div className="min-w-0 flex-1">
-            <h4 className="text-base sm:text-lg font-black tracking-wide text-slate-900 dark:text-white uppercase truncate">
+            <h4 className="text-sm sm:text-base font-black tracking-wide text-slate-900 dark:text-white uppercase truncate">
               {performerName || 'UNASSIGNED'}
             </h4>
+            {subtitle && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate -mt-0.5">
+                {subtitle}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Right Side: Circular Play Button & 3-Dots Menu */}
-        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
           {/* Play / Pause Circular Button */}
           <button
             type="button"
             id={`play-btn-${id}`}
             onClick={handleTogglePlay}
             aria-label={isCurrentlyPlaying ? 'Pause Audio' : 'Play Audio'}
-            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-md hover:scale-105 active:scale-95 ${
+            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-xs hover:scale-105 active:scale-95 ${
               isCurrentlyPlaying
                 ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                 : hasAudioSource && !audioError
@@ -484,13 +440,13 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             }
           >
             {isCurrentlyPlaying ? (
-              <Pause className="w-5 h-5 fill-current" />
+              <Pause className="w-4 h-4 fill-current" />
             ) : hasAudioSource && !audioError ? (
-              <Play className="w-5 h-5 fill-current ml-0.5" />
+              <Play className="w-4 h-4 fill-current ml-0.5" />
             ) : audioError && isWebUrl ? (
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-3.5 h-3.5" />
             ) : (
-              <Mic className="w-4 h-4" />
+              <Mic className="w-3.5 h-3.5" />
             )}
           </button>
 
@@ -504,14 +460,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 setIsMenuOpen(!isMenuOpen);
               }}
               aria-label="Track options"
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
-              <MoreVertical className="w-5 h-5" />
+              <MoreVertical className="w-4 h-4" />
             </button>
 
             {/* Dropdown Popover */}
             {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
                 {isWebUrl && audioUrl && (
                   <button
                     type="button"
@@ -519,10 +475,10 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                       setIsMenuOpen(false);
                       handleOpenExternal(e);
                     }}
-                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 flex items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 flex items-center gap-2 cursor-pointer transition-colors"
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    <span>{isDrive ? 'Open in Google Drive' : 'Open Link in New Tab'}</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Link in New Tab</span>
                   </button>
                 )}
 
@@ -534,9 +490,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                       setIsMenuOpen(false);
                       onRecordNewAudio();
                     }}
-                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-2 cursor-pointer transition-colors"
                   >
-                    <Mic className="w-4 h-4 text-rose-500" />
+                    <Mic className="w-3.5 h-3.5 text-rose-500" />
                     <span>{hasAudioSource ? 'Re-record Voice Take' : 'Record Voice Audio'}</span>
                   </button>
                 )}
@@ -548,9 +504,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                     setIsMenuOpen(false);
                     onEdit();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <Pencil className="w-4 h-4 text-slate-500" />
+                  <Pencil className="w-3.5 h-3.5 text-slate-500" />
                   <span>Edit Details</span>
                 </button>
 
@@ -558,9 +514,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   <button
                     type="button"
                     onClick={handleDownloadAudio}
-                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
+                    className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
                   >
-                    <Download className="w-4 h-4 text-slate-500" />
+                    <Download className="w-3.5 h-3.5 text-slate-500" />
                     <span>Download Audio</span>
                   </button>
                 )}
@@ -574,9 +530,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                     setIsMenuOpen(false);
                     onDelete();
                   }}
-                  className="w-full px-3.5 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer transition-colors"
+                  className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete Part</span>
                 </button>
               </div>
@@ -585,14 +541,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         </div>
       </div>
 
-      {/* Bottom Row: Scrubber Line + [00:30] ................ [00:56] [🔁] */}
-      <div className="mt-4 pt-1 space-y-1.5">
+      {/* Bottom Row: Compact Scrubber Line + [00:30] ................ [🔁] */}
+      <div className="mt-2 pt-0.5 space-y-1">
         {/* Interactive Scrubber Track Bar */}
         <div
           ref={progressBarRef}
           onMouseDown={handleProgressBarMouseDown}
           onTouchStart={handleProgressBarTouchStart}
-          className="relative w-full h-4 flex items-center cursor-pointer group py-1"
+          className="relative w-full h-3 flex items-center cursor-pointer group py-0.5"
           role="slider"
           aria-valuenow={currentTime}
           aria-valuemin={0}
@@ -600,29 +556,29 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           tabIndex={0}
         >
           {/* Background Track Line */}
-          <div className="w-full h-1 bg-slate-950 dark:bg-slate-600 rounded-full relative overflow-visible">
+          <div className="w-full h-1 bg-slate-900/80 dark:bg-slate-700 rounded-full relative overflow-visible">
             {/* Played Progress Line */}
             <div
               className="absolute left-0 top-0 bottom-0 bg-emerald-500 rounded-full"
               style={{ width: `${progressPercent}%` }}
             />
-            {/* Green Circular Thumb Dot Indicator (matching the image) */}
+            {/* Green Circular Thumb Dot Indicator */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900 shadow-sm transition-transform group-hover:scale-125"
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900 shadow-xs transition-transform group-hover:scale-125"
               style={{ left: `${progressPercent}%` }}
             />
           </div>
         </div>
 
         {/* Countdown Remaining Time & Repeat Loop Button */}
-        <div className="flex items-center justify-between text-xs font-mono text-slate-800 dark:text-slate-200 select-none">
+        <div className="flex items-center justify-between text-[11px] font-mono text-slate-700 dark:text-slate-300 select-none">
           {/* Remaining Countdown Time (starts at total duration, counts down to 00:00) */}
-          <span className="font-bold text-xs tracking-wider" title="Remaining time">
+          <span className="font-semibold tracking-wider" title="Remaining time">
             {formatTime(Math.max(0, duration - currentTime))}
           </span>
 
           {/* Right Side: Loop / Repeat Icon Button */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <button
               type="button"
               id={`loop-btn-${id}`}
@@ -631,7 +587,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 setIsLooping(!isLooping);
               }}
               aria-label={isLooping ? 'Repeat loop enabled' : 'Repeat loop disabled'}
-              className={`p-1 rounded-md transition-colors cursor-pointer flex items-center justify-center ${
+              className={`p-0.5 rounded transition-colors cursor-pointer flex items-center justify-center ${
                 isLooping
                   ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400'
                   : 'text-slate-400 hover:text-slate-800 dark:hover:text-white'
@@ -645,7 +601,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
         {/* Notice if error or no audio */}
         {audioError && (
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-rose-500 dark:text-rose-400 pt-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-rose-500 dark:text-rose-400 pt-0.5">
             <div className="flex items-center gap-1.5 min-w-0">
               <AlertCircle className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{audioError}</span>
@@ -657,7 +613,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline cursor-pointer shrink-0"
               >
                 <ExternalLink className="w-3 h-3" />
-                <span>{isDrive ? 'Open in Drive' : 'Open Link'}</span>
+                <span>Open Link</span>
               </button>
             )}
           </div>

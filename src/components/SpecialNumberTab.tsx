@@ -29,7 +29,6 @@ import {
 import {
   resolveMediaUrl,
   getYouTubeEmbedUrl,
-  getGoogleDriveEmbedUrl,
 } from '../utils/mediaUtils';
 import { AutofillInput } from './AutofillInput';
 import { InlinePracticeAudioPlayer } from './InlinePracticeAudioPlayer';
@@ -157,8 +156,22 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onSaveSong,
   collapseSignal,
 }) => {
-  // Sub-tabs: Schedules (default) or Practice
-  const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>('schedules');
+  // Sub-tabs: Schedules (default) or Practice (persisted in localStorage)
+  const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>(() => {
+    try {
+      const saved = localStorage.getItem('nlbc_special_numbers_subtab_v1');
+      if (saved === 'schedules' || saved === 'practice') {
+        return saved as SpecialNumbersSubTab;
+      }
+    } catch {}
+    return 'schedules';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nlbc_special_numbers_subtab_v1', activeSubTab);
+    } catch {}
+  }, [activeSubTab]);
 
   // Schedules state
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -978,7 +991,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     const finalTitle =
       trackTitle.trim() ||
-      (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Backing Track');
+      (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Track');
 
     const attId =
       editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id
@@ -1928,7 +1941,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                               return (
                                 /* Vertically stacked vocal part player cards */
-                                <div className="grid grid-cols-1 gap-3">
+                                <div className="grid grid-cols-1 gap-2.5">
                                   {partsList.map((part, pIdx) => {
                                     const assignedNames =
                                       part.assignedUsers && part.assignedUsers.length > 0
@@ -1963,12 +1976,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             })()}
                           </div>
 
-                          {/* 3. Rehearsal Tracks & Attachments (Plus-One / Minus-One) */}
-                          <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                          {/* Distinct Clear Separation between Vocal Parts and Rehearsal Tracks */}
+                          <div className="my-5 border-t-2 border-slate-200/80 dark:border-slate-800" />
+
+                          {/* 3. Rehearsal Tracks (Plus-One / Minus-One) */}
+                          <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-                                <Paperclip className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
-                                <span>Rehearsal Tracks & Attachments ({group.customAttachments?.length || 0})</span>
+                                <Music className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
+                                <span>Rehearsal Tracks ({group.customAttachments?.length || 0})</span>
                               </span>
                               <button
                                 type="button"
@@ -1982,7 +1998,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                             {/* Vertically stacked full-width player rows */}
                             {group.customAttachments && group.customAttachments.length > 0 && (
-                              <div className="grid grid-cols-1 gap-3">
+                              <div className="grid grid-cols-1 gap-2.5">
                                 {group.customAttachments.map((att, aIdx) => {
                                   const isPlusOne = att.category === 'plus_one';
                                   const rawUrl = att.url || att.urlOrData || '';
@@ -1996,22 +2012,22 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                     return (
                                       <div
                                         key={att.id || `track-${aIdx}`}
-                                        className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs p-4 sm:p-5 transition-all flex items-center justify-between gap-3"
+                                        className="w-full bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs px-3.5 py-2.5 sm:px-4 sm:py-3 transition-all flex items-center justify-between gap-2.5"
                                       >
-                                        <div className="flex items-center space-x-3 min-w-0 flex-1">
-                                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 select-none">
-                                            <FileVideo className="w-3.5 h-3.5" />
-                                            <span className="text-xs font-black uppercase tracking-wider">
+                                        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+                                          <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 shrink-0 select-none">
+                                            <FileVideo className="w-3 h-3" />
+                                            <span className="text-[11px] font-black uppercase tracking-wider">
                                               {isPlusOne ? 'VIDEO (+1)' : 'VIDEO (-1)'}
                                             </span>
                                           </div>
                                           <div className="min-w-0 flex-1">
-                                            <h4 className="text-base font-black tracking-wide text-slate-900 dark:text-white uppercase truncate">
+                                            <h4 className="text-sm sm:text-base font-black tracking-wide text-slate-900 dark:text-white uppercase truncate">
                                               {att.name || 'VIDEO TRACK'}
                                             </h4>
                                           </div>
                                         </div>
-                                        <div className="flex items-center space-x-2 shrink-0">
+                                        <div className="flex items-center space-x-1.5 shrink-0">
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -2024,26 +2040,26 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                                 groupId: group.id,
                                               });
                                             }}
-                                            className="px-3.5 py-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md transition-transform hover:scale-105"
+                                            className="px-3 py-1.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs transition-transform hover:scale-105"
                                           >
-                                            <FileVideo className="w-4 h-4" />
-                                            <span>Watch Video</span>
+                                            <FileVideo className="w-3.5 h-3.5" />
+                                            <span>Watch</span>
                                           </button>
                                           <button
                                             type="button"
                                             onClick={() => handleOpenAddTrackModal(group, aIdx)}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                                             title="Edit Track"
                                           >
-                                            <Pencil className="w-4 h-4" />
+                                            <Pencil className="w-3.5 h-3.5" />
                                           </button>
                                           <button
                                             type="button"
                                             onClick={(e) => handleDeleteTrack(group, aIdx, e)}
-                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                            className="w-7 h-7 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
                                             title="Delete Track"
                                           >
-                                            <Trash2 className="w-4 h-4" />
+                                            <Trash2 className="w-3.5 h-3.5" />
                                           </button>
                                         </div>
                                       </div>
@@ -2074,10 +2090,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               </div>
                             )}
 
-                            {/* REHEARSAL VIDEO PLAYER (Appears directly under Rehearsal Tracks & Attachments when triggered) */}
+                            {/* REHEARSAL VIDEO PLAYER (Appears directly under Rehearsal Tracks when triggered) */}
                             {activePracticeMedia &&
                               activePracticeMedia.groupId === group.id &&
-                              (activePracticeMedia.type === 'video' || getYouTubeEmbedUrl(activePracticeMedia.url) || getGoogleDriveEmbedUrl(activePracticeMedia.url)) && (
+                              (activePracticeMedia.type === 'video' || getYouTubeEmbedUrl(activePracticeMedia.url)) && (
                                 <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                                   <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                                     <div className="flex items-center space-x-2 min-w-0">
@@ -2129,21 +2145,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       );
                                     }
 
-                                    const driveEmbed = getGoogleDriveEmbedUrl(activePracticeMedia.url);
-                                    if (driveEmbed) {
-                                      return (
-                                        <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-                                          <iframe
-                                            src={driveEmbed}
-                                            title={activePracticeMedia.title}
-                                            className="w-full h-full border-0"
-                                            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-                                            allowFullScreen
-                                          />
-                                        </div>
-                                      );
-                                    }
-
                                     return (
                                       <video
                                         ref={(el) => {
@@ -2160,7 +2161,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 </div>
                               )}
 
-                            {/* REHEARSAL AUDIO PLAYER (Appears directly under Rehearsal Tracks & Attachments when triggered) */}
+                            {/* REHEARSAL AUDIO PLAYER (Appears directly under Rehearsal Tracks when triggered) */}
                             {activeInlineTrack &&
                               activeInlineTrack.groupId === group.id &&
                               activeInlineTrack.trackCategory === 'attachment' && (
@@ -2592,10 +2593,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </div>
               </div>
 
-              {/* Track / Attachment Title */}
+              {/* Attachment Title */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Track / Attachment Title
+                  Attachment Title
                 </label>
                 <input
                   type="text"
@@ -2604,7 +2605,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   placeholder={
                     trackCategory === 'plus_one'
                       ? 'Vocal Reference Track Name'
-                      : 'Backing Track Name'
+                      : 'Track Name'
                   }
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
@@ -2652,7 +2653,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Paste YouTube, Google Drive, or audio links, or click paperclip to attach files. (For Google Drive, set sharing to 'Anyone with the link can view').
+                  Paste YouTube or direct audio/video links, or click paperclip to attach files.
                 </p>
 
                 {trackFileName && (
@@ -2955,7 +2956,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Paste audio/Google Drive URL or click paperclip to attach files from device. (For Google Drive links, set General Access to 'Anyone with the link can view').
+                      Paste direct audio/media URL or click paperclip to attach files from device.
                     </p>
 
                     {vocalPartFileName && (

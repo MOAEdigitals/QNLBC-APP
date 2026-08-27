@@ -255,7 +255,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
               {isVocalPart ? 'Now Playing Vocal Part' : 'Now Playing Rehearsal Track'}
             </div>
             <div className="text-xs font-bold truncate text-white">
-              {trackLabel || (isVocalPart ? 'Vocal Stem Track' : 'Backing Track')}
+              {trackLabel || (isVocalPart ? 'Vocal Stem Track' : 'Track Name')}
             </div>
           </div>
         </div>

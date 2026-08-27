@@ -653,6 +653,7 @@ export default function App() {
             onDeleteVisitor={handleDeleteVisitor}
             onSaveSpecialRecognition={handleSaveSpecialRecognition}
             onDeleteSpecialRecognition={handleDeleteSpecialRecognition}
+            collapseSignal={collapseSignals.recognitions}
           />
         </div>
 

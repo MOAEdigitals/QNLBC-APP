@@ -1,75 +1,17 @@
 /**
  * Universal Media URL Resolver & Helper Utilities
- * Converts Google Drive, Dropbox, YouTube, and cloud URLs to direct playable audio/video streams or embed links.
+ * Converts Dropbox, direct audio/video streams, or embed links.
  */
 
 /**
- * Checks if a string is a Google Drive URL
- */
-export function isGoogleDriveUrl(url?: string): boolean {
-  if (!url || typeof url !== 'string') return false;
-  const lower = url.toLowerCase();
-  return lower.includes('drive.google.com') || lower.includes('docs.google.com');
-}
-
-/**
- * Extracts Google Drive file ID from various Google Drive URL formats:
- * - https://drive.google.com/file/d/FILE_ID/view?usp=sharing
- * - https://drive.google.com/file/d/FILE_ID/view
- * - https://drive.google.com/open?id=FILE_ID
- * - https://drive.google.com/uc?id=FILE_ID
- * - https://docs.google.com/file/d/FILE_ID/edit
- * - https://drive.google.com/file/d/FILE_ID
- */
-export function extractGoogleDriveFileId(url: string): string | null {
-  if (!url || typeof url !== 'string') return null;
-  const trimmed = url.trim();
-
-  // Pattern 1: /file/d/{id} or /d/{id}
-  const fileDMatch = trimmed.match(/\/(?:file\/d|d)\/([a-zA-Z0-9_-]+)/i);
-  if (fileDMatch && fileDMatch[1]) {
-    return fileDMatch[1];
-  }
-
-  // Pattern 2: id={id} query parameter
-  const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
-  if (idMatch && idMatch[1]) {
-    return idMatch[1];
-  }
-
-  return null;
-}
-
-/**
- * Returns alternate candidate URLs for streaming a Google Drive audio file
- */
-export function getGoogleDriveCandidateUrls(driveId: string): string[] {
-  return [
-    `https://drive.google.com/uc?export=download&id=${driveId}`,
-    `https://docs.google.com/uc?export=open&id=${driveId}`,
-    `https://drive.usercontent.google.com/download?id=${driveId}&export=download`,
-    `https://lh3.googleusercontent.com/d/${driveId}`,
-  ];
-}
-
-/**
- * Converts a Google Drive link or Dropbox link to a direct streaming/download URL
+ * Converts Dropbox or direct link to a direct streaming/download URL
  * suitable for HTML5 <audio> and <video> tags.
  */
 export function resolveMediaUrl(rawUrl?: string): string {
   if (!rawUrl || typeof rawUrl !== 'string') return '';
   const trimmed = rawUrl.trim();
 
-  // 1. Google Drive Links
-  if (isGoogleDriveUrl(trimmed)) {
-    const driveId = extractGoogleDriveFileId(trimmed);
-    if (driveId) {
-      // Direct streamable Google Drive URL
-      return `https://drive.google.com/uc?export=download&id=${driveId}`;
-    }
-  }
-
-  // 2. Dropbox Links: replace www.dropbox.com with dl.dropboxusercontent.com
+  // Dropbox Links: replace www.dropbox.com with dl.dropboxusercontent.com
   if (trimmed.includes('dropbox.com')) {
     return trimmed
       .replace('www.dropbox.com', 'dl.dropboxusercontent.com')
@@ -78,21 +20,6 @@ export function resolveMediaUrl(rawUrl?: string): string {
   }
 
   return trimmed;
-}
-
-/**
- * Returns an embeddable URL for Google Drive video/audio files (for <iframe> preview)
- */
-export function getGoogleDriveEmbedUrl(rawUrl?: string): string | null {
-  if (!rawUrl || typeof rawUrl !== 'string') return null;
-  const trimmed = rawUrl.trim();
-  if (trimmed.includes('drive.google.com') || trimmed.includes('docs.google.com')) {
-    const driveId = extractGoogleDriveFileId(trimmed);
-    if (driveId) {
-      return `https://drive.google.com/file/d/${driveId}/preview`;
-    }
-  }
-  return null;
 }
 
 /**
@@ -106,7 +33,7 @@ export function getYouTubeEmbedUrl(url?: string): string | null {
 }
 
 /**
- * Determines whether a URL is a video (YouTube, Google Drive preview, or direct video file)
+ * Determines whether a URL is a video (YouTube or direct video file)
  */
 export function isVideoUrl(url?: string): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -121,3 +48,4 @@ export function isVideoUrl(url?: string): boolean {
     lower.endsWith('.mkv')
   );
 }
+

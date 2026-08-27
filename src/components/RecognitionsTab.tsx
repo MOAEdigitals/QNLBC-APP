@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   RecognitionsSubTab,
   BirthdayCelebrant,
@@ -47,6 +47,7 @@ interface RecognitionsTabProps {
   onDeleteVisitor: (id: string) => void;
   onSaveSpecialRecognition: (item: SpecialRecognition) => void;
   onDeleteSpecialRecognition: (id: string) => void;
+  collapseSignal?: number;
 }
 
 export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
@@ -62,14 +63,42 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   onDeleteVisitor,
   onSaveSpecialRecognition,
   onDeleteSpecialRecognition,
+  collapseSignal,
 }) => {
-  const [subTab, setSubTab] = useState<RecognitionsSubTab>('birthdays');
+  const lastProcessedSignalRef = React.useRef<number | undefined>(collapseSignal);
+  const [subTab, setSubTab] = useState<RecognitionsSubTab>(() => {
+    try {
+      const saved = localStorage.getItem('nlbc_recognitions_subtab_v1');
+      const valid: RecognitionsSubTab[] = ['birthdays', 'anniversaries', 'visitors', 'special'];
+      if (saved && valid.includes(saved as RecognitionsSubTab)) {
+        return saved as RecognitionsSubTab;
+      }
+    } catch {}
+    return 'birthdays';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nlbc_recognitions_subtab_v1', subTab);
+    } catch {}
+  }, [subTab]);
 
   // Modal States
   const [isAddingBirthday, setIsAddingBirthday] = useState(false);
   const [isAddingAnniversary, setIsAddingAnniversary] = useState(false);
   const [isAddingVisitor, setIsAddingVisitor] = useState(false);
   const [isAddingSpecial, setIsAddingSpecial] = useState(false);
+
+  // Collapse/dismiss modals on bottom-nav tap
+  useEffect(() => {
+    if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
+      lastProcessedSignalRef.current = collapseSignal;
+      setIsAddingBirthday(false);
+      setIsAddingAnniversary(false);
+      setIsAddingVisitor(false);
+      setIsAddingSpecial(false);
+    }
+  }, [collapseSignal]);
 
   // Form states
   const [bdayForm, setBdayForm] = useState({
