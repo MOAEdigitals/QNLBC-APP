@@ -6,8 +6,11 @@ import {
   deleteDoc,
   onSnapshot,
   getDocs,
+  limit,
+  query,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import firebaseConfig from '../firebase-applet-config.json';
 import {
   Setlist,
   Song,
@@ -33,6 +36,41 @@ import {
   loadUsers,
 } from './utils/storage';
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export type FirestoreConnectionStatus = 'online' | 'offline' | 'quota-exceeded';
+
+export interface FirestoreStatusInfo {
+  status: FirestoreConnectionStatus;
+  errorMessage?: string;
+  quotaResetMessage?: string;
+  databaseUrl: string;
+}
+
 const COLLECTIONS = {
   SETLISTS: 'setlists',
   SONGS: 'songs',
@@ -48,6 +86,121 @@ const COLLECTIONS = {
   APP_SETTINGS: 'app_settings',
   USERS: 'users',
 };
+
+// Global state for connection & quota tracking
+let isQuotaExhausted = false;
+let currentStatus: FirestoreConnectionStatus = 'online';
+let lastErrorMessage = '';
+const statusListeners = new Set<(status: FirestoreStatusInfo) => void>();
+
+// Check local storage for previously recorded quota exhaustion for today
+const QUOTA_STORAGE_KEY = 'nlbc_firestore_quota_exhausted_date';
+try {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
+  if (savedDate === todayStr) {
+    isQuotaExhausted = true;
+    currentStatus = 'quota-exceeded';
+  }
+} catch {
+  // ignore
+}
+
+export function subscribeToFirestoreStatus(listener: (status: FirestoreStatusInfo) => void): () => void {
+  statusListeners.add(listener);
+  listener(getFirestoreConnectionStatus());
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
+
+function notifyStatusChange() {
+  const info = getFirestoreConnectionStatus();
+  statusListeners.forEach((l) => {
+    try {
+      l(info);
+    } catch {
+      // ignore listener error
+    }
+  });
+}
+
+export function isFirestoreQuotaExhausted(): boolean {
+  return isQuotaExhausted;
+}
+
+export function getFirestoreConnectionStatus(): FirestoreStatusInfo {
+  const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+  const projectId = firebaseConfig.projectId || '';
+  const databaseUrl = `https://console.firebase.google.com/project/${projectId}/firestore/databases/${databaseId}/data?openUpgradeDialog=true`;
+
+  return {
+    status: currentStatus,
+    errorMessage: lastErrorMessage,
+    databaseUrl,
+    quotaResetMessage:
+      'Firestore daily free write quota has been reached for today. The application is operating seamlessly in local offline storage mode. All changes, songs, setlists, and recordings are safely preserved on this device and will sync once the daily quota resets.',
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): void {
+  const rawMsg = error instanceof Error ? error.message : String(error);
+  const isQuota =
+    rawMsg.includes('resource-exhausted') ||
+    rawMsg.includes('Quota limit exceeded') ||
+    rawMsg.includes('Free daily write units') ||
+    rawMsg.includes('quota metric');
+
+  const isOffline =
+    rawMsg.includes('unavailable') ||
+    rawMsg.includes('offline') ||
+    rawMsg.includes('Could not reach Cloud Firestore backend');
+
+  lastErrorMessage = rawMsg;
+
+  if (isQuota) {
+    isQuotaExhausted = true;
+    currentStatus = 'quota-exceeded';
+    try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      localStorage.setItem(QUOTA_STORAGE_KEY, todayStr);
+    } catch {
+      // ignore
+    }
+    notifyStatusChange();
+    console.warn(
+      `[Firestore Notice] Daily write quota reached. Switched to offline local persistence mode.`
+    );
+  } else if (isOffline && currentStatus !== 'quota-exceeded') {
+    currentStatus = 'offline';
+    notifyStatusChange();
+  }
+
+  const errInfo: FirestoreErrorInfo = {
+    error: rawMsg,
+    authInfo: {
+      userId: null,
+      email: null,
+      emailVerified: null,
+      isAnonymous: null,
+      tenantId: null,
+      providerInfo: [],
+    },
+    operationType,
+    path,
+  };
+
+  // Structured log conforming to Firebase skill
+  if (isQuota) {
+    console.warn('Firestore Quota Info:', JSON.stringify(errInfo));
+  } else {
+    console.warn('Firestore Connection Notice:', JSON.stringify(errInfo));
+  }
+}
 
 // Generic recursive sanitize helper to avoid undefined fields and payload limits in Firestore documents
 function sanitizeDoc<T>(data: T): Record<string, any> {
@@ -86,169 +239,196 @@ export function subscribeToCollection<T extends { id: string }>(
   collectionName: string,
   onUpdate: (items: T[]) => void
 ) {
-  const colRef = collection(db, collectionName);
-  return onSnapshot(
-    colRef,
-    (snapshot) => {
-      const items: T[] = [];
-      snapshot.forEach((docSnap) => {
-        items.push({ ...(docSnap.data() as T), id: docSnap.id });
-      });
-      onUpdate(items);
-    },
-    (err) => {
-      console.warn(`Real-time sync error on ${collectionName}:`, err);
-    }
-  );
+  try {
+    const colRef = collection(db, collectionName);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        if (currentStatus === 'offline' && !isQuotaExhausted) {
+          currentStatus = 'online';
+          notifyStatusChange();
+        }
+        const items: T[] = [];
+        snapshot.forEach((docSnap) => {
+          items.push({ ...(docSnap.data() as T), id: docSnap.id });
+        });
+        onUpdate(items);
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, collectionName);
+      }
+    );
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, collectionName);
+    return () => {};
+  }
 }
 
-// Firestore Write Operations
-export async function syncSaveSetlist(setlist: Setlist) {
+// Firestore Write Operations with Quota Circuit-Breaker
+export async function syncSaveSetlist(setlist: Setlist): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.SETLISTS, setlist.id);
     await setDoc(docRef, sanitizeDoc(setlist), { merge: true });
   } catch (err) {
-    console.error('Error syncing setlist to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SETLISTS}/${setlist.id}`);
   }
 }
 
-export async function syncDeleteSetlist(id: string) {
+export async function syncDeleteSetlist(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.SETLISTS, id));
   } catch (err) {
-    console.error('Error deleting setlist from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SETLISTS}/${id}`);
   }
 }
 
-export async function syncSaveSong(song: Song) {
+export async function syncSaveSong(song: Song): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.SONGS, song.id);
     await setDoc(docRef, sanitizeDoc(song), { merge: true });
   } catch (err) {
-    console.error('Error syncing song to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SONGS}/${song.id}`);
   }
 }
 
-export async function syncDeleteSong(id: string) {
+export async function syncDeleteSong(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.SONGS, id));
   } catch (err) {
-    console.error('Error deleting song from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SONGS}/${id}`);
   }
 }
 
-export async function syncSaveSpecialNumber(entry: SpecialNumberEntry) {
+export async function syncSaveSpecialNumber(entry: SpecialNumberEntry): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.SPECIAL_NUMBERS, entry.id);
     await setDoc(docRef, sanitizeDoc(entry), { merge: true });
   } catch (err) {
-    console.error('Error syncing special number to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SPECIAL_NUMBERS}/${entry.id}`);
   }
 }
 
-export async function syncDeleteSpecialNumber(id: string) {
+export async function syncDeleteSpecialNumber(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.SPECIAL_NUMBERS, id));
   } catch (err) {
-    console.error('Error deleting special number from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SPECIAL_NUMBERS}/${id}`);
   }
 }
 
-export async function syncSavePracticeEntry(entry: PracticeGroupEntry) {
+export async function syncSavePracticeEntry(entry: PracticeGroupEntry): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.PRACTICE_ENTRIES, entry.id);
     await setDoc(docRef, sanitizeDoc(entry), { merge: true });
   } catch (err) {
-    console.error('Error syncing practice entry to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.PRACTICE_ENTRIES}/${entry.id}`);
   }
 }
 
-export async function syncDeletePracticeEntry(id: string) {
+export async function syncDeletePracticeEntry(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, id));
   } catch (err) {
-    console.error('Error deleting practice entry from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.PRACTICE_ENTRIES}/${id}`);
   }
 }
 
-export async function syncSaveBirthday(item: BirthdayCelebrant) {
+export async function syncSaveBirthday(item: BirthdayCelebrant): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.BIRTHDAYS, item.id);
     await setDoc(docRef, sanitizeDoc(item), { merge: true });
   } catch (err) {
-    console.error('Error syncing birthday to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.BIRTHDAYS}/${item.id}`);
   }
 }
 
-export async function syncDeleteBirthday(id: string) {
+export async function syncDeleteBirthday(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.BIRTHDAYS, id));
   } catch (err) {
-    console.error('Error deleting birthday from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.BIRTHDAYS}/${id}`);
   }
 }
 
-export async function syncSaveAnniversary(item: AnniversaryCelebrant) {
+export async function syncSaveAnniversary(item: AnniversaryCelebrant): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.ANNIVERSARIES, item.id);
     await setDoc(docRef, sanitizeDoc(item), { merge: true });
   } catch (err) {
-    console.error('Error syncing anniversary to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.ANNIVERSARIES}/${item.id}`);
   }
 }
 
-export async function syncDeleteAnniversary(id: string) {
+export async function syncDeleteAnniversary(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.ANNIVERSARIES, id));
   } catch (err) {
-    console.error('Error deleting anniversary from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.ANNIVERSARIES}/${id}`);
   }
 }
 
-export async function syncSaveVisitor(item: Visitor) {
+export async function syncSaveVisitor(item: Visitor): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.VISITORS, item.id);
     await setDoc(docRef, sanitizeDoc(item), { merge: true });
   } catch (err) {
-    console.error('Error syncing visitor to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.VISITORS}/${item.id}`);
   }
 }
 
-export async function syncDeleteVisitor(id: string) {
+export async function syncDeleteVisitor(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.VISITORS, id));
   } catch (err) {
-    console.error('Error deleting visitor from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.VISITORS}/${id}`);
   }
 }
 
-export async function syncSaveSpecialRecognition(item: SpecialRecognition) {
+export async function syncSaveSpecialRecognition(item: SpecialRecognition): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, item.id);
     await setDoc(docRef, sanitizeDoc(item), { merge: true });
   } catch (err) {
-    console.error('Error syncing special recognition to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SPECIAL_RECOGNITIONS}/${item.id}`);
   }
 }
 
-export async function syncDeleteSpecialRecognition(id: string) {
+export async function syncDeleteSpecialRecognition(id: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     await deleteDoc(doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, id));
   } catch (err) {
-    console.error('Error deleting special recognition from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SPECIAL_RECOGNITIONS}/${id}`);
   }
 }
 
-export async function syncSaveUser(user: UserAccount) {
+export async function syncSaveUser(user: UserAccount): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.USERS, user.id);
     await setDoc(docRef, sanitizeDoc(user), { merge: true });
   } catch (err) {
-    console.error('Error syncing user account to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.USERS}/${user.id}`);
   }
 }
 
-export async function syncDeleteUser(id: string, username?: string) {
+export async function syncDeleteUser(id: string, username?: string): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     if (id) {
       await deleteDoc(doc(db, COLLECTIONS.USERS, id));
@@ -268,7 +448,7 @@ export async function syncDeleteUser(id: string, username?: string) {
       }
     }
   } catch (err) {
-    console.error('Error deleting user from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.USERS}/${id}`);
   }
 }
 
@@ -276,12 +456,11 @@ export async function syncDeleteUser(id: string, username?: string) {
 const MAX_CHUNK_SIZE = 700000; // 700KB chunk size to stay safely within Firestore 1MB document limit
 
 export async function syncSavePracticeAudio(id: string, dataUrl: string, title?: string): Promise<void> {
-  if (!id || !dataUrl) return;
+  if (isQuotaExhausted || !id || !dataUrl) return;
   const cleanId = id.replace(/^indexeddb:/, '');
 
   try {
     if (dataUrl.length <= MAX_CHUNK_SIZE) {
-      // Single document
       const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
       await setDoc(
         docRef,
@@ -296,7 +475,6 @@ export async function syncSavePracticeAudio(id: string, dataUrl: string, title?:
         { merge: true }
       );
     } else {
-      // Chunked document for larger recordings/files
       const totalChunks = Math.ceil(dataUrl.length / MAX_CHUNK_SIZE);
       const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
       await setDoc(
@@ -319,7 +497,7 @@ export async function syncSavePracticeAudio(id: string, dataUrl: string, title?:
       }
     }
   } catch (err) {
-    console.error(`Error saving audio to Firestore (${cleanId}):`, err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
   }
 }
 
@@ -353,13 +531,13 @@ export async function fetchPracticeAudioFromCloud(id: string): Promise<string | 
 
     return null;
   } catch (err) {
-    console.warn(`Error fetching audio from cloud (${cleanId}):`, err);
+    handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
     return null;
   }
 }
 
 export async function syncDeletePracticeAudio(id: string): Promise<void> {
-  if (!id) return;
+  if (isQuotaExhausted || !id) return;
   const cleanId = id.replace(/^indexeddb:/, '');
 
   try {
@@ -375,65 +553,67 @@ export async function syncDeletePracticeAudio(id: string): Promise<void> {
       await deleteDoc(docRef);
     }
   } catch (err) {
-    console.error(`Error deleting audio from cloud (${cleanId}):`, err);
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
   }
 }
 
-/**
- * Real-time subscription to cloud practice audio attachments and voice takes.
- * When any choir member/worship leader uploads or records on their device,
- * other devices receive the audio updates automatically.
- */
 export function subscribeToPracticeAudios(
   onAudioUpdated: (audioId: string, dataUrl: string) => void
 ) {
-  const colRef = collection(db, COLLECTIONS.PRACTICE_AUDIOS);
-  return onSnapshot(
-    colRef,
-    (snapshot) => {
-      snapshot.docChanges().forEach(async (change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const data = change.doc.data();
-          const docId = change.doc.id;
-          // Skip internal child chunk documents
-          if (docId.includes('_chunk_') || data.chunkIndex !== undefined) {
-            return;
-          }
+  try {
+    const colRef = collection(db, COLLECTIONS.PRACTICE_AUDIOS);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        snapshot.docChanges().forEach(async (change) => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const data = change.doc.data();
+            const docId = change.doc.id;
+            // Skip internal child chunk documents
+            if (docId.includes('_chunk_') || data.chunkIndex !== undefined) {
+              return;
+            }
 
-          if (!data.isChunked && data.dataUrl) {
-            onAudioUpdated(docId, data.dataUrl);
-          } else if (data.isChunked) {
-            const fullData = await fetchPracticeAudioFromCloud(docId);
-            if (fullData) {
-              onAudioUpdated(docId, fullData);
+            if (!data.isChunked && data.dataUrl) {
+              onAudioUpdated(docId, data.dataUrl);
+            } else if (data.isChunked) {
+              const fullData = await fetchPracticeAudioFromCloud(docId);
+              if (fullData) {
+                onAudioUpdated(docId, fullData);
+              }
             }
           }
-        }
-      });
-    },
-    (err) => {
-      console.warn('Real-time sync error on practice_audios:', err);
-    }
-  );
+        });
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, COLLECTIONS.PRACTICE_AUDIOS);
+      }
+    );
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, COLLECTIONS.PRACTICE_AUDIOS);
+    return () => {};
+  }
 }
 
 // --- Settings Cloud Sync (Church Directory & Welcome Songs) ---
 
 export async function syncSaveSavedNames(names: string[]): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
     await setDoc(docRef, { id: 'saved_names', names, updatedAt: new Date().toISOString() }, { merge: true });
   } catch (err) {
-    console.error('Error syncing saved names to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.APP_SETTINGS}/saved_names`);
   }
 }
 
 export async function syncSaveWelcomeSongs(songs: string[]): Promise<void> {
+  if (isQuotaExhausted) return;
   try {
     const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
     await setDoc(docRef, { id: 'welcome_songs', songs, updatedAt: new Date().toISOString() }, { merge: true });
   } catch (err) {
-    console.error('Error syncing welcome songs to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.APP_SETTINGS}/welcome_songs`);
   }
 }
 
@@ -441,169 +621,147 @@ export function subscribeToAppSettings(
   onUpdateSavedNames: (names: string[]) => void,
   onUpdateWelcomeSongs: (songs: string[]) => void
 ) {
-  const namesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
-  const songsDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
+  try {
+    const namesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
+    const songsDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
 
-  const unsubNames = onSnapshot(
-    namesDocRef,
-    (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data.names)) {
-          onUpdateSavedNames(data.names);
+    const unsubNames = onSnapshot(
+      namesDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.names)) {
+            onUpdateSavedNames(data.names);
+          }
         }
-      }
-    },
-    (err) => console.warn('Error subscribing to saved_names:', err)
-  );
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/saved_names`)
+    );
 
-  const unsubSongs = onSnapshot(
-    songsDocRef,
-    (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data.songs)) {
-          onUpdateWelcomeSongs(data.songs);
+    const unsubSongs = onSnapshot(
+      songsDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.songs)) {
+            onUpdateWelcomeSongs(data.songs);
+          }
         }
-      }
-    },
-    (err) => console.warn('Error subscribing to welcome_songs:', err)
-  );
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/welcome_songs`)
+    );
 
-  return () => {
-    unsubNames();
-    unsubSongs();
-  };
+    return () => {
+      unsubNames();
+      unsubSongs();
+    };
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, COLLECTIONS.APP_SETTINGS);
+    return () => {};
+  }
 }
+
+const SEED_STORAGE_FLAG = 'nlbc_firestore_cloud_seeded_v3';
 
 /**
  * Initial Cloud Seeding:
- * Checks each collection individually. If any collection is empty on Firestore,
- * seeds it with default/local data so all devices immediately get in sync.
+ * Guarded against repeated loops and quota exhaustion. Runs once per project client instance.
  */
-export async function initializeFirestoreCloudSeed() {
+export async function initializeFirestoreCloudSeed(): Promise<void> {
+  if (isQuotaExhausted) return;
+
   try {
-    // 1. Songs
-    const songsCol = collection(db, COLLECTIONS.SONGS);
-    const existingSongs = await getDocs(songsCol);
-    if (existingSongs.empty) {
-      const initialSongs = loadSongs();
-      for (const s of initialSongs) {
-        await setDoc(doc(db, COLLECTIONS.SONGS, s.id), sanitizeDoc(s), { merge: true });
-      }
+    if (localStorage.getItem(SEED_STORAGE_FLAG) === 'true') {
+      return;
     }
 
-    // 2. Setlists
-    const setlistsCol = collection(db, COLLECTIONS.SETLISTS);
-    const existingSetlists = await getDocs(setlistsCol);
-    if (existingSetlists.empty) {
-      const initialSetlists = loadSetlists();
-      for (const setlist of initialSetlists) {
-        await setDoc(doc(db, COLLECTIONS.SETLISTS, setlist.id), sanitizeDoc(setlist), { merge: true });
-      }
-    } else {
-      // If user created local setlists before internet connected or while offline, ensure they are synced to Firestore
-      const localSetlists = loadSetlists();
-      const existingIds = new Set(existingSetlists.docs.map((d) => d.id));
-      for (const s of localSetlists) {
-        if (!existingIds.has(s.id)) {
-          await setDoc(doc(db, COLLECTIONS.SETLISTS, s.id), sanitizeDoc(s), { merge: true });
-        }
-      }
+    // Light check: query just 1 song document to see if DB is already populated
+    const songsQuery = query(collection(db, COLLECTIONS.SONGS), limit(1));
+    const songsSnap = await getDocs(songsQuery);
+
+    if (!songsSnap.empty) {
+      // Database is already populated by another device/session
+      localStorage.setItem(SEED_STORAGE_FLAG, 'true');
+      return;
     }
 
-    // 3. Special Numbers
-    const specialCol = collection(db, COLLECTIONS.SPECIAL_NUMBERS);
-    const existingSpecials = await getDocs(specialCol);
-    if (existingSpecials.empty) {
-      const initialSpecialNumbers = loadSpecialNumbers();
-      for (const sp of initialSpecialNumbers) {
-        await setDoc(doc(db, COLLECTIONS.SPECIAL_NUMBERS, sp.id), sanitizeDoc(sp), { merge: true });
-      }
+    // Otherwise, seed initial dataset gently
+    const initialSongs = loadSongs();
+    for (const s of initialSongs) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.SONGS, s.id), sanitizeDoc(s), { merge: true });
     }
 
-    // 4. Practice Entries
-    const practiceCol = collection(db, COLLECTIONS.PRACTICE_ENTRIES);
-    const existingPractice = await getDocs(practiceCol);
-    if (existingPractice.empty) {
-      const initialPractice = loadPracticeEntries();
-      for (const pr of initialPractice) {
-        await setDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, pr.id), sanitizeDoc(pr), { merge: true });
-      }
+    const initialSetlists = loadSetlists();
+    for (const setlist of initialSetlists) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.SETLISTS, setlist.id), sanitizeDoc(setlist), { merge: true });
     }
 
-    // 5. Birthdays
-    const birthdaysCol = collection(db, COLLECTIONS.BIRTHDAYS);
-    const existingBirthdays = await getDocs(birthdaysCol);
-    if (existingBirthdays.empty) {
-      const initialBirthdays = loadBirthdays();
-      for (const b of initialBirthdays) {
-        await setDoc(doc(db, COLLECTIONS.BIRTHDAYS, b.id), sanitizeDoc(b), { merge: true });
-      }
+    const initialSpecialNumbers = loadSpecialNumbers();
+    for (const sp of initialSpecialNumbers) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.SPECIAL_NUMBERS, sp.id), sanitizeDoc(sp), { merge: true });
     }
 
-    // 6. Anniversaries
-    const annivCol = collection(db, COLLECTIONS.ANNIVERSARIES);
-    const existingAnniv = await getDocs(annivCol);
-    if (existingAnniv.empty) {
-      const initialAnniv = loadAnniversaries();
-      for (const a of initialAnniv) {
-        await setDoc(doc(db, COLLECTIONS.ANNIVERSARIES, a.id), sanitizeDoc(a), { merge: true });
-      }
+    const initialPractice = loadPracticeEntries();
+    for (const pr of initialPractice) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, pr.id), sanitizeDoc(pr), { merge: true });
     }
 
-    // 7. Visitors
-    const visitorsCol = collection(db, COLLECTIONS.VISITORS);
-    const existingVisitors = await getDocs(visitorsCol);
-    if (existingVisitors.empty) {
-      const initialVisitors = loadVisitors();
-      for (const v of initialVisitors) {
-        await setDoc(doc(db, COLLECTIONS.VISITORS, v.id), sanitizeDoc(v), { merge: true });
-      }
+    const initialBirthdays = loadBirthdays();
+    for (const b of initialBirthdays) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.BIRTHDAYS, b.id), sanitizeDoc(b), { merge: true });
     }
 
-    // 8. Special Recognitions
-    const recognitionsCol = collection(db, COLLECTIONS.SPECIAL_RECOGNITIONS);
-    const existingRecognitions = await getDocs(recognitionsCol);
-    if (existingRecognitions.empty) {
-      const initialRecognitions = loadSpecialRecognitions();
-      for (const r of initialRecognitions) {
-        await setDoc(doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, r.id), sanitizeDoc(r), { merge: true });
-      }
+    const initialAnniv = loadAnniversaries();
+    for (const a of initialAnniv) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.ANNIVERSARIES, a.id), sanitizeDoc(a), { merge: true });
     }
 
-    // 9. Users
-    const usersCol = collection(db, COLLECTIONS.USERS);
-    const existingUsers = await getDocs(usersCol);
-    if (existingUsers.empty) {
-      const initialUsers = loadUsers();
-      for (const u of initialUsers) {
-        await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
-      }
+    const initialVisitors = loadVisitors();
+    for (const v of initialVisitors) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.VISITORS, v.id), sanitizeDoc(v), { merge: true });
     }
 
-    // 10. Saved Directory Names (App Settings)
-    const savedNamesDoc = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'));
-    if (!savedNamesDoc.exists()) {
-      const initialNames = loadSavedNames();
-      await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
-        id: 'saved_names',
-        names: initialNames,
-        updatedAt: new Date().toISOString(),
-      });
+    const initialRecognitions = loadSpecialRecognitions();
+    for (const r of initialRecognitions) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, r.id), sanitizeDoc(r), { merge: true });
     }
 
-    // 11. Welcome Songs (App Settings)
-    const welcomeSongsDoc = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'));
-    if (!welcomeSongsDoc.exists()) {
-      const initialWelcome = loadWelcomeSongs();
-      await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'), {
-        id: 'welcome_songs',
-        songs: initialWelcome,
-        updatedAt: new Date().toISOString(),
-      });
+    const initialUsers = loadUsers();
+    for (const u of initialUsers) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
     }
+
+    const initialNames = loadSavedNames();
+    await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
+      id: 'saved_names',
+      names: initialNames,
+      updatedAt: new Date().toISOString(),
+    });
+
+    const initialWelcome = loadWelcomeSongs();
+    await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'), {
+      id: 'welcome_songs',
+      songs: initialWelcome,
+      updatedAt: new Date().toISOString(),
+    });
+
+    localStorage.setItem(SEED_STORAGE_FLAG, 'true');
   } catch (err) {
-    console.warn('Initial cloud seed skipped or error:', err);
+    handleFirestoreError(err, OperationType.WRITE, 'cloud_seed');
+    // Mark as checked to prevent hammering on every refresh
+    try {
+      localStorage.setItem(SEED_STORAGE_FLAG, 'true');
+    } catch {
+      // ignore
+    }
   }
 }

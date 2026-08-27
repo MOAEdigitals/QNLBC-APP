@@ -60,6 +60,9 @@ import {
   subscribeToAppSettings,
   subscribeToPracticeAudios,
   initializeFirestoreCloudSeed,
+  subscribeToFirestoreStatus,
+  getFirestoreConnectionStatus,
+  FirestoreStatusInfo,
 } from './firestoreSync';
 import {
   loadSavedNames,
@@ -81,7 +84,7 @@ import { RecognitionsTab } from './components/RecognitionsTab';
 import { SpecialNumberTab } from './components/SpecialNumberTab';
 import { SongsTab } from './components/SongsTab';
 import { SettingsTab } from './components/SettingsTab';
-import { LogOut, X, AlertTriangle } from 'lucide-react';
+import { LogOut, X, AlertTriangle, CloudOff, Database, ExternalLink, Info } from 'lucide-react';
 
 export default function App() {
   // 1. Auth State
@@ -90,6 +93,12 @@ export default function App() {
     return session.user;
   });
   const [users, setUsers] = useState<UserAccount[]>(() => loadUsers());
+
+  // Connection and Quota Status
+  const [firestoreStatus, setFirestoreStatus] = useState<FirestoreStatusInfo>(() =>
+    getFirestoreConnectionStatus()
+  );
+  const [dismissQuotaBanner, setDismissQuotaBanner] = useState(false);
 
   // 2. Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
@@ -249,6 +258,10 @@ export default function App() {
       saveAudioToStorage(audioId, dataUrl);
     });
 
+    const unsubFirestoreStatus = subscribeToFirestoreStatus((statusInfo) => {
+      setFirestoreStatus(statusInfo);
+    });
+
     return () => {
       unsubSetlists();
       unsubSongs();
@@ -261,6 +274,7 @@ export default function App() {
       unsubUsers();
       unsubAppSettings();
       unsubPracticeAudios();
+      unsubFirestoreStatus();
     };
   }, []);
 
@@ -624,6 +638,71 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
+        {/* Firestore Quota / Connection Status Notice */}
+        {firestoreStatus.status === 'quota-exceeded' && !dismissQuotaBanner && (
+          <div className="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <Database className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="font-bold flex items-center gap-2">
+                  <span>Firestore Daily Free Write Quota Reached</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-200/80 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200">
+                    Offline Mode Active
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  {firestoreStatus.quotaResetMessage}
+                </p>
+                <div className="pt-1 flex items-center gap-4 text-xs font-medium">
+                  <a
+                    href={firestoreStatus.databaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors"
+                  >
+                    <span>View Firebase Quotas / Upgrade</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="https://firebase.google.com/pricing#cloud-firestore"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors"
+                  >
+                    <span>Pricing Details</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setDismissQuotaBanner(true)}
+              className="p-1 rounded-lg text-amber-700 hover:bg-amber-200/60 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shrink-0 cursor-pointer"
+              title="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {firestoreStatus.status === 'offline' && !dismissQuotaBanner && (
+          <div className="mb-4 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <CloudOff className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+              <span className="text-xs">
+                Firestore backend is currently unreachable. Operating in local offline storage mode — all data is saved locally.
+              </span>
+            </div>
+            <button
+              onClick={() => setDismissQuotaBanner(true)}
+              className="p-1 rounded-lg text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
+              title="Dismiss notice"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className={currentTab === 'home' ? 'block' : 'hidden'}>
           <SetlistsTab
             setlists={setlists}
