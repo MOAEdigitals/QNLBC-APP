@@ -724,7 +724,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           )}
 
                           {!isPast && !isSoonest && !today && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                               Upcoming
                             </span>
                           )}
@@ -745,25 +745,25 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
                           {item.presider && (
                             <span>
-                              Presider: <span className="font-semibold text-amber-700 dark:text-amber-300">{item.presider}</span>
+                              Presider: <span className="font-semibold text-sky-700 dark:text-sky-400">{item.presider}</span>
                             </span>
                           )}
                           {item.type === 'sunday' || !item.type ? (
                             <>
                               <span>•</span>
                               <span>
-                                SS: <span className="font-semibold text-indigo-700 dark:text-indigo-300">{item.sundaySchool?.songLeader || 'TBD'}</span>
+                                SS: <span className="font-semibold text-indigo-700 dark:text-indigo-400">{item.sundaySchool?.songLeader || 'TBD'}</span>
                               </span>
                               <span>•</span>
                               <span>
-                                WS: <span className="font-semibold text-emerald-700 dark:text-emerald-300">{item.worshipService?.songLeader || 'TBD'}</span>
+                                WS: <span className="font-semibold text-emerald-700 dark:text-emerald-400">{item.worshipService?.songLeader || 'TBD'}</span>
                               </span>
                             </>
                           ) : (
                             <>
                               <span>•</span>
                               <span>
-                                Leader: <span className="font-semibold text-sky-700 dark:text-sky-300">{item.program?.songLeader || 'TBD'}</span>
+                                Leader: <span className="font-semibold text-indigo-700 dark:text-indigo-400">{item.program?.songLeader || 'TBD'}</span>
                               </span>
                             </>
                           )}
@@ -856,14 +856,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {/* Presider & Service Header Badges */}
                           <div className="md:col-span-2 p-2.5 sm:p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                             <div className="flex items-center space-x-2.5">
-                              <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60">
+                              <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                                 <User className="w-4 h-4" />
                               </div>
                               <div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 block">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                   Presider
                                 </span>
-                                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                                <span className="text-sm font-bold text-sky-700 dark:text-sky-400">
                                   {item.presider || 'Not assigned yet'}
                                 </span>
                               </div>
@@ -877,12 +877,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                                 return (
                                   <div className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                                    <span className="text-sky-600 dark:text-sky-400 font-bold text-[11px]">Welcome:</span>
+                                    <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Welcome:</span>
                                     <span
                                       onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
-                                      className={`font-bold text-slate-900 dark:text-white text-xs ${
+                                      className={`font-semibold text-slate-900 dark:text-white text-xs ${
                                         matchedSong
-                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300'
                                           : ''
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
@@ -900,12 +900,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                                 return (
                                   <div className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                                    <span className="text-violet-600 dark:text-violet-400 font-bold text-[11px]">Closing:</span>
+                                    <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Closing:</span>
                                     <span
                                       onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
-                                      className={`font-bold text-slate-900 dark:text-white text-xs ${
+                                      className={`font-semibold text-slate-900 dark:text-white text-xs ${
                                         matchedSong
-                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300'
                                           : ''
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
@@ -925,8 +925,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                                 Sunday School
                               </h4>
-                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-indigo-50/80 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60">
-                                Leader: <span className="font-bold">{item.sundaySchool?.songLeader || 'Unassigned'}</span>
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-indigo-50/80 dark:bg-indigo-950/50 text-slate-700 dark:text-slate-300 border border-indigo-200/80 dark:border-indigo-800/60">
+                                Leader: <span className="font-bold text-indigo-700 dark:text-indigo-400">{item.sundaySchool?.songLeader || 'Unassigned'}</span>
                               </span>
                             </div>
 
@@ -944,9 +944,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                   >
                                     <span
                                       onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
-                                      className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                                      className={`text-xs font-semibold text-slate-900 dark:text-white truncate ${
                                         targetSongId
-                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                          ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300 transition-colors'
                                           : ''
                                       }`}
                                       title={targetSongId ? 'Click to open in Song Library' : undefined}
@@ -976,8 +976,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                                 Worship Service
                               </h4>
-                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-emerald-50/80 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60">
-                                Leader: <span className="font-bold">{item.worshipService?.songLeader || 'Unassigned'}</span>
+                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-emerald-50/80 dark:bg-emerald-950/50 text-slate-700 dark:text-slate-300 border border-emerald-200/80 dark:border-emerald-800/60">
+                                Leader: <span className="font-bold text-emerald-700 dark:text-emerald-400">{item.worshipService?.songLeader || 'Unassigned'}</span>
                               </span>
                             </div>
 
@@ -995,9 +995,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                   >
                                     <span
                                       onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
-                                      className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                                      className={`text-xs font-semibold text-slate-900 dark:text-white truncate ${
                                         targetSongId
-                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                          ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300 transition-colors'
                                           : ''
                                       }`}
                                       title={targetSongId ? 'Click to open in Song Library' : undefined}
@@ -1021,18 +1021,18 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 const songNumber = (item.worshipService?.songs?.length || 0) + 1;
 
                                 return (
-                                  <div className="px-2.5 py-1.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-800/50 flex items-center justify-between">
+                                  <div className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                                     <div className="min-w-0 pr-2">
                                       <span
                                         onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
-                                        className={`text-xs font-bold text-amber-900 dark:text-amber-200 ${
+                                        className={`text-xs font-semibold text-slate-900 dark:text-white ${
                                           matchedSong
-                                            ? 'cursor-pointer hover:underline hover:text-amber-700 dark:hover:text-amber-300 transition-colors'
+                                            ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300 transition-colors'
                                             : ''
                                         }`}
                                         title={matchedSong ? 'Click to open in Song Library' : undefined}
                                       >
-                                        {songNumber}. {item.themeSong} <span className="text-[10px] font-normal text-amber-700 dark:text-amber-400">(Month Theme Song)</span>
+                                        {songNumber}. {item.themeSong} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(Month Theme Song)</span>
                                       </span>
                                     </div>
                                   </div>
@@ -1056,20 +1056,20 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             <div className="flex items-center space-x-3">
                               {item.presider && (
                                 <div>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 block">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                     Presider
                                   </span>
-                                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                  <span className="text-xs font-bold text-sky-700 dark:text-sky-400">
                                     {item.presider}
                                   </span>
                                 </div>
                               )}
                               {item.program?.songLeader && (
                                 <div className={item.presider ? "pl-3 border-l border-slate-200 dark:border-slate-700" : ""}>
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 block">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                     Song Leader
                                   </span>
-                                  <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                  <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400">
                                     {item.program.songLeader}
                                   </span>
                                 </div>
@@ -1083,12 +1083,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                                 return (
                                   <div className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                                    <span className="text-sky-600 dark:text-sky-400 font-bold text-[11px]">Welcome:</span>
+                                    <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Welcome:</span>
                                     <span
                                       onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
-                                      className={`font-bold text-slate-900 dark:text-white text-xs ${
+                                      className={`font-semibold text-slate-900 dark:text-white text-xs ${
                                         matchedSong
-                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300'
                                           : ''
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
@@ -1106,12 +1106,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                                 return (
                                   <div className="bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
-                                    <span className="text-violet-600 dark:text-violet-400 font-bold text-[11px]">Closing:</span>
+                                    <span className="text-slate-500 dark:text-slate-400 font-semibold text-[11px]">Closing:</span>
                                     <span
                                       onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
-                                      className={`font-bold text-slate-900 dark:text-white text-xs ${
+                                      className={`font-semibold text-slate-900 dark:text-white text-xs ${
                                         matchedSong
-                                          ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400'
+                                          ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300'
                                           : ''
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
@@ -1127,7 +1127,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                           {/* Program Songs */}
                           <div className="space-y-1.5">
-                            <span className="text-xs font-extrabold uppercase tracking-wider text-sky-700 dark:text-sky-400 block">
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
                               Program Songs:
                             </span>
                             {(item.program?.songs || []).map((song, idx) => {
@@ -1143,9 +1143,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 >
                                   <span
                                     onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
-                                    className={`text-xs font-bold text-slate-900 dark:text-white truncate ${
+                                    className={`text-xs font-semibold text-slate-900 dark:text-white truncate ${
                                       targetSongId
-                                        ? 'cursor-pointer hover:underline hover:text-sky-600 dark:hover:text-sky-400 transition-colors'
+                                        ? 'cursor-pointer hover:underline hover:text-slate-600 dark:hover:text-slate-300 transition-colors'
                                         : ''
                                     }`}
                                     title={targetSongId ? 'Click to open in Song Library' : undefined}
@@ -1349,7 +1349,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {/* Welcome Song Selection */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                         Welcome Song
                       </label>
                     </div>
@@ -1373,7 +1373,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {/* Closing Song Selection */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-400">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                         Closing Song
                       </label>
                     </div>
@@ -1398,8 +1398,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
                     <div className="sm:col-span-2 pt-1 border-t border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5 text-slate-400" />
                           <span>Month Theme Song</span>
                         </label>
                       </div>
@@ -1633,7 +1633,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {/* Non-Sunday Program Editor (Prayer Meeting, Fellowship, Event) */}
               {editingSetlist.type && editingSetlist.type !== 'sunday' && (
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
                     Program Songs
                   </h4>
 
