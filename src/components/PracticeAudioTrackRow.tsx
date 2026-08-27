@@ -12,6 +12,7 @@ import {
   FileAudio,
   Volume2,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStorage';
 import {
@@ -19,7 +20,12 @@ import {
   notifyAudioStopped,
   subscribeToActiveAudioChange,
 } from '../utils/audioCoordinator';
-import { resolveMediaUrl } from '../utils/mediaUtils';
+import {
+  resolveMediaUrl,
+  isGoogleDriveUrl,
+  extractGoogleDriveFileId,
+  getGoogleDriveCandidateUrls,
+} from '../utils/mediaUtils';
 
 export interface PracticeAudioTrackRowProps {
   id: string;
@@ -61,6 +67,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
 
+  const driveCandidateIndexRef = useRef<number>(0);
+  const driveCandidatesRef = useRef<string[]>([]);
+
+  const isWebUrl = Boolean(
+    audioUrl && (audioUrl.startsWith('http://') || audioUrl.startsWith('https://'))
+  );
+  const isDrive = Boolean(audioUrl && isGoogleDriveUrl(audioUrl));
+
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Close menu when clicking outside
@@ -90,6 +104,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   useEffect(() => {
     let isCancelled = false;
     setAudioError(null);
+    driveCandidateIndexRef.current = 0;
+    driveCandidatesRef.current = [];
 
     const resolveSource = async () => {
       if (!audioUrl || !audioUrl.trim()) {
@@ -117,6 +133,16 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             setAudioError('Saved audio recording not found on this device');
           }
           setIsLoadingAudio(false);
+        }
+      } else if (isGoogleDriveUrl(raw)) {
+        const driveId = extractGoogleDriveFileId(raw);
+        if (driveId) {
+          const candidates = getGoogleDriveCandidateUrls(driveId);
+          driveCandidatesRef.current = candidates;
+          driveCandidateIndexRef.current = 0;
+          setResolvedAudioSrc(candidates[0]);
+        } else {
+          setResolvedAudioSrc(resolveMediaUrl(raw));
         }
       } else {
         const clean = resolveMediaUrl(raw);
@@ -209,8 +235,26 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
 
     const handleError = () => {
+      // Check if we have alternate candidate URLs (for Google Drive)
+      const nextIdx = driveCandidateIndexRef.current + 1;
+      if (
+        driveCandidatesRef.current.length > 0 &&
+        nextIdx < driveCandidatesRef.current.length
+      ) {
+        driveCandidateIndexRef.current = nextIdx;
+        const nextUrl = driveCandidatesRef.current[nextIdx];
+        setResolvedAudioSrc(nextUrl);
+        return;
+      }
+
       console.warn(`Audio loading error for track ${id}`);
-      setAudioError('Audio playback failed');
+      if (isDrive) {
+        setAudioError(
+          "Google Drive audio stream restricted. Set Drive sharing to 'Anyone with the link can view' or open directly."
+        );
+      } else {
+        setAudioError('Audio playback failed');
+      }
       onPauseRef.current();
     };
 
@@ -232,7 +276,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.removeEventListener('error', handleError);
       audioRef.current = null;
     };
-  }, [resolvedAudioSrc, id]);
+  }, [resolvedAudioSrc, id, isDrive]);
 
   // Sync Loop state to audio element
   useEffect(() => {
@@ -273,9 +317,23 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     }
   }, [isCurrentlyPlaying, id, onPause]);
 
+  // Open external audio/drive URL in new tab
+  const handleOpenExternal = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (audioUrl) {
+      window.open(audioUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   // Handle Play/Pause Toggle Button Click
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (audioError && isWebUrl && audioUrl) {
+      // If audio player failed to stream (e.g., Google Drive restricted), open directly
+      handleOpenExternal();
+      return;
+    }
+
     if (!resolvedAudioSrc) {
       if (onRecordNewAudio) {
         onRecordNewAudio();
@@ -409,22 +467,28 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-md hover:scale-105 active:scale-95 ${
               isCurrentlyPlaying
                 ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                : hasAudioSource
+                : hasAudioSource && !audioError
                 ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
+                : audioError && isWebUrl
+                ? 'bg-sky-600 text-white hover:bg-sky-500'
                 : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-rose-600 hover:text-white'
             }`}
             title={
-              hasAudioSource
+              hasAudioSource && !audioError
                 ? isCurrentlyPlaying
                   ? 'Pause Audio'
                   : 'Play Audio'
+                : audioError && isWebUrl
+                ? 'Open link in new tab'
                 : 'No audio recorded yet — click to record'
             }
           >
             {isCurrentlyPlaying ? (
               <Pause className="w-5 h-5 fill-current" />
-            ) : hasAudioSource ? (
+            ) : hasAudioSource && !audioError ? (
               <Play className="w-5 h-5 fill-current ml-0.5" />
+            ) : audioError && isWebUrl ? (
+              <ExternalLink className="w-4 h-4" />
             ) : (
               <Mic className="w-4 h-4" />
             )}
@@ -447,7 +511,21 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
             {/* Dropdown Popover */}
             {isMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
+                {isWebUrl && audioUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      setIsMenuOpen(false);
+                      handleOpenExternal(e);
+                    }}
+                    className="w-full px-3.5 py-2 text-left text-xs font-semibold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>{isDrive ? 'Open in Google Drive' : 'Open Link in New Tab'}</span>
+                  </button>
+                )}
+
                 {onRecordNewAudio && (
                   <button
                     type="button"
@@ -476,7 +554,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   <span>Edit Details</span>
                 </button>
 
-                {hasAudioSource && (
+                {hasAudioSource && !isWebUrl && (
                   <button
                     type="button"
                     onClick={handleDownloadAudio}
@@ -567,9 +645,21 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
         {/* Notice if error or no audio */}
         {audioError && (
-          <div className="flex items-center gap-1.5 text-[11px] text-rose-500 dark:text-rose-400 pt-1">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span>{audioError}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-rose-500 dark:text-rose-400 pt-1">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{audioError}</span>
+            </div>
+            {isWebUrl && audioUrl && (
+              <button
+                type="button"
+                onClick={handleOpenExternal}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 underline cursor-pointer shrink-0"
+              >
+                <ExternalLink className="w-3 h-3" />
+                <span>{isDrive ? 'Open in Drive' : 'Open Link'}</span>
+              </button>
+            )}
           </div>
         )}
       </div>

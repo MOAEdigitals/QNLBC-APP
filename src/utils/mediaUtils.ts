@@ -4,6 +4,15 @@
  */
 
 /**
+ * Checks if a string is a Google Drive URL
+ */
+export function isGoogleDriveUrl(url?: string): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const lower = url.toLowerCase();
+  return lower.includes('drive.google.com') || lower.includes('docs.google.com');
+}
+
+/**
  * Extracts Google Drive file ID from various Google Drive URL formats:
  * - https://drive.google.com/file/d/FILE_ID/view?usp=sharing
  * - https://drive.google.com/file/d/FILE_ID/view
@@ -17,7 +26,7 @@ export function extractGoogleDriveFileId(url: string): string | null {
   const trimmed = url.trim();
 
   // Pattern 1: /file/d/{id} or /d/{id}
-  const fileDMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i) || trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/i);
+  const fileDMatch = trimmed.match(/\/(?:file\/d|d)\/([a-zA-Z0-9_-]+)/i);
   if (fileDMatch && fileDMatch[1]) {
     return fileDMatch[1];
   }
@@ -32,6 +41,18 @@ export function extractGoogleDriveFileId(url: string): string | null {
 }
 
 /**
+ * Returns alternate candidate URLs for streaming a Google Drive audio file
+ */
+export function getGoogleDriveCandidateUrls(driveId: string): string[] {
+  return [
+    `https://drive.google.com/uc?export=download&id=${driveId}`,
+    `https://docs.google.com/uc?export=open&id=${driveId}`,
+    `https://drive.usercontent.google.com/download?id=${driveId}&export=download`,
+    `https://lh3.googleusercontent.com/d/${driveId}`,
+  ];
+}
+
+/**
  * Converts a Google Drive link or Dropbox link to a direct streaming/download URL
  * suitable for HTML5 <audio> and <video> tags.
  */
@@ -40,7 +61,7 @@ export function resolveMediaUrl(rawUrl?: string): string {
   const trimmed = rawUrl.trim();
 
   // 1. Google Drive Links
-  if (trimmed.includes('drive.google.com') || trimmed.includes('docs.google.com')) {
+  if (isGoogleDriveUrl(trimmed)) {
     const driveId = extractGoogleDriveFileId(trimmed);
     if (driveId) {
       // Direct streamable Google Drive URL

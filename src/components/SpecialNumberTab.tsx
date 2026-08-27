@@ -1908,15 +1908,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleOpenAddVocalPartModal(group, undefined, 'record')}
-                                  className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-                                  title="Directly record a vocal part with microphone"
-                                >
-                                  <Mic className="w-3.5 h-3.5" />
-                                  <span>Record Part</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenAddVocalPartModal(group, undefined, 'attach')}
                                   className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
                                 >
                                   <Plus className="w-3.5 h-3.5" />
@@ -2661,7 +2652,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">
-                  Paste any YouTube/audio link or click the paperclip icon on the right to attach sound or video files.
+                  Paste YouTube, Google Drive, or audio links, or click paperclip to attach files. (For Google Drive, set sharing to 'Anyone with the link can view').
                 </p>
 
                 {trackFileName && (
@@ -2964,7 +2955,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       </button>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Paste any audio URL or click the paperclip to attach MP3/M4A/WAV files from your device.
+                      Paste audio/Google Drive URL or click paperclip to attach files from device. (For Google Drive links, set General Access to 'Anyone with the link can view').
                     </p>
 
                     {vocalPartFileName && (
