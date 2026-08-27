@@ -38,6 +38,11 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
+import {
+  resolveMediaUrl,
+  getYouTubeEmbedUrl,
+  getGoogleDriveEmbedUrl,
+} from '../utils/mediaUtils';
 
 interface SongsTabProps {
   songs: Song[];
@@ -49,19 +54,6 @@ interface SongsTabProps {
   initialSelectedSongId?: string | null;
   onClearInitialSelectedSongId?: () => void;
   collapseSignal?: number;
-}
-
-function getYouTubeEmbedUrl(url: string): string | null {
-  try {
-    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-    const match = url.match(regExp);
-    if (match && match[2].length === 11) {
-      return `https://www.youtube.com/embed/${match[2]}?autoplay=1`;
-    }
-  } catch {
-    return null;
-  }
-  return null;
 }
 
 export const SongsTab: React.FC<SongsTabProps> = ({
@@ -923,10 +915,27 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                             );
                           }
 
+                          const driveEmbed = getGoogleDriveEmbedUrl(activeMedia.url);
+                          if (driveEmbed && activeMedia.type === 'video') {
+                            return (
+                              <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+                                <iframe
+                                  src={driveEmbed}
+                                  title={activeMedia.name}
+                                  className="w-full h-full border-0"
+                                  allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+                                  allowFullScreen
+                                />
+                              </div>
+                            );
+                          }
+
+                          const resolvedUrl = resolveMediaUrl(activeMedia.url);
+
                           if (activeMedia.type === 'video' || activeMedia.url.startsWith('data:video/')) {
                             return (
                               <video
-                                src={activeMedia.url}
+                                src={resolvedUrl}
                                 controls
                                 autoPlay
                                 loop={isLooping}
@@ -938,7 +947,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           if (activeMedia.type === 'audio' || activeMedia.url.startsWith('data:audio/')) {
                             return (
                               <div className="p-2 bg-slate-800/80 rounded-xl">
-                                <audio src={activeMedia.url} controls autoPlay loop={isLooping} className="w-full" />
+                                <audio src={resolvedUrl} controls autoPlay loop={isLooping} className="w-full" />
                               </div>
                             );
                           }

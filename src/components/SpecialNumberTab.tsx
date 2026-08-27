@@ -26,6 +26,11 @@ import {
   getAudioFromStorage,
   deleteAudioFromStorage,
 } from '../utils/audioStorage';
+import {
+  resolveMediaUrl,
+  getYouTubeEmbedUrl,
+  getGoogleDriveEmbedUrl,
+} from '../utils/mediaUtils';
 import { AutofillInput } from './AutofillInput';
 import { InlinePracticeAudioPlayer } from './InlinePracticeAudioPlayer';
 import { PracticeAudioTrackRow } from './PracticeAudioTrackRow';
@@ -1950,7 +1955,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           setPlayingTrackId(part.id);
                                         }}
                                         onPause={() => {
-                                          if (playingTrackId === part.id) setPlayingTrackId(null);
+                                          setPlayingTrackId(null);
                                         }}
                                         onEdit={() => handleOpenAddVocalPartModal(group, pIdx)}
                                         onDelete={() => handleDeleteVocalPart(group, pIdx)}
@@ -2064,7 +2069,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                         setPlayingTrackId(att.id);
                                       }}
                                       onPause={() => {
-                                        if (playingTrackId === att.id) setPlayingTrackId(null);
+                                        setPlayingTrackId(null);
                                       }}
                                       onEdit={() => handleOpenAddTrackModal(group, aIdx)}
                                       onDelete={() => handleDeleteTrack(group, aIdx)}
@@ -2077,7 +2082,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             {/* REHEARSAL VIDEO PLAYER (Appears directly under Rehearsal Tracks & Attachments when triggered) */}
                             {activePracticeMedia &&
                               activePracticeMedia.groupId === group.id &&
-                              (activePracticeMedia.type === 'video' || getYouTubeEmbedUrl(activePracticeMedia.url)) && (
+                              (activePracticeMedia.type === 'video' || getYouTubeEmbedUrl(activePracticeMedia.url) || getGoogleDriveEmbedUrl(activePracticeMedia.url)) && (
                                 <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
                                   <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                                     <div className="flex items-center space-x-2 min-w-0">
@@ -2129,12 +2134,27 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       );
                                     }
 
+                                    const driveEmbed = getGoogleDriveEmbedUrl(activePracticeMedia.url);
+                                    if (driveEmbed) {
+                                      return (
+                                        <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+                                          <iframe
+                                            src={driveEmbed}
+                                            title={activePracticeMedia.title}
+                                            className="w-full h-full border-0"
+                                            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                                            allowFullScreen
+                                          />
+                                        </div>
+                                      );
+                                    }
+
                                     return (
                                       <video
                                         ref={(el) => {
                                           practiceMediaRef.current = el;
                                         }}
-                                        src={activePracticeMedia.url}
+                                        src={resolveMediaUrl(activePracticeMedia.url)}
                                         controls
                                         autoPlay
                                         loop={isLooping}

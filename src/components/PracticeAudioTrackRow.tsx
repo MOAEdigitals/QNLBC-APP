@@ -19,6 +19,7 @@ import {
   notifyAudioStopped,
   subscribeToActiveAudioChange,
 } from '../utils/audioCoordinator';
+import { resolveMediaUrl } from '../utils/mediaUtils';
 
 export interface PracticeAudioTrackRowProps {
   id: string;
@@ -85,22 +86,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Convert Google Drive / Dropbox link to streamable direct URL
-  const sanitizeAudioUrl = (raw: string): string => {
-    if (!raw) return '';
-    const trimmed = raw.trim();
-    if (trimmed.includes('drive.google.com')) {
-      const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/id=([a-zA-Z0-9_-]+)/);
-      if (match && match[1]) {
-        return `https://drive.google.com/uc?export=download&id=${match[1]}`;
-      }
-    }
-    if (trimmed.includes('dropbox.com')) {
-      return trimmed.replace('www.dropbox.com', 'dl.dropboxusercontent.com').replace('?dl=0', '');
-    }
-    return trimmed;
-  };
-
   // Resolve audio source (checking memory cache, IndexedDB, or direct URL)
   useEffect(() => {
     let isCancelled = false;
@@ -134,7 +119,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           setIsLoadingAudio(false);
         }
       } else {
-        const clean = sanitizeAudioUrl(raw);
+        const clean = resolveMediaUrl(raw);
         setResolvedAudioSrc(clean);
       }
     };
@@ -145,6 +130,12 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       isCancelled = true;
     };
   }, [id, audioUrl]);
+
+  // Keep onPause reference fresh
+  const onPauseRef = useRef(onPause);
+  useEffect(() => {
+    onPauseRef.current = onPause;
+  }, [onPause]);
 
   // Handle HTML Audio element setup
   useEffect(() => {
@@ -192,26 +183,42 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         if ((!duration || !isFinite(duration)) && audio.duration && isFinite(audio.duration)) {
           setDuration(audio.duration);
         }
+        // Safety check for end of playback if ended event is missed
+        if (!audio.loop && audio.duration > 0 && audio.currentTime >= audio.duration - 0.05) {
+          setCurrentTime(0);
+          audio.currentTime = 0;
+          onPauseRef.current();
+        }
       }
     };
 
     const handleEnded = () => {
       if (!audio.loop) {
         setCurrentTime(0);
-        onPause();
+        audio.currentTime = 0;
+        onPauseRef.current();
       }
+    };
+
+    const handlePause = () => {
+      if (!audio.loop && audio.duration > 0 && audio.currentTime >= audio.duration - 0.1) {
+        setCurrentTime(0);
+        audio.currentTime = 0;
+      }
+      onPauseRef.current();
     };
 
     const handleError = () => {
       console.warn(`Audio loading error for track ${id}`);
       setAudioError('Audio playback failed');
-      onPause();
+      onPauseRef.current();
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('durationchange', handleDurationChange);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('pause', handlePause);
     audio.addEventListener('error', handleError);
 
     return () => {
@@ -223,10 +230,11 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.removeEventListener('durationchange', handleDurationChange);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('error', handleError);
       audioRef.current = null;
     };
-  }, [resolvedAudioSrc]);
+  }, [resolvedAudioSrc, isLooping, isDragging, duration, id]);
 
   // Sync Loop state to audio element
   useEffect(() => {

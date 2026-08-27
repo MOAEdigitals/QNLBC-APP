@@ -17,6 +17,7 @@ import {
   notifyAudioStopped,
   subscribeToActiveAudioChange,
 } from '../utils/audioCoordinator';
+import { resolveMediaUrl } from '../utils/mediaUtils';
 
 interface InlinePracticeAudioPlayerProps {
   trackId: string;
@@ -51,7 +52,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Resolve audio URL (from memory/IndexedDB if needed)
+  // Resolve audio URL (from memory/IndexedDB if needed, Google Drive / Dropbox direct stream)
   useEffect(() => {
     let isCancelled = false;
     setIsLoading(true);
@@ -74,7 +75,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
         return;
       }
 
-      setResolvedUrl(finalUrl);
+      setResolvedUrl(resolveMediaUrl(finalUrl));
       setIsLoading(false);
     };
 
@@ -96,6 +97,11 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
 
     const onTimeUpdate = () => {
       setCurrentTime(audio.currentTime);
+      if (!audio.loop && audio.duration > 0 && audio.currentTime >= audio.duration - 0.05) {
+        setIsPlaying(false);
+        setCurrentTime(0);
+        audio.currentTime = 0;
+      }
     };
 
     const onLoadedMetadata = () => {
@@ -106,6 +112,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
       if (!audio.loop) {
         setIsPlaying(false);
         setCurrentTime(0);
+        audio.currentTime = 0;
       }
     };
 
