@@ -236,15 +236,23 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const file = e.target.files?.[0];
     if (!file || !pendingFileCallbackRef.current) return;
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = reader.result as string;
       const fType: 'audio' | 'video' | 'file' = file.type.startsWith('audio/')
         ? 'audio'
         : file.type.startsWith('video/')
         ? 'video'
         : 'file';
+
+      const fileId = `att-${Date.now()}`;
+      try {
+        await saveAudioToStorage(fileId, result, file.name);
+      } catch (err) {
+        console.warn('Could not save to IndexedDB:', err);
+      }
+
       if (pendingFileCallbackRef.current) {
-        pendingFileCallbackRef.current(result, file.name, fType);
+        pendingFileCallbackRef.current(`indexeddb:${fileId}`, file.name, fType);
       }
     };
     reader.readAsDataURL(file);
@@ -966,13 +974,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setTrackCategory(track.category || 'minus_one');
       setTrackTitle(track.name || '');
       const raw = track.url || '';
-      if (raw.startsWith('indexeddb:')) {
-        getAudioFromStorage(track.id).then((val) => {
-          if (val) setTrackUrlOrData(val);
-        });
-      }
       setTrackUrlOrData(raw);
-      setTrackFileName('');
+      if (raw.startsWith('indexeddb:') || raw.startsWith('data:')) {
+        setTrackFileName(track.name || 'Attached Audio Track');
+      } else {
+        setTrackFileName('');
+      }
       setTrackType(track.type || 'link');
     } else {
       setEditingTrackIndex(null);
@@ -991,7 +998,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     const finalTitle =
       trackTitle.trim() ||
-      (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Track');
+      (trackFileName ? trackFileName.replace(/\.[^/.]+$/, '') : (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Track'));
 
     const attId =
       editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id
@@ -1000,8 +1007,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     let finalUrl = trackUrlOrData.trim();
     if (finalUrl) {
-      await saveAudioToStorage(attId, finalUrl, finalTitle);
       if (finalUrl.startsWith('data:')) {
+        await saveAudioToStorage(attId, finalUrl, finalTitle);
         finalUrl = `indexeddb:${attId}`;
       }
     }
@@ -2603,7 +2610,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <div className="relative">
                   <input
                     type="text"
-                    value={trackUrlOrData}
+                    value={
+                      trackUrlOrData.startsWith('indexeddb:') || trackUrlOrData.startsWith('data:')
+                        ? (trackFileName ? `Attached: ${trackFileName}` : '(Attached Audio Track)')
+                        : trackUrlOrData
+                    }
                     onChange={(e) => {
                       setTrackUrlOrData(e.target.value);
                       setTrackFileName('');

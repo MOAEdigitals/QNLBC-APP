@@ -1207,4 +1207,11 @@ export function savePracticeEntries(entries: PracticeGroupEntry[]): void {
   }
 }
 
+export {
+  saveAudioToStorage,
+  getAudioFromStorage,
+  deleteAudioFromStorage,
+  subscribeToAudioUpdates,
+} from './audioStorage';
+
 

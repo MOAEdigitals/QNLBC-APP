@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
-import { formatDuplicateTitle } from '../utils/storage';
+import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
 import {
   Music,
   Plus,
@@ -399,9 +399,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     }
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = reader.result as string;
-      setAttachmentLinkOrData(result);
+      const attId = `att-${Date.now()}`;
+      try {
+        await saveAudioToStorage(attId, result, file.name);
+      } catch (err) {
+        console.warn('Could not save to IndexedDB:', err);
+      }
+      setAttachmentLinkOrData(`indexeddb:${attId}`);
       setAttachmentType(detectedType);
       setAttachmentFileName(file.name);
       if (!attachmentName.trim()) {
@@ -411,7 +417,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSaveAttachment = (e: React.FormEvent) => {
+  const handleSaveAttachment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedSong || !attachmentLinkOrData.trim()) return;
 
@@ -419,12 +425,19 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       attachmentName.trim() ||
       (attachmentType === 'link' ? 'Web Track Link' : attachmentFileName || 'Audio/Video Track');
 
+    let finalUrl = attachmentLinkOrData.trim();
+    const attId = `att-${Date.now()}`;
+    if (finalUrl.startsWith('data:')) {
+      await saveAudioToStorage(attId, finalUrl, finalName);
+      finalUrl = `indexeddb:${attId}`;
+    }
+
     const newAtt: SongAttachment = {
-      id: `att-${Date.now()}`,
+      id: attId,
       name: finalName,
       category: attachmentCategory,
       type: attachmentType,
-      urlOrData: attachmentLinkOrData.trim(),
+      urlOrData: finalUrl,
       createdAt: new Date().toISOString().split('T')[0],
     };
 
