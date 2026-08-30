@@ -149,6 +149,9 @@ export function recordTombstone(collectionName: string, id: string): void {
   try {
     localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list.slice(-200)));
   } catch {}
+
+  // Broadcast deletion tombstone to app_settings cloud document so all phones and other devices immediately learn of the deletion
+  broadcastTombstoneToCloud(collectionName, id).catch(() => {});
 }
 
 export function removeTombstone(collectionName: string, id: string): void {
@@ -157,6 +160,45 @@ export function removeTombstone(collectionName: string, id: string): void {
   try {
     localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list));
   } catch {}
+}
+
+export function mergeRemoteTombstones(remoteTombstones: { collectionName: string; id: string; timestamp: number }[]): void {
+  if (!Array.isArray(remoteTombstones) || remoteTombstones.length === 0) return;
+  const current = getTombstones();
+  const map = new Map<string, TombstoneItem>();
+  for (const t of current) {
+    map.set(`${t.collectionName}::${t.id}`, t);
+  }
+  for (const rt of remoteTombstones) {
+    if (rt && rt.collectionName && rt.id) {
+      map.set(`${rt.collectionName}::${rt.id}`, {
+        collectionName: rt.collectionName,
+        id: rt.id,
+        timestamp: rt.timestamp || Date.now(),
+      });
+    }
+  }
+  const merged = Array.from(map.values()).slice(-200);
+  try {
+    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(merged));
+  } catch {}
+}
+
+async function broadcastTombstoneToCloud(collectionName: string, id: string): Promise<void> {
+  if (isQuotaExhausted) return;
+  try {
+    const tombstonesDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
+    const snap = await getDoc(tombstonesDoc);
+    let list: TombstoneItem[] = [];
+    if (snap.exists() && Array.isArray(snap.data().list)) {
+      list = snap.data().list;
+    }
+    list = list.filter((t) => !(t.collectionName === collectionName && t.id === id));
+    list.push({ collectionName, id, timestamp: Date.now() });
+    await setDoc(tombstonesDoc, { id: 'tombstones', list: list.slice(-100), updatedAt: new Date().toISOString() }, { merge: true });
+  } catch {
+    // Quota or network failure is handled gracefully
+  }
 }
 
 export function isItemTombstoned(collectionName: string, id: string): boolean {
@@ -681,11 +723,13 @@ export async function syncSaveWelcomeSongs(songs: string[]): Promise<void> {
 
 export function subscribeToAppSettings(
   onUpdateSavedNames: (names: string[]) => void,
-  onUpdateWelcomeSongs: (songs: string[]) => void
+  onUpdateWelcomeSongs: (songs: string[]) => void,
+  onTombstonesUpdated?: () => void
 ) {
   try {
     const namesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
     const songsDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
+    const tombstonesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
 
     const unsubNames = onSnapshot(
       namesDocRef,
@@ -713,9 +757,26 @@ export function subscribeToAppSettings(
       (err) => handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/welcome_songs`)
     );
 
+    const unsubTombstones = onSnapshot(
+      tombstonesDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.list)) {
+            mergeRemoteTombstones(data.list);
+            if (onTombstonesUpdated) {
+              onTombstonesUpdated();
+            }
+          }
+        }
+      },
+      (err) => handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/tombstones`)
+    );
+
     return () => {
       unsubNames();
       unsubSongs();
+      unsubTombstones();
     };
   } catch (err) {
     handleFirestoreError(err, OperationType.GET, COLLECTIONS.APP_SETTINGS);

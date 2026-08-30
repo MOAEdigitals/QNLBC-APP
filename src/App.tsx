@@ -312,6 +312,54 @@ export default function App() {
       },
       (remoteSongs) => {
         saveWelcomeSongs(remoteSongs);
+      },
+      () => {
+        // When a remote deletion tombstone is received from another device, filter active state immediately
+        setPracticeEntries((prev) => {
+          const filtered = prev.filter((p) => !isItemTombstoned('practice_entries', p.id));
+          if (filtered.length !== prev.length) savePracticeEntries(filtered);
+          return filtered;
+        });
+        setSetlists((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('setlists', s.id));
+          if (filtered.length !== prev.length) saveSetlists(filtered);
+          return filtered;
+        });
+        setSongs((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('songs', s.id));
+          if (filtered.length !== prev.length) saveSongs(filtered);
+          return filtered;
+        });
+        setSpecialNumbers((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('special_numbers', s.id));
+          if (filtered.length !== prev.length) saveSpecialNumbers(filtered);
+          return filtered;
+        });
+        setChoirEntries((prev) => {
+          const filtered = prev.filter((c) => !isItemTombstoned('choir_entries', c.id));
+          if (filtered.length !== prev.length) saveChoirEntries(filtered);
+          return filtered;
+        });
+        setBirthdays((prev) => {
+          const filtered = prev.filter((b) => !isItemTombstoned('birthdays', b.id));
+          if (filtered.length !== prev.length) saveBirthdays(filtered);
+          return filtered;
+        });
+        setAnniversaries((prev) => {
+          const filtered = prev.filter((a) => !isItemTombstoned('anniversaries', a.id));
+          if (filtered.length !== prev.length) saveAnniversaries(filtered);
+          return filtered;
+        });
+        setVisitors((prev) => {
+          const filtered = prev.filter((v) => !isItemTombstoned('visitors', v.id));
+          if (filtered.length !== prev.length) saveVisitors(filtered);
+          return filtered;
+        });
+        setSpecialRecognitions((prev) => {
+          const filtered = prev.filter((r) => !isItemTombstoned('special_recognitions', r.id));
+          if (filtered.length !== prev.length) saveSpecialRecognitions(filtered);
+          return filtered;
+        });
       }
     );
 
