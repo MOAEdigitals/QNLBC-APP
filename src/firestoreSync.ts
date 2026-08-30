@@ -20,6 +20,7 @@ import {
   SpecialRecognition,
   SpecialNumberEntry,
   PracticeGroupEntry,
+  ChoirEntry,
   UserAccount,
 } from './types';
 import {
@@ -31,6 +32,7 @@ import {
   loadSpecialRecognitions,
   loadSpecialNumbers,
   loadPracticeEntries,
+  loadChoirEntries,
   loadSavedNames,
   loadWelcomeSongs,
   loadUsers,
@@ -79,6 +81,7 @@ const COLLECTIONS = {
   VISITORS: 'visitors',
   SPECIAL_RECOGNITIONS: 'special_recognitions',
   SPECIAL_NUMBERS: 'special_numbers',
+  CHOIR_ENTRIES: 'choir_entries',
   PRACTICE_ENTRIES: 'practice_entries',
   SAVED_NAMES: 'saved_names',
   WELCOME_SONGS: 'welcome_songs',
@@ -442,6 +445,30 @@ export async function syncDeleteSpecialNumber(id: string): Promise<void> {
   } catch (err) {
     enqueuePending(COLLECTIONS.SPECIAL_NUMBERS, id, undefined, 'delete');
     handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SPECIAL_NUMBERS}/${id}`);
+  }
+}
+
+export async function syncSaveChoirEntry(entry: ChoirEntry): Promise<void> {
+  const sanitized = sanitizeDoc(entry);
+  try {
+    const docRef = doc(db, COLLECTIONS.CHOIR_ENTRIES, entry.id);
+    await setDoc(docRef, sanitized, { merge: true });
+    dequeuePending(COLLECTIONS.CHOIR_ENTRIES, entry.id);
+    markOperationSuccess();
+  } catch (err) {
+    enqueuePending(COLLECTIONS.CHOIR_ENTRIES, entry.id, sanitized, 'write');
+    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.CHOIR_ENTRIES}/${entry.id}`);
+  }
+}
+
+export async function syncDeleteChoirEntry(id: string): Promise<void> {
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.CHOIR_ENTRIES, id));
+    dequeuePending(COLLECTIONS.CHOIR_ENTRIES, id);
+    markOperationSuccess();
+  } catch (err) {
+    enqueuePending(COLLECTIONS.CHOIR_ENTRIES, id, undefined, 'delete');
+    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.CHOIR_ENTRIES}/${id}`);
   }
 }
 

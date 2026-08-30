@@ -5,6 +5,7 @@ import {
   PracticePartTrack,
   VocalPartLabel,
   SpecialNumbersSubTab,
+  ChoirEntry,
   Song,
   Setlist,
   SongAttachment,
@@ -73,17 +74,21 @@ import {
   Link2,
   Copy,
   MoreVertical,
+  BookOpen,
 } from 'lucide-react';
 
 interface SpecialNumberTabProps {
   specialNumbers: SpecialNumberEntry[];
   practiceEntries?: PracticeGroupEntry[];
+  choirEntries?: ChoirEntry[];
   songs: Song[];
   setlists: Setlist[];
   onSaveSpecialNumber: (entry: SpecialNumberEntry) => void;
   onDeleteSpecialNumber: (id: string) => void;
   onSavePracticeEntry?: (entry: PracticeGroupEntry) => void;
   onDeletePracticeEntry?: (id: string) => void;
+  onSaveChoirEntry?: (entry: ChoirEntry) => void;
+  onDeleteChoirEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
   onSaveSong?: (song: Song) => void;
   collapseSignal?: number;
@@ -146,21 +151,24 @@ const PracticeGroupNotesInput: React.FC<{
 export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   specialNumbers,
   practiceEntries = [],
+  choirEntries = [],
   songs,
   setlists,
   onSaveSpecialNumber,
   onDeleteSpecialNumber,
   onSavePracticeEntry,
   onDeletePracticeEntry,
+  onSaveChoirEntry,
+  onDeleteChoirEntry,
   onOpenSongDetail,
   onSaveSong,
   collapseSignal,
 }) => {
-  // Sub-tabs: Schedules (default) or Practice (persisted in localStorage)
+  // Sub-tabs: Schedules (default), Practice, or Choir (persisted in localStorage)
   const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>(() => {
     try {
       const saved = localStorage.getItem('nlbc_special_numbers_subtab_v1');
-      if (saved === 'schedules' || saved === 'practice') {
+      if (saved === 'schedules' || saved === 'practice' || saved === 'choir') {
         return saved as SpecialNumbersSubTab;
       }
     } catch {}
@@ -172,6 +180,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       localStorage.setItem('nlbc_special_numbers_subtab_v1', activeSubTab);
     } catch {}
   }, [activeSubTab]);
+
+  // Choir state
+  const [selectedChoirId, setSelectedChoirId] = useState<string | null>(null);
+  const [isEditingChoir, setIsEditingChoir] = useState(false);
+  const [editingChoir, setEditingChoir] = useState<Partial<ChoirEntry> | null>(null);
+  const [choirSearchQuery, setChoirSearchQuery] = useState('');
+  const [choirFilter, setChoirFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
+  const [expandedChoirLyricsIds, setExpandedChoirLyricsIds] = useState<Record<string, boolean>>({});
+  const [copiedChoirLyricsId, setCopiedChoirLyricsId] = useState<string | null>(null);
+  const [isChoirModalLyricsExpanded, setIsChoirModalLyricsExpanded] = useState(false);
+  const [newChoirArtist, setNewChoirArtist] = useState('');
+  const [showChoirArtistInput, setShowChoirArtistInput] = useState(false);
 
   // Schedules state
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -823,6 +843,21 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
   });
 
+  // Choir filtering
+  const filteredChoirEntries = choirEntries.filter((entry) => {
+    if (choirFilter === 'upcoming' && entry.isDone) return false;
+    if (choirFilter === 'completed' && !entry.isDone) return false;
+    if (!choirSearchQuery.trim()) return true;
+    const q = choirSearchQuery.toLowerCase();
+    return (
+      entry.songTitle.toLowerCase().includes(q) ||
+      (entry.choirGroup && entry.choirGroup.toLowerCase().includes(q)) ||
+      (entry.artist && entry.artist.toLowerCase().includes(q)) ||
+      (entry.notes && entry.notes.toLowerCase().includes(q)) ||
+      (entry.lyrics && entry.lyrics.toLowerCase().includes(q))
+    );
+  });
+
   // Helper for YouTube embed
   const getYouTubeEmbedUrl = (url?: string) => {
     if (!url) return null;
@@ -962,6 +997,154 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         songTitle: songTitleInput,
         songId: undefined,
       }));
+    }
+  };
+
+  // Select song from library for Choir (Title, Artist & Lyrics Autofilled)
+  const handleSelectSongForChoir = (songTitleInput: string) => {
+    const trimmed = songTitleInput.trim();
+    const matched = songs.find(
+      (s) => s.title.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (matched) {
+      setEditingChoir((prev) => ({
+        ...prev,
+        songTitle: matched.title,
+        songId: matched.id,
+        lyrics: matched.lyrics || prev?.lyrics || '',
+        artist: matched.artist || prev?.artist || '',
+      }));
+      if (matched.artist) {
+        setNewChoirArtist(matched.artist);
+        setShowChoirArtistInput(true);
+      }
+    } else {
+      setEditingChoir((prev) => ({
+        ...prev,
+        songTitle: songTitleInput,
+      }));
+    }
+  };
+
+  // Choir Save Handler
+  const handleSaveChoirSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingChoir || !editingChoir.songTitle?.trim()) return;
+
+    const trimmedTitle = editingChoir.songTitle.trim();
+    const artist = showChoirArtistInput ? newChoirArtist.trim() : (editingChoir.artist || '').trim();
+    const lyrics = (editingChoir.lyrics || '').trim();
+    const choirGroup = (editingChoir.choirGroup || '').trim() || 'Church Choir';
+    const date = editingChoir.date || getNextSundayStr();
+    const notes = (editingChoir.notes || '').trim();
+
+    let effectiveSongId = editingChoir.songId;
+
+    // Check if song exists in songs library
+    const matchedSong = songs.find(
+      (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
+    );
+
+    if (!matchedSong && lyrics && onSaveSong) {
+      const newSong: Song = {
+        id: `song-${Date.now()}`,
+        title: trimmedTitle,
+        artist: artist || undefined,
+        lyrics: lyrics,
+        updatedAt: new Date().toISOString(),
+      };
+      onSaveSong(newSong);
+      effectiveSongId = newSong.id;
+    } else if (matchedSong) {
+      effectiveSongId = matchedSong.id;
+      if (
+        (artist && matchedSong.artist !== artist) ||
+        (lyrics && matchedSong.lyrics !== lyrics)
+      ) {
+        if (onSaveSong) {
+          onSaveSong({
+            ...matchedSong,
+            artist: artist || matchedSong.artist,
+            lyrics: lyrics || matchedSong.lyrics,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    const entryToSave: ChoirEntry = {
+      id: editingChoir.id || `choir-${Date.now()}`,
+      date,
+      songTitle: trimmedTitle,
+      artist: artist || undefined,
+      songId: effectiveSongId,
+      lyrics: lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
+      notes: notes || undefined,
+      choirGroup,
+      isDone: editingChoir.isDone || false,
+      createdAt: editingChoir.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (onSaveChoirEntry) {
+      onSaveChoirEntry(entryToSave);
+    }
+
+    setIsEditingChoir(false);
+    setEditingChoir(null);
+    setNewChoirArtist('');
+    setShowChoirArtistInput(false);
+  };
+
+  const handleToggleChoirDone = (entry: ChoirEntry) => {
+    if (onSaveChoirEntry) {
+      onSaveChoirEntry({
+        ...entry,
+        isDone: !entry.isDone,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  };
+
+  const handleDeleteChoir = (id: string) => {
+    if (window.confirm('Are you sure you want to remove this choir song entry?')) {
+      if (onDeleteChoirEntry) {
+        onDeleteChoirEntry(id);
+      }
+      if (selectedChoirId === id) {
+        setSelectedChoirId(null);
+      }
+    }
+  };
+
+  const handleCopyChoirLyrics = (entry: ChoirEntry) => {
+    if (!entry.lyrics) return;
+    navigator.clipboard.writeText(entry.lyrics);
+    setCopiedChoirLyricsId(entry.id);
+    setTimeout(() => setCopiedChoirLyricsId(null), 2000);
+  };
+
+  const handleSaveChoirSongToLibrary = (entry: ChoirEntry) => {
+    if (!entry.songTitle) return;
+    const existing = songs.find(
+      (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+    );
+    if (!existing && onSaveSong) {
+      const newSong: Song = {
+        id: `song-${Date.now()}`,
+        title: entry.songTitle.trim(),
+        artist: entry.artist,
+        lyrics: entry.lyrics || '',
+        updatedAt: new Date().toISOString(),
+      };
+      onSaveSong(newSong);
+      if (onSaveChoirEntry) {
+        onSaveChoirEntry({
+          ...entry,
+          songId: newSong.id,
+          updatedAt: new Date().toISOString(),
+        });
+      }
     }
   };
 
@@ -1205,7 +1388,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Mic2 className="w-5 h-5 text-slate-800 dark:text-slate-200" />
-            <span>Special Song Numbers & Practice</span>
+            <span>Song Numbers</span>
           </h2>
         </div>
 
@@ -1229,7 +1412,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             <Plus className="w-4 h-4" />
             <span>Schedule Special Song Number</span>
           </button>
-        ) : (
+        ) : activeSubTab === 'practice' ? (
           <button
             onClick={() => {
               setNewSongArtist('');
@@ -1252,10 +1435,32 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             <Plus className="w-4 h-4" />
             <span>New Practice Session</span>
           </button>
+        ) : (
+          <button
+            onClick={() => {
+              setNewChoirArtist('');
+              setShowChoirArtistInput(false);
+              setEditingChoir({
+                id: `choir-${Date.now()}`,
+                choirGroup: 'Church Choir',
+                songTitle: '',
+                date: getNextSundayStr(),
+                lyrics: '',
+                notes: '',
+                isDone: false,
+                createdAt: new Date().toISOString(),
+              });
+              setIsEditingChoir(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs shrink-0 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Line Up Choir Song</span>
+          </button>
         )}
       </div>
 
-      {/* Sub-Tabs: Schedules (default) & Practice */}
+      {/* Sub-Tabs: Schedules, Practice, & Choir */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
         <button
           type="button"
@@ -1298,6 +1503,28 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             }`}
           >
             {practiceEntries.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('choir')}
+          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+            activeSubTab === 'choir'
+              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Music className="w-4 h-4" />
+          <span>Choir</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              activeSubTab === 'choir'
+                ? 'bg-white/20 text-white dark:bg-black/20 dark:text-slate-900'
+                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+            }`}
+          >
+            {choirEntries.length}
           </span>
         </button>
       </div>
@@ -2190,6 +2417,361 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       )}
 
       {/* ========================================================================= */}
+      {/* CHOIR SUB-TAB */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'choir' && (
+        <div className="space-y-4">
+          {/* Choir Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={choirSearchQuery}
+                onChange={(e) => setChoirSearchQuery(e.target.value)}
+                placeholder="Search choir song title, lyrics, notes, or ministry group..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 shadow-xs"
+              />
+              {choirSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setChoirSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setChoirFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  choirFilter === 'all'
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                All ({choirEntries.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setChoirFilter('upcoming')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  choirFilter === 'upcoming'
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Upcoming ({choirEntries.filter((c) => !c.isDone).length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setChoirFilter('completed')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  choirFilter === 'completed'
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                Presented ({choirEntries.filter((c) => c.isDone).length})
+              </button>
+            </div>
+          </div>
+
+          {/* Choir Songs Lineup List */}
+          {filteredChoirEntries.length === 0 ? (
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-700 dark:text-slate-300">
+                <Music className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {choirSearchQuery || choirFilter !== 'all'
+                    ? 'No matching choir songs found'
+                    : 'No choir songs lined up yet'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  {choirSearchQuery || choirFilter !== 'all'
+                    ? 'Try adjusting your search terms or filter selection.'
+                    : 'Line up choir songs with dates, lyrics, and conductor notes. All songs stay connected with your Songs Library.'}
+                </p>
+              </div>
+              {!choirSearchQuery && choirFilter === 'all' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewChoirArtist('');
+                    setShowChoirArtistInput(false);
+                    setEditingChoir({
+                      id: `choir-${Date.now()}`,
+                      choirGroup: 'Church Choir',
+                      songTitle: '',
+                      date: getNextSundayStr(),
+                      lyrics: '',
+                      notes: '',
+                      isDone: false,
+                      createdAt: new Date().toISOString(),
+                    });
+                    setIsEditingChoir(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-colors cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Line Up First Choir Song</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredChoirEntries.map((entry) => {
+                const isUpcomingSunday = entry.date === getNextSundayStr();
+                const isPast = isPastDate(entry.date) && !isToday(entry.date);
+                const hasLyrics = Boolean(entry.lyrics?.trim());
+                const isLyricsExpanded = expandedChoirLyricsIds[entry.id] || false;
+                const matchedSongInDb = entry.songId
+                  ? songs.find((s) => s.id === entry.songId)
+                  : songs.find(
+                      (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+                    );
+
+                return (
+                  <div
+                    key={entry.id}
+                    className={`rounded-2xl border transition-all bg-white dark:bg-slate-900 p-4 sm:p-5 space-y-4 shadow-xs ${
+                      entry.isDone
+                        ? 'border-slate-200 dark:border-slate-800/80 opacity-75'
+                        : isUpcomingSunday
+                        ? 'border-slate-300 dark:border-slate-700 ring-1 ring-slate-400/20'
+                        : 'border-slate-200 dark:border-slate-800'
+                    }`}
+                  >
+                    {/* Header Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Date Badge */}
+                        <div
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                            entry.isDone
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                              : isUpcomingSunday
+                              ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                              : isToday(entry.date)
+                              ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300'
+                              : isPast
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200'
+                          }`}
+                        >
+                          <Calendar className="w-3.5 h-3.5 shrink-0" />
+                          <span>{formatDateStr(entry.date)}</span>
+                          {isUpcomingSunday && !entry.isDone && (
+                            <span className="text-[10px] uppercase tracking-wider px-1 rounded bg-white/20 dark:bg-black/20 font-black">
+                              This Sunday
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Choir Ministry Group Badge */}
+                        <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {entry.choirGroup || 'Church Choir'}
+                        </span>
+                      </div>
+
+                      {/* Top Right Quick Actions */}
+                      <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+                        {/* Mark Presented Toggle */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleChoirDone(entry)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            entry.isDone
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                          title={entry.isDone ? 'Mark as upcoming' : 'Mark as presented on service'}
+                        >
+                          {entry.isDone ? (
+                            <>
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                              <span>Presented</span>
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Mark Presented</span>
+                            </>
+                          )}
+                        </button>
+
+                        {/* Edit Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingChoir(entry);
+                            if (entry.artist) {
+                              setNewChoirArtist(entry.artist);
+                              setShowChoirArtistInput(true);
+                            } else {
+                              setNewChoirArtist('');
+                              setShowChoirArtistInput(false);
+                            }
+                            setIsEditingChoir(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="Edit Choir Song Lineup"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteChoir(entry.id)}
+                          className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          title="Delete Choir Song"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Song Details & Library Link */}
+                    <div className="space-y-2">
+                      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <h3
+                            className={`text-lg font-bold tracking-tight text-slate-900 dark:text-white ${
+                              entry.isDone ? 'line-through decoration-slate-400' : ''
+                            }`}
+                          >
+                            {entry.songTitle}
+                          </h3>
+                          {entry.artist && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              by {entry.artist}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Songs Library Connection */}
+                        <div className="flex items-center gap-2 pt-1 sm:pt-0">
+                          {matchedSongInDb ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenSongDetail(matchedSongInDb.id)}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white underline underline-offset-2 transition-colors cursor-pointer"
+                              title="Open in Songs Library"
+                            >
+                              <BookOpen className="w-3.5 h-3.5 text-slate-500" />
+                              <span>View in Songs Tab</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleSaveChoirSongToLibrary(entry)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                              title="Save to Global Songs Library"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Save to Songs Library</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Presentation / Conductor Notes */}
+                      {entry.notes && (
+                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 flex items-start gap-2.5">
+                          <FileText className="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0" />
+                          <div className="space-y-0.5 min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                              Presentation / Conductor Notes:
+                            </span>
+                            <p className="whitespace-pre-wrap leading-relaxed">{entry.notes}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Lyrics Section */}
+                    {hasLyrics ? (
+                      <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedChoirLyricsIds((prev) => ({
+                                ...prev,
+                                [entry.id]: !prev[entry.id],
+                              }))
+                            }
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white transition-colors cursor-pointer"
+                          >
+                            {isLyricsExpanded ? (
+                              <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+                            )}
+                            <span>Choir Lyrics</span>
+                            <span className="text-[10px] font-normal text-slate-400">
+                              ({entry.lyrics!.trim().split('\n').length} lines)
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyChoirLyrics(entry)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                            title="Copy Lyrics to Clipboard"
+                          >
+                            {copiedChoirLyricsId === entry.id ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                                  Copied!
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span>Copy Lyrics</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {isLyricsExpanded && (
+                          <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-xs text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto">
+                            {entry.lyrics}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <span className="italic">No lyrics attached yet</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingChoir(entry);
+                            setIsEditingChoir(true);
+                          }}
+                          className="text-slate-600 dark:text-slate-300 hover:underline cursor-pointer"
+                        >
+                          + Add Lyrics
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* SCHEDULE MODAL (Create / Edit Special Number) */}
       {/* ========================================================================= */}
       {isEditingSchedule && editingSchedule && (
@@ -2987,6 +3569,246 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer"
                 >
                   Save Vocal Part
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CHOIR MODAL (Create / Edit Choir Song Lineup) */}
+      {/* ========================================================================= */}
+      {isEditingChoir && editingChoir && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Music className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <span>
+                  {editingChoir.id && choirEntries.some((c) => c.id === editingChoir.id)
+                    ? 'Edit Choir Song Lineup'
+                    : 'Line Up Choir Song'}
+                </span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsEditingChoir(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveChoirSubmit} className="p-4 sm:p-5 space-y-4">
+              {/* Service Date & Preset Buttons */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Service Presentation Date <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={editingChoir.date}
+                  onChange={(e) => setEditingChoir({ ...editingChoir, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEditingChoir({ ...editingChoir, date: getNextSundayStr() })
+                    }
+                    className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    This Sunday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(getNextSundayStr());
+                      d.setDate(d.getDate() + 7);
+                      setEditingChoir({ ...editingChoir, date: d.toISOString().split('T')[0] });
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    Next Sunday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(getNextSundayStr());
+                      d.setDate(d.getDate() + 14);
+                      setEditingChoir({ ...editingChoir, date: d.toISOString().split('T')[0] });
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    Following Sunday
+                  </button>
+                </div>
+              </div>
+
+              {/* Choir Ministry Group */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Choir Group / Ministry
+                </label>
+                <input
+                  type="text"
+                  value={editingChoir.choirGroup || ''}
+                  onChange={(e) =>
+                    setEditingChoir({ ...editingChoir, choirGroup: e.target.value })
+                  }
+                  placeholder="e.g. Church Choir, Youth Choir, Junior Choir"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['Church Choir', 'Youth Choir', 'Junior Choir', "Men's Choir", "Ladies' Choir"].map(
+                    (groupName) => (
+                      <button
+                        key={groupName}
+                        type="button"
+                        onClick={() =>
+                          setEditingChoir({ ...editingChoir, choirGroup: groupName })
+                        }
+                        className={`px-2 py-0.5 text-[11px] font-medium rounded-md cursor-pointer transition-colors ${
+                          editingChoir.choirGroup === groupName
+                            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {groupName}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              {/* Choir Song Title (Connected to Song Library) */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Choir Song Title <span className="text-rose-500">*</span>
+                </label>
+                <AutofillInput
+                  value={editingChoir.songTitle}
+                  onChange={(val) => {
+                    const matchedSong = songs.find(
+                      (s) => s.title.trim().toLowerCase() === val.trim().toLowerCase()
+                    );
+                    setEditingChoir({
+                      ...editingChoir,
+                      songTitle: val,
+                      songId: matchedSong ? matchedSong.id : undefined,
+                      lyrics:
+                        editingChoir.lyrics?.trim()
+                          ? editingChoir.lyrics
+                          : matchedSong?.lyrics || '',
+                    });
+                  }}
+                  onSelectSuggestion={(suggestion) => {
+                    const matchedSong = songs.find((s) => s.title === suggestion);
+                    if (matchedSong) {
+                      handleSelectSongForChoir(matchedSong);
+                    } else {
+                      setEditingChoir({ ...editingChoir, songTitle: suggestion });
+                    }
+                  }}
+                  suggestions={songs.map((s) => s.title)}
+                  placeholder="Select or type choir song title..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+                <p className="text-[11px] text-slate-400">
+                  Type to search from existing songs in Songs Tab, or enter a new title.
+                </p>
+              </div>
+
+              {/* Artist / Composer */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Composer / Artist / Arranger (Optional)
+                  </label>
+                  {!showChoirArtistInput && !editingChoir.artist && (
+                    <button
+                      type="button"
+                      onClick={() => setShowChoirArtistInput(true)}
+                      className="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white underline cursor-pointer"
+                    >
+                      + Add Composer
+                    </button>
+                  )}
+                </div>
+                {(showChoirArtistInput || editingChoir.artist) && (
+                  <input
+                    type="text"
+                    value={newChoirArtist || editingChoir.artist || ''}
+                    onChange={(e) => {
+                      setNewChoirArtist(e.target.value);
+                      setEditingChoir({ ...editingChoir, artist: e.target.value });
+                    }}
+                    placeholder="e.g. Fanny Crosby / Arr. Camp Kirkland"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                )}
+              </div>
+
+              {/* Presentation / Conductor Notes */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Presentation / Conductor Notes (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingChoir.notes || ''}
+                  onChange={(e) => setEditingChoir({ ...editingChoir, notes: e.target.value })}
+                  placeholder="e.g. Modulation on Verse 3, Tenors hold final high Eb, attire is formal black & white..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 resize-none"
+                />
+              </div>
+
+              {/* Lyrics Box */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Lyrics & Arrangement
+                </label>
+                <textarea
+                  rows={5}
+                  value={editingChoir.lyrics || ''}
+                  onChange={(e) => setEditingChoir({ ...editingChoir, lyrics: e.target.value })}
+                  placeholder="Paste choir arrangement lyrics here..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed"
+                />
+              </div>
+
+              {/* Status Toggle */}
+              <div className="pt-2">
+                <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={editingChoir.isDone || false}
+                    onChange={(e) =>
+                      setEditingChoir({ ...editingChoir, isDone: e.target.checked })
+                    }
+                    className="w-4 h-4 rounded text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 focus:ring-slate-900"
+                  />
+                  <span>Mark as Presented / Sang on Service</span>
+                </label>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingChoir(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer"
+                >
+                  Save Choir Lineup
                 </button>
               </div>
             </form>

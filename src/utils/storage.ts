@@ -8,6 +8,7 @@ import {
   SpecialRecognition,
   SpecialNumberEntry,
   PracticeGroupEntry,
+  ChoirEntry,
 } from '../types';
 import { getNextSundayStr } from './dateUtils';
 
@@ -22,6 +23,7 @@ const STORAGE_KEYS = {
   VISITORS: 'nlbc_visitors_v1',
   SPECIAL_RECOGNITIONS: 'nlbc_special_recognitions_v1',
   SPECIAL_NUMBERS: 'nlbc_special_numbers_v1',
+  CHOIR_ENTRIES: 'nlbc_choir_entries_v1',
   PRACTICE_ENTRIES: 'nlbc_practice_entries_v1',
   SAVED_NAMES: 'nlbc_saved_names_v1',
   WELCOME_SONGS: 'nlbc_welcome_songs_v1',
@@ -516,6 +518,28 @@ export function loadSpecialNumbers(): SpecialNumberEntry[] {
 
 export function saveSpecialNumbers(items: SpecialNumberEntry[]): void {
   localStorage.setItem(STORAGE_KEYS.SPECIAL_NUMBERS, JSON.stringify(items));
+}
+
+export function loadChoirEntries(): ChoirEntry[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CHOIR_ENTRIES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.CHOIR_ENTRIES, JSON.stringify([]));
+      return [];
+    }
+    const parsed: ChoirEntry[] = JSON.parse(raw);
+    const cleaned = parsed.filter((c) => !LEGACY_MOCK_IDS.has(c.id));
+    if (cleaned.length !== parsed.length) {
+      saveChoirEntries(cleaned);
+    }
+    return cleaned;
+  } catch {
+    return [];
+  }
+}
+
+export function saveChoirEntries(items: ChoirEntry[]): void {
+  localStorage.setItem(STORAGE_KEYS.CHOIR_ENTRIES, JSON.stringify(items));
 }
 
 export function loadSavedNames(): string[] {

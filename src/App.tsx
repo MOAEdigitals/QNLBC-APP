@@ -10,6 +10,7 @@ import {
   SpecialRecognition,
   SpecialNumberEntry,
   PracticeGroupEntry,
+  ChoirEntry,
 } from './types';
 import {
   loadCurrentSession,
@@ -34,6 +35,8 @@ import {
   saveSpecialNumbers,
   loadPracticeEntries,
   savePracticeEntries,
+  loadChoirEntries,
+  saveChoirEntries,
   normalizePracticeEntry,
   upsertSongFromSpecialNumber,
 } from './utils/storage';
@@ -47,6 +50,8 @@ import {
   syncDeleteSpecialNumber,
   syncSavePracticeEntry,
   syncDeletePracticeEntry,
+  syncSaveChoirEntry,
+  syncDeleteChoirEntry,
   syncSaveBirthday,
   syncDeleteBirthday,
   syncSaveAnniversary,
@@ -168,6 +173,7 @@ export default function App() {
   const [visitors, setVisitors] = useState<Visitor[]>(() => loadVisitors());
   const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>(() => loadSpecialRecognitions());
   const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>(() => loadSpecialNumbers());
+  const [choirEntries, setChoirEntries] = useState<ChoirEntry[]>(() => loadChoirEntries());
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>(() => loadPracticeEntries());
   const [savedNames, setSavedNames] = useState<string[]>(() => loadSavedNames());
 
@@ -209,6 +215,11 @@ export default function App() {
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
       setSpecialNumbers(items);
       saveSpecialNumbers(items);
+    });
+
+    const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
+      setChoirEntries(items);
+      saveChoirEntries(items);
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
@@ -270,6 +281,7 @@ export default function App() {
       unsubVisitors();
       unsubRecognitions();
       unsubSpecials();
+      unsubChoir();
       unsubPractice();
       unsubUsers();
       unsubAppSettings();
@@ -288,6 +300,7 @@ export default function App() {
     setVisitors(loadVisitors());
     setSpecialRecognitions(loadSpecialRecognitions());
     setSpecialNumbers(loadSpecialNumbers());
+    setChoirEntries(loadChoirEntries());
     setPracticeEntries(loadPracticeEntries());
     setSavedNames(loadSavedNames());
   };
@@ -450,6 +463,35 @@ export default function App() {
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
     syncDeleteSpecialNumber(id);
+  };
+
+  // Choir Operations
+  const handleSaveChoirEntry = (entry: ChoirEntry) => {
+    if (entry.songTitle && entry.lyrics) {
+      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
+      entry.songId = syncedSong.id;
+      setSongs(loadSongs());
+      syncSaveSong(syncedSong);
+    }
+
+    const idx = choirEntries.findIndex((c) => c.id === entry.id);
+    let updated: ChoirEntry[];
+    if (idx >= 0) {
+      updated = [...choirEntries];
+      updated[idx] = entry;
+    } else {
+      updated = [entry, ...choirEntries];
+    }
+    setChoirEntries(updated);
+    saveChoirEntries(updated);
+    syncSaveChoirEntry(entry);
+  };
+
+  const handleDeleteChoirEntry = (id: string) => {
+    const updated = choirEntries.filter((c) => c.id !== id);
+    setChoirEntries(updated);
+    saveChoirEntries(updated);
+    syncDeleteChoirEntry(id);
   };
 
   // Practice Group / Song Operations
@@ -740,12 +782,15 @@ export default function App() {
           <SpecialNumberTab
             specialNumbers={specialNumbers}
             practiceEntries={practiceEntries}
+            choirEntries={choirEntries}
             songs={songs}
             setlists={setlists}
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
             onSavePracticeEntry={handleSavePracticeEntry}
             onDeletePracticeEntry={handleDeletePracticeEntry}
+            onSaveChoirEntry={handleSaveChoirEntry}
+            onDeleteChoirEntry={handleDeleteChoirEntry}
             onOpenSongDetail={handleOpenSongDetail}
             onSaveSong={handleSaveSong}
             collapseSignal={collapseSignals['special-numbers']}

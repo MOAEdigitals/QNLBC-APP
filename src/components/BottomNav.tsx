@@ -18,8 +18,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const tabs = [
     {
       id: 'home' as AppTab,
-      label: 'Home',
-      sublabel: 'Setlists',
+      label: 'Setlists',
+      sublabel: 'Order of Service',
       icon: CalendarDays,
       badge: 0,
     },
@@ -32,8 +32,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     },
     {
       id: 'special-numbers' as AppTab,
-      label: 'Special Number',
-      sublabel: 'Schedule',
+      label: 'Song Numbers',
+      sublabel: 'Schedule & Practice',
       icon: Mic2,
       badge: upcomingSpecialCount,
     },

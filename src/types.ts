@@ -136,9 +136,23 @@ export interface SpecialNumberEntry {
   createdAt: string;
 }
 
+export interface ChoirEntry {
+  id: string;
+  date: string; // YYYY-MM-DD presentation/service date
+  songTitle: string;
+  artist?: string;
+  songId?: string; // Reference to Song library if linked
+  lyrics?: string;
+  notes?: string;
+  choirGroup?: string; // e.g. "Church Choir", "Youth Choir", "Junior Choir"
+  isDone?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'settings';
 export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
-export type SpecialNumbersSubTab = 'schedules' | 'practice';
+export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir';
 
 export type VocalPartLabel =
   | 'Soprano'
