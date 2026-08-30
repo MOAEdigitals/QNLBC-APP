@@ -120,65 +120,110 @@ export const notifyAudioStored = (audioId: string, base64Data: string) => {
 /**
  * Get audio dataUrl by track/part ID:
  * 1. Checks memory cache
- * 2. Checks local IndexedDB
- * 3. If not found locally, fetches from Firestore Cloud and caches locally for future instant playback!
+ * 2. Checks local IndexedDB for exact ID match
+ * 3. Scans IndexedDB records in case ID differed between attachment and storage key
+ * 4. If not found locally, fetches from Firestore Cloud and caches locally for future instant playback!
  */
-export async function getAudioFromStorage(id: string): Promise<string | null> {
-  if (!id) return null;
-  const cleanId = id.replace(/^indexeddb:/, '');
+export async function getAudioFromStorage(
+  id: string,
+  ...fallbackIds: (string | undefined | null)[]
+): Promise<string | null> {
+  const allIds = [id, ...fallbackIds]
+    .filter((x): x is string => Boolean(x && typeof x === 'string'))
+    .map((x) => x.trim().replace(/^indexeddb:/, ''))
+    .filter(Boolean);
 
-  if (audioMemCache.has(cleanId)) {
-    return audioMemCache.get(cleanId) || null;
+  if (allIds.length === 0) return null;
+
+  // 1. Check memory cache for any matching ID
+  for (const testId of allIds) {
+    if (audioMemCache.has(testId)) {
+      const cached = audioMemCache.get(testId);
+      if (cached) return cached;
+    }
   }
 
-  // 1. Check local IndexedDB
+  // 2. Check local IndexedDB
   try {
     const db = await getDB();
-    const localAudio = await new Promise<string | null>((resolve) => {
+    for (const testId of allIds) {
+      const localAudio = await new Promise<string | null>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(testId);
+        req.onsuccess = () => {
+          if (req.result && req.result.dataUrl) {
+            resolve(req.result.dataUrl);
+          } else {
+            resolve(null);
+          }
+        };
+        req.onerror = () => resolve(null);
+      });
+
+      if (localAudio) {
+        audioMemCache.set(testId, localAudio);
+        return localAudio;
+      }
+    }
+  } catch {
+    // Continue to scan / cloud fallback
+  }
+
+  // 3. Fallback scan: in case timestamp or attachment ID differed slightly
+  try {
+    const db = await getDB();
+    const allRecords = await new Promise<StoredAudioItem[]>((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.get(cleanId);
-      req.onsuccess = () => {
-        if (req.result && req.result.dataUrl) {
-          resolve(req.result.dataUrl);
-        } else {
-          resolve(null);
-        }
-      };
-      req.onerror = () => resolve(null);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
     });
 
-    if (localAudio) {
-      audioMemCache.set(cleanId, localAudio);
-      return localAudio;
+    for (const record of allRecords) {
+      for (const testId of allIds) {
+        if (
+          record.id === testId ||
+          record.id.includes(testId) ||
+          testId.includes(record.id)
+        ) {
+          if (record.dataUrl) {
+            audioMemCache.set(testId, record.dataUrl);
+            return record.dataUrl;
+          }
+        }
+      }
     }
   } catch {
     // Continue to cloud fallback
   }
 
-  // 2. If not found locally on this device, fetch from Firestore Cloud!
-  try {
-    const cloudAudio = await fetchPracticeAudioFromCloud(cleanId);
-    if (cloudAudio) {
-      audioMemCache.set(cleanId, cloudAudio);
-      // Cache into local IndexedDB for future plays
-      try {
-        const db = await getDB();
-        const tx = db.transaction(STORE_NAME, 'readwrite');
-        const store = tx.objectStore(STORE_NAME);
-        store.put({
-          id: cleanId,
-          dataUrl: cloudAudio,
-          mimeType: cloudAudio.split(';')[0]?.replace('data:', '') || 'audio/webm',
-          updatedAt: new Date().toISOString(),
-        });
-      } catch {
-        // Cache failure is non-fatal
+  // 4. If not found locally on this device, fetch from Firestore Cloud!
+  for (const testId of allIds) {
+    try {
+      const cloudAudio = await fetchPracticeAudioFromCloud(testId);
+      if (cloudAudio) {
+        audioMemCache.set(testId, cloudAudio);
+        // Cache into local IndexedDB for future plays
+        try {
+          const db = await getDB();
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          store.put({
+            id: testId,
+            dataUrl: cloudAudio,
+            mimeType: cloudAudio.split(';')[0]?.replace('data:', '') || 'audio/webm',
+            updatedAt: new Date().toISOString(),
+          });
+        } catch {
+          // Cache failure is non-fatal
+        }
+        return cloudAudio;
       }
-      return cloudAudio;
+    } catch (err) {
+      console.warn(`Failed to fetch audio ${testId} from cloud:`, err);
     }
-  } catch (err) {
-    console.warn(`Failed to fetch audio ${cleanId} from cloud:`, err);
   }
 
   return null;

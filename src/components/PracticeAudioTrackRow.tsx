@@ -12,7 +12,7 @@ import {
   AlertCircle,
   ExternalLink,
 } from 'lucide-react';
-import { getAudioFromStorage } from '../utils/audioStorage';
+import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStorage';
 import {
   registerActiveAudio,
   notifyAudioStopped,
@@ -91,15 +91,15 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   // Resolve audio source (checking memory cache, IndexedDB, or direct URL)
   useEffect(() => {
     let isCancelled = false;
-    setAudioError(null);
 
     const resolveSource = async () => {
+      setAudioError(null);
       if (!audioUrl || !audioUrl.trim()) {
-        // Try to check storage with track ID as fallback
         const stored = await getAudioFromStorage(id);
         if (!isCancelled) {
           if (stored) {
             setResolvedAudioSrc(stored);
+            setAudioError(null);
           } else {
             setResolvedAudioSrc('');
           }
@@ -109,25 +109,40 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
       const raw = audioUrl.trim();
       if (raw.startsWith('indexeddb:')) {
-        const stored = await getAudioFromStorage(id);
+        const targetId = raw.replace(/^indexeddb:/, '');
+        const stored = await getAudioFromStorage(targetId, id);
         if (!isCancelled) {
           if (stored) {
             setResolvedAudioSrc(stored);
+            setAudioError(null);
           } else {
             setResolvedAudioSrc('');
             setAudioError('Saved audio recording not found on this device');
           }
         }
+      } else if (raw.startsWith('data:')) {
+        setResolvedAudioSrc(raw);
+        setAudioError(null);
       } else {
         const clean = resolveMediaUrl(raw);
         setResolvedAudioSrc(clean);
+        setAudioError(null);
       }
     };
 
     resolveSource();
 
+    // Listen for storage events (e.g. when an audio file finishes saving into IndexedDB or memcache)
+    const unsubscribe = subscribeToAudioUpdates((audioId) => {
+      const cleanRawId = audioUrl ? audioUrl.trim().replace(/^indexeddb:/, '') : '';
+      if (audioId === id || audioId === cleanRawId) {
+        resolveSource();
+      }
+    });
+
     return () => {
       isCancelled = true;
+      unsubscribe();
     };
   }, [id, audioUrl]);
 

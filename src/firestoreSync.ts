@@ -147,9 +147,8 @@ try {
   const todayStr = new Date().toISOString().split('T')[0];
   const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
   if (savedDate === todayStr) {
-    // Set status flag initially but allow background retries
-    isQuotaExhausted = false; // Allow fresh attempts today so new changes can test connection
-    currentStatus = 'online';
+    isQuotaExhausted = true;
+    currentStatus = 'quota-exceeded';
   } else {
     localStorage.removeItem(QUOTA_STORAGE_KEY);
   }
@@ -218,7 +217,8 @@ export function handleFirestoreError(
     rawMsg.includes('resource-exhausted') ||
     rawMsg.includes('Quota limit exceeded') ||
     rawMsg.includes('Free daily write units') ||
-    rawMsg.includes('quota metric');
+    rawMsg.includes('quota metric') ||
+    rawMsg.includes('Quota exceeded');
 
   const isOffline =
     rawMsg.includes('unavailable') ||
@@ -237,32 +237,9 @@ export function handleFirestoreError(
       // ignore
     }
     notifyStatusChange();
-    console.warn(
-      `[Firestore Notice] Daily write quota reached. Switched to offline local persistence mode.`
-    );
   } else if (isOffline && currentStatus !== 'quota-exceeded') {
     currentStatus = 'offline';
     notifyStatusChange();
-  }
-
-  const errInfo: FirestoreErrorInfo = {
-    error: rawMsg,
-    authInfo: {
-      userId: null,
-      email: null,
-      emailVerified: null,
-      isAnonymous: null,
-      tenantId: null,
-      providerInfo: [],
-    },
-    operationType,
-    path,
-  };
-
-  if (isQuota) {
-    console.warn('Firestore Quota Info:', JSON.stringify(errInfo));
-  } else {
-    console.warn('Firestore Connection Notice:', JSON.stringify(errInfo));
   }
 }
 
@@ -298,12 +275,57 @@ function sanitizeDoc<T>(data: T): Record<string, any> {
   return cleanObject(data);
 }
 
+// Central safe Firestore write wrapper with quota circuit-breaker and offline queueing
+async function executeFirestoreWrite(
+  collectionName: string,
+  docId: string,
+  rawData: any
+): Promise<void> {
+  const sanitized = sanitizeDoc(rawData);
+  if (isQuotaExhausted) {
+    enqueuePending(collectionName, docId, sanitized, 'write');
+    return;
+  }
+
+  try {
+    const docRef = doc(db, collectionName, docId);
+    await setDoc(docRef, sanitized, { merge: true });
+    dequeuePending(collectionName, docId);
+    markOperationSuccess();
+  } catch (err) {
+    enqueuePending(collectionName, docId, sanitized, 'write');
+    handleFirestoreError(err, OperationType.WRITE, `${collectionName}/${docId}`);
+  }
+}
+
+// Central safe Firestore delete wrapper with quota circuit-breaker and offline queueing
+async function executeFirestoreDelete(
+  collectionName: string,
+  docId: string
+): Promise<void> {
+  if (isQuotaExhausted) {
+    enqueuePending(collectionName, docId, undefined, 'delete');
+    return;
+  }
+
+  try {
+    await deleteDoc(doc(db, collectionName, docId));
+    dequeuePending(collectionName, docId);
+    markOperationSuccess();
+  } catch (err) {
+    enqueuePending(collectionName, docId, undefined, 'delete');
+    handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${docId}`);
+  }
+}
+
 // Flush pending offline/quota-deferred queue
 export async function flushPendingSyncQueue(): Promise<void> {
+  if (isQuotaExhausted) return;
   const queue = getPendingQueue();
   if (queue.length === 0) return;
 
   for (const item of queue) {
+    if (isQuotaExhausted) break;
     try {
       const docRef = doc(db, item.collectionName, item.id);
       if (item.operation === 'write' && item.data) {
@@ -377,232 +399,79 @@ export function subscribeToCollection<T extends { id: string }>(
 
 // Firestore Write Operations with Automatic Offline Queue & Retry
 export async function syncSaveSetlist(setlist: Setlist): Promise<void> {
-  const sanitized = sanitizeDoc(setlist);
-  try {
-    const docRef = doc(db, COLLECTIONS.SETLISTS, setlist.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.SETLISTS, setlist.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SETLISTS, setlist.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SETLISTS}/${setlist.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.SETLISTS, setlist.id, setlist);
 }
 
 export async function syncDeleteSetlist(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.SETLISTS, id));
-    dequeuePending(COLLECTIONS.SETLISTS, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SETLISTS, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SETLISTS}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.SETLISTS, id);
 }
 
 export async function syncSaveSong(song: Song): Promise<void> {
-  const sanitized = sanitizeDoc(song);
-  try {
-    const docRef = doc(db, COLLECTIONS.SONGS, song.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.SONGS, song.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SONGS, song.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SONGS}/${song.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.SONGS, song.id, song);
 }
 
 export async function syncDeleteSong(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.SONGS, id));
-    dequeuePending(COLLECTIONS.SONGS, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SONGS, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SONGS}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.SONGS, id);
 }
 
 export async function syncSaveSpecialNumber(entry: SpecialNumberEntry): Promise<void> {
-  const sanitized = sanitizeDoc(entry);
-  try {
-    const docRef = doc(db, COLLECTIONS.SPECIAL_NUMBERS, entry.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.SPECIAL_NUMBERS, entry.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SPECIAL_NUMBERS, entry.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SPECIAL_NUMBERS}/${entry.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.SPECIAL_NUMBERS, entry.id, entry);
 }
 
 export async function syncDeleteSpecialNumber(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.SPECIAL_NUMBERS, id));
-    dequeuePending(COLLECTIONS.SPECIAL_NUMBERS, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SPECIAL_NUMBERS, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SPECIAL_NUMBERS}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.SPECIAL_NUMBERS, id);
 }
 
 export async function syncSaveChoirEntry(entry: ChoirEntry): Promise<void> {
-  const sanitized = sanitizeDoc(entry);
-  try {
-    const docRef = doc(db, COLLECTIONS.CHOIR_ENTRIES, entry.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.CHOIR_ENTRIES, entry.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.CHOIR_ENTRIES, entry.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.CHOIR_ENTRIES}/${entry.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.CHOIR_ENTRIES, entry.id, entry);
 }
 
 export async function syncDeleteChoirEntry(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.CHOIR_ENTRIES, id));
-    dequeuePending(COLLECTIONS.CHOIR_ENTRIES, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.CHOIR_ENTRIES, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.CHOIR_ENTRIES}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.CHOIR_ENTRIES, id);
 }
 
 export async function syncSavePracticeEntry(entry: PracticeGroupEntry): Promise<void> {
-  const sanitized = sanitizeDoc(entry);
-  try {
-    const docRef = doc(db, COLLECTIONS.PRACTICE_ENTRIES, entry.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.PRACTICE_ENTRIES, entry.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.PRACTICE_ENTRIES, entry.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.PRACTICE_ENTRIES}/${entry.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.PRACTICE_ENTRIES, entry.id, entry);
 }
 
 export async function syncDeletePracticeEntry(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, id));
-    dequeuePending(COLLECTIONS.PRACTICE_ENTRIES, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.PRACTICE_ENTRIES, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.PRACTICE_ENTRIES}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.PRACTICE_ENTRIES, id);
 }
 
 export async function syncSaveBirthday(item: BirthdayCelebrant): Promise<void> {
-  const sanitized = sanitizeDoc(item);
-  try {
-    const docRef = doc(db, COLLECTIONS.BIRTHDAYS, item.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.BIRTHDAYS, item.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.BIRTHDAYS, item.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.BIRTHDAYS}/${item.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.BIRTHDAYS, item.id, item);
 }
 
 export async function syncDeleteBirthday(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.BIRTHDAYS, id));
-    dequeuePending(COLLECTIONS.BIRTHDAYS, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.BIRTHDAYS, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.BIRTHDAYS}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.BIRTHDAYS, id);
 }
 
 export async function syncSaveAnniversary(item: AnniversaryCelebrant): Promise<void> {
-  const sanitized = sanitizeDoc(item);
-  try {
-    const docRef = doc(db, COLLECTIONS.ANNIVERSARIES, item.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.ANNIVERSARIES, item.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.ANNIVERSARIES, item.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.ANNIVERSARIES}/${item.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.ANNIVERSARIES, item.id, item);
 }
 
 export async function syncDeleteAnniversary(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.ANNIVERSARIES, id));
-    dequeuePending(COLLECTIONS.ANNIVERSARIES, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.ANNIVERSARIES, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.ANNIVERSARIES}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.ANNIVERSARIES, id);
 }
 
 export async function syncSaveVisitor(item: Visitor): Promise<void> {
-  const sanitized = sanitizeDoc(item);
-  try {
-    const docRef = doc(db, COLLECTIONS.VISITORS, item.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.VISITORS, item.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.VISITORS, item.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.VISITORS}/${item.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.VISITORS, item.id, item);
 }
 
 export async function syncDeleteVisitor(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.VISITORS, id));
-    dequeuePending(COLLECTIONS.VISITORS, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.VISITORS, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.VISITORS}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.VISITORS, id);
 }
 
 export async function syncSaveSpecialRecognition(item: SpecialRecognition): Promise<void> {
-  const sanitized = sanitizeDoc(item);
-  try {
-    const docRef = doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, item.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.SPECIAL_RECOGNITIONS, item.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SPECIAL_RECOGNITIONS, item.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.SPECIAL_RECOGNITIONS}/${item.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.SPECIAL_RECOGNITIONS, item.id, item);
 }
 
 export async function syncDeleteSpecialRecognition(id: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, id));
-    dequeuePending(COLLECTIONS.SPECIAL_RECOGNITIONS, id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.SPECIAL_RECOGNITIONS, id, undefined, 'delete');
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.SPECIAL_RECOGNITIONS}/${id}`);
-  }
+  return executeFirestoreDelete(COLLECTIONS.SPECIAL_RECOGNITIONS, id);
 }
 
 export async function syncSaveUser(user: UserAccount): Promise<void> {
-  const sanitized = sanitizeDoc(user);
-  try {
-    const docRef = doc(db, COLLECTIONS.USERS, user.id);
-    await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(COLLECTIONS.USERS, user.id);
-    markOperationSuccess();
-  } catch (err) {
-    enqueuePending(COLLECTIONS.USERS, user.id, sanitized, 'write');
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.USERS}/${user.id}`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.USERS, user.id, user);
 }
 
 export async function syncDeleteUser(id: string, username?: string): Promise<void> {
@@ -718,23 +587,19 @@ export function subscribeToPracticeAudios(
 // --- Settings Cloud Sync (Church Directory & Welcome Songs) ---
 
 export async function syncSaveSavedNames(names: string[]): Promise<void> {
-  try {
-    const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
-    await setDoc(docRef, { id: 'saved_names', names, updatedAt: new Date().toISOString() }, { merge: true });
-    markOperationSuccess();
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.APP_SETTINGS}/saved_names`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.APP_SETTINGS, 'saved_names', {
+    id: 'saved_names',
+    names,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export async function syncSaveWelcomeSongs(songs: string[]): Promise<void> {
-  try {
-    const docRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
-    await setDoc(docRef, { id: 'welcome_songs', songs, updatedAt: new Date().toISOString() }, { merge: true });
-    markOperationSuccess();
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.APP_SETTINGS}/welcome_songs`);
-  }
+  return executeFirestoreWrite(COLLECTIONS.APP_SETTINGS, 'welcome_songs', {
+    id: 'welcome_songs',
+    songs,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export function subscribeToAppSettings(
@@ -782,38 +647,11 @@ export function subscribeToAppSettings(
 }
 
 /**
- * Reconcile all local changes to Firestore Cloud.
- * Ensures any practices (e.g. Eric's device), songs, or setlists created offline/during quota periods
- * are reliably uploaded and synchronized to all other devices.
+ * Reconcile offline/queued changes to Firestore Cloud when connection or quota restores.
  */
 export async function reconcileAllLocalDataToCloud(): Promise<void> {
-  // 1. Flush any pending queue items
+  if (isQuotaExhausted) return;
   await flushPendingSyncQueue();
-
-  // 2. Scan and push local records that might have been saved during offline/quota state
-  try {
-    const localPractice = loadPracticeEntries();
-    for (const pr of localPractice) {
-      syncSavePracticeEntry(pr).catch(() => {});
-    }
-
-    const localSongs = loadSongs();
-    for (const s of localSongs) {
-      syncSaveSong(s).catch(() => {});
-    }
-
-    const localSetlists = loadSetlists();
-    for (const setlist of localSetlists) {
-      syncSaveSetlist(setlist).catch(() => {});
-    }
-
-    const localSpecialNumbers = loadSpecialNumbers();
-    for (const sp of localSpecialNumbers) {
-      syncSaveSpecialNumber(sp).catch(() => {});
-    }
-  } catch (err) {
-    console.warn('Background local data reconciliation error:', err);
-  }
 }
 
 const SEED_STORAGE_FLAG = 'nlbc_firestore_cloud_seeded_v3';
@@ -827,7 +665,6 @@ export async function initializeFirestoreCloudSeed(): Promise<void> {
 
   try {
     if (localStorage.getItem(SEED_STORAGE_FLAG) === 'true') {
-      // Still trigger background reconciliation of any offline/unsynced entries
       reconcileAllLocalDataToCloud().catch(() => {});
       return;
     }

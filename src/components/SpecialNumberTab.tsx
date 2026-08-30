@@ -589,7 +589,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const handlePlayVocalPart = async (part: PracticePartTrack, group: PracticeGroupEntry, formattedTitle: string) => {
     let playUrl = part.audioUrl || '';
     if (!playUrl || playUrl.startsWith('indexeddb:')) {
-      const cached = await getAudioFromStorage(part.id);
+      const targetId = playUrl ? playUrl.replace(/^indexeddb:/, '') : undefined;
+      const cached = await getAudioFromStorage(targetId || part.id, part.id);
       if (cached) playUrl = cached;
     }
     if (!playUrl) return;
@@ -609,7 +610,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const handlePlayAttachment = async (att: SongAttachment, group: PracticeGroupEntry) => {
     let playUrl = att.url || att.urlOrData || '';
     if (!playUrl || playUrl.startsWith('indexeddb:')) {
-      const cached = await getAudioFromStorage(att.id);
+      const targetId = playUrl ? playUrl.replace(/^indexeddb:/, '') : undefined;
+      const cached = await getAudioFromStorage(targetId || att.id, att.id);
       if (cached) playUrl = cached;
     }
     if (!playUrl) return;
@@ -1193,6 +1195,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       if (finalUrl.startsWith('data:')) {
         await saveAudioToStorage(attId, finalUrl, finalTitle);
         finalUrl = `indexeddb:${attId}`;
+      } else if (finalUrl.startsWith('indexeddb:')) {
+        const existingAudioId = finalUrl.replace(/^indexeddb:/, '');
+        if (existingAudioId && existingAudioId !== attId) {
+          const audioData = await getAudioFromStorage(existingAudioId);
+          if (audioData) {
+            await saveAudioToStorage(attId, audioData, finalTitle);
+          }
+        }
       }
     }
 
@@ -1332,9 +1342,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         : `part-${Date.now()}`;
 
     if (finalAudioUrl) {
-      await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
       if (finalAudioUrl.startsWith('data:')) {
+        await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
         finalAudioUrl = `indexeddb:${partId}`;
+      } else if (finalAudioUrl.startsWith('indexeddb:')) {
+        const existingAudioId = finalAudioUrl.replace(/^indexeddb:/, '');
+        if (existingAudioId && existingAudioId !== partId) {
+          const audioData = await getAudioFromStorage(existingAudioId);
+          if (audioData) {
+            await saveAudioToStorage(partId, audioData, vocalPartFileName || `${label} Vocal Part`);
+          }
+        }
+      } else {
+        await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
       }
     }
 

@@ -61,7 +61,8 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
     const resolve = async () => {
       let finalUrl = url;
       if (!finalUrl || finalUrl.startsWith('indexeddb:')) {
-        const stored = await getAudioFromStorage(trackId);
+        const targetId = finalUrl ? finalUrl.replace(/^indexeddb:/, '') : undefined;
+        const stored = await getAudioFromStorage(targetId || trackId, trackId);
         if (stored) {
           finalUrl = stored;
         }
