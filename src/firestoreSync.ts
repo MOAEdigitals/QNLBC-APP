@@ -96,9 +96,24 @@ let currentStatus: FirestoreConnectionStatus = 'online';
 let lastErrorMessage = '';
 const statusListeners = new Set<(status: FirestoreStatusInfo) => void>();
 
-// Queue storage key for offline and quota-deferred mutations
+// Queue storage keys for offline and quota-deferred mutations + deleted tombstones
 const PENDING_QUEUE_KEY = 'nlbc_firestore_pending_queue_v1';
+const TOMBSTONES_STORAGE_KEY = 'nlbc_deleted_tombstones_v1';
 const QUOTA_STORAGE_KEY = 'nlbc_firestore_quota_exhausted_date';
+
+// Check local storage for previously recorded quota exhaustion for today
+try {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
+  if (savedDate === todayStr) {
+    isQuotaExhausted = true;
+    currentStatus = 'quota-exceeded';
+  } else if (savedDate) {
+    localStorage.removeItem(QUOTA_STORAGE_KEY);
+  }
+} catch {
+  // ignore
+}
 
 interface PendingSyncItem {
   collectionName: string;
@@ -106,6 +121,47 @@ interface PendingSyncItem {
   data?: Record<string, any>;
   operation: 'write' | 'delete';
   timestamp: number;
+}
+
+interface TombstoneItem {
+  collectionName: string;
+  id: string;
+  timestamp: number;
+}
+
+export function getTombstones(): TombstoneItem[] {
+  try {
+    const raw = localStorage.getItem(TOMBSTONES_STORAGE_KEY);
+    if (!raw) return [];
+    const items: TombstoneItem[] = JSON.parse(raw);
+    // Keep tombstones for up to 30 days
+    const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    return items.filter((t) => t.timestamp > cutoff);
+  } catch {
+    return [];
+  }
+}
+
+export function recordTombstone(collectionName: string, id: string): void {
+  if (!id) return;
+  const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === id));
+  list.push({ collectionName, id, timestamp: Date.now() });
+  try {
+    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list.slice(-200)));
+  } catch {}
+}
+
+export function removeTombstone(collectionName: string, id: string): void {
+  if (!id) return;
+  const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === id));
+  try {
+    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+export function isItemTombstoned(collectionName: string, id: string): boolean {
+  if (!id) return false;
+  return getTombstones().some((t) => t.collectionName === collectionName && t.id === id);
 }
 
 function getPendingQueue(): PendingSyncItem[] {
@@ -142,20 +198,6 @@ function dequeuePending(collectionName: string, id: string) {
   savePendingQueue(queue);
 }
 
-// Check local storage for previously recorded quota exhaustion for today
-try {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
-  if (savedDate === todayStr) {
-    isQuotaExhausted = true;
-    currentStatus = 'quota-exceeded';
-  } else {
-    localStorage.removeItem(QUOTA_STORAGE_KEY);
-  }
-} catch {
-  // ignore
-}
-
 export function subscribeToFirestoreStatus(listener: (status: FirestoreStatusInfo) => void): () => void {
   statusListeners.add(listener);
   listener(getFirestoreConnectionStatus());
@@ -175,7 +217,7 @@ function notifyStatusChange() {
   });
 }
 
-function markOperationSuccess() {
+function markWriteSuccess() {
   if (isQuotaExhausted || currentStatus !== 'online') {
     isQuotaExhausted = false;
     currentStatus = 'online';
@@ -185,6 +227,13 @@ function markOperationSuccess() {
     } catch {
       // ignore
     }
+    notifyStatusChange();
+  }
+}
+
+function markReadSuccess() {
+  if (currentStatus === 'offline') {
+    currentStatus = isQuotaExhausted ? 'quota-exceeded' : 'online';
     notifyStatusChange();
   }
 }
@@ -282,8 +331,10 @@ async function executeFirestoreWrite(
   rawData: any
 ): Promise<void> {
   const sanitized = sanitizeDoc(rawData);
+  removeTombstone(collectionName, docId);
+  enqueuePending(collectionName, docId, sanitized, 'write');
+
   if (isQuotaExhausted) {
-    enqueuePending(collectionName, docId, sanitized, 'write');
     return;
   }
 
@@ -291,9 +342,8 @@ async function executeFirestoreWrite(
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, sanitized, { merge: true });
     dequeuePending(collectionName, docId);
-    markOperationSuccess();
+    markWriteSuccess();
   } catch (err) {
-    enqueuePending(collectionName, docId, sanitized, 'write');
     handleFirestoreError(err, OperationType.WRITE, `${collectionName}/${docId}`);
   }
 }
@@ -303,17 +353,18 @@ async function executeFirestoreDelete(
   collectionName: string,
   docId: string
 ): Promise<void> {
+  recordTombstone(collectionName, docId);
+  enqueuePending(collectionName, docId, undefined, 'delete');
+
   if (isQuotaExhausted) {
-    enqueuePending(collectionName, docId, undefined, 'delete');
     return;
   }
 
   try {
     await deleteDoc(doc(db, collectionName, docId));
     dequeuePending(collectionName, docId);
-    markOperationSuccess();
+    markWriteSuccess();
   } catch (err) {
-    enqueuePending(collectionName, docId, undefined, 'delete');
     handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${docId}`);
   }
 }
@@ -334,7 +385,7 @@ export async function flushPendingSyncQueue(): Promise<void> {
         await deleteDoc(docRef);
       }
       dequeuePending(item.collectionName, item.id);
-      markOperationSuccess();
+      markWriteSuccess();
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `${item.collectionName}/${item.id}`);
       break; // Pause flushing if quota error happens
@@ -378,13 +429,39 @@ export function subscribeToCollection<T extends { id: string }>(
     return onSnapshot(
       colRef,
       (snapshot) => {
-        markOperationSuccess();
+        markReadSuccess();
         const items: T[] = [];
+        const remoteIds = new Set<string>();
+
         snapshot.forEach((docSnap) => {
-          if (!LEGACY_MOCK_IDS.has(docSnap.id)) {
-            items.push({ ...(docSnap.data() as T), id: docSnap.id });
+          remoteIds.add(docSnap.id);
+          if (LEGACY_MOCK_IDS.has(docSnap.id)) {
+            // Background cleanup of legacy mock IDs only if quota is available
+            if (!isQuotaExhausted) {
+              deleteDoc(doc(db, collectionName, docSnap.id)).catch(() => {});
+            }
+            return;
           }
+          if (isItemTombstoned(collectionName, docSnap.id)) {
+            // Item was deleted by the user locally - purge from Firestore only if quota is available
+            if (!isQuotaExhausted) {
+              deleteDoc(doc(db, collectionName, docSnap.id)).catch(() => {});
+            }
+            return;
+          }
+          items.push({ ...(docSnap.data() as T), id: docSnap.id });
         });
+
+        // Merge any locally queued writes that have not reached the server snapshot yet
+        const pending = getPendingQueue().filter(
+          (p) => p.collectionName === collectionName && p.operation === 'write' && p.data && !isItemTombstoned(collectionName, p.id)
+        );
+        for (const p of pending) {
+          if (!remoteIds.has(p.id)) {
+            items.push({ ...(p.data as T), id: p.id });
+          }
+        }
+
         onUpdate(items);
       },
       (err) => {
@@ -521,7 +598,7 @@ export async function syncSavePracticeAudio(id: string, dataUrl: string, title?:
         },
         { merge: true }
       );
-      markOperationSuccess();
+      markWriteSuccess();
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
@@ -564,13 +641,13 @@ export async function fetchPracticeAudioFromCloud(id: string): Promise<string | 
 }
 
 export async function syncDeletePracticeAudio(id: string): Promise<void> {
-  if (!id) return;
+  if (!id || isQuotaExhausted) return;
   const cleanId = id.replace(/^indexeddb:/, '');
 
   try {
     const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
     await deleteDoc(docRef);
-    markOperationSuccess();
+    markWriteSuccess();
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
   }

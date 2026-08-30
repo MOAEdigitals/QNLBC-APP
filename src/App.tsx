@@ -68,6 +68,7 @@ import {
   subscribeToFirestoreStatus,
   getFirestoreConnectionStatus,
   FirestoreStatusInfo,
+  isItemTombstoned,
 } from './firestoreSync';
 import {
   loadSavedNames,
@@ -183,70 +184,120 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      setSetlists(items);
-      saveSetlists(items);
+      const currentLocal = loadSetlists();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('setlists', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('setlists', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setSetlists(merged);
+      saveSetlists(merged);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      setSongs(items);
-      saveSongs(items);
+      const currentLocal = loadSongs();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('songs', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('songs', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setSongs(merged);
+      saveSongs(merged);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      setBirthdays(items);
-      saveBirthdays(items);
+      const currentLocal = loadBirthdays();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('birthdays', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('birthdays', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setBirthdays(merged);
+      saveBirthdays(merged);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      setAnniversaries(items);
-      saveAnniversaries(items);
+      const currentLocal = loadAnniversaries();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('anniversaries', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('anniversaries', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setAnniversaries(merged);
+      saveAnniversaries(merged);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      setVisitors(items);
-      saveVisitors(items);
+      const currentLocal = loadVisitors();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('visitors', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('visitors', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setVisitors(merged);
+      saveVisitors(merged);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      setSpecialRecognitions(items);
-      saveSpecialRecognitions(items);
+      const currentLocal = loadSpecialRecognitions();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('special_recognitions', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('special_recognitions', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setSpecialRecognitions(merged);
+      saveSpecialRecognitions(merged);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      setSpecialNumbers(items);
-      saveSpecialNumbers(items);
+      const currentLocal = loadSpecialNumbers();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('special_numbers', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('special_numbers', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setSpecialNumbers(merged);
+      saveSpecialNumbers(merged);
     });
 
     const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
-      setChoirEntries(items);
-      saveChoirEntries(items);
+      const currentLocal = loadChoirEntries();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('choir_entries', i.id));
+      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('choir_entries', l.id));
+      const merged = [...validRemote, ...localOnly];
+      setChoirEntries(merged);
+      saveChoirEntries(merged);
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
       const currentLocal = loadPracticeEntries();
-      const merged = items.map((remoteItem) => {
-        const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
-        const normalized = normalizePracticeEntry(remoteItem);
-        if (!localMatch) return normalized;
+      const remoteIds = new Set(items.map((i) => i.id));
 
-        // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
-        const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
-          const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
-          if (localPart && localPart.audioUrl && (!vp.audioUrl || vp.audioUrl === 'indexeddb:local_storage')) {
-            return { ...vp, audioUrl: localPart.audioUrl };
-          }
-          return vp;
+      const mergedRemote = items
+        .filter((remoteItem) => !isItemTombstoned('practice_entries', remoteItem.id))
+        .map((remoteItem) => {
+          const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
+          const normalized = normalizePracticeEntry(remoteItem);
+          if (!localMatch) return normalized;
+
+          // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
+          const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
+            const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
+            if (localPart && localPart.audioUrl && (!vp.audioUrl || vp.audioUrl === 'indexeddb:local_storage')) {
+              return { ...vp, audioUrl: localPart.audioUrl };
+            }
+            return vp;
+          });
+
+          return {
+            ...normalized,
+            vocalParts: mergedVocalParts,
+            parts: mergedVocalParts,
+          };
         });
 
-        return {
-          ...normalized,
-          vocalParts: mergedVocalParts,
-          parts: mergedVocalParts,
-        };
-      });
+      // Preserve newly created local entries that have not synced to remote yet
+      const localOnly = currentLocal.filter(
+        (l) => !remoteIds.has(l.id) && !isItemTombstoned('practice_entries', l.id)
+      );
 
-      setPracticeEntries(merged);
-      savePracticeEntries(merged);
+      const finalMerged = [...mergedRemote, ...localOnly];
+      setPracticeEntries(finalMerged);
+      savePracticeEntries(finalMerged);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
