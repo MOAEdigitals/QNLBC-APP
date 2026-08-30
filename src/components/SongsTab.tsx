@@ -575,7 +575,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             const attachments = song.attachments || [];
             const plusOneList = attachments.filter((a) => a.category === 'plus_one');
             const minusOneList = attachments.filter((a) => a.category === 'minus_one' || !a.category);
-            const hasAttachments = attachments.length > 0 || Boolean(song.minusOneLink);
+            const hasLegacyMinusOne = Boolean(song.minusOneLink && !attachments.some((a) => a.urlOrData === song.minusOneLink));
+            const totalTrackCount = attachments.length + (hasLegacyMinusOne ? 1 : 0);
+            const hasAttachments = totalTrackCount > 0;
             const isMenuOpen = openMenuSongId === song.id;
 
             return (
@@ -668,6 +670,12 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   </div>
 
                   <div className="flex items-center space-x-2 shrink-0">
+                    {totalTrackCount > 0 && (
+                      <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700 whitespace-nowrap">
+                        {totalTrackCount} {totalTrackCount === 1 ? 'track' : 'tracks'}
+                      </span>
+                    )}
+
                     <button
                       type="button"
                       onClick={(e) => handleCopySong(song, e)}
@@ -680,12 +688,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                         <Copy className="w-4 h-4" />
                       )}
                     </button>
-
-                    {attachments.length > 0 && (
-                      <span className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-bold border border-slate-200 dark:border-slate-700">
-                        {attachments.length} {attachments.length === 1 ? 'track' : 'tracks'}
-                      </span>
-                    )}
 
                     <div className="p-1 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform">
                       {isSelected ? (
