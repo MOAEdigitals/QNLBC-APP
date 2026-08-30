@@ -128,6 +128,16 @@ export async function getAudioFromStorage(
   id: string,
   ...fallbackIds: (string | undefined | null)[]
 ): Promise<string | null> {
+  // Check if any of the passed arguments are already direct web / Firebase Cloud Storage URLs
+  for (const raw of [id, ...fallbackIds]) {
+    if (raw && typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('blob:')) {
+        return trimmed;
+      }
+    }
+  }
+
   const allIds = [id, ...fallbackIds]
     .filter((x): x is string => Boolean(x && typeof x === 'string'))
     .map((x) => x.trim().replace(/^indexeddb:/, ''))

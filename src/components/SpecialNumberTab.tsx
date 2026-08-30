@@ -27,6 +27,7 @@ import {
   getAudioFromStorage,
   deleteAudioFromStorage,
 } from '../utils/audioStorage';
+import { uploadMediaToCloudStorage } from '../services/cloudMediaStorage';
 import {
   resolveMediaUrl,
   getYouTubeEmbedUrl,
@@ -75,6 +76,9 @@ import {
   Copy,
   MoreVertical,
   BookOpen,
+  Cloud,
+  Loader2,
+  UploadCloud,
 } from 'lucide-react';
 
 interface SpecialNumberTabProps {
@@ -240,6 +244,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<any>(null);
 
+  // Universal Cloud Media Upload state
+  const [isUploadingCloudMedia, setIsUploadingCloudMedia] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatusText, setUploadStatusText] = useState('');
+
   // Hidden File input helper for paperclip attachments (vocal parts and practice tracks)
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingFileCallbackRef = useRef<((fileUrl: string, fileName: string, fileType: 'audio' | 'video' | 'file') => void) | null>(null);
@@ -252,30 +261,54 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !pendingFileCallbackRef.current) return;
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const result = reader.result as string;
-      const fType: 'audio' | 'video' | 'file' = file.type.startsWith('audio/')
-        ? 'audio'
-        : file.type.startsWith('video/')
-        ? 'video'
-        : 'file';
+    const fType: 'audio' | 'video' | 'file' = file.type.startsWith('audio/')
+      ? 'audio'
+      : file.type.startsWith('video/')
+      ? 'video'
+      : 'file';
 
-      const fileId = `att-${Date.now()}`;
-      try {
-        await saveAudioToStorage(fileId, result, file.name);
-      } catch (err) {
-        console.warn('Could not save to IndexedDB:', err);
-      }
+    const fileId = `att-${Date.now()}`;
+    setIsUploadingCloudMedia(true);
+    setUploadProgress(10);
+    setUploadStatusText(`Uploading "${file.name}" to Universal Cloud Media Storage...`);
+
+    try {
+      const uploadRes = await uploadMediaToCloudStorage(
+        file,
+        fileId,
+        file.name,
+        (pct) => {
+          setUploadProgress(pct);
+          setUploadStatusText(`Uploading "${file.name}" (${pct}%)...`);
+        }
+      );
 
       if (pendingFileCallbackRef.current) {
-        pendingFileCallbackRef.current(`indexeddb:${fileId}`, file.name, fType);
+        pendingFileCallbackRef.current(uploadRes.url, file.name, fType);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Fallback saving file to IndexedDB:', err);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const result = reader.result as string;
+        try {
+          await saveAudioToStorage(fileId, result, file.name);
+        } catch (e) {
+          console.warn('Local save error:', e);
+        }
+        if (pendingFileCallbackRef.current) {
+          pendingFileCallbackRef.current(`indexeddb:${fileId}`, file.name, fType);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingCloudMedia(false);
+      setUploadProgress(0);
+      setUploadStatusText('');
+    }
   };
 
   // Practice Video Player state (ONLY for video and video links)
@@ -1193,14 +1226,34 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     let finalUrl = trackUrlOrData.trim();
     if (finalUrl) {
       if (finalUrl.startsWith('data:')) {
-        await saveAudioToStorage(attId, finalUrl, finalTitle);
-        finalUrl = `indexeddb:${attId}`;
+        setIsUploadingCloudMedia(true);
+        setUploadStatusText('Syncing audio track to Universal Cloud Storage...');
+        try {
+          const res = await uploadMediaToCloudStorage(finalUrl, attId, finalTitle);
+          finalUrl = res.url;
+        } catch (err) {
+          console.warn('Cloud sync fallback to local storage:', err);
+          await saveAudioToStorage(attId, finalUrl, finalTitle);
+          finalUrl = `indexeddb:${attId}`;
+        } finally {
+          setIsUploadingCloudMedia(false);
+          setUploadStatusText('');
+        }
       } else if (finalUrl.startsWith('indexeddb:')) {
         const existingAudioId = finalUrl.replace(/^indexeddb:/, '');
         if (existingAudioId && existingAudioId !== attId) {
           const audioData = await getAudioFromStorage(existingAudioId);
           if (audioData) {
-            await saveAudioToStorage(attId, audioData, finalTitle);
+            if (audioData.startsWith('data:')) {
+              try {
+                const res = await uploadMediaToCloudStorage(audioData, attId, finalTitle);
+                finalUrl = res.url;
+              } catch {
+                await saveAudioToStorage(attId, audioData, finalTitle);
+              }
+            } else {
+              await saveAudioToStorage(attId, audioData, finalTitle);
+            }
           }
         }
       }
@@ -1343,14 +1396,34 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     if (finalAudioUrl) {
       if (finalAudioUrl.startsWith('data:')) {
-        await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
-        finalAudioUrl = `indexeddb:${partId}`;
+        setIsUploadingCloudMedia(true);
+        setUploadStatusText(`Syncing ${label} track to Universal Cloud Storage...`);
+        try {
+          const res = await uploadMediaToCloudStorage(finalAudioUrl, partId, vocalPartFileName || `${label} Vocal Part`);
+          finalAudioUrl = res.url;
+        } catch (err) {
+          console.warn('Cloud sync error for vocal part:', err);
+          await saveAudioToStorage(partId, finalAudioUrl, vocalPartFileName || `${label} Vocal Part`);
+          finalAudioUrl = `indexeddb:${partId}`;
+        } finally {
+          setIsUploadingCloudMedia(false);
+          setUploadStatusText('');
+        }
       } else if (finalAudioUrl.startsWith('indexeddb:')) {
         const existingAudioId = finalAudioUrl.replace(/^indexeddb:/, '');
         if (existingAudioId && existingAudioId !== partId) {
           const audioData = await getAudioFromStorage(existingAudioId);
           if (audioData) {
-            await saveAudioToStorage(partId, audioData, vocalPartFileName || `${label} Vocal Part`);
+            if (audioData.startsWith('data:')) {
+              try {
+                const res = await uploadMediaToCloudStorage(audioData, partId, vocalPartFileName || `${label} Vocal Part`);
+                finalAudioUrl = res.url;
+              } catch {
+                await saveAudioToStorage(partId, audioData, vocalPartFileName || `${label} Vocal Part`);
+              }
+            } else {
+              await saveAudioToStorage(partId, audioData, vocalPartFileName || `${label} Vocal Part`);
+            }
           }
         }
       } else {
@@ -3253,16 +3326,39 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Paste YouTube or direct audio/video links, or click paperclip to attach files.
                 </p>
 
-                {trackFileName && (
+                {/* Cloud Upload Progress Bar */}
+                {isUploadingCloudMedia && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-sky-800 dark:text-sky-300 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                        <span>{uploadStatusText || 'Uploading to Cloud Media Storage...'}</span>
+                      </span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-sky-200 dark:bg-sky-900 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-sky-600 h-full transition-all duration-200 rounded-full"
+                        style={{ width: `${Math.max(uploadProgress, 5)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Cloud Synced Attachment Status */}
+                {!isUploadingCloudMedia && trackFileName && (
                   <div className="mt-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
-                    <span className="truncate font-semibold">✓ Attached: {trackFileName}</span>
+                    <span className="truncate font-semibold flex items-center gap-1.5">
+                      <Cloud className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate">Attached & Cloud-Synced: {trackFileName}</span>
+                    </span>
                     <button
                       type="button"
                       onClick={() => {
                         setTrackUrlOrData('');
                         setTrackFileName('');
                       }}
-                      className="text-emerald-600 hover:text-emerald-800 dark:hover:text-white ml-2 cursor-pointer"
+                      className="text-emerald-700 hover:text-rose-600 ml-2 font-bold cursor-pointer"
                     >
                       Clear
                     </button>
@@ -3279,16 +3375,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     setTrackModalGroup(null);
                     setEditingTrackIndex(null);
                   }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  disabled={isUploadingCloudMedia}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={!trackUrlOrData.trim()}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all disabled:opacity-50 cursor-pointer"
+                  disabled={isUploadingCloudMedia || !trackUrlOrData.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                 >
-                  Save Attachment
+                  {isUploadingCloudMedia ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Syncing Cloud...</span>
+                    </>
+                  ) : (
+                    <span>Save Attachment</span>
+                  )}
                 </button>
               </div>
             </form>
@@ -3556,16 +3660,38 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       Paste direct audio/media URL or click paperclip to attach files from device.
                     </p>
 
-                    {vocalPartFileName && (
+                    {/* Cloud Upload Progress Bar */}
+                    {isUploadingCloudMedia && (
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs text-sky-800 dark:text-sky-300 font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                            <span>{uploadStatusText || 'Uploading to Cloud Media Storage...'}</span>
+                          </span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <div className="w-full bg-sky-200 dark:bg-sky-900 h-1.5 rounded-full overflow-hidden">
+                          <div
+                            className="bg-sky-600 h-full transition-all duration-200 rounded-full"
+                            style={{ width: `${Math.max(uploadProgress, 5)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {!isUploadingCloudMedia && vocalPartFileName && (
                       <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
-                        <span className="truncate font-semibold">✓ Attached: {vocalPartFileName}</span>
+                        <span className="truncate font-semibold flex items-center gap-1.5">
+                          <Cloud className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">Attached & Cloud-Synced: {vocalPartFileName}</span>
+                        </span>
                         <button
                           type="button"
                           onClick={() => {
                             setVocalPartAudioUrl('');
                             setVocalPartFileName('');
                           }}
-                          className="text-emerald-600 hover:text-emerald-800 dark:hover:text-white ml-2 cursor-pointer"
+                          className="text-emerald-700 hover:text-rose-600 ml-2 font-bold cursor-pointer"
                         >
                           Clear
                         </button>
@@ -3580,15 +3706,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <button
                   type="button"
                   onClick={handleCloseVocalPartModal}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  disabled={isUploadingCloudMedia}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer"
+                  disabled={isUploadingCloudMedia}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Save Vocal Part
+                  {isUploadingCloudMedia ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Syncing Cloud...</span>
+                    </>
+                  ) : (
+                    <span>Save Vocal Part</span>
+                  )}
                 </button>
               </div>
             </form>

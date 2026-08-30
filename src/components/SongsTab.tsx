@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
+import { uploadMediaToCloudStorage } from '../services/cloudMediaStorage';
 import {
   Music,
   Plus,
@@ -30,6 +31,8 @@ import {
   Clock,
   AlertTriangle,
   Radio,
+  Cloud,
+  Loader2,
 } from 'lucide-react';
 import {
   searchSong,
@@ -134,6 +137,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [attachmentLinkOrData, setAttachmentLinkOrData] = useState('');
   const [attachmentType, setAttachmentType] = useState<'link' | 'audio' | 'video' | 'image' | 'text' | 'file'>('link');
   const [attachmentFileName, setAttachmentFileName] = useState('');
+  const [isUploadingCloudMedia, setIsUploadingCloudMedia] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatusText, setUploadStatusText] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expandedItemRef = useRef<HTMLDivElement>(null);
@@ -385,7 +391,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     setIsAddingAttachment(true);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -398,23 +404,47 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       detectedType = 'image';
     }
 
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const result = reader.result as string;
-      const attId = `att-${Date.now()}`;
-      try {
-        await saveAudioToStorage(attId, result, file.name);
-      } catch (err) {
-        console.warn('Could not save to IndexedDB:', err);
-      }
-      setAttachmentLinkOrData(`indexeddb:${attId}`);
+    const attId = `att-${Date.now()}`;
+    setIsUploadingCloudMedia(true);
+    setUploadProgress(10);
+    setUploadStatusText(`Uploading "${file.name}" to Universal Cloud Media Storage...`);
+
+    try {
+      const uploadRes = await uploadMediaToCloudStorage(
+        file,
+        attId,
+        file.name,
+        (pct) => {
+          setUploadProgress(pct);
+          setUploadStatusText(`Uploading "${file.name}" (${pct}%)...`);
+        }
+      );
+
+      setAttachmentLinkOrData(uploadRes.url);
       setAttachmentType(detectedType);
       setAttachmentFileName(file.name);
       if (!attachmentName.trim()) {
         setAttachmentName(file.name.replace(/\.[^/.]+$/, ''));
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn('Fallback saving file to IndexedDB:', err);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const result = reader.result as string;
+        await saveAudioToStorage(attId, result, file.name);
+        setAttachmentLinkOrData(`indexeddb:${attId}`);
+        setAttachmentType(detectedType);
+        setAttachmentFileName(file.name);
+        if (!attachmentName.trim()) {
+          setAttachmentName(file.name.replace(/\.[^/.]+$/, ''));
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingCloudMedia(false);
+      setUploadProgress(0);
+      setUploadStatusText('');
+    }
   };
 
   const handleSaveAttachment = async (e: React.FormEvent) => {
@@ -428,8 +458,13 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     let finalUrl = attachmentLinkOrData.trim();
     const attId = `att-${Date.now()}`;
     if (finalUrl.startsWith('data:')) {
-      await saveAudioToStorage(attId, finalUrl, finalName);
-      finalUrl = `indexeddb:${attId}`;
+      try {
+        const res = await uploadMediaToCloudStorage(finalUrl, attId, finalName);
+        finalUrl = res.url;
+      } catch {
+        await saveAudioToStorage(attId, finalUrl, finalName);
+        finalUrl = `indexeddb:${attId}`;
+      }
     }
 
     const newAtt: SongAttachment = {
@@ -1356,8 +1391,48 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                     className="hidden"
                   />
                 </div>
+
+                {/* Cloud Upload Progress Bar */}
+                {isUploadingCloudMedia && (
+                  <div className="mt-2.5 p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-sky-800 dark:text-sky-300 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                        <span>{uploadStatusText || 'Uploading to Cloud Media Storage...'}</span>
+                      </span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-sky-200 dark:bg-sky-900 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-sky-600 h-full transition-all duration-200 rounded-full"
+                        style={{ width: `${Math.max(uploadProgress, 5)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Successfully Attached & Synced Badge */}
+                {!isUploadingCloudMedia && attachmentFileName && (
+                  <div className="mt-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                    <span className="truncate font-semibold flex items-center gap-1.5">
+                      <Cloud className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span className="truncate">Attached & Cloud-Synced: {attachmentFileName}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttachmentLinkOrData('');
+                        setAttachmentFileName('');
+                      }}
+                      className="text-emerald-700 hover:text-rose-600 ml-2 font-bold cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  Paste any YouTube/audio link or click the paperclip icon on the right to attach sound or video files.
+                  Paste any YouTube/audio link or click the paperclip icon to upload tracks (&gt;1MB supported with Universal Cloud Storage).
                 </span>
               </div>
 
@@ -1365,15 +1440,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsAddingAttachment(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
+                  disabled={isUploadingCloudMedia}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
+                  disabled={isUploadingCloudMedia || !attachmentLinkOrData.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Save Attachment
+                  {isUploadingCloudMedia ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <span>Save Attachment</span>
+                  )}
                 </button>
               </div>
             </form>
