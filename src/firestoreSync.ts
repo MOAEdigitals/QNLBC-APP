@@ -317,6 +317,32 @@ export async function flushPendingSyncQueue(): Promise<void> {
   }
 }
 
+const LEGACY_MOCK_IDS = new Set([
+  'setlist-next',
+  'setlist-following',
+  'setlist-past',
+  'sp-1',
+  'sp-2',
+  'sp-3',
+  'prac-1',
+  'prac-2',
+  'bday-1',
+  'bday-2',
+  'bday-3',
+  'bday-4',
+  'anniv-1',
+  'anniv-2',
+  'anniv-3',
+  'vis-1',
+  'vis-2',
+  'vis-3',
+  'vis-4',
+  'spec-1',
+  'spec-2',
+  'spec-3',
+  'spec-4',
+]);
+
 // Subscribe to real-time updates for any collection
 export function subscribeToCollection<T extends { id: string }>(
   collectionName: string,
@@ -330,7 +356,9 @@ export function subscribeToCollection<T extends { id: string }>(
         markOperationSuccess();
         const items: T[] = [];
         snapshot.forEach((docSnap) => {
-          items.push({ ...(docSnap.data() as T), id: docSnap.id });
+          if (!LEGACY_MOCK_IDS.has(docSnap.id)) {
+            items.push({ ...(docSnap.data() as T), id: docSnap.id });
+          }
         });
         onUpdate(items);
       },

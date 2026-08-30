@@ -235,282 +235,15 @@ Give thanks!`,
   },
 ];
 
-// Helper to seed dynamic current dates
+// Helper for initial empty data state without generating dummy/example items
 function getInitialData() {
-  const nextSunday = getNextSundayStr();
-  const nextSundayDate = new Date(nextSunday);
-  
-  // A future sunday after next
-  const followingSunday = new Date(nextSundayDate);
-  followingSunday.setDate(followingSunday.getDate() + 7);
-  const followingSundayStr = followingSunday.toISOString().split('T')[0];
-
-  // A past sunday
-  const pastSunday = new Date(nextSundayDate);
-  pastSunday.setDate(pastSunday.getDate() - 7);
-  const pastSundayStr = pastSunday.toISOString().split('T')[0];
-
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-  const currentDay = String(now.getDate()).padStart(2, '0');
-
-  const initialSetlists: Setlist[] = [
-    {
-      id: 'setlist-next',
-      type: 'sunday',
-      date: nextSunday,
-      presider: 'Ptr. Jonathan Santos',
-      welcomeSong: 'Napakaligaya',
-      closingSong: 'Give Thanks',
-      themeSong: 'Dakilang Katapatan',
-      sundaySchool: {
-        songLeader: 'Bro. Christian Ramos',
-        songs: [
-          { id: 'ss-s1', songId: 'song-3', title: 'Amazing Grace (My Chains Are Gone)', keyNote: 'Key of G', notes: 'Warm acoustic start' },
-          { id: 'ss-s2', songId: 'song-4', title: 'Salamat Panginoon', keyNote: 'Key of C', notes: 'With Sunday School children clapping' },
-        ],
-        notes: 'Sunday School starts at 8:30 AM',
-      },
-      worshipService: {
-        songLeader: 'Sis. Abigail Cruz',
-        songs: [
-          { id: 'ws-s1', songId: 'song-1', title: 'Dakilang Katapatan', keyNote: 'Key of D', notes: 'Opening praise hymn' },
-          { id: 'ws-s2', songId: 'song-2', title: '10,000 Reasons (Bless The Lord)', keyNote: 'Key of G', notes: 'Congregational singing' },
-          { id: 'ws-s3', songId: 'song-5', title: 'Goodness of God', keyNote: 'Key of A', notes: 'Prayer response worship' },
-        ],
-        notes: 'Worship Service begins promptly at 9:30 AM',
-      },
-      generalNotes: 'Communion preparation by Deaconess team after worship.',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'setlist-following',
-      type: 'sunday',
-      date: followingSundayStr,
-      presider: 'Bro. Emmanuel Garcia',
-      welcomeSong: 'Napakaligaya',
-      closingSong: 'Give Thanks',
-      themeSong: 'Dakilang Katapatan',
-      sundaySchool: {
-        songLeader: 'Sis. Kimberly Dela Cruz',
-        songs: [
-          { id: 'ss-f1', songId: 'song-4', title: 'Salamat Panginoon', keyNote: 'Key of C' },
-          { id: 'ss-f2', songId: 'song-6', title: 'How Great Thou Art', keyNote: 'Key of Bb' },
-        ],
-        notes: 'Sunday School starts at 8:30 AM',
-      },
-      worshipService: {
-        songLeader: 'Bro. Mark Villanueva',
-        songs: [
-          { id: 'ws-f1', songId: 'song-1', title: 'Dakilang Katapatan', keyNote: 'Key of D' },
-          { id: 'ws-f2', songId: 'song-5', title: 'Goodness of God', keyNote: 'Key of A' },
-          { id: 'ws-f3', songId: 'song-2', title: '10,000 Reasons (Bless The Lord)', keyNote: 'Key of G' },
-        ],
-        notes: 'Worship Service begins promptly at 9:30 AM',
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'setlist-past',
-      type: 'sunday',
-      date: pastSundayStr,
-      presider: 'Bro. Roberto Mendoza',
-      welcomeSong: 'Napakaligaya',
-      closingSong: 'Give Thanks',
-      themeSong: 'Dakilang Katapatan',
-      sundaySchool: {
-        songLeader: 'Sis. Grace David',
-        songs: [
-          { id: 'ss-p1', songId: 'song-3', title: 'Amazing Grace', keyNote: 'Key of G' },
-          { id: 'ss-p2', songId: 'song-6', title: 'How Great Thou Art', keyNote: 'Key of Bb' },
-        ],
-        notes: 'Sunday School starts at 8:30 AM',
-      },
-      worshipService: {
-        songLeader: 'Bro. Daniel Pascual',
-        songs: [
-          { id: 'ws-p1', songId: 'song-1', title: 'Dakilang Katapatan', keyNote: 'Key of D' },
-          { id: 'ws-p2', songId: 'song-4', title: 'Salamat Panginoon', keyNote: 'Key of C' },
-        ],
-        notes: 'Worship Service begins promptly at 9:30 AM',
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
-
-  // Birthday date falling in current week
-  const bdayThisWeek = `${currentYear}-${currentMonth}-${currentDay}`;
-  const bdayNextMonth = `${currentYear}-${String((now.getMonth() + 2) > 12 ? 1 : now.getMonth() + 2).padStart(2, '0')}-15`;
-
-  const initialBirthdays: BirthdayCelebrant[] = [
-    {
-      id: 'bday-1',
-      name: 'Sis. Elena Morales',
-      birthDate: bdayThisWeek,
-      ministryOrGroup: "Women's Ministry",
-      notes: 'Happy birthday! God bless your family.',
-    },
-    {
-      id: 'bday-2',
-      name: 'Bro. Joshua Fernando',
-      birthDate: `${currentYear}-${currentMonth}-28`,
-      ministryOrGroup: 'Youth Fellowship',
-      notes: 'Active praise team drummer',
-    },
-    {
-      id: 'bday-3',
-      name: 'Nanay Corazon Del Rosario',
-      birthDate: bdayNextMonth,
-      ministryOrGroup: 'Senior Fellowship',
-    },
-    {
-      id: 'bday-4',
-      name: 'Bro. Samuel Mateo',
-      birthDate: `${currentYear}-10-12`,
-      ministryOrGroup: "Men's Ministry",
-    },
-  ];
-
-  const initialAnniversaries: AnniversaryCelebrant[] = [
-    {
-      id: 'anniv-1',
-      title: 'Bro. Roberto & Sis. Carmen Mendoza',
-      anniversaryDate: bdayThisWeek,
-      type: 'Wedding',
-      yearsCount: 28,
-      notes: '28 years of God-honoring marriage',
-    },
-    {
-      id: 'anniv-2',
-      title: 'New Life Baptist Church (Quezon, NE)',
-      anniversaryDate: `${currentYear}-09-18`,
-      type: 'Church',
-      yearsCount: 34,
-      notes: '34th Founding & Thanksgiving Anniversary Celebration',
-    },
-    {
-      id: 'anniv-3',
-      title: 'Bro. Alvin & Sis. Maricel Ramos',
-      anniversaryDate: `${currentYear}-11-05`,
-      type: 'Wedding',
-      yearsCount: 15,
-    },
-  ];
-
-  const initialVisitors: Visitor[] = [
-    {
-      id: 'vis-1',
-      name: 'Karlo Bautista',
-      barangay: 'Brgy. Dulong Bayan, Quezon',
-      tier: '1st timer',
-      dateVisited: pastSundayStr,
-      notes: 'Invited by Bro. Christian. Appreciated the warm fellowship.',
-    },
-    {
-      id: 'vis-2',
-      name: 'Rowena & Angelo Corpuz',
-      barangay: 'Brgy. San Alejandro, Quezon',
-      tier: '2nd timer',
-      dateVisited: pastSundayStr,
-      notes: 'Attended worship service with their two children.',
-    },
-    {
-      id: 'vis-3',
-      name: 'Dennis Vergara',
-      barangay: 'Brgy. Bertese, Quezon',
-      tier: '3rd timer',
-      dateVisited: pastSundayStr,
-      notes: 'Joined Sunday school adult Bible study.',
-    },
-    {
-      id: 'vis-4',
-      name: 'Maricel & Noel Santos',
-      barangay: 'Brgy. Sto. Tomas Ferreira, Quezon',
-      tier: 'Regular attender',
-      dateVisited: pastSundayStr,
-      notes: 'Inquirers class candidate.',
-    },
-  ];
-
-  const initialSpecialRecognitions: SpecialRecognition[] = [
-    {
-      id: 'spec-1',
-      name: 'Sis. Clarisse Anne Gutierrez',
-      recognitionType: 'Board Passer',
-      customType: 'BLEPT (Licensure Exam for Teachers)',
-      date: `${currentYear}-08-15`,
-      description: 'Passed the Licensure Examination for Professional Teachers (Secondary Education - Major in English). Praise God!',
-    },
-    {
-      id: 'spec-2',
-      name: 'Bro. Jeremy Keith Pineda',
-      recognitionType: 'Newly Graduated',
-      customType: 'BS Information Technology, Magna Cum Laude',
-      date: `${currentYear}-07-20`,
-      description: 'Graduated with Latin honors from Central Luzon State University.',
-    },
-    {
-      id: 'spec-3',
-      name: 'Matthew David & Chloe Nicole',
-      recognitionType: 'Newly Baptized',
-      date: `${currentYear}-08-02`,
-      description: 'Public declaration of faith through believer baptism by immersion at Quezon river fellowship.',
-    },
-    {
-      id: 'spec-4',
-      name: 'Bro. Timothy & Sis. Rachel Pascual',
-      recognitionType: 'Newlywed',
-      date: `${currentYear}-06-18`,
-      description: 'United in holy matrimony officiated by Ptr. Jonathan.',
-    },
-  ];
-
-  const initialSpecialNumbers: SpecialNumberEntry[] = [
-    {
-      id: 'sp-1',
-      performerName: 'NLBC Youth Choir',
-      scheduledDate: nextSunday,
-      songTitle: 'Dakilang Katapatan',
-      songId: 'song-1',
-      minusOneLink: 'https://www.youtube.com/watch?v=dakilang_katapatan_backing_track',
-      notes: 'Practice on Saturday at 4:00 PM in church sanctuary',
-      lyrics: INITIAL_SONGS[0].lyrics,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'sp-2',
-      performerName: 'Sis. Abigail Cruz (Solo)',
-      scheduledDate: followingSundayStr,
-      songTitle: 'Goodness of God',
-      songId: 'song-5',
-      minusOneLink: 'https://www.youtube.com/watch?v=goodness_of_god_instrumental',
-      notes: 'Acoustic guitar backing by Bro. Mark',
-      lyrics: INITIAL_SONGS[4].lyrics,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'sp-3',
-      performerName: 'Men of Honor Quartet',
-      scheduledDate: pastSundayStr,
-      songTitle: 'How Great Thou Art',
-      songId: 'song-6',
-      notes: 'A cappella 4-part harmony',
-      lyrics: INITIAL_SONGS[5].lyrics,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
   return {
-    initialSetlists,
-    initialBirthdays,
-    initialAnniversaries,
-    initialVisitors,
-    initialSpecialRecognitions,
-    initialSpecialNumbers,
+    initialSetlists: [] as Setlist[],
+    initialBirthdays: [] as BirthdayCelebrant[],
+    initialAnniversaries: [] as AnniversaryCelebrant[],
+    initialVisitors: [] as Visitor[],
+    initialSpecialRecognitions: [] as SpecialRecognition[],
+    initialSpecialNumbers: [] as SpecialNumberEntry[],
   };
 }
 
@@ -610,15 +343,45 @@ export function saveTheme(theme: 'light' | 'dark'): void {
   localStorage.setItem(STORAGE_KEYS.THEME, theme);
 }
 
+const LEGACY_MOCK_IDS = new Set([
+  'setlist-next',
+  'setlist-following',
+  'setlist-past',
+  'sp-1',
+  'sp-2',
+  'sp-3',
+  'prac-1',
+  'prac-2',
+  'bday-1',
+  'bday-2',
+  'bday-3',
+  'bday-4',
+  'anniv-1',
+  'anniv-2',
+  'anniv-3',
+  'vis-1',
+  'vis-2',
+  'vis-3',
+  'vis-4',
+  'spec-1',
+  'spec-2',
+  'spec-3',
+  'spec-4',
+]);
+
 export function loadSetlists(): Setlist[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETLISTS);
     if (!raw) {
-      const { initialSetlists } = getInitialData();
-      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(initialSetlists));
-      return initialSetlists;
+      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: Setlist[] = JSON.parse(raw);
+    const cleaned = parsed.filter((s) => !LEGACY_MOCK_IDS.has(s.id));
+    if (cleaned.length !== parsed.length) {
+      saveSetlists(cleaned);
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -649,11 +412,15 @@ export function loadBirthdays(): BirthdayCelebrant[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.BIRTHDAYS);
     if (!raw) {
-      const { initialBirthdays } = getInitialData();
-      localStorage.setItem(STORAGE_KEYS.BIRTHDAYS, JSON.stringify(initialBirthdays));
-      return initialBirthdays;
+      localStorage.setItem(STORAGE_KEYS.BIRTHDAYS, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: BirthdayCelebrant[] = JSON.parse(raw);
+    const cleaned = parsed.filter((b) => !LEGACY_MOCK_IDS.has(b.id));
+    if (cleaned.length !== parsed.length) {
+      saveBirthdays(cleaned);
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -667,11 +434,15 @@ export function loadAnniversaries(): AnniversaryCelebrant[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ANNIVERSARIES);
     if (!raw) {
-      const { initialAnniversaries } = getInitialData();
-      localStorage.setItem(STORAGE_KEYS.ANNIVERSARIES, JSON.stringify(initialAnniversaries));
-      return initialAnniversaries;
+      localStorage.setItem(STORAGE_KEYS.ANNIVERSARIES, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: AnniversaryCelebrant[] = JSON.parse(raw);
+    const cleaned = parsed.filter((a) => !LEGACY_MOCK_IDS.has(a.id));
+    if (cleaned.length !== parsed.length) {
+      saveAnniversaries(cleaned);
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -685,11 +456,15 @@ export function loadVisitors(): Visitor[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.VISITORS);
     if (!raw) {
-      const { initialVisitors } = getInitialData();
-      localStorage.setItem(STORAGE_KEYS.VISITORS, JSON.stringify(initialVisitors));
-      return initialVisitors;
+      localStorage.setItem(STORAGE_KEYS.VISITORS, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: Visitor[] = JSON.parse(raw);
+    const cleaned = parsed.filter((v) => !LEGACY_MOCK_IDS.has(v.id));
+    if (cleaned.length !== parsed.length) {
+      saveVisitors(cleaned);
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -703,11 +478,15 @@ export function loadSpecialRecognitions(): SpecialRecognition[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SPECIAL_RECOGNITIONS);
     if (!raw) {
-      const { initialSpecialRecognitions } = getInitialData();
-      localStorage.setItem(STORAGE_KEYS.SPECIAL_RECOGNITIONS, JSON.stringify(initialSpecialRecognitions));
-      return initialSpecialRecognitions;
+      localStorage.setItem(STORAGE_KEYS.SPECIAL_RECOGNITIONS, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: SpecialRecognition[] = JSON.parse(raw);
+    const cleaned = parsed.filter((r) => !LEGACY_MOCK_IDS.has(r.id));
+    if (cleaned.length !== parsed.length) {
+      saveSpecialRecognitions(cleaned);
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -721,11 +500,15 @@ export function loadSpecialNumbers(): SpecialNumberEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SPECIAL_NUMBERS);
     if (!raw) {
-      const { initialSpecialNumbers } = getInitialData();
-      localStorage.setItem(STORAGE_KEYS.SPECIAL_NUMBERS, JSON.stringify(initialSpecialNumbers));
-      return initialSpecialNumbers;
+      localStorage.setItem(STORAGE_KEYS.SPECIAL_NUMBERS, JSON.stringify([]));
+      return [];
     }
-    return JSON.parse(raw);
+    const parsed: SpecialNumberEntry[] = JSON.parse(raw);
+    const cleaned = parsed.filter((s) => !LEGACY_MOCK_IDS.has(s.id));
+    if (cleaned.length !== parsed.length) {
+      saveSpecialNumbers(cleaned);
+    }
+    return cleaned;
   } catch {
     return [];
   }
@@ -998,122 +781,8 @@ export function importBatchLyricsTxt(files: { fileName: string; content: string 
   };
 }
 
-// Initial starter Practice Group songs for singing groups / choir
-export const DEFAULT_PRACTICE_ENTRIES: PracticeGroupEntry[] = [
-  {
-    id: 'prac-1',
-    groupName: 'NLBC Youth Choir',
-    targetDate: getNextSundayStr(),
-    songTitle: 'Total Praise',
-    artist: 'Richard Smallwood',
-    lyrics: `Lord, I will lift mine eyes to the hills
-Knowing my help is coming from You
-Your peace You give me
-In time of the storm
-
-You are the source of my strength
-You are the strength of my life
-I lift my hands in total praise to You
-
-Amen, Amen, Amen, Amen
-Amen, Amen, Amen, Amen`,
-    notes: 'Key of Eb. Practice four-part harmony at the Amen climax.',
-    attachments: [
-      {
-        id: 'att-prac-1',
-        name: 'Total Praise - Piano Accompaniment Track',
-        category: 'minus_one',
-        type: 'link',
-        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    parts: [
-      {
-        id: 'part-soprano',
-        partLabel: 'Soprano',
-        assignedTo: 'Sis. Abigail Cruz',
-        name: 'Soprano High Melody & Climax',
-        type: 'link',
-        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'part-alto',
-        partLabel: 'Alto',
-        assignedTo: 'Sis. Grace David',
-        name: 'Alto Inner Harmony Track',
-        type: 'link',
-        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'part-tenor',
-        partLabel: 'Tenor',
-        assignedTo: 'Bro. Christian Ramos',
-        name: 'Tenor Ascending Voice',
-        type: 'link',
-        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'part-bass',
-        partLabel: 'Bass',
-        assignedTo: 'Bro. Daniel Pascual',
-        name: 'Bass Foundation Stanza',
-        type: 'link',
-        urlOrData: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: 'prac-2',
-    groupName: 'Men of Honor Quartet',
-    targetDate: '',
-    songTitle: 'I Stand in Awe',
-    artist: 'Mark Altrogge',
-    lyrics: `You are beautiful beyond description
-Too marvelous for words
-Too wonderful for comprehension
-Like nothing ever seen or heard
-Who can grasp Your infinite wisdom
-Who can fathom the depth of Your love
-You are beautiful beyond description
-Majesty enthroned above
-
-And I stand, I stand in awe of You
-I stand, I stand in awe of You
-Holy God, to whom all praise is due
-I stand in awe of You`,
-    notes: 'A cappella opening verse, acoustic guitar enters on chorus.',
-    attachments: [],
-    parts: [
-      {
-        id: 'part-lead',
-        partLabel: 'Lead',
-        assignedTo: 'Bro. Alvin Ramos',
-        name: 'Lead Vocal Verse 1',
-        type: 'link',
-        urlOrData: '',
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'part-baritone',
-        partLabel: 'Baritone',
-        assignedTo: 'Bro. Emmanuel Garcia',
-        name: 'Baritone Harmony',
-        type: 'link',
-        urlOrData: '',
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+// Initial starter Practice Group songs (empty by default - no example items injected)
+export const DEFAULT_PRACTICE_ENTRIES: PracticeGroupEntry[] = [];
 
 export function normalizePracticeEntry(entry: PracticeGroupEntry): PracticeGroupEntry {
   const customAttachments = (entry.customAttachments || entry.attachments || []).map((att) => ({
@@ -1156,15 +825,18 @@ export function loadPracticeEntries(): PracticeGroupEntry[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_ENTRIES);
     if (!raw) {
-      const normalized = DEFAULT_PRACTICE_ENTRIES.map(normalizePracticeEntry);
-      savePracticeEntries(normalized);
-      return normalized;
+      savePracticeEntries([]);
+      return [];
     }
     const parsed: PracticeGroupEntry[] = JSON.parse(raw);
-    return parsed.map(normalizePracticeEntry);
+    const cleaned = parsed.filter((p) => !LEGACY_MOCK_IDS.has(p.id));
+    if (cleaned.length !== parsed.length) {
+      savePracticeEntries(cleaned);
+    }
+    return cleaned.map(normalizePracticeEntry);
   } catch (err) {
     console.error('Error loading practice entries:', err);
-    return DEFAULT_PRACTICE_ENTRIES.map(normalizePracticeEntry);
+    return [];
   }
 }
 
