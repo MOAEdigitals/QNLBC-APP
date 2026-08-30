@@ -922,6 +922,19 @@ export default function App() {
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}
             onDataReset={reloadAllData}
+            appData={{
+              songs,
+              setlists,
+              specialNumbers,
+              practiceEntries,
+              choirEntries,
+              birthdays,
+              anniversaries,
+              visitors,
+              specialRecognitions,
+              savedNames,
+              welcomeSongs: loadWelcomeSongs(),
+            }}
           />
         </div>
       </main>

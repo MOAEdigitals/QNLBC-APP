@@ -17,6 +17,15 @@ import {
   loadVisitors,
   loadSpecialRecognitions,
   loadSpecialNumbers,
+  saveSongs,
+  saveSetlists,
+  saveBirthdays,
+  saveAnniversaries,
+  saveVisitors,
+  saveSpecialRecognitions,
+  saveSpecialNumbers,
+  savePracticeEntries,
+  saveChoirEntries,
 } from '../utils/storage';
 import {
   syncSaveUser,
@@ -29,8 +38,11 @@ import {
   syncSaveVisitor,
   syncSaveSpecialRecognition,
   syncSaveSpecialNumber,
+  syncSavePracticeEntry,
+  syncSaveChoirEntry,
 } from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
+import { GoogleDriveSection } from './GoogleDriveSection';
 import {
   Settings,
   Sun,
@@ -68,6 +80,19 @@ interface SettingsTabProps {
   onToggleTheme: () => void;
   onSignOut: () => void;
   onDataReset: () => void;
+  appData?: {
+    songs: any[];
+    setlists: any[];
+    specialNumbers: any[];
+    practiceEntries: any[];
+    choirEntries: any[];
+    birthdays: any[];
+    anniversaries: any[];
+    visitors: any[];
+    specialRecognitions: any[];
+    savedNames: string[];
+    welcomeSongs: string[];
+  };
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
@@ -81,6 +106,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onToggleTheme,
   onSignOut,
   onDataReset,
+  appData,
 }) => {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [newUsername, setNewUsername] = useState('');
@@ -360,8 +386,75 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
+  const handleRestoreFromDrive = (restoredData: any) => {
+    if (!restoredData) return;
+    if (Array.isArray(restoredData.songs)) {
+      saveSongs(restoredData.songs);
+      restoredData.songs.forEach(syncSaveSong);
+    }
+    if (Array.isArray(restoredData.setlists)) {
+      saveSetlists(restoredData.setlists);
+      restoredData.setlists.forEach(syncSaveSetlist);
+    }
+    if (Array.isArray(restoredData.specialNumbers)) {
+      saveSpecialNumbers(restoredData.specialNumbers);
+      restoredData.specialNumbers.forEach(syncSaveSpecialNumber);
+    }
+    if (Array.isArray(restoredData.practiceEntries)) {
+      savePracticeEntries(restoredData.practiceEntries);
+      restoredData.practiceEntries.forEach(syncSavePracticeEntry);
+    }
+    if (Array.isArray(restoredData.choirEntries)) {
+      saveChoirEntries(restoredData.choirEntries);
+      restoredData.choirEntries.forEach(syncSaveChoirEntry);
+    }
+    if (Array.isArray(restoredData.birthdays)) {
+      saveBirthdays(restoredData.birthdays);
+      restoredData.birthdays.forEach(syncSaveBirthday);
+    }
+    if (Array.isArray(restoredData.anniversaries)) {
+      saveAnniversaries(restoredData.anniversaries);
+      restoredData.anniversaries.forEach(syncSaveAnniversary);
+    }
+    if (Array.isArray(restoredData.visitors)) {
+      saveVisitors(restoredData.visitors);
+      restoredData.visitors.forEach(syncSaveVisitor);
+    }
+    if (Array.isArray(restoredData.specialRecognitions)) {
+      saveSpecialRecognitions(restoredData.specialRecognitions);
+      restoredData.specialRecognitions.forEach(syncSaveSpecialRecognition);
+    }
+    if (Array.isArray(restoredData.savedNames)) {
+      saveSavedNames(restoredData.savedNames);
+      setSavedNames(restoredData.savedNames);
+      syncSaveSavedNames(restoredData.savedNames);
+      if (onUpdateSavedNames) onUpdateSavedNames(restoredData.savedNames);
+    }
+    onDataReset();
+  };
+
+  const defaultAppData = {
+    songs: loadSongs(),
+    setlists: loadSetlists(),
+    specialNumbers: loadSpecialNumbers(),
+    practiceEntries: [],
+    choirEntries: [],
+    birthdays: loadBirthdays(),
+    anniversaries: loadAnniversaries(),
+    visitors: loadVisitors(),
+    specialRecognitions: loadSpecialRecognitions(),
+    savedNames: savedNames,
+    welcomeSongs: [],
+  };
+
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-16">
+      {/* Google Drive Cloud Integration */}
+      <GoogleDriveSection
+        appData={appData || defaultAppData}
+        onRestoreData={handleRestoreFromDrive}
+      />
+
       {/* Header Banner */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div>

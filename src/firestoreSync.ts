@@ -285,7 +285,7 @@ export function isFirestoreQuotaExhausted(): boolean {
 }
 
 export function getFirestoreConnectionStatus(): FirestoreStatusInfo {
-  const databaseId = firebaseConfig.firestoreDatabaseId || '(default)';
+  const databaseId = (firebaseConfig as any).firestoreDatabaseId || '(default)';
   const projectId = firebaseConfig.projectId || '';
   const databaseUrl = `https://console.firebase.google.com/project/${projectId}/firestore/databases/${databaseId}/data?openUpgradeDialog=true`;
 
