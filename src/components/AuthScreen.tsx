@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserAccount } from '../types';
-import { loadUsers, saveCurrentSession } from '../utils/storage';
-import { Church, Lock, User, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { loadUsers, saveUsers, saveCurrentSession } from '../utils/storage';
+import { db } from '../firebase';
+import { collection, getDocs } from 'firebase/firestore';
+import { Lock, User, AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { ChurchLogo } from './ChurchLogo';
 
 interface AuthScreenProps {
@@ -16,7 +18,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Sync users from Firestore on mount so any newly added users from the admin User Database are ready
+  useEffect(() => {
+    let isMounted = true;
+    async function syncCloudUsers() {
+      try {
+        const usersSnap = await getDocs(collection(db, 'users'));
+        if (!usersSnap.empty && isMounted) {
+          const cloudUsers: UserAccount[] = [];
+          usersSnap.forEach((docSnap) => {
+            cloudUsers.push({ ...(docSnap.data() as UserAccount), id: docSnap.id });
+          });
+          const localUsers = loadUsers();
+          const userMap = new Map<string, UserAccount>();
+          localUsers.forEach((u) => userMap.set(u.id || u.username.toLowerCase(), u));
+          cloudUsers.forEach((u) => userMap.set(u.id || u.username.toLowerCase(), u));
+          saveUsers(Array.from(userMap.values()));
+        }
+      } catch {
+        // Fallback silently to local cache if network/offline
+      }
+    }
+    syncCloudUsers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -31,12 +60,39 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
     setIsSubmitting(true);
 
     try {
-      const allUsers = loadUsers();
-      const match = allUsers.find(
+      // 1. Try local cache first
+      let allUsers = loadUsers();
+      let match = allUsers.find(
         (u) =>
           u.username.toLowerCase() === cleanUser.toLowerCase() &&
           u.passwordHash === cleanPass
       );
+
+      // 2. If not found locally, fetch fresh user list directly from Firestore User Database
+      if (!match) {
+        try {
+          const usersSnap = await getDocs(collection(db, 'users'));
+          if (!usersSnap.empty) {
+            const fetchedUsers: UserAccount[] = [];
+            usersSnap.forEach((d) => {
+              fetchedUsers.push({ ...(d.data() as UserAccount), id: d.id });
+            });
+            const userMap = new Map<string, UserAccount>();
+            allUsers.forEach((u) => userMap.set(u.id || u.username.toLowerCase(), u));
+            fetchedUsers.forEach((u) => userMap.set(u.id || u.username.toLowerCase(), u));
+            const merged = Array.from(userMap.values());
+            saveUsers(merged);
+
+            match = merged.find(
+              (u) =>
+                u.username.toLowerCase() === cleanUser.toLowerCase() &&
+                u.passwordHash === cleanPass
+            );
+          }
+        } catch (dbErr) {
+          console.warn('Could not query remote user database during sign in:', dbErr);
+        }
+      }
 
       if (match) {
         saveCurrentSession(match, rememberMe);
