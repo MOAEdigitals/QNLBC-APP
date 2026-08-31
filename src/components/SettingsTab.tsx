@@ -138,6 +138,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [revealedPasswordIds, setRevealedPasswordIds] = useState<Set<string>>(new Set());
+  const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(true);
 
   // Edit user state
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
@@ -701,33 +702,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {/* Section 3: User Database & Access Control (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs">
-                  <Database className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
+          {/* Collapsible Header */}
+          <div
+            onClick={() => setIsUserDatabaseCollapsed(!isUserDatabaseCollapsed)}
+            className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs shrink-0">
+                <Database className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span>User Database & Access Control</span>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                      {users.length} {users.length === 1 ? 'Account' : 'Accounts'}
-                    </span>
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Manage usernames and passwords for members. Username and password credentials provide direct access to the app across all devices.
-                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    {users.length} {users.length === 1 ? 'Account' : 'Accounts'}
+                  </span>
                 </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  {isUserDatabaseCollapsed
+                    ? 'Tap to view and manage user accounts in the credentials sheet.'
+                    : 'All created user accounts are organized in the sheet below.'}
+                </p>
               </div>
             </div>
 
-            {/* Quick Action Buttons */}
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Quick Action Buttons on Header */}
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
               <button
                 type="button"
-                onClick={handleCopyAllCredentials}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopyAllCredentials();
+                }}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
                 title="Copy all usernames & passwords to clipboard"
               >
@@ -741,430 +750,459 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
               <button
                 type="button"
-                onClick={() => setShowRosterModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
-                title="View full credentials sheet"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>View Sheet</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowAddUserForm(!showAddUserForm)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAddUserForm(!showAddUserForm);
+                  if (isUserDatabaseCollapsed) {
+                    setIsUserDatabaseCollapsed(false);
+                  }
+                }}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs cursor-pointer"
               >
                 <UserPlus className="w-3.5 h-3.5" />
-                <span>{showAddUserForm ? 'Close Form' : 'Add User'}</span>
+                <span>{showAddUserForm && !isUserDatabaseCollapsed ? 'Close Form' : 'Add User'}</span>
               </button>
-            </div>
-          </div>
 
-          {/* Feedback messages */}
-          {userCreatedMsg && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-              <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span>{userCreatedMsg}</span>
-            </div>
-          )}
-
-          {userErrorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <span>{userErrorMsg}</span>
-            </div>
-          )}
-
-          {/* Add New User Collapsible Card */}
-          {showAddUserForm && (
-            <div className="p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                  <UserPlus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                  <span>Add New User to Database</span>
-                </div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Username and password only
-                </span>
+              <div
+                className="p-1.5 rounded-xl text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 group-hover:bg-slate-200/60 dark:group-hover:bg-slate-700/60 transition-all"
+                title={isUserDatabaseCollapsed ? 'Expand credentials sheet' : 'Collapse sheet'}
+              >
+                <ChevronDown
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    isUserDatabaseCollapsed ? '' : 'rotate-180'
+                  }`}
+                />
               </div>
-
-              <form onSubmit={handleCreateUser} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Username Field */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Username *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      autoFocus
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                      placeholder="e.g. Bro. Juan, Sis. Maria, pianist01"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100"
-                    />
-                  </div>
-
-                  {/* Password Field */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Password *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setNewPassword(generateRandomPassword())}
-                        className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
-                      >
-                        <Sparkles className="w-3 h-3" />
-                        <span>Generate Easy Password</span>
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <input
-                        type={showNewPassword ? 'text' : 'password'}
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter password"
-                        className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPassword(!showNewPassword)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
-                        title={showNewPassword ? 'Hide password' : 'Show password'}
-                      >
-                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                  {/* Role Selection */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Access Role
-                    </label>
-                    <select
-                      value={newUserRole}
-                      onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin')}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 cursor-pointer"
-                    >
-                      <option value="user">Standard User (Songs, Setlists, Special Numbers, Choir)</option>
-                      <option value="admin">Administrator (Full settings & database control)</option>
-                    </select>
-                  </div>
-
-                  {/* Optional Avatar */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                      Profile Photo (Optional)
-                    </label>
-                    <div className="flex items-center gap-3">
-                      {newUserAvatar ? (
-                        <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-slate-300 dark:ring-slate-600 shrink-0">
-                          <img
-                            src={newUserAvatar}
-                            alt="New user preview"
-                            referrerPolicy="no-referrer"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0">
-                          <ImageIcon className="w-4 h-4" />
-                        </div>
-                      )}
-                      <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                        <Camera className="w-3.5 h-3.5 text-slate-500" />
-                        <span>{newUserAvatar ? 'Change Photo' : 'Upload Photo'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleNewUserAvatarPick}
-                        />
-                      </label>
-                      {newUserAvatar && (
-                        <button
-                          type="button"
-                          onClick={() => setNewUserAvatar(null)}
-                          className="text-xs text-rose-500 hover:underline cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddUserForm(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white shadow-xs transition-all cursor-pointer"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    <span>Save User to Database</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Search and Role Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={userSearchQuery}
-                onChange={(e) => setUserSearchQuery(e.target.value)}
-                placeholder="Search user database by username..."
-                className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100"
-              />
-              {userSearchQuery && (
-                <button
-                  onClick={() => setUserSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0">
-              <button
-                type="button"
-                onClick={() => setUserRoleFilter('all')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  userRoleFilter === 'all'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                All ({users.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setUserRoleFilter('admin')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  userRoleFilter === 'admin'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Admins ({users.filter((u) => u.role === 'admin').length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setUserRoleFilter('user')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  userRoleFilter === 'user'
-                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                }`}
-              >
-                Users ({users.filter((u) => u.role !== 'admin').length})
-              </button>
             </div>
           </div>
 
-          {/* User Database Table / Cards List */}
-          <div className="space-y-2.5">
-            {users
-              .filter((u) => {
-                const matchesSearch =
-                  u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-                  (u.passwordHash && u.passwordHash.toLowerCase().includes(userSearchQuery.toLowerCase()));
-                const matchesRole =
-                  userRoleFilter === 'all'
-                    ? true
-                    : userRoleFilter === 'admin'
-                    ? u.role === 'admin'
-                    : u.role !== 'admin';
-                return matchesSearch && matchesRole;
-              })
-              .map((u) => {
-                const isCurrent = u.id === currentUser.id;
-                const isRootAdmin = u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
-                const isPasswordRevealed = revealedPasswordIds.has(u.id);
+          {/* Collapsible Sheet Body */}
+          {!isUserDatabaseCollapsed && (
+            <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
+              {/* Feedback messages */}
+              {userCreatedMsg && (
+                <div className="mt-4 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{userCreatedMsg}</span>
+                </div>
+              )}
 
-                return (
-                  <div
-                    key={u.id}
-                    className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all shadow-2xs space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      {/* Left: Avatar + Username + Role */}
-                      <div className="flex items-center space-x-3 min-w-0">
-                        {/* User Avatar Circle */}
-                        <div className="relative group shrink-0">
-                          <div className="w-10 h-10 rounded-full ring-2 ring-slate-200 dark:ring-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-xs overflow-hidden shadow-2xs">
-                            {u.avatar ? (
+              {userErrorMsg && (
+                <div className="mt-4 p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{userErrorMsg}</span>
+                </div>
+              )}
+
+              {/* Add New User Collapsible Form */}
+              {showAddUserForm && (
+                <div className="mt-4 p-4 sm:p-5 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-300 dark:border-slate-700 space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                      <UserPlus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                      <span>Add New User Account</span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Auto-adds to credentials sheet
+                    </span>
+                  </div>
+
+                  <form onSubmit={handleCreateUser} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {/* Username Field */}
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                          Username *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          autoFocus
+                          value={newUsername}
+                          onChange={(e) => setNewUsername(e.target.value)}
+                          placeholder="e.g. Bro. Juan, Sis. Maria, pianist01"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100"
+                        />
+                      </div>
+
+                      {/* Password Field */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                            Password *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setNewPassword(generateRandomPassword())}
+                            className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+                          >
+                            <Sparkles className="w-3 h-3" />
+                            <span>Generate Password</span>
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            required
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Enter password"
+                            className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 font-mono"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                            title={showNewPassword ? 'Hide password' : 'Show password'}
+                          >
+                            {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                      {/* Role Selection */}
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                          Access Role
+                        </label>
+                        <select
+                          value={newUserRole}
+                          onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin')}
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 cursor-pointer"
+                        >
+                          <option value="user">Standard User (Songs, Setlists, Special Numbers, Choir)</option>
+                          <option value="admin">Administrator (Full settings & database control)</option>
+                        </select>
+                      </div>
+
+                      {/* Optional Avatar */}
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                          Profile Photo (Optional)
+                        </label>
+                        <div className="flex items-center gap-3">
+                          {newUserAvatar ? (
+                            <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-slate-300 dark:ring-slate-600 shrink-0">
                               <img
-                                src={u.avatar}
-                                alt={u.username}
+                                src={newUserAvatar}
+                                alt="New user preview"
                                 referrerPolicy="no-referrer"
                                 className="w-full h-full object-cover"
                               />
-                            ) : (
-                              <span>{u.username.substring(0, 2).toUpperCase()}</span>
-                            )}
-                          </div>
-                          <label
-                            className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 ring-2 ring-white dark:ring-slate-800 flex items-center justify-center shadow-xs cursor-pointer opacity-90 hover:opacity-100"
-                            title="Update profile picture"
-                          >
-                            <Camera className="w-2.5 h-2.5" />
+                            </div>
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center shrink-0">
+                              <ImageIcon className="w-4 h-4" />
+                            </div>
+                          )}
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <Camera className="w-3.5 h-3.5 text-slate-500" />
+                            <span>{newUserAvatar ? 'Change Photo' : 'Upload Photo'}</span>
                             <input
                               type="file"
                               accept="image/*"
                               className="hidden"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) handleAvatarChangeForUser(u.id, f);
-                                e.target.value = '';
-                              }}
+                              onChange={handleNewUserAvatarPick}
                             />
                           </label>
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                              {u.username}
-                            </span>
-                            {u.role === 'admin' ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
-                                Administrator
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                                User / Member
-                              </span>
-                            )}
-                            {isCurrent && (
-                              <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
-                                (You)
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                            <span>Access: Username & Password</span>
-                            {u.avatar && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveAvatarForUser(u.id)}
-                                className="text-rose-500 hover:underline cursor-pointer"
-                              >
-                                Remove photo
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Actions */}
-                      <div className="flex items-center gap-1.5 self-end sm:self-auto flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => handleCopyLoginInfo(u)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
-                          title="Copy ready-to-send login invite message"
-                        >
-                          {copiedLoginId === u.id ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          ) : (
-                            <Share2 className="w-3.5 h-3.5" />
+                          {newUserAvatar && (
+                            <button
+                              type="button"
+                              onClick={() => setNewUserAvatar(null)}
+                              className="text-xs text-rose-500 hover:underline cursor-pointer"
+                            >
+                              Clear
+                            </button>
                           )}
-                          <span>{copiedLoginId === u.id ? 'Copied Invite!' : 'Share Login'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditUser(u)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
-                          title="Edit credentials or change password"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                          <span>Edit</span>
-                        </button>
-
-                        {!isRootAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteUser(u)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-medium border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
-                            title="Delete user from database"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete</span>
-                          </button>
-                        )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Password Credentials Box */}
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between gap-2 text-xs">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Key className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">
-                          Password:
-                        </span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-white truncate">
-                          {isPasswordRevealed ? u.passwordHash || '(none)' : '••••••••••••'}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => togglePasswordReveal(u.id)}
-                          className="p-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
-                          title={isPasswordRevealed ? 'Hide password' : 'Show password'}
-                        >
-                          {isPasswordRevealed ? (
-                            <EyeOff className="w-3.5 h-3.5" />
-                          ) : (
-                            <Eye className="w-3.5 h-3.5" />
-                          )}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyPassword(u.id, u.passwordHash || '')}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                          title="Copy password only"
-                        >
-                          {copiedPasswordUserId === u.id ? (
-                            <Check className="w-3 h-3 text-emerald-500" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
-                          <span>{copiedPasswordUserId === u.id ? 'Copied' : 'Copy'}</span>
-                        </button>
-                      </div>
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setShowAddUserForm(false)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white shadow-xs transition-all cursor-pointer"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        <span>Save to Sheet</span>
+                      </button>
                     </div>
-                  </div>
-                );
-              })}
+                  </form>
+                </div>
+              )}
 
-            {users.length === 0 && (
-              <div className="p-8 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                No user accounts registered yet. Click &quot;Add User&quot; above to create username and password access for members.
+              {/* Search and Role Filter Bar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={userSearchQuery}
+                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    placeholder="Search user database by username..."
+                    className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100"
+                  />
+                  {userSearchQuery && (
+                    <button
+                      onClick={() => setUserSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('all')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      userRoleFilter === 'all'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    All ({users.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('admin')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      userRoleFilter === 'admin'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Admins ({users.filter((u) => u.role === 'admin').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserRoleFilter('user')}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      userRoleFilter === 'user'
+                        ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-2xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Users ({users.filter((u) => u.role !== 'admin').length})
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
+
+              {/* Collapsible Interactive Credentials Sheet Table */}
+              <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl overflow-hidden shadow-2xs bg-white dark:bg-slate-900">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
+                      <tr>
+                        <th className="p-3 w-10 text-center text-slate-400">#</th>
+                        <th className="p-3">User / Member</th>
+                        <th className="p-3">Password</th>
+                        <th className="p-3">Role</th>
+                        <th className="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {users
+                        .filter((u) => {
+                          const matchesSearch =
+                            u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                            (u.passwordHash && u.passwordHash.toLowerCase().includes(userSearchQuery.toLowerCase()));
+                          const matchesRole =
+                            userRoleFilter === 'all'
+                              ? true
+                              : userRoleFilter === 'admin'
+                              ? u.role === 'admin'
+                              : u.role !== 'admin';
+                          return matchesSearch && matchesRole;
+                        })
+                        .map((u, idx) => {
+                          const isCurrent = u.id === currentUser.id;
+                          const isRootAdmin = u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
+                          const isPasswordRevealed = revealedPasswordIds.has(u.id);
+
+                          return (
+                            <tr
+                              key={u.id}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                            >
+                              {/* # Index */}
+                              <td className="p-3 text-center text-slate-400 font-mono text-[11px]">
+                                {idx + 1}
+                              </td>
+
+                              {/* User with avatar */}
+                              <td className="p-3">
+                                <div className="flex items-center gap-2.5 min-w-[150px]">
+                                  <div className="relative shrink-0">
+                                    <div className="w-8 h-8 rounded-full ring-1 ring-slate-200 dark:ring-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-[11px] overflow-hidden">
+                                      {u.avatar ? (
+                                        <img
+                                          src={u.avatar}
+                                          alt={u.username}
+                                          referrerPolicy="no-referrer"
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <span>{u.username.substring(0, 2).toUpperCase()}</span>
+                                      )}
+                                    </div>
+                                    <label
+                                      className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center cursor-pointer opacity-80 hover:opacity-100"
+                                      title="Change photo"
+                                    >
+                                      <Camera className="w-2 h-2" />
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          if (f) handleAvatarChangeForUser(u.id, f);
+                                          e.target.value = '';
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-bold text-slate-900 dark:text-white truncate">
+                                        {u.username}
+                                      </span>
+                                      {isCurrent && (
+                                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                                          (You)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Password with 1-click reveal & copy */}
+                              <td className="p-3">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                                  <Key className="w-3 h-3 text-slate-400 shrink-0" />
+                                  <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-[11px] min-w-[70px]">
+                                    {isPasswordRevealed ? u.passwordHash || '(none)' : '••••••••'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => togglePasswordReveal(u.id)}
+                                    className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                                    title={isPasswordRevealed ? 'Hide password' : 'Show password'}
+                                  >
+                                    {isPasswordRevealed ? (
+                                      <EyeOff className="w-3 h-3" />
+                                    ) : (
+                                      <Eye className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyPassword(u.id, u.passwordHash || '')}
+                                    className="p-0.5 text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+                                    title="Copy password"
+                                  >
+                                    {copiedPasswordUserId === u.id ? (
+                                      <Check className="w-3 h-3 text-emerald-500" />
+                                    ) : (
+                                      <Copy className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+
+                              {/* Role */}
+                              <td className="p-3">
+                                {u.role === 'admin' ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                                    <Shield className="w-2.5 h-2.5" />
+                                    <span>Administrator</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                    User / Member
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="p-3 text-right">
+                                <div className="inline-flex items-center gap-1 justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCopyLoginInfo(u)}
+                                    className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                    title="Share login invite"
+                                  >
+                                    {copiedLoginId === u.id ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                    ) : (
+                                      <Share2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditUser(u)}
+                                    className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                    title="Edit user credentials"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  {!isRootAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteUser(u)}
+                                      className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
+                                      title="Delete user"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {users.length === 0 && (
+                  <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                    No user accounts created yet. Click &quot;Add User&quot; to add member credentials.
+                  </div>
+                )}
+              </div>
+
+              {/* Sheet Bottom Bar */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <span>
+                  Showing {users.length} {users.length === 1 ? 'member account' : 'member accounts'} synced across all devices.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyAllCredentials}
+                    className="text-xs font-semibold text-slate-900 dark:text-white hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>Copy Full Roster</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
