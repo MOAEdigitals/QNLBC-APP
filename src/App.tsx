@@ -848,6 +848,7 @@ export default function App() {
           <SetlistsTab
             setlists={setlists}
             songs={songs}
+            savedNames={savedNames}
             onSaveSetlist={handleSaveSetlist}
             onDeleteSetlist={handleDeleteSetlist}
             onOpenSongDetail={handleOpenSongDetail}
@@ -884,6 +885,7 @@ export default function App() {
             choirEntries={choirEntries}
             songs={songs}
             setlists={setlists}
+            savedNames={savedNames}
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
             onSavePracticeEntry={handleSavePracticeEntry}

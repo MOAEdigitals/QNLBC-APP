@@ -87,6 +87,7 @@ interface SpecialNumberTabProps {
   choirEntries?: ChoirEntry[];
   songs: Song[];
   setlists: Setlist[];
+  savedNames?: string[];
   onSaveSpecialNumber: (entry: SpecialNumberEntry) => void;
   onDeleteSpecialNumber: (id: string) => void;
   onSavePracticeEntry?: (entry: PracticeGroupEntry) => void;
@@ -158,6 +159,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   choirEntries = [],
   songs,
   setlists,
+  savedNames,
   onSaveSpecialNumber,
   onDeleteSpecialNumber,
   onSavePracticeEntry,
@@ -812,7 +814,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   }, [activePracticeMedia, isBgPlayEnabled]);
 
-  const directoryNames = getAllDirectoryNames();
+  const directoryNames = getAllDirectoryNames(savedNames);
   const songTitleSuggestions = songs.map((s) => s.title);
 
   // Sorted: soonest upcoming at top (nearest future/today first), past dates below

@@ -706,9 +706,15 @@ export function subscribeToPracticeAudios(
 // --- Settings Cloud Sync (Church Directory & Welcome Songs) ---
 
 export async function syncSaveSavedNames(names: string[]): Promise<void> {
-  return executeFirestoreWrite(COLLECTIONS.APP_SETTINGS, 'saved_names', {
+  const payload = {
     id: 'saved_names',
-    names,
+    names: Array.isArray(names) ? names : [],
+    updatedAt: new Date().toISOString(),
+  };
+  await executeFirestoreWrite(COLLECTIONS.APP_SETTINGS, 'saved_names', payload);
+  await executeFirestoreWrite(COLLECTIONS.SAVED_NAMES, 'list', {
+    id: 'list',
+    names: Array.isArray(names) ? names : [],
     updatedAt: new Date().toISOString(),
   });
 }
@@ -716,7 +722,7 @@ export async function syncSaveSavedNames(names: string[]): Promise<void> {
 export async function syncSaveWelcomeSongs(songs: string[]): Promise<void> {
   return executeFirestoreWrite(COLLECTIONS.APP_SETTINGS, 'welcome_songs', {
     id: 'welcome_songs',
-    songs,
+    songs: Array.isArray(songs) ? songs : [],
     updatedAt: new Date().toISOString(),
   });
 }
@@ -728,13 +734,18 @@ export function subscribeToAppSettings(
 ) {
   try {
     const namesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names');
+    const altNamesDocRef = doc(db, COLLECTIONS.SAVED_NAMES, 'list');
     const songsDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs');
     const tombstonesDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
+
+    let hasReceivedSettingsDoc = false;
 
     const unsubNames = onSnapshot(
       namesDocRef,
       (snap) => {
+        markReadSuccess();
         if (snap.exists()) {
+          hasReceivedSettingsDoc = true;
           const data = snap.data();
           if (Array.isArray(data.names)) {
             onUpdateSavedNames(data.names);
@@ -744,9 +755,24 @@ export function subscribeToAppSettings(
       (err) => handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/saved_names`)
     );
 
+    const unsubAltNames = onSnapshot(
+      altNamesDocRef,
+      (snap) => {
+        markReadSuccess();
+        if (!hasReceivedSettingsDoc && snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.names)) {
+            onUpdateSavedNames(data.names);
+          }
+        }
+      },
+      () => {}
+    );
+
     const unsubSongs = onSnapshot(
       songsDocRef,
       (snap) => {
+        markReadSuccess();
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.songs)) {
@@ -760,6 +786,7 @@ export function subscribeToAppSettings(
     const unsubTombstones = onSnapshot(
       tombstonesDocRef,
       (snap) => {
+        markReadSuccess();
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.list)) {
@@ -775,6 +802,7 @@ export function subscribeToAppSettings(
 
     return () => {
       unsubNames();
+      unsubAltNames();
       unsubSongs();
       unsubTombstones();
     };
@@ -873,19 +901,38 @@ export async function initializeFirestoreCloudSeed(): Promise<void> {
       await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
     }
 
-    const initialNames = loadSavedNames();
-    await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
-      id: 'saved_names',
-      names: initialNames,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      const namesSnap = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'));
+      if (!namesSnap.exists()) {
+        const initialNames = loadSavedNames();
+        await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
+          id: 'saved_names',
+          names: initialNames,
+          updatedAt: new Date().toISOString(),
+        });
+        await setDoc(doc(db, COLLECTIONS.SAVED_NAMES, 'list'), {
+          id: 'list',
+          names: initialNames,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // ignore
+    }
 
-    const initialWelcome = loadWelcomeSongs();
-    await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'), {
-      id: 'welcome_songs',
-      songs: initialWelcome,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      const welcomeSnap = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'));
+      if (!welcomeSnap.exists()) {
+        const initialWelcome = loadWelcomeSongs();
+        await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'), {
+          id: 'welcome_songs',
+          songs: initialWelcome,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // ignore
+    }
 
     localStorage.setItem(SEED_STORAGE_FLAG, 'true');
   } catch (err) {

@@ -135,6 +135,7 @@ export function formatSetlistForMessenger(setlist: Setlist): string {
 interface SetlistsTabProps {
   setlists: Setlist[];
   songs: Song[];
+  savedNames?: string[];
   onSaveSetlist: (setlist: Setlist) => void;
   onDeleteSetlist: (id: string) => void;
   onOpenSongDetail: (songId: string, returnSetlistId?: string) => void;
@@ -146,6 +147,7 @@ interface SetlistsTabProps {
 export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   setlists,
   songs,
+  savedNames,
   onSaveSetlist,
   onDeleteSetlist,
   onOpenSongDetail,
@@ -240,8 +242,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const backSwipeTimeoutRef = useRef<any>(null);
   const [editPromptMsg, setEditPromptMsg] = useState<{ type: 'info' | 'warn'; message: string } | null>(null);
 
-  // Memoized directory names for autocomplete (only recompute when editing modal opens or songs change)
-  const directoryNames = useMemo(() => getAllDirectoryNames(), [isEditing]);
+  // Memoized directory names for autocomplete (reacts immediately to real-time cloud changes)
+  const directoryNames = useMemo(() => getAllDirectoryNames(savedNames), [savedNames, isEditing]);
   const songTitleSuggestions = useMemo(() => songs.map((s) => s.title), [songs]);
 
   // Marked songs from library (plus defaults)

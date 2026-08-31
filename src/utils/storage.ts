@@ -545,28 +545,39 @@ export function saveChoirEntries(items: ChoirEntry[]): void {
 export function loadSavedNames(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SAVED_NAMES);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(DEFAULT_SAVED_NAMES));
-      return DEFAULT_SAVED_NAMES;
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     }
-    return JSON.parse(raw);
-  } catch {
+    const initialized = localStorage.getItem('nlbc_saved_names_initialized_v1');
+    if (initialized === 'true') {
+      return [];
+    }
+    localStorage.setItem('nlbc_saved_names_initialized_v1', 'true');
+    localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(DEFAULT_SAVED_NAMES));
     return DEFAULT_SAVED_NAMES;
+  } catch {
+    return [];
   }
 }
 
 export function saveSavedNames(names: string[]): void {
+  localStorage.setItem('nlbc_saved_names_initialized_v1', 'true');
   localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(names));
 }
 
 export function loadWelcomeSongs(): string[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.WELCOME_SONGS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.WELCOME_SONGS, JSON.stringify(DEFAULT_WELCOME_SONGS));
-      return DEFAULT_WELCOME_SONGS;
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
     }
-    return JSON.parse(raw);
+    return DEFAULT_WELCOME_SONGS;
   } catch {
     return DEFAULT_WELCOME_SONGS;
   }
@@ -579,8 +590,8 @@ export function saveWelcomeSongs(songs: string[]): void {
 /**
  * Returns names strictly from the Church Directory and autofill suggestions from Settings
  */
-export function getAllDirectoryNames(): string[] {
-  const saved = loadSavedNames();
+export function getAllDirectoryNames(customSavedNames?: string[]): string[] {
+  const saved = customSavedNames !== undefined ? customSavedNames : loadSavedNames();
   const nameSet = new Set<string>(saved.map((n) => n.trim()).filter(Boolean));
   return Array.from(nameSet).sort((a, b) => a.localeCompare(b));
 }
