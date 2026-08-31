@@ -76,6 +76,7 @@ import {
   saveSavedNames,
   loadWelcomeSongs,
   saveWelcomeSongs,
+  DEFAULT_ADMIN,
 } from './utils/storage';
 import { saveAudioToStorage } from './utils/audioStorage';
 import {
@@ -337,6 +338,10 @@ export default function App() {
         syncSaveUser(loc);
       }
       const finalUsers = [...validUsers, ...localOnly];
+      if (!finalUsers.some((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase())) {
+        finalUsers.unshift(DEFAULT_ADMIN);
+        syncSaveUser(DEFAULT_ADMIN);
+      }
       setUsers(finalUsers);
       saveUsers(finalUsers);
 

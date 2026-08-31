@@ -755,7 +755,7 @@ export function subscribeToAppSettings(
           const data = snap.data();
           if (Array.isArray(data.names)) {
             const cleaned = data.names.filter(
-              (n: string) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
+              (n: string) => typeof n === 'string' && n.trim()
             );
             onUpdateSavedNames(cleaned);
           }
@@ -772,7 +772,7 @@ export function subscribeToAppSettings(
           const data = snap.data();
           if (Array.isArray(data.names)) {
             const cleaned = data.names.filter(
-              (n: string) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
+              (n: string) => typeof n === 'string' && n.trim()
             );
             onUpdateSavedNames(cleaned);
           }
@@ -965,33 +965,6 @@ export async function initializeFirestoreCloudSeed(): Promise<void> {
           names: initialNames,
           updatedAt: new Date().toISOString(),
         });
-      } else {
-        const existingData = namesSnap.data()?.names;
-        if (Array.isArray(existingData)) {
-          const cleaned = existingData.filter(
-            (n: string) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
-          );
-          if (cleaned.length !== existingData.length) {
-            await setDoc(
-              doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'),
-              {
-                id: 'saved_names',
-                names: cleaned,
-                updatedAt: new Date().toISOString(),
-              },
-              { merge: true }
-            );
-            await setDoc(
-              doc(db, COLLECTIONS.SAVED_NAMES, 'list'),
-              {
-                id: 'list',
-                names: cleaned,
-                updatedAt: new Date().toISOString(),
-              },
-              { merge: true }
-            );
-          }
-        }
       }
     } catch {
       // ignore

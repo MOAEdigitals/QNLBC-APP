@@ -551,17 +551,9 @@ export function loadSavedNames(): string[] {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        // Automatically filter out any legacy dummy examples from earlier templates
-        const cleaned = parsed.filter(
-          (n) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
-        );
-        if (cleaned.length !== parsed.length) {
-          localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(cleaned));
-        }
-        return cleaned;
+        return parsed.filter((n) => typeof n === 'string' && n.trim());
       }
     }
-    localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify([]));
     return [];
   } catch {
     return [];
