@@ -52,7 +52,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Resolve audio URL (from memory/IndexedDB if needed, Google Drive / Dropbox direct stream)
+  // Resolve audio URL (from memory/IndexedDB if needed, cloud/direct stream)
   useEffect(() => {
     let isCancelled = false;
     setIsLoading(true);
