@@ -113,11 +113,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onDataReset,
   appData,
 }) => {
-  // Collapsible container states for all sections
-  const [isAccountCollapsed, setIsAccountCollapsed] = useState(false);
-  const [isAppearanceCollapsed, setIsAppearanceCollapsed] = useState(false);
-  const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(false);
-  const [isChurchDirectoryCollapsed, setIsChurchDirectoryCollapsed] = useState(false);
+  // Collapsible container states for all sections (collapsed by default)
+  const [isAccountCollapsed, setIsAccountCollapsed] = useState(true);
+  const [isAppearanceCollapsed, setIsAppearanceCollapsed] = useState(true);
+  const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(true);
+  const [isChurchDirectoryCollapsed, setIsChurchDirectoryCollapsed] = useState(true);
   const [isDataBackupCollapsed, setIsDataBackupCollapsed] = useState(true);
 
   // New user form state
