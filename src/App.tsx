@@ -69,6 +69,7 @@ import {
   getFirestoreConnectionStatus,
   FirestoreStatusInfo,
   isItemTombstoned,
+  LEGACY_MOCK_IDS,
 } from './firestoreSync';
 import {
   loadSavedNames,
@@ -184,57 +185,115 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('setlists', i.id));
-      setSetlists(valid);
-      saveSetlists(valid);
+      const currentLocal = loadSetlists();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('setlists', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('setlists', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveSetlist(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setSetlists(merged);
+      saveSetlists(merged);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('songs', i.id));
-      setSongs(valid);
-      saveSongs(valid);
+      const currentLocal = loadSongs();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('songs', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('songs', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveSong(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setSongs(merged);
+      saveSongs(merged);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('birthdays', i.id));
-      setBirthdays(valid);
-      saveBirthdays(valid);
+      const currentLocal = loadBirthdays();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('birthdays', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('birthdays', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveBirthday(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setBirthdays(merged);
+      saveBirthdays(merged);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('anniversaries', i.id));
-      setAnniversaries(valid);
-      saveAnniversaries(valid);
+      const currentLocal = loadAnniversaries();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('anniversaries', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('anniversaries', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveAnniversary(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setAnniversaries(merged);
+      saveAnniversaries(merged);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('visitors', i.id));
-      setVisitors(valid);
-      saveVisitors(valid);
+      const currentLocal = loadVisitors();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('visitors', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('visitors', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveVisitor(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setVisitors(merged);
+      saveVisitors(merged);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('special_recognitions', i.id));
-      setSpecialRecognitions(valid);
-      saveSpecialRecognitions(valid);
+      const currentLocal = loadSpecialRecognitions();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('special_recognitions', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('special_recognitions', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveSpecialRecognition(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setSpecialRecognitions(merged);
+      saveSpecialRecognitions(merged);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('special_numbers', i.id));
-      setSpecialNumbers(valid);
-      saveSpecialNumbers(valid);
+      const currentLocal = loadSpecialNumbers();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('special_numbers', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('special_numbers', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveSpecialNumber(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setSpecialNumbers(merged);
+      saveSpecialNumbers(merged);
     });
 
     const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
-      const valid = items.filter((i) => !isItemTombstoned('choir_entries', i.id));
-      setChoirEntries(valid);
-      saveChoirEntries(valid);
+      const currentLocal = loadChoirEntries();
+      const remoteIds = new Set(items.map((i) => i.id));
+      const validRemote = items.filter((i) => !isItemTombstoned('choir_entries', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('choir_entries', l.id) && !LEGACY_MOCK_IDS.has(l.id));
+      for (const loc of localOnly) {
+        syncSaveChoirEntry(loc);
+      }
+      const merged = [...validRemote, ...localOnly];
+      setChoirEntries(merged);
+      saveChoirEntries(merged);
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
       const currentLocal = loadPracticeEntries();
+      const remoteIds = new Set(items.map((i) => i.id));
+
       const mergedRemote = items
-        .filter((remoteItem) => !isItemTombstoned('practice_entries', remoteItem.id))
+        .filter((remoteItem) => !isItemTombstoned('practice_entries', remoteItem.id) && !LEGACY_MOCK_IDS.has(remoteItem.id))
         .map((remoteItem) => {
           const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
           const normalized = normalizePracticeEntry(remoteItem);
@@ -256,19 +315,35 @@ export default function App() {
           };
         });
 
-      setPracticeEntries(mergedRemote);
-      savePracticeEntries(mergedRemote);
+      // Preserve newly created local practice sessions (like from mobile) and upload to Firestore
+      const localOnly = currentLocal.filter(
+        (l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('practice_entries', l.id) && !LEGACY_MOCK_IDS.has(l.id)
+      );
+      for (const loc of localOnly) {
+        syncSavePracticeEntry(loc);
+      }
+
+      const finalMerged = [...mergedRemote, ...localOnly];
+      setPracticeEntries(finalMerged);
+      savePracticeEntries(finalMerged);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
+      const currentLocal = loadUsers();
+      const remoteIds = new Set(items.map((u) => u.id));
       const validUsers = items.filter((u) => !isItemTombstoned('users', u.id));
-      setUsers(validUsers);
-      saveUsers(validUsers);
+      const localOnly = currentLocal.filter((l) => l.id && !remoteIds.has(l.id) && !isItemTombstoned('users', l.id));
+      for (const loc of localOnly) {
+        syncSaveUser(loc);
+      }
+      const finalUsers = [...validUsers, ...localOnly];
+      setUsers(finalUsers);
+      saveUsers(finalUsers);
 
       // If the currently logged in user on this device had their profile updated (e.g. password, username, avatar, role):
       setCurrentUser((prevUser) => {
         if (!prevUser) return null;
-        const updatedSelf = validUsers.find(
+        const updatedSelf = finalUsers.find(
           (u) => u.id === prevUser.id || u.username.toLowerCase() === prevUser.username.toLowerCase()
         );
         if (updatedSelf) {

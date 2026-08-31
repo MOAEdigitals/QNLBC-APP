@@ -436,7 +436,7 @@ export async function flushPendingSyncQueue(): Promise<void> {
   }
 }
 
-const LEGACY_MOCK_IDS = new Set([
+export const LEGACY_MOCK_IDS = new Set([
   'setlist-next',
   'setlist-following',
   'setlist-past',
@@ -830,6 +830,44 @@ export function subscribeToAppSettings(
 export async function reconcileAllLocalDataToCloud(): Promise<void> {
   if (isQuotaExhausted) return;
   await flushPendingSyncQueue();
+
+  // Also reconcile any local items (e.g. newly created practice sessions, songs, setlists, directory names)
+  // that were saved while offline or before connection established
+  try {
+    const localPractice = loadPracticeEntries().filter(
+      (p) => p.id && !LEGACY_MOCK_IDS.has(p.id) && !isItemTombstoned(COLLECTIONS.PRACTICE_ENTRIES, p.id)
+    );
+    for (const pr of localPractice) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, pr.id), sanitizeDoc(pr), { merge: true });
+    }
+
+    const localSongs = loadSongs().filter(
+      (s) => s.id && !LEGACY_MOCK_IDS.has(s.id) && !isItemTombstoned(COLLECTIONS.SONGS, s.id)
+    );
+    for (const s of localSongs) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.SONGS, s.id), sanitizeDoc(s), { merge: true });
+    }
+
+    const localSetlists = loadSetlists().filter(
+      (st) => st.id && !LEGACY_MOCK_IDS.has(st.id) && !isItemTombstoned(COLLECTIONS.SETLISTS, st.id)
+    );
+    for (const st of localSetlists) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.SETLISTS, st.id), sanitizeDoc(st), { merge: true });
+    }
+
+    const localUsers = loadUsers().filter(
+      (u) => u.id && !isItemTombstoned(COLLECTIONS.USERS, u.id)
+    );
+    for (const u of localUsers) {
+      if (isQuotaExhausted) break;
+      await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
+    }
+  } catch {
+    // Graceful fallback
+  }
 }
 
 const SEED_STORAGE_FLAG = 'nlbc_firestore_cloud_seeded_v3';
