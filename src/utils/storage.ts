@@ -29,8 +29,8 @@ const STORAGE_KEYS = {
   WELCOME_SONGS: 'nlbc_welcome_songs_v1',
 };
 
-// Default saved ministry names directory for autofill
-export const DEFAULT_SAVED_NAMES: string[] = [
+// List of legacy dummy example names to clean out
+export const DUMMY_EXAMPLE_NAMES = new Set<string>([
   'Ptr. Jonathan Santos',
   'Bro. Christian Ramos',
   'Sis. Abigail Cruz',
@@ -48,7 +48,10 @@ export const DEFAULT_SAVED_NAMES: string[] = [
   'NLBC Youth Choir',
   'Men of Honor Quartet',
   'Junior Church Worship Team',
-];
+]);
+
+// Default saved ministry names directory for autofill (empty - members added by church admin)
+export const DEFAULT_SAVED_NAMES: string[] = [];
 
 // Default saved welcome songs
 export const DEFAULT_WELCOME_SONGS: string[] = [
@@ -548,16 +551,18 @@ export function loadSavedNames(): string[] {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed;
+        // Automatically filter out any legacy dummy examples from earlier templates
+        const cleaned = parsed.filter(
+          (n) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
+        );
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(cleaned));
+        }
+        return cleaned;
       }
     }
-    const initialized = localStorage.getItem('nlbc_saved_names_initialized_v1');
-    if (initialized === 'true') {
-      return [];
-    }
-    localStorage.setItem('nlbc_saved_names_initialized_v1', 'true');
-    localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(DEFAULT_SAVED_NAMES));
-    return DEFAULT_SAVED_NAMES;
+    localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify([]));
+    return [];
   } catch {
     return [];
   }

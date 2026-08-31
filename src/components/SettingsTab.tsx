@@ -410,20 +410,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
-  const handleResetDefaultDirectoryNames = () => {
-    if (
-      confirm(
-        'Reset Church Directory back to the default list of names? This will sync to all connected devices.'
-      )
-    ) {
-      const updated = [...DEFAULT_SAVED_NAMES];
-      saveSavedNames(updated);
-      setSavedNames(updated);
-      syncSaveSavedNames(updated);
-      if (onUpdateSavedNames) onUpdateSavedNames(updated);
-    }
-  };
-
   const handleExportBackup = () => {
     const jsonStr = exportChurchDataJSON();
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -1430,15 +1416,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </p>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-              <button
-                type="button"
-                onClick={handleResetDefaultDirectoryNames}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Restore default starter list of ministry names"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Defaults</span>
-              </button>
               {savedNames.length > 0 && (
                 <button
                   type="button"

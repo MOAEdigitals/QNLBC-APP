@@ -36,6 +36,7 @@ import {
   loadSavedNames,
   loadWelcomeSongs,
   loadUsers,
+  DUMMY_EXAMPLE_NAMES,
 } from './utils/storage';
 
 export enum OperationType {
@@ -597,9 +598,12 @@ export async function syncDeleteUser(id: string, username?: string): Promise<voi
   if (isQuotaExhausted) return;
   try {
     if (id) {
+      recordTombstone(COLLECTIONS.USERS, id);
+      dequeuePending(COLLECTIONS.USERS, id);
       await deleteDoc(doc(db, COLLECTIONS.USERS, id));
     }
     if (username) {
+      recordTombstone(COLLECTIONS.USERS, username.toLowerCase());
       const usersCol = collection(db, COLLECTIONS.USERS);
       const snap = await getDocs(usersCol);
       for (const d of snap.docs) {
@@ -609,6 +613,8 @@ export async function syncDeleteUser(id: string, username?: string): Promise<voi
           d.id.toLowerCase() === username.toLowerCase() ||
           (data.username && data.username.toLowerCase() === username.toLowerCase())
         ) {
+          recordTombstone(COLLECTIONS.USERS, d.id);
+          dequeuePending(COLLECTIONS.USERS, d.id);
           await deleteDoc(doc(db, COLLECTIONS.USERS, d.id));
         }
       }
@@ -748,7 +754,10 @@ export function subscribeToAppSettings(
           hasReceivedSettingsDoc = true;
           const data = snap.data();
           if (Array.isArray(data.names)) {
-            onUpdateSavedNames(data.names);
+            const cleaned = data.names.filter(
+              (n: string) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
+            );
+            onUpdateSavedNames(cleaned);
           }
         }
       },
@@ -762,7 +771,10 @@ export function subscribeToAppSettings(
         if (!hasReceivedSettingsDoc && snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.names)) {
-            onUpdateSavedNames(data.names);
+            const cleaned = data.names.filter(
+              (n: string) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
+            );
+            onUpdateSavedNames(cleaned);
           }
         }
       },
@@ -903,8 +915,8 @@ export async function initializeFirestoreCloudSeed(): Promise<void> {
 
     try {
       const namesSnap = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'));
+      const initialNames = loadSavedNames();
       if (!namesSnap.exists()) {
-        const initialNames = loadSavedNames();
         await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
           id: 'saved_names',
           names: initialNames,
@@ -915,6 +927,33 @@ export async function initializeFirestoreCloudSeed(): Promise<void> {
           names: initialNames,
           updatedAt: new Date().toISOString(),
         });
+      } else {
+        const existingData = namesSnap.data()?.names;
+        if (Array.isArray(existingData)) {
+          const cleaned = existingData.filter(
+            (n: string) => typeof n === 'string' && n.trim() && !DUMMY_EXAMPLE_NAMES.has(n.trim())
+          );
+          if (cleaned.length !== existingData.length) {
+            await setDoc(
+              doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'),
+              {
+                id: 'saved_names',
+                names: cleaned,
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            );
+            await setDoc(
+              doc(db, COLLECTIONS.SAVED_NAMES, 'list'),
+              {
+                id: 'list',
+                names: cleaned,
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            );
+          }
+        }
       }
     } catch {
       // ignore

@@ -184,89 +184,55 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      const currentLocal = loadSetlists();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('setlists', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('setlists', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setSetlists(merged);
-      saveSetlists(merged);
+      const valid = items.filter((i) => !isItemTombstoned('setlists', i.id));
+      setSetlists(valid);
+      saveSetlists(valid);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      const currentLocal = loadSongs();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('songs', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('songs', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setSongs(merged);
-      saveSongs(merged);
+      const valid = items.filter((i) => !isItemTombstoned('songs', i.id));
+      setSongs(valid);
+      saveSongs(valid);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      const currentLocal = loadBirthdays();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('birthdays', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('birthdays', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setBirthdays(merged);
-      saveBirthdays(merged);
+      const valid = items.filter((i) => !isItemTombstoned('birthdays', i.id));
+      setBirthdays(valid);
+      saveBirthdays(valid);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      const currentLocal = loadAnniversaries();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('anniversaries', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('anniversaries', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setAnniversaries(merged);
-      saveAnniversaries(merged);
+      const valid = items.filter((i) => !isItemTombstoned('anniversaries', i.id));
+      setAnniversaries(valid);
+      saveAnniversaries(valid);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      const currentLocal = loadVisitors();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('visitors', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('visitors', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setVisitors(merged);
-      saveVisitors(merged);
+      const valid = items.filter((i) => !isItemTombstoned('visitors', i.id));
+      setVisitors(valid);
+      saveVisitors(valid);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      const currentLocal = loadSpecialRecognitions();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('special_recognitions', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('special_recognitions', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setSpecialRecognitions(merged);
-      saveSpecialRecognitions(merged);
+      const valid = items.filter((i) => !isItemTombstoned('special_recognitions', i.id));
+      setSpecialRecognitions(valid);
+      saveSpecialRecognitions(valid);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      const currentLocal = loadSpecialNumbers();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('special_numbers', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('special_numbers', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setSpecialNumbers(merged);
-      saveSpecialNumbers(merged);
+      const valid = items.filter((i) => !isItemTombstoned('special_numbers', i.id));
+      setSpecialNumbers(valid);
+      saveSpecialNumbers(valid);
     });
 
     const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
-      const currentLocal = loadChoirEntries();
-      const remoteIds = new Set(items.map((i) => i.id));
-      const validRemote = items.filter((i) => !isItemTombstoned('choir_entries', i.id));
-      const localOnly = currentLocal.filter((l) => !remoteIds.has(l.id) && !isItemTombstoned('choir_entries', l.id));
-      const merged = [...validRemote, ...localOnly];
-      setChoirEntries(merged);
-      saveChoirEntries(merged);
+      const valid = items.filter((i) => !isItemTombstoned('choir_entries', i.id));
+      setChoirEntries(valid);
+      saveChoirEntries(valid);
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
       const currentLocal = loadPracticeEntries();
-      const remoteIds = new Set(items.map((i) => i.id));
-
       const mergedRemote = items
         .filter((remoteItem) => !isItemTombstoned('practice_entries', remoteItem.id))
         .map((remoteItem) => {
@@ -290,19 +256,34 @@ export default function App() {
           };
         });
 
-      // Preserve newly created local entries that have not synced to remote yet
-      const localOnly = currentLocal.filter(
-        (l) => !remoteIds.has(l.id) && !isItemTombstoned('practice_entries', l.id)
-      );
-
-      const finalMerged = [...mergedRemote, ...localOnly];
-      setPracticeEntries(finalMerged);
-      savePracticeEntries(finalMerged);
+      setPracticeEntries(mergedRemote);
+      savePracticeEntries(mergedRemote);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
-      setUsers(items);
-      saveUsers(items);
+      const validUsers = items.filter((u) => !isItemTombstoned('users', u.id));
+      setUsers(validUsers);
+      saveUsers(validUsers);
+
+      // If the currently logged in user on this device had their profile updated (e.g. password, username, avatar, role):
+      setCurrentUser((prevUser) => {
+        if (!prevUser) return null;
+        const updatedSelf = validUsers.find(
+          (u) => u.id === prevUser.id || u.username.toLowerCase() === prevUser.username.toLowerCase()
+        );
+        if (updatedSelf) {
+          if (
+            updatedSelf.username !== prevUser.username ||
+            updatedSelf.passwordHash !== prevUser.passwordHash ||
+            updatedSelf.avatar !== prevUser.avatar ||
+            updatedSelf.role !== prevUser.role
+          ) {
+            saveCurrentSession(updatedSelf, true);
+            return updatedSelf;
+          }
+        }
+        return prevUser;
+      });
     });
 
     const unsubAppSettings = subscribeToAppSettings(

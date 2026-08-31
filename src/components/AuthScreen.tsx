@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserAccount } from '../types';
-import { loadUsers, saveUsers, saveCurrentSession } from '../utils/storage';
+import { loadUsers, saveUsers, saveCurrentSession, DEFAULT_ADMIN } from '../utils/storage';
 import { db } from '../firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { Lock, User, AlertCircle, ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { ChurchLogo } from './ChurchLogo';
 
@@ -18,31 +18,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sync users from Firestore on mount so any newly added users from the admin User Database are ready
+  // Sync users from Firestore in real-time so credentials created on other devices are immediately recognized
   useEffect(() => {
-    let isMounted = true;
-    async function syncCloudUsers() {
-      try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        if (!usersSnap.empty && isMounted) {
-          const cloudUsers: UserAccount[] = [];
-          usersSnap.forEach((docSnap) => {
-            cloudUsers.push({ ...(docSnap.data() as UserAccount), id: docSnap.id });
-          });
-          const localUsers = loadUsers();
-          const userMap = new Map<string, UserAccount>();
-          localUsers.forEach((u) => userMap.set(u.id || u.username.toLowerCase(), u));
-          cloudUsers.forEach((u) => userMap.set(u.id || u.username.toLowerCase(), u));
-          saveUsers(Array.from(userMap.values()));
+    try {
+      const unsub = onSnapshot(
+        collection(db, 'users'),
+        (snapshot) => {
+          if (!snapshot.empty) {
+            const cloudUsers: UserAccount[] = [];
+            snapshot.forEach((docSnap) => {
+              cloudUsers.push({ ...(docSnap.data() as UserAccount), id: docSnap.id });
+            });
+            // Ensure DEFAULT_ADMIN is always included
+            if (!cloudUsers.some((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase())) {
+              cloudUsers.unshift(DEFAULT_ADMIN);
+            }
+            saveUsers(cloudUsers);
+          }
+        },
+        () => {
+          // Fallback silently if offline
         }
-      } catch {
-        // Fallback silently to local cache if network/offline
-      }
+      );
+      return () => unsub();
+    } catch {
+      return () => {};
     }
-    syncCloudUsers();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
