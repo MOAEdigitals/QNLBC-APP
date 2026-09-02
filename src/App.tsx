@@ -197,49 +197,49 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('setlists', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setSetlists(validRemote);
       saveSetlists(validRemote);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('songs', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setSongs(validRemote);
       saveSongs(validRemote);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('birthdays', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setBirthdays(validRemote);
       saveBirthdays(validRemote);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('anniversaries', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setAnniversaries(validRemote);
       saveAnniversaries(validRemote);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('visitors', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setVisitors(validRemote);
       saveVisitors(validRemote);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('special_recognitions', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setSpecialRecognitions(validRemote);
       saveSpecialRecognitions(validRemote);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('special_numbers', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setSpecialNumbers(validRemote);
       saveSpecialNumbers(validRemote);
     });
 
     const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
-      const validRemote = items.filter((i) => !isItemTombstoned('choir_entries', i.id) && !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
       setChoirEntries(validRemote);
       saveChoirEntries(validRemote);
     });
@@ -247,7 +247,7 @@ export default function App() {
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
       const currentLocal = loadPracticeEntries();
       const validRemote = items
-        .filter((remoteItem) => !isItemTombstoned('practice_entries', remoteItem.id) && !LEGACY_MOCK_IDS.has(remoteItem.id))
+        .filter((remoteItem) => !LEGACY_MOCK_IDS.has(remoteItem.id))
         .map((remoteItem) => {
           const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
           const normalized = normalizePracticeEntry(remoteItem);

@@ -8,6 +8,7 @@ import {
   getDocs,
   limit,
   query,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -247,6 +248,33 @@ export function removeTombstone(collectionName: string, id: string): void {
   if (!id) return;
   const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === id));
   updateTombstoneCache(list);
+  removeTombstoneFromCloud(collectionName, id).catch(() => {});
+}
+
+export async function clearAllTombstones(): Promise<void> {
+  cachedTombstones = [];
+  cachedTombstoneKeySet = new Set();
+  try {
+    localStorage.removeItem(TOMBSTONES_STORAGE_KEY);
+  } catch {}
+  if (!isQuotaExhausted) {
+    try {
+      const tombstonesDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
+      await setDoc(tombstonesDoc, { id: 'tombstones', list: [], updatedAt: new Date().toISOString() }, { merge: true });
+    } catch {}
+  }
+}
+
+async function removeTombstoneFromCloud(collectionName: string, id: string): Promise<void> {
+  if (isQuotaExhausted) return;
+  try {
+    const tombstonesDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
+    const snap = await getDoc(tombstonesDoc);
+    if (snap.exists() && Array.isArray(snap.data().list)) {
+      const filtered = snap.data().list.filter((t: any) => !(t.collectionName === collectionName && t.id === id));
+      await setDoc(tombstonesDoc, { id: 'tombstones', list: filtered, updatedAt: new Date().toISOString() }, { merge: true });
+    }
+  } catch {}
 }
 
 export function mergeRemoteTombstones(remoteTombstones: { collectionName: string; id: string; timestamp: number }[]): void {
@@ -581,19 +609,17 @@ export function subscribeToCollection<T extends { id: string }>(
             }
             return;
           }
-          if (isItemTombstoned(collectionName, docSnap.id)) {
-            // Item was deleted by the user locally - purge from Firestore only if quota is available
-            if (!isQuotaExhausted) {
-              deleteDoc(doc(db, collectionName, docSnap.id)).catch(() => {});
-            }
-            return;
-          }
+
+          // If document exists on Firestore, it's live! Remove any stale local tombstone
+          const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === docSnap.id));
+          updateTombstoneCache(list);
+
           items.push({ ...(docSnap.data() as T), id: docSnap.id });
         });
 
         // Merge any locally queued writes that have not reached the server snapshot yet
         const pending = getPendingQueue().filter(
-          (p) => p.collectionName === collectionName && p.operation === 'write' && p.data && !isItemTombstoned(collectionName, p.id)
+          (p) => p.collectionName === collectionName && p.operation === 'write' && p.data
         );
         for (const p of pending) {
           if (!remoteIds.has(p.id)) {
@@ -961,10 +987,155 @@ export function subscribeToAppSettings(
 }
 
 /**
+ * Batch write documents to Firestore in chunked batches
+ */
+async function writeBatchInChunks(
+  items: { collectionName: string; id: string; data: Record<string, any> }[]
+): Promise<number> {
+  if (items.length === 0) return 0;
+  let writtenCount = 0;
+  const CHUNK_SIZE = 250;
+
+  for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+    const chunk = items.slice(i, i + CHUNK_SIZE);
+    try {
+      const batch = writeBatch(db);
+      for (const item of chunk) {
+        const docRef = doc(db, item.collectionName, item.id);
+        batch.set(docRef, sanitizeDoc(item.data), { merge: true });
+        dequeuePending(item.collectionName, item.id);
+      }
+      await batch.commit();
+      writtenCount += chunk.length;
+      markWriteSuccess();
+    } catch (err) {
+      // Fallback: commit individually if batch encounters an issue
+      for (const item of chunk) {
+        try {
+          const docRef = doc(db, item.collectionName, item.id);
+          await setDoc(docRef, sanitizeDoc(item.data), { merge: true });
+          dequeuePending(item.collectionName, item.id);
+          writtenCount++;
+          markWriteSuccess();
+        } catch (itemErr) {
+          handleFirestoreError(itemErr, OperationType.WRITE, `${item.collectionName}/${item.id}`);
+        }
+      }
+    }
+  }
+
+  return writtenCount;
+}
+
+/**
+ * Pushes all current local database entries directly to Firestore Cloud in optimized batches.
+ * Clears any conflicting deletion tombstones so all connected devices immediately receive and sync the data.
+ */
+export async function pushAllLocalDataToFirestore(): Promise<{
+  success: boolean;
+  totalWritten: number;
+  message: string;
+}> {
+  if (isQuotaExhausted) {
+    return {
+      success: false,
+      totalWritten: 0,
+      message: 'Firestore quota is currently exceeded. Changes are saved locally on this device.',
+    };
+  }
+
+  try {
+    // 1. Clear all deletion tombstones so no devices suppress the uploaded data
+    await clearAllTombstones();
+
+    const setlists = loadSetlists();
+    const songs = loadSongs();
+    const birthdays = loadBirthdays();
+    const anniversaries = loadAnniversaries();
+    const visitors = loadVisitors();
+    const specials = loadSpecialRecognitions();
+    const specialNumbers = loadSpecialNumbers();
+    const choirEntries = loadChoirEntries();
+    const practiceEntries = loadPracticeEntries();
+    const savedNames = loadSavedNames();
+    const welcomeSongs = loadWelcomeSongs();
+
+    const allItems: { collectionName: string; id: string; data: Record<string, any> }[] = [];
+
+    setlists.forEach((s) => allItems.push({ collectionName: COLLECTIONS.SETLISTS, id: s.id, data: s }));
+    songs.forEach((s) => allItems.push({ collectionName: COLLECTIONS.SONGS, id: s.id, data: s }));
+    birthdays.forEach((b) => allItems.push({ collectionName: COLLECTIONS.BIRTHDAYS, id: b.id, data: b }));
+    anniversaries.forEach((a) => allItems.push({ collectionName: COLLECTIONS.ANNIVERSARIES, id: a.id, data: a }));
+    visitors.forEach((v) => allItems.push({ collectionName: COLLECTIONS.VISITORS, id: v.id, data: v }));
+    specials.forEach((r) => allItems.push({ collectionName: COLLECTIONS.SPECIAL_RECOGNITIONS, id: r.id, data: r }));
+    specialNumbers.forEach((sn) => allItems.push({ collectionName: COLLECTIONS.SPECIAL_NUMBERS, id: sn.id, data: sn }));
+    choirEntries.forEach((c) => allItems.push({ collectionName: COLLECTIONS.CHOIR_ENTRIES, id: c.id, data: c }));
+    practiceEntries.forEach((p) => allItems.push({ collectionName: COLLECTIONS.PRACTICE_ENTRIES, id: p.id, data: p }));
+
+    const writtenCount = await writeBatchInChunks(allItems);
+
+    // Save app settings documents
+    await syncSaveSavedNames(savedNames);
+    await syncSaveWelcomeSongs(welcomeSongs);
+
+    // Broadcast sync event to trigger remote listener refreshes
+    try {
+      await setDoc(
+        doc(db, COLLECTIONS.APP_SETTINGS, 'data_sync_event'),
+        {
+          id: 'data_sync_event',
+          timestamp: Date.now(),
+          type: 'full_sync',
+          totalItems: writtenCount,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch {}
+
+    // Update collection sync logs
+    recordCollectionSync(COLLECTIONS.SETLISTS, setlists.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.SONGS, songs.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.BIRTHDAYS, birthdays.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.ANNIVERSARIES, anniversaries.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.VISITORS, visitors.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.SPECIAL_RECOGNITIONS, specials.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.SPECIAL_NUMBERS, specialNumbers.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.CHOIR_ENTRIES, choirEntries.length, 'synced', 'Batch Cloud Sync');
+    recordCollectionSync(COLLECTIONS.PRACTICE_ENTRIES, practiceEntries.length, 'synced', 'Batch Cloud Sync');
+
+    return {
+      success: true,
+      totalWritten: writtenCount,
+      message: `Successfully uploaded ${writtenCount} items (${songs.length} songs, ${setlists.length} setlists, etc.) to Firestore Cloud. All devices are now synchronized!`,
+    };
+  } catch (err: any) {
+    handleFirestoreError(err, OperationType.WRITE, 'batch_sync');
+    return {
+      success: false,
+      totalWritten: 0,
+      message: `Sync failed: ${err.message || 'Unknown error'}`,
+    };
+  }
+}
+
+/**
+ * High-performance direct import function that syncs newly restored data directly to Firestore
+ */
+export async function syncBatchImportToFirestore(): Promise<{
+  success: boolean;
+  totalWritten: number;
+  message: string;
+}> {
+  return pushAllLocalDataToFirestore();
+}
+
+/**
  * Reconcile offline/queued changes to Firestore Cloud when connection or quota restores.
  */
 export async function reconcileAllLocalDataToCloud(): Promise<void> {
   if (isQuotaExhausted) return;
+  await pushAllLocalDataToFirestore();
   await flushPendingSyncQueue();
 }
 

@@ -44,6 +44,8 @@ import {
   syncSavePracticeEntry,
   syncSaveChoirEntry,
   wipeAllChurchDataToZero,
+  pushAllLocalDataToFirestore,
+  syncBatchImportToFirestore,
 } from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
@@ -451,30 +453,46 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPushingCloud, setIsPushingCloud] = useState(false);
+  const [cloudPushStatus, setCloudPushStatus] = useState<{ success: boolean; message: string } | null>(null);
+
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsImporting(true);
+    setImportStatus({ success: true, message: 'Reading and validating backup file...' });
+
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
         const res = importChurchDataJSON(text);
         if (res.success) {
-          setImportStatus({ success: true, message: res.message });
+          setImportStatus({
+            success: true,
+            message: 'Importing locally and synchronizing all data to Firestore Cloud for all mobile devices...',
+          });
+
           const updatedNames = loadSavedNames();
           setSavedNames(updatedNames);
-          syncSaveSavedNames(updatedNames);
           if (onUpdateSavedNames) onUpdateSavedNames(updatedNames);
 
-          // Push restored database to Firestore Cloud for all devices
-          loadSongs().forEach(syncSaveSong);
-          loadSetlists().forEach(syncSaveSetlist);
-          loadBirthdays().forEach(syncSaveBirthday);
-          loadAnniversaries().forEach(syncSaveAnniversary);
-          loadVisitors().forEach(syncSaveVisitor);
-          loadSpecialRecognitions().forEach(syncSaveSpecialRecognition);
-          loadSpecialNumbers().forEach(syncSaveSpecialNumber);
+          // Push restored database to Firestore Cloud using high-performance chunked batches
+          const cloudRes = await syncBatchImportToFirestore();
+
+          if (cloudRes.success) {
+            setImportStatus({
+              success: true,
+              message: `${res.message} ${cloudRes.message}`,
+            });
+          } else {
+            setImportStatus({
+              success: true,
+              message: `${res.message} (Local restore succeeded, background sync queued)`,
+            });
+          }
 
           onDataReset();
         } else {
@@ -482,10 +500,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         }
       } catch (err: any) {
         setImportStatus({ success: false, message: 'Invalid JSON file: ' + err.message });
+      } finally {
+        setIsImporting(false);
       }
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handlePushAllToCloud = async () => {
+    setIsPushingCloud(true);
+    setCloudPushStatus(null);
+    try {
+      const res = await pushAllLocalDataToFirestore();
+      setCloudPushStatus({ success: res.success, message: res.message });
+      onDataReset();
+    } catch (err: any) {
+      setCloudPushStatus({
+        success: false,
+        message: `Cloud sync error: ${err.message || 'Unable to connect to cloud'}`,
+      });
+    } finally {
+      setIsPushingCloud(false);
+    }
   };
 
   const handleBatchLyricsImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1500,7 +1537,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {cloudPushStatus && (
+                  <div
+                    className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs font-semibold ${
+                      cloudPushStatus.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300'
+                    }`}
+                  >
+                    {cloudPushStatus.success ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <span>{cloudPushStatus.message}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                   <button
                     type="button"
                     onClick={handleExportBackup}
@@ -1514,30 +1568,54 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Export All Data (JSON)
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Downloads all setlists, songs library, special numbers, and member directories.
+                        Download full JSON backup of songs, setlists, and directories.
                       </span>
                     </div>
                   </button>
 
-                  <label className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs">
+                  <label className={`p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs ${isImporting ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
-                      <Upload className="w-5 h-5 text-emerald-600" />
+                      {isImporting ? (
+                        <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
+                      ) : (
+                        <Upload className="w-5 h-5 text-emerald-600" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        Load / Import Backup File
+                        {isImporting ? 'Restoring & Syncing...' : 'Load / Import Backup File'}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Upload a previously saved JSON backup to restore everything instantly.
+                        Upload JSON backup to restore and sync across all mobile devices.
                       </span>
                       <input
                         type="file"
                         accept=".json,application/json"
+                        disabled={isImporting}
                         onChange={handleImportBackup}
                         className="hidden"
                       />
                     </div>
                   </label>
+
+                  <button
+                    type="button"
+                    disabled={isPushingCloud}
+                    onClick={handlePushAllToCloud}
+                    className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-sky-400 dark:hover:border-sky-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
+                      <Cloud className={`w-5 h-5 text-sky-600 ${isPushingCloud ? 'animate-pulse' : ''}`} />
+                    </div>
+                    <div className="flex-1">
+                      <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                        {isPushingCloud ? 'Pushing to Cloud...' : 'Force Sync to Mobile Devices'}
+                      </span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                        Directly re-uploads all local songs and setlists to Firestore Cloud.
+                      </span>
+                    </div>
+                  </button>
                 </div>
               </div>
 

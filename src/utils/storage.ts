@@ -727,6 +727,8 @@ export function exportChurchDataJSON(): string {
     visitors: loadVisitors(),
     specialRecognitions: loadSpecialRecognitions(),
     specialNumbers: loadSpecialNumbers(),
+    choirEntries: loadChoirEntries(),
+    practiceEntries: loadPracticeEntries(),
     savedNames: loadSavedNames(),
     welcomeSongs: loadWelcomeSongs(),
   };
@@ -747,53 +749,102 @@ export function importChurchDataJSON(jsonStr: string): {
     visitors: number;
     specialRecognitions: number;
     specialNumbers: number;
+    choirEntries: number;
+    practiceEntries: number;
+    savedNames: number;
   };
+  parsedData?: any;
 } {
   try {
     const parsed = JSON.parse(jsonStr);
 
-    if (Array.isArray(parsed.setlists)) {
-      saveSetlists(parsed.setlists);
-    }
-    if (Array.isArray(parsed.songs)) {
-      saveSongs(parsed.songs);
-    }
-    if (Array.isArray(parsed.birthdays)) {
-      saveBirthdays(parsed.birthdays);
-    }
-    if (Array.isArray(parsed.anniversaries)) {
-      saveAnniversaries(parsed.anniversaries);
-    }
-    if (Array.isArray(parsed.visitors)) {
-      saveVisitors(parsed.visitors);
-    }
-    if (Array.isArray(parsed.specialRecognitions)) {
-      saveSpecialRecognitions(parsed.specialRecognitions);
-    }
-    if (Array.isArray(parsed.specialNumbers)) {
-      saveSpecialNumbers(parsed.specialNumbers);
-    }
-    if (Array.isArray(parsed.savedNames)) {
-      saveSavedNames(parsed.savedNames);
-    }
-    if (Array.isArray(parsed.welcomeSongs)) {
-      saveWelcomeSongs(parsed.welcomeSongs);
-    }
+    const setlists = Array.isArray(parsed.setlists) ? parsed.setlists : [];
+    const songs = Array.isArray(parsed.songs) ? parsed.songs : [];
+    const birthdays = Array.isArray(parsed.birthdays) ? parsed.birthdays : [];
+    const anniversaries = Array.isArray(parsed.anniversaries) ? parsed.anniversaries : [];
+    const visitors = Array.isArray(parsed.visitors) ? parsed.visitors : [];
+    const specialRecognitions = Array.isArray(parsed.specialRecognitions)
+      ? parsed.specialRecognitions
+      : Array.isArray(parsed.special_recognitions)
+      ? parsed.special_recognitions
+      : [];
+    const specialNumbers = Array.isArray(parsed.specialNumbers)
+      ? parsed.specialNumbers
+      : Array.isArray(parsed.special_numbers)
+      ? parsed.special_numbers
+      : [];
+    const choirEntries = Array.isArray(parsed.choirEntries)
+      ? parsed.choirEntries
+      : Array.isArray(parsed.choir_entries)
+      ? parsed.choir_entries
+      : Array.isArray(parsed.choir)
+      ? parsed.choir
+      : [];
+    const practiceEntries = Array.isArray(parsed.practiceEntries)
+      ? parsed.practiceEntries
+      : Array.isArray(parsed.practice_entries)
+      ? parsed.practice_entries
+      : Array.isArray(parsed.practices)
+      ? parsed.practices
+      : [];
+    const savedNames = Array.isArray(parsed.savedNames)
+      ? parsed.savedNames
+      : Array.isArray(parsed.saved_names)
+      ? parsed.saved_names
+      : [];
+    const welcomeSongs = Array.isArray(parsed.welcomeSongs)
+      ? parsed.welcomeSongs
+      : Array.isArray(parsed.welcome_songs)
+      ? parsed.welcome_songs
+      : [];
+
+    if (setlists.length > 0) saveSetlists(setlists);
+    if (songs.length > 0) saveSongs(songs);
+    if (birthdays.length > 0) saveBirthdays(birthdays);
+    if (anniversaries.length > 0) saveAnniversaries(anniversaries);
+    if (visitors.length > 0) saveVisitors(visitors);
+    if (specialRecognitions.length > 0) saveSpecialRecognitions(specialRecognitions);
+    if (specialNumbers.length > 0) saveSpecialNumbers(specialNumbers);
+    if (choirEntries.length > 0) saveChoirEntries(choirEntries);
+    if (practiceEntries.length > 0) savePracticeEntries(practiceEntries);
+    if (savedNames.length > 0) saveSavedNames(savedNames);
+    if (welcomeSongs.length > 0) saveWelcomeSongs(welcomeSongs);
+
+    // Clear any local deletion tombstones so imported items are immediately active
+    try {
+      localStorage.removeItem('nlbc_deleted_tombstones_v1');
+    } catch {}
 
     const stats = {
-      setlists: parsed.setlists?.length || 0,
-      songs: parsed.songs?.length || 0,
-      birthdays: parsed.birthdays?.length || 0,
-      anniversaries: parsed.anniversaries?.length || 0,
-      visitors: parsed.visitors?.length || 0,
-      specialRecognitions: parsed.specialRecognitions?.length || 0,
-      specialNumbers: parsed.specialNumbers?.length || 0,
+      setlists: setlists.length,
+      songs: songs.length,
+      birthdays: birthdays.length,
+      anniversaries: anniversaries.length,
+      visitors: visitors.length,
+      specialRecognitions: specialRecognitions.length,
+      specialNumbers: specialNumbers.length,
+      choirEntries: choirEntries.length,
+      practiceEntries: practiceEntries.length,
+      savedNames: savedNames.length,
     };
 
     return {
       success: true,
-      message: `Data successfully loaded! Restored ${stats.setlists} setlists, ${stats.songs} songs, ${stats.specialNumbers} special numbers, and all recognitions.`,
+      message: `Data successfully loaded! Restored ${stats.setlists} setlists, ${stats.songs} songs, ${stats.specialNumbers} special numbers, ${stats.practiceEntries} practice tracks, ${stats.choirEntries} choir entries, and directory records.`,
       stats,
+      parsedData: {
+        setlists,
+        songs,
+        birthdays,
+        anniversaries,
+        visitors,
+        specialRecognitions,
+        specialNumbers,
+        choirEntries,
+        practiceEntries,
+        savedNames,
+        welcomeSongs,
+      },
     };
   } catch (err: any) {
     return {
