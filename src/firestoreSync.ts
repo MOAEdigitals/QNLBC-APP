@@ -67,11 +67,23 @@ export interface FirestoreErrorInfo {
 
 export type FirestoreConnectionStatus = 'online' | 'offline' | 'quota-exceeded';
 
+export interface CollectionSyncLogEntry {
+  collection: string;
+  displayName: string;
+  lastSyncTimestamp: number | null;
+  itemCount: number;
+  status: 'synced' | 'syncing' | 'error' | 'pending';
+  lastAction?: string;
+}
+
 export interface FirestoreStatusInfo {
   status: FirestoreConnectionStatus;
   errorMessage?: string;
   quotaResetMessage?: string;
   databaseUrl: string;
+  collectionLogs: Record<string, CollectionSyncLogEntry>;
+  lastGlobalSyncTime: number | null;
+  pendingQueueCount: number;
 }
 
 const COLLECTIONS = {
@@ -90,6 +102,61 @@ const COLLECTIONS = {
   APP_SETTINGS: 'app_settings',
   USERS: 'users',
 };
+
+const COLLECTION_DISPLAY_NAMES: Record<string, string> = {
+  setlists: 'Sunday Services & Setlists',
+  songs: 'Song Lyrics & Catalog',
+  birthdays: 'Birthday Celebrants',
+  anniversaries: 'Anniversary Celebrants',
+  visitors: 'Sunday Visitors',
+  special_recognitions: 'Special Recognitions',
+  special_numbers: 'Special Numbers & Solos',
+  choir_entries: 'Choir Group Rosters',
+  practice_entries: 'Practice Sessions & Tracks',
+  users: 'User Accounts & Roles',
+  app_settings: 'Directory Names & Settings',
+  saved_names: 'Church Directory Names',
+  welcome_songs: 'Welcome Songs',
+  practice_audios: 'Practice Audio Stems',
+};
+
+// Collection sync records registry
+const collectionSyncLogs: Record<string, CollectionSyncLogEntry> = {
+  setlists: { collection: 'setlists', displayName: 'Sunday Services & Setlists', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  songs: { collection: 'songs', displayName: 'Song Lyrics & Catalog', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  birthdays: { collection: 'birthdays', displayName: 'Birthday Celebrants', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  anniversaries: { collection: 'anniversaries', displayName: 'Anniversary Celebrants', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  visitors: { collection: 'visitors', displayName: 'Sunday Visitors', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  special_recognitions: { collection: 'special_recognitions', displayName: 'Special Recognitions', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  special_numbers: { collection: 'special_numbers', displayName: 'Special Numbers & Solos', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  choir_entries: { collection: 'choir_entries', displayName: 'Choir Group Rosters', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  practice_entries: { collection: 'practice_entries', displayName: 'Practice Sessions & Tracks', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  users: { collection: 'users', displayName: 'User Accounts & Roles', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  app_settings: { collection: 'app_settings', displayName: 'Directory Names & Settings', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+  practice_audios: { collection: 'practice_audios', displayName: 'Practice Audio Stems', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
+};
+
+let lastGlobalSyncTime: number | null = null;
+
+export function recordCollectionSync(
+  collectionName: string,
+  itemCount?: number,
+  status: 'synced' | 'syncing' | 'error' | 'pending' = 'synced',
+  lastAction: string = 'Live Server Snapshot'
+): void {
+  const now = Date.now();
+  lastGlobalSyncTime = now;
+  const existing = collectionSyncLogs[collectionName];
+  collectionSyncLogs[collectionName] = {
+    collection: collectionName,
+    displayName: existing?.displayName || COLLECTION_DISPLAY_NAMES[collectionName] || collectionName,
+    lastSyncTimestamp: now,
+    itemCount: typeof itemCount === 'number' ? itemCount : (existing?.itemCount ?? 0),
+    status,
+    lastAction,
+  };
+  notifyStatusChange();
+}
 
 // Global state for connection & quota tracking
 let isQuotaExhausted = false;
@@ -313,6 +380,9 @@ export function getFirestoreConnectionStatus(): FirestoreStatusInfo {
     status: currentStatus,
     errorMessage: lastErrorMessage,
     databaseUrl,
+    collectionLogs: { ...collectionSyncLogs },
+    lastGlobalSyncTime,
+    pendingQueueCount: getPendingQueue().length,
     quotaResetMessage:
       'Firestore daily free write quota has been reached for today. The application is operating seamlessly in local offline storage mode. All changes, songs, setlists, and recordings are safely preserved on this device and will sync once the daily quota resets.',
   };
@@ -397,6 +467,7 @@ async function executeFirestoreWrite(
   enqueuePending(collectionName, docId, sanitized, 'write');
 
   if (isQuotaExhausted) {
+    recordCollectionSync(collectionName, undefined, 'pending', 'Local Queued (Quota Exceeded)');
     return;
   }
 
@@ -405,7 +476,9 @@ async function executeFirestoreWrite(
     await setDoc(docRef, sanitized, { merge: true });
     dequeuePending(collectionName, docId);
     markWriteSuccess();
+    recordCollectionSync(collectionName, undefined, 'synced', 'Document Saved to Cloud');
   } catch (err) {
+    recordCollectionSync(collectionName, undefined, 'error', 'Write Error');
     handleFirestoreError(err, OperationType.WRITE, `${collectionName}/${docId}`);
   }
 }
@@ -419,6 +492,7 @@ async function executeFirestoreDelete(
   enqueuePending(collectionName, docId, undefined, 'delete');
 
   if (isQuotaExhausted) {
+    recordCollectionSync(collectionName, undefined, 'pending', 'Delete Queued (Quota Exceeded)');
     return;
   }
 
@@ -426,7 +500,9 @@ async function executeFirestoreDelete(
     await deleteDoc(doc(db, collectionName, docId));
     dequeuePending(collectionName, docId);
     markWriteSuccess();
+    recordCollectionSync(collectionName, undefined, 'synced', 'Document Purged from Cloud');
   } catch (err) {
+    recordCollectionSync(collectionName, undefined, 'error', 'Delete Error');
     handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${docId}`);
   }
 }
@@ -524,13 +600,16 @@ export function subscribeToCollection<T extends { id: string }>(
           }
         }
 
+        recordCollectionSync(collectionName, items.length, 'synced', 'Live Server Snapshot');
         onUpdate(items);
       },
       (err) => {
+        recordCollectionSync(collectionName, undefined, 'error', 'Snapshot Read Error');
         handleFirestoreError(err, OperationType.LIST, collectionName);
       }
     );
   } catch (err) {
+    recordCollectionSync(collectionName, undefined, 'error', 'Subscription Failed');
     handleFirestoreError(err, OperationType.LIST, collectionName);
     return () => {};
   }
@@ -776,11 +855,16 @@ export function subscribeToAppSettings(
             const cleaned = data.names.filter(
               (n: string) => typeof n === 'string' && n.trim()
             );
+            recordCollectionSync('app_settings', cleaned.length, 'synced', 'Directory Names Synced');
+            recordCollectionSync('saved_names', cleaned.length, 'synced', 'Directory Names Synced');
             onUpdateSavedNames(cleaned);
           }
         }
       },
-      (err) => handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/saved_names`)
+      (err) => {
+        recordCollectionSync('app_settings', undefined, 'error', 'Settings Snapshot Error');
+        handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.APP_SETTINGS}/saved_names`);
+      }
     );
 
     const unsubAltNames = onSnapshot(
@@ -793,6 +877,8 @@ export function subscribeToAppSettings(
             const cleaned = data.names.filter(
               (n: string) => typeof n === 'string' && n.trim()
             );
+            recordCollectionSync('app_settings', cleaned.length, 'synced', 'Directory Names Synced');
+            recordCollectionSync('saved_names', cleaned.length, 'synced', 'Directory Names Synced');
             onUpdateSavedNames(cleaned);
           }
         }
@@ -807,6 +893,7 @@ export function subscribeToAppSettings(
         if (snap.exists()) {
           const data = snap.data();
           if (Array.isArray(data.songs)) {
+            recordCollectionSync('welcome_songs', data.songs.length, 'synced', 'Welcome Songs Synced');
             onUpdateWelcomeSongs(data.songs);
           }
         }

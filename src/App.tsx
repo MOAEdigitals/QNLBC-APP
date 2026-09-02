@@ -94,7 +94,8 @@ import { RecognitionsTab } from './components/RecognitionsTab';
 import { SpecialNumberTab } from './components/SpecialNumberTab';
 import { SongsTab } from './components/SongsTab';
 import { SettingsTab } from './components/SettingsTab';
-import { LogOut, X, AlertTriangle, CloudOff, Database, ExternalLink, Info } from 'lucide-react';
+import { FirestoreStatusModal } from './components/FirestoreStatusModal';
+import { LogOut, X, AlertTriangle, CloudOff, Database, ExternalLink, Info, Radio } from 'lucide-react';
 
 export default function App() {
   // 1. Auth State
@@ -109,6 +110,7 @@ export default function App() {
     getFirestoreConnectionStatus()
   );
   const [dismissQuotaBanner, setDismissQuotaBanner] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
   // 2. Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
@@ -783,6 +785,8 @@ export default function App() {
         users={users}
         currentTab={currentTab}
         onNavigateToSettings={() => handleNavigateTab('settings')}
+        firestoreStatus={firestoreStatus}
+        onOpenFirestoreStatusModal={() => setIsStatusModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -802,7 +806,15 @@ export default function App() {
                 <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
                   {firestoreStatus.quotaResetMessage}
                 </p>
-                <div className="pt-1 flex items-center gap-4 text-xs font-medium">
+                <div className="pt-1 flex items-center gap-4 text-xs font-medium flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsStatusModalOpen(true)}
+                    className="inline-flex items-center gap-1 font-bold text-amber-900 dark:text-amber-100 bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 rounded hover:bg-amber-300/60 cursor-pointer transition-colors"
+                  >
+                    <Radio className="w-3 h-3 text-amber-700 dark:text-amber-300" />
+                    <span>View Collection Sync Logs</span>
+                  </button>
                   <a
                     href={firestoreStatus.databaseUrl}
                     target="_blank"
@@ -841,6 +853,13 @@ export default function App() {
               <span className="text-xs">
                 Firestore backend is currently unreachable. Operating in local offline storage mode — all data is saved locally.
               </span>
+              <button
+                type="button"
+                onClick={() => setIsStatusModalOpen(true)}
+                className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              >
+                <span>View Sync Logs</span>
+              </button>
             </div>
             <button
               onClick={() => setDismissQuotaBanner(true)}
@@ -932,6 +951,8 @@ export default function App() {
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}
             onDataReset={reloadAllData}
+            firestoreStatus={firestoreStatus}
+            onOpenFirestoreStatusModal={() => setIsStatusModalOpen(true)}
             appData={{
               songs,
               setlists,
@@ -955,6 +976,13 @@ export default function App() {
         onChangeTab={handleNavigateTab}
         celebrantCount={totalCelebrantsThisWeek}
         upcomingSpecialCount={upcomingSpecialCount}
+      />
+
+      {/* Firestore Real-Time Collection Sync Timestamps Modal */}
+      <FirestoreStatusModal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        statusInfo={firestoreStatus}
       />
 
       {/* Logout Confirmation Prompt on back swipe from Home */}

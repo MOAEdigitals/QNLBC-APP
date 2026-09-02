@@ -75,7 +75,17 @@ import {
   Share2,
   X,
   Shield,
+  Cloud,
+  CloudOff,
+  Clock,
+  Radio,
+  ExternalLink,
+  CheckCircle2,
+  RefreshCw,
 } from 'lucide-react';
+
+import { FirestoreStatusInfo, CollectionSyncLogEntry } from '../firestoreSync';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface SettingsTabProps {
   currentUser: UserAccount;
@@ -88,6 +98,8 @@ interface SettingsTabProps {
   onToggleTheme: () => void;
   onSignOut: () => void;
   onDataReset: () => void;
+  firestoreStatus?: FirestoreStatusInfo;
+  onOpenFirestoreStatusModal?: () => void;
   appData?: {
     songs: any[];
     setlists: any[];
@@ -99,6 +111,7 @@ interface SettingsTabProps {
     practiceEntries?: any[];
     choirEntries?: any[];
     savedNames: string[];
+    welcomeSongs?: string[];
   };
 }
 
@@ -113,6 +126,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onToggleTheme,
   onSignOut,
   onDataReset,
+  firestoreStatus,
+  onOpenFirestoreStatusModal,
   appData,
 }) => {
   // Collapsible container states for all sections (collapsed by default)
@@ -121,6 +136,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(true);
   const [isChurchDirectoryCollapsed, setIsChurchDirectoryCollapsed] = useState(true);
   const [isDataBackupCollapsed, setIsDataBackupCollapsed] = useState(true);
+  const [isSyncLogsCollapsed, setIsSyncLogsCollapsed] = useState(false);
 
   // New user form state
   const [newUsername, setNewUsername] = useState('');
@@ -1502,6 +1518,121 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <span>{isWiping ? 'Wiping Database...' : 'Wipe Everything to 0'}</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Container 6: Firestore Cloud Sync & Real-time Logs */}
+      {firestoreStatus && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
+          <div
+            onClick={() => setIsSyncLogsCollapsed(!isSyncLogsCollapsed)}
+            className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900 shrink-0">
+                <Database className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
+                    Cloud Sync Status & Server Logs
+                  </h3>
+                  {firestoreStatus.status === 'online' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Stream
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Last successful sync timestamps for all collections and cloud databases.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  isSyncLogsCollapsed ? '' : 'rotate-180'
+                }`}
+              />
+            </div>
+          </div>
+
+          {!isSyncLogsCollapsed && (
+            <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Real-time listeners updated automatically as data changes.</span>
+                </div>
+
+                {onOpenFirestoreStatusModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenFirestoreStatusModal}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <Radio className="w-3.5 h-3.5" />
+                    <span>Open Live Sync Monitor</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Compact Collection Sync List */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {(Object.values(firestoreStatus.collectionLogs || {}) as CollectionSyncLogEntry[]).map((item) => {
+                  const hasTimestamp = Boolean(item.lastSyncTimestamp);
+                  const timeDisplay = item.lastSyncTimestamp
+                    ? new Date(item.lastSyncTimestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })
+                    : 'Awaiting sync';
+
+                  return (
+                    <div
+                      key={item.collection}
+                      className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                          {item.displayName}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                          /{item.collection} • {item.itemCount} items
+                        </span>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="flex items-center justify-end gap-1 text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                          {hasTimestamp && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
+                          <span>{timeDisplay}</span>
+                        </div>
+                        <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                          {item.status === 'synced' ? 'Synced' : item.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>Database: Firestore Cloud {firebaseConfig?.projectId ? `(${firebaseConfig.projectId})` : ''}</span>
+                <a
+                  href={firestoreStatus.databaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  <span>Firebase Console</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
             </div>
           )}
