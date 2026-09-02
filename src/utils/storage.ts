@@ -400,12 +400,11 @@ export function loadSongs(): Song[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SONGS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SONGS, JSON.stringify(INITIAL_SONGS));
-      return INITIAL_SONGS;
+      return [];
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_SONGS;
+    return [];
   }
 }
 

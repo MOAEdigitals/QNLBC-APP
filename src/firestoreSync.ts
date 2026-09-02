@@ -130,26 +130,46 @@ interface TombstoneItem {
   timestamp: number;
 }
 
+let cachedTombstones: TombstoneItem[] | null = null;
+let cachedTombstoneKeySet: Set<string> | null = null;
+
 export function getTombstones(): TombstoneItem[] {
+  if (cachedTombstones !== null) {
+    return cachedTombstones;
+  }
   try {
     const raw = localStorage.getItem(TOMBSTONES_STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      cachedTombstones = [];
+      cachedTombstoneKeySet = new Set();
+      return [];
+    }
     const items: TombstoneItem[] = JSON.parse(raw);
     // Keep tombstones for up to 30 days
     const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    return items.filter((t) => t.timestamp > cutoff);
+    cachedTombstones = items.filter((t) => t.timestamp > cutoff);
+    cachedTombstoneKeySet = new Set(cachedTombstones.map((t) => `${t.collectionName}::${t.id}`));
+    return cachedTombstones;
   } catch {
+    cachedTombstones = [];
+    cachedTombstoneKeySet = new Set();
     return [];
   }
+}
+
+function updateTombstoneCache(list: TombstoneItem[]) {
+  cachedTombstones = list;
+  cachedTombstoneKeySet = new Set(list.map((t) => `${t.collectionName}::${t.id}`));
+  try {
+    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list));
+  } catch {}
 }
 
 export function recordTombstone(collectionName: string, id: string): void {
   if (!id) return;
   const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === id));
   list.push({ collectionName, id, timestamp: Date.now() });
-  try {
-    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list.slice(-500)));
-  } catch {}
+  updateTombstoneCache(list.slice(-500));
 
   // Broadcast deletion tombstone to app_settings cloud document so all phones and other devices immediately learn of the deletion
   broadcastTombstoneToCloud(collectionName, id).catch(() => {});
@@ -158,9 +178,7 @@ export function recordTombstone(collectionName: string, id: string): void {
 export function removeTombstone(collectionName: string, id: string): void {
   if (!id) return;
   const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === id));
-  try {
-    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list));
-  } catch {}
+  updateTombstoneCache(list);
 }
 
 export function mergeRemoteTombstones(remoteTombstones: { collectionName: string; id: string; timestamp: number }[]): void {
@@ -180,9 +198,7 @@ export function mergeRemoteTombstones(remoteTombstones: { collectionName: string
     }
   }
   const merged = Array.from(map.values()).slice(-500);
-  try {
-    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(merged));
-  } catch {}
+  updateTombstoneCache(merged);
 }
 
 async function broadcastTombstoneToCloud(collectionName: string, id: string): Promise<void> {
@@ -204,7 +220,10 @@ async function broadcastTombstoneToCloud(collectionName: string, id: string): Pr
 
 export function isItemTombstoned(collectionName: string, id: string): boolean {
   if (!id) return false;
-  return getTombstones().some((t) => t.collectionName === collectionName && t.id === id);
+  if (cachedTombstoneKeySet === null) {
+    getTombstones();
+  }
+  return cachedTombstoneKeySet?.has(`${collectionName}::${id}`) || false;
 }
 
 function getPendingQueue(): PendingSyncItem[] {
@@ -830,44 +849,6 @@ export function subscribeToAppSettings(
 export async function reconcileAllLocalDataToCloud(): Promise<void> {
   if (isQuotaExhausted) return;
   await flushPendingSyncQueue();
-
-  // Also reconcile any local items (e.g. newly created practice sessions, songs, setlists, directory names)
-  // that were saved while offline or before connection established
-  try {
-    const localPractice = loadPracticeEntries().filter(
-      (p) => p.id && !LEGACY_MOCK_IDS.has(p.id) && !isItemTombstoned(COLLECTIONS.PRACTICE_ENTRIES, p.id)
-    );
-    for (const pr of localPractice) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, pr.id), sanitizeDoc(pr), { merge: true });
-    }
-
-    const localSongs = loadSongs().filter(
-      (s) => s.id && !LEGACY_MOCK_IDS.has(s.id) && !isItemTombstoned(COLLECTIONS.SONGS, s.id)
-    );
-    for (const s of localSongs) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.SONGS, s.id), sanitizeDoc(s), { merge: true });
-    }
-
-    const localSetlists = loadSetlists().filter(
-      (st) => st.id && !LEGACY_MOCK_IDS.has(st.id) && !isItemTombstoned(COLLECTIONS.SETLISTS, st.id)
-    );
-    for (const st of localSetlists) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.SETLISTS, st.id), sanitizeDoc(st), { merge: true });
-    }
-
-    const localUsers = loadUsers().filter(
-      (u) => u.id && !isItemTombstoned(COLLECTIONS.USERS, u.id)
-    );
-    for (const u of localUsers) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
-    }
-  } catch {
-    // Graceful fallback
-  }
 }
 
 const SEED_STORAGE_FLAG = 'nlbc_firestore_cloud_seeded_v3';

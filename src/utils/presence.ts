@@ -9,7 +9,7 @@ export interface PresenceSession {
 }
 
 const PRESENCE_STORAGE_KEY = 'nlbc_active_presence_sessions_v1';
-const PRESENCE_TIMEOUT_MS = 6000; // 6 seconds threshold to be considered active
+const PRESENCE_TIMEOUT_MS = 30000; // 30 seconds threshold to be considered active
 
 // Unique ID for this browser tab session
 const tabSessionId = `tab_${Math.random().toString(36).substring(2, 9)}_${Date.now()}`;
@@ -160,7 +160,7 @@ export function subscribeToPresence(
   const intervalId = setInterval(() => {
     sendPresenceHeartbeat(currentUser);
     onUpdate(getActiveOnlineUsers(currentUser, allUsers));
-  }, 2000);
+  }, 15000);
 
   // Storage event listener for cross-tab updates
   const handleStorage = (e: StorageEvent) => {
