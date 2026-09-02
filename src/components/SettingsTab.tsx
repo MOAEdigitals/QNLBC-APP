@@ -4,6 +4,7 @@ import {
   saveUsers,
   updateUserAvatar,
   DEFAULT_ADMIN,
+  deleteAllNonAdminUsers,
   resetAppToDefaults,
   clearAllLocalDataToZero,
   exportChurchDataJSON,
@@ -31,6 +32,7 @@ import {
 import {
   syncSaveUser,
   syncDeleteUser,
+  syncDeleteAllNonAdminUsers,
   syncSaveSavedNames,
   syncSaveSong,
   syncSaveSetlist,
@@ -348,6 +350,32 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       if (editingUser?.id === userToDelete.id) {
         setEditingUser(null);
       }
+    }
+  };
+
+  const handleDeleteAllNonAdminUsers = async () => {
+    const nonAdminCount = displayUsers.filter(
+      (u) =>
+        u.role !== 'admin' &&
+        u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
+    ).length;
+
+    if (nonAdminCount === 0) {
+      alert('Only the root Admin account exists. There are no regular user accounts to delete.');
+      return;
+    }
+
+    if (
+      confirm(
+        `Are you sure you want to delete ALL (${nonAdminCount}) regular user accounts and revoke their access? The Admin account will be the only one remaining.`
+      )
+    ) {
+      const remaining = deleteAllNonAdminUsers();
+      saveUsers(remaining);
+      onUpdateUsers(remaining);
+      await syncDeleteAllNonAdminUsers();
+      setUserCreatedMsg('All non-admin user accounts and accesses have been permanently deleted.');
+      setTimeout(() => setUserCreatedMsg(null), 5000);
     }
   };
 
@@ -977,6 +1005,22 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     Users ({displayUsers.filter((u) => u.role !== 'admin' && u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()).length})
                   </button>
                 </div>
+
+                {displayUsers.some(
+                  (u) =>
+                    u.role !== 'admin' &&
+                    u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
+                ) && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllNonAdminUsers}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/60 text-xs font-bold transition-colors cursor-pointer shrink-0"
+                    title="Delete all user accounts except Admin"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    <span>Delete All Users (Keep Admin Only)</span>
+                  </button>
+                )}
               </div>
 
               {/* Interactive Credentials Sheet Table */}

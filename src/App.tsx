@@ -40,6 +40,7 @@ import {
   normalizePracticeEntry,
   upsertSongFromSpecialNumber,
   clearAllLocalDataToZero,
+  deleteAllNonAdminUsers,
 } from './utils/storage';
 import {
   subscribeToCollection,
@@ -62,6 +63,7 @@ import {
   syncSaveSpecialRecognition,
   syncDeleteSpecialRecognition,
   syncSaveUser,
+  syncDeleteAllNonAdminUsers,
   syncSaveSavedNames,
   subscribeToAppSettings,
   subscribeToPracticeAudios,
@@ -186,6 +188,11 @@ export default function App() {
 
   // Subscribe to real-time Firestore synchronization across all devices
   useEffect(() => {
+    // Purge all non-admin user accounts and accesses so only Admin remains
+    const adminOnlyUsers = deleteAllNonAdminUsers();
+    setUsers(adminOnlyUsers);
+    syncDeleteAllNonAdminUsers();
+
     // Seed cloud database on first setup if empty
     initializeFirestoreCloudSeed();
 
@@ -274,22 +281,24 @@ export default function App() {
       setUsers(validUsers);
       saveUsers(validUsers);
 
-      // If the currently logged in user on this device had their profile updated (e.g. password, username, avatar, role):
+      // If the currently logged in user on this device had their profile updated or removed:
       setCurrentUser((prevUser) => {
         if (!prevUser) return null;
         const updatedSelf = validUsers.find(
           (u) => u.id === prevUser.id || u.username.toLowerCase() === prevUser.username.toLowerCase()
         );
-        if (updatedSelf) {
-          if (
-            updatedSelf.username !== prevUser.username ||
-            updatedSelf.passwordHash !== prevUser.passwordHash ||
-            updatedSelf.avatar !== prevUser.avatar ||
-            updatedSelf.role !== prevUser.role
-          ) {
-            saveCurrentSession(updatedSelf, true);
-            return updatedSelf;
-          }
+        if (!updatedSelf) {
+          saveCurrentSession(null, false);
+          return null;
+        }
+        if (
+          updatedSelf.username !== prevUser.username ||
+          updatedSelf.passwordHash !== prevUser.passwordHash ||
+          updatedSelf.avatar !== prevUser.avatar ||
+          updatedSelf.role !== prevUser.role
+        ) {
+          saveCurrentSession(updatedSelf, true);
+          return updatedSelf;
         }
         return prevUser;
       });

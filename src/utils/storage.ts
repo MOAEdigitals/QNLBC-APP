@@ -275,6 +275,33 @@ export function saveUsers(users: UserAccount[]): void {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
 }
 
+export function deleteAllNonAdminUsers(): UserAccount[] {
+  const users = loadUsers();
+  // Retain only root admin / admin accounts
+  const adminOnly = users.filter(
+    (u) =>
+      u.id === DEFAULT_ADMIN.id ||
+      u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() ||
+      u.role === 'admin'
+  );
+  if (adminOnly.length === 0) {
+    adminOnly.push(DEFAULT_ADMIN);
+  }
+  saveUsers(adminOnly);
+
+  // If current logged-in user is not an admin, clear session
+  const currentSession = loadCurrentSession();
+  if (
+    currentSession.user &&
+    currentSession.user.role !== 'admin' &&
+    currentSession.user.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
+  ) {
+    saveCurrentSession(null, false);
+  }
+
+  return adminOnly;
+}
+
 export function updateUserAvatar(
   userId: string,
   newAvatarDataUrl: string | undefined

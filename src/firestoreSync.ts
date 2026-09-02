@@ -36,6 +36,7 @@ import {
   loadSavedNames,
   loadWelcomeSongs,
   loadUsers,
+  DEFAULT_ADMIN,
   DUMMY_EXAMPLE_NAMES,
 } from './utils/storage';
 
@@ -719,6 +720,35 @@ export async function syncDeleteUser(id: string, username?: string): Promise<voi
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.USERS}/${id}`);
+  }
+}
+
+export async function syncDeleteAllNonAdminUsers(): Promise<void> {
+  if (isQuotaExhausted) return;
+  try {
+    const usersCol = collection(db, COLLECTIONS.USERS);
+    const snap = await getDocs(usersCol);
+    for (const d of snap.docs) {
+      const data = d.data() as Partial<UserAccount>;
+      const isRootAdmin =
+        d.id === DEFAULT_ADMIN.id ||
+        d.id.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() ||
+        (data.username && data.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase()) ||
+        data.role === 'admin';
+
+      if (!isRootAdmin) {
+        recordTombstone(COLLECTIONS.USERS, d.id);
+        if (data.username) {
+          recordTombstone(COLLECTIONS.USERS, data.username.toLowerCase());
+        }
+        dequeuePending(COLLECTIONS.USERS, d.id);
+        await deleteDoc(doc(db, COLLECTIONS.USERS, d.id)).catch(() => {});
+      }
+    }
+    // Ensure default admin document is securely written
+    await executeFirestoreWrite(COLLECTIONS.USERS, DEFAULT_ADMIN.id, DEFAULT_ADMIN);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, COLLECTIONS.USERS);
   }
 }
 
