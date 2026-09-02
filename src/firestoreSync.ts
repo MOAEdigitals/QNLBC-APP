@@ -148,7 +148,7 @@ export function recordTombstone(collectionName: string, id: string): void {
   const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === id));
   list.push({ collectionName, id, timestamp: Date.now() });
   try {
-    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list.slice(-200)));
+    localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(list.slice(-500)));
   } catch {}
 
   // Broadcast deletion tombstone to app_settings cloud document so all phones and other devices immediately learn of the deletion
@@ -179,7 +179,7 @@ export function mergeRemoteTombstones(remoteTombstones: { collectionName: string
       });
     }
   }
-  const merged = Array.from(map.values()).slice(-200);
+  const merged = Array.from(map.values()).slice(-500);
   try {
     localStorage.setItem(TOMBSTONES_STORAGE_KEY, JSON.stringify(merged));
   } catch {}
@@ -196,7 +196,7 @@ async function broadcastTombstoneToCloud(collectionName: string, id: string): Pr
     }
     list = list.filter((t) => !(t.collectionName === collectionName && t.id === id));
     list.push({ collectionName, id, timestamp: Date.now() });
-    await setDoc(tombstonesDoc, { id: 'tombstones', list: list.slice(-100), updatedAt: new Date().toISOString() }, { merge: true });
+    await setDoc(tombstonesDoc, { id: 'tombstones', list: list.slice(-500), updatedAt: new Date().toISOString() }, { merge: true });
   } catch {
     // Quota or network failure is handled gracefully
   }
