@@ -3,6 +3,7 @@ import {
   UserAccount,
   AppTab,
   Setlist,
+  SetlistSongItem,
   Song,
   BirthdayCelebrant,
   AnniversaryCelebrant,
@@ -526,6 +527,10 @@ export default function App() {
   // Song Operations
   const handleSaveSong = useCallback((newOrUpdated: Song) => {
     setSongs((prev) => {
+      const existing = prev.find((s) => s.id === newOrUpdated.id);
+      const oldTitle = existing?.title?.trim();
+      const newTitle = newOrUpdated.title.trim();
+
       const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
       let updated: Song[];
       if (idx >= 0) {
@@ -535,9 +540,182 @@ export default function App() {
         updated = [...prev, newOrUpdated];
       }
       saveSongs(updated);
+
+      // If title or lyrics updated on an existing song, sync to all setlists, special numbers, choir, and practice entries
+      if (existing && oldTitle && (oldTitle.toLowerCase() !== newTitle.toLowerCase() || existing.lyrics !== newOrUpdated.lyrics)) {
+        // 1. Sync across setlists
+        setSetlists((prevSetlists) => {
+          let hasSetlistChanges = false;
+          const updatedSetlists = prevSetlists.map((setlist) => {
+            let modified = false;
+
+            const updateItem = (item: SetlistSongItem): SetlistSongItem => {
+              if (
+                item.songId === newOrUpdated.id ||
+                (oldTitle && item.title.trim().toLowerCase() === oldTitle.toLowerCase())
+              ) {
+                modified = true;
+                return {
+                  ...item,
+                  songId: newOrUpdated.id,
+                  title: newTitle,
+                };
+              }
+              return item;
+            };
+
+            const updatedSSSongs = setlist.sundaySchool?.songs ? setlist.sundaySchool.songs.map(updateItem) : undefined;
+            const updatedWSSongs = setlist.worshipService?.songs ? setlist.worshipService.songs.map(updateItem) : undefined;
+            const updatedProgSongs = setlist.program?.songs ? setlist.program.songs.map(updateItem) : undefined;
+
+            let updatedWelcome = setlist.welcomeSong;
+            if (oldTitle && updatedWelcome && updatedWelcome.trim().toLowerCase() === oldTitle.toLowerCase()) {
+              updatedWelcome = newTitle;
+              modified = true;
+            }
+
+            let updatedClosing = setlist.closingSong;
+            if (oldTitle && updatedClosing && updatedClosing.trim().toLowerCase() === oldTitle.toLowerCase()) {
+              updatedClosing = newTitle;
+              modified = true;
+            }
+
+            let updatedTheme = setlist.themeSong;
+            if (oldTitle && updatedTheme && updatedTheme.trim().toLowerCase() === oldTitle.toLowerCase()) {
+              updatedTheme = newTitle;
+              modified = true;
+            }
+
+            if (modified) {
+              hasSetlistChanges = true;
+              const newSetlist: Setlist = {
+                ...setlist,
+                welcomeSong: updatedWelcome,
+                closingSong: updatedClosing,
+                themeSong: updatedTheme,
+                sundaySchool: setlist.sundaySchool
+                  ? { ...setlist.sundaySchool, songs: updatedSSSongs || [] }
+                  : undefined,
+                worshipService: setlist.worshipService
+                  ? { ...setlist.worshipService, songs: updatedWSSongs || [] }
+                  : undefined,
+                program: setlist.program
+                  ? { ...setlist.program, songs: updatedProgSongs || [] }
+                  : undefined,
+              };
+              syncSaveSetlist(newSetlist);
+              return newSetlist;
+            }
+            return setlist;
+          });
+
+          if (hasSetlistChanges) {
+            saveSetlists(updatedSetlists);
+            return updatedSetlists;
+          }
+          return prevSetlists;
+        });
+
+        // 2. Sync across Special Numbers
+        setSpecialNumbers((prevSpecials) => {
+          let changed = false;
+          const updatedSpecials = prevSpecials.map((entry) => {
+            if (
+              entry.songId === newOrUpdated.id ||
+              (oldTitle && entry.songTitle.trim().toLowerCase() === oldTitle.toLowerCase())
+            ) {
+              changed = true;
+              const updatedEntry = {
+                ...entry,
+                songId: newOrUpdated.id,
+                songTitle: newTitle,
+                lyrics: newOrUpdated.lyrics,
+              };
+              syncSaveSpecialNumber(updatedEntry);
+              return updatedEntry;
+            }
+            return entry;
+          });
+          if (changed) {
+            saveSpecialNumbers(updatedSpecials);
+            return updatedSpecials;
+          }
+          return prevSpecials;
+        });
+
+        // 3. Sync across Choir Entries
+        setChoirEntries((prevChoir) => {
+          let changed = false;
+          const updatedChoir = prevChoir.map((entry) => {
+            if (
+              entry.songId === newOrUpdated.id ||
+              (oldTitle && entry.songTitle.trim().toLowerCase() === oldTitle.toLowerCase())
+            ) {
+              changed = true;
+              const updatedEntry = {
+                ...entry,
+                songId: newOrUpdated.id,
+                songTitle: newTitle,
+                lyrics: newOrUpdated.lyrics,
+              };
+              syncSaveChoirEntry(updatedEntry);
+              return updatedEntry;
+            }
+            return entry;
+          });
+          if (changed) {
+            saveChoirEntries(updatedChoir);
+            return updatedChoir;
+          }
+          return prevChoir;
+        });
+
+        // 4. Sync across Practice Entries
+        setPracticeEntries((prevPractice) => {
+          let changed = false;
+          const updatedPractice = prevPractice.map((entry) => {
+            if (
+              entry.songId === newOrUpdated.id ||
+              (oldTitle && entry.songTitle.trim().toLowerCase() === oldTitle.toLowerCase())
+            ) {
+              changed = true;
+              const updatedEntry = {
+                ...entry,
+                songId: newOrUpdated.id,
+                songTitle: newTitle,
+                lyrics: newOrUpdated.lyrics,
+              };
+              syncSavePracticeEntry(updatedEntry);
+              return updatedEntry;
+            }
+            return entry;
+          });
+          if (changed) {
+            savePracticeEntries(updatedPractice);
+            return updatedPractice;
+          }
+          return prevPractice;
+        });
+      }
+
       return updated;
     });
     syncSaveSong(newOrUpdated);
+  }, []);
+
+  const handleBatchSaveSongs = useCallback((updatedSongs: Song[]) => {
+    setSongs((prev) => {
+      const map = new Map(prev.map((s) => [s.id, s]));
+      for (const s of updatedSongs) {
+        map.set(s.id, s);
+      }
+      const all = Array.from(map.values()) as Song[];
+      saveSongs(all);
+      return all;
+    });
+    for (const s of updatedSongs) {
+      syncSaveSong(s);
+    }
   }, []);
 
   const handleDeleteSong = useCallback((id: string) => {
@@ -934,6 +1112,7 @@ export default function App() {
             songs={songs}
             setlists={setlists}
             onSaveSong={handleSaveSong}
+            onBatchSaveSongs={handleBatchSaveSongs}
             onDeleteSong={handleDeleteSong}
             onAddSongToNewSetlist={handleAddSongToNewSetlist}
             onAddSongToExistingUpcomingSetlist={handleAddSongToExistingUpcomingSetlist}

@@ -43,7 +43,6 @@ import {
   syncSaveSpecialNumber,
   syncSavePracticeEntry,
   syncSaveChoirEntry,
-  wipeAllChurchDataToZero,
   pushAllLocalDataToFirestore,
   syncBatchImportToFirestore,
 } from '../firestoreSync';
@@ -56,7 +55,6 @@ import {
   UserPlus,
   Download,
   Upload,
-  RotateCcw,
   LogOut,
   CheckCircle,
   AlertCircle,
@@ -140,7 +138,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(true);
   const [isChurchDirectoryCollapsed, setIsChurchDirectoryCollapsed] = useState(true);
   const [isDataBackupCollapsed, setIsDataBackupCollapsed] = useState(true);
-  const [isSyncLogsCollapsed, setIsSyncLogsCollapsed] = useState(false);
+  const [isSyncLogsCollapsed, setIsSyncLogsCollapsed] = useState(true);
 
   // New user form state
   const [newUsername, setNewUsername] = useState('');
@@ -428,20 +426,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     if (onUpdateSavedNames) onUpdateSavedNames(updated);
   };
 
-  const handleClearAllDirectoryNames = () => {
-    if (
-      confirm(
-        'Delete all names from the Church Directory? Autocomplete suggestions will be immediately cleared across all devices.'
-      )
-    ) {
-      const updated: string[] = [];
-      saveSavedNames(updated);
-      setSavedNames(updated);
-      syncSaveSavedNames(updated);
-      if (onUpdateSavedNames) onUpdateSavedNames(updated);
-    }
-  };
-
   const handleExportBackup = () => {
     const jsonStr = exportChurchDataJSON();
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -540,29 +524,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setLyricsImportStatus({ success: false, message: 'Failed to process files: ' + err.message });
     }
     e.target.value = '';
-  };
-
-  const [isWiping, setIsWiping] = useState(false);
-
-  const handleResetData = async () => {
-    const confirmation = prompt(
-      'Type RESET to permanently wipe all saved songs, setlists, birthdays, anniversaries, special numbers, choir and practice entries across ALL connected devices and the cloud database back to 0:'
-    );
-    if (confirmation === 'RESET' || confirmation === 'reset') {
-      setIsWiping(true);
-      try {
-        await wipeAllChurchDataToZero(currentUser?.username || 'admin');
-        clearAllLocalDataToZero();
-        setSavedNames([]);
-        if (onUpdateSavedNames) onUpdateSavedNames([]);
-        onDataReset();
-        alert('All church data has been successfully reset back to 0 across all devices and the cloud database.');
-      } catch (err: any) {
-        alert('Error resetting data: ' + (err.message || 'Unknown error'));
-      } finally {
-        setIsWiping(false);
-      }
-    }
   };
 
   // Filtered users for table rendering
@@ -1368,20 +1329,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
 
             <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-              {savedNames.length > 0 && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClearAllDirectoryNames();
-                  }}
-                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-                  title="Clear all autofill directory names"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Clear All</span>
-                </button>
-              )}
               <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
                 <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isChurchDirectoryCollapsed ? '' : 'rotate-180'}`} />
               </div>
@@ -1615,29 +1562,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Directly re-uploads all local songs and setlists to Firestore Cloud.
                       </span>
                     </div>
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                <div className="p-4 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <h5 className="text-sm font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1.5">
-                      <RotateCcw className="w-4 h-4 text-rose-600" />
-                      <span>Global Reset (Back to 0)</span>
-                    </h5>
-                    <p className="text-xs text-rose-700/80 dark:text-rose-400 mt-0.5">
-                      Permanently wipes all songs, setlists, birthdays, and registrations to 0 across all phones, tablets, and computers.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={isWiping}
-                    onClick={handleResetData}
-                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm cursor-pointer transition-colors shrink-0 flex items-center gap-1.5"
-                  >
-                    <RotateCcw className={`w-3.5 h-3.5 ${isWiping ? 'animate-spin' : ''}`} />
-                    <span>{isWiping ? 'Wiping Database...' : 'Wipe Everything to 0'}</span>
                   </button>
                 </div>
               </div>

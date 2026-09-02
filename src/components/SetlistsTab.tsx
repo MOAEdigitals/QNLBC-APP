@@ -35,8 +35,18 @@ import {
   Check,
 } from 'lucide-react';
 
-export function formatSetlistForMessenger(setlist: Setlist): string {
+export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []): string {
   const sections: string[] = [];
+
+  const resolveTitle = (rawTitle?: string, songId?: string): string => {
+    if (!rawTitle?.trim()) return '';
+    if (songId) {
+      const match = songs.find((s) => s.id === songId);
+      if (match) return match.title;
+    }
+    const match = songs.find((s) => s.title.trim().toLowerCase() === rawTitle.trim().toLowerCase());
+    return match ? match.title : rawTitle.trim();
+  };
 
   // 1. Date Header: e.g. "Sunday, Aug 30, 2026"
   const dateObj = new Date(setlist.date + 'T00:00:00');
@@ -60,10 +70,10 @@ export function formatSetlistForMessenger(setlist: Setlist): string {
     topMeta.push(`Presider: ${setlist.presider.trim()}`);
   }
   if (setlist.welcomeSong?.trim()) {
-    topMeta.push(`Welcome Song: ${setlist.welcomeSong.trim()}`);
+    topMeta.push(`Welcome Song: ${resolveTitle(setlist.welcomeSong)}`);
   }
   if (setlist.closingSong?.trim()) {
-    topMeta.push(`Closing Song: ${setlist.closingSong.trim()}`);
+    topMeta.push(`Closing Song: ${resolveTitle(setlist.closingSong)}`);
   }
   if (topMeta.length > 0) {
     sections.push(topMeta.join('\n'));
@@ -77,7 +87,8 @@ export function formatSetlistForMessenger(setlist: Setlist): string {
     const ssLines: string[] = [];
     ssLines.push(`Sunday School: ${ssLeader || ''}`.trimEnd());
     ssSongs.forEach((song, idx) => {
-      ssLines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+      const displayTitle = resolveTitle(song.title, song.songId);
+      ssLines.push(`${idx + 1}. ${displayTitle}${song.keyNote ? ` (${song.keyNote})` : ''}`);
     });
     if (setlist.sundaySchool?.notes?.trim()) {
       ssLines.push(`Note: ${setlist.sundaySchool.notes.trim()}`);
@@ -90,11 +101,13 @@ export function formatSetlistForMessenger(setlist: Setlist): string {
     const wsLines: string[] = [];
     wsLines.push(`Worship Service: ${wsLeader || ''}`.trimEnd());
     wsSongs.forEach((song, idx) => {
-      wsLines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+      const displayTitle = resolveTitle(song.title, song.songId);
+      wsLines.push(`${idx + 1}. ${displayTitle}${song.keyNote ? ` (${song.keyNote})` : ''}`);
     });
     if (setlist.themeSong?.trim()) {
       const themeNum = wsSongs.length + 1;
-      wsLines.push(`${themeNum}. ${setlist.themeSong.trim()} (Month Theme Song)`);
+      const displayTheme = resolveTitle(setlist.themeSong);
+      wsLines.push(`${themeNum}. ${displayTheme} (Theme Song)`);
     }
     if (setlist.worshipService?.notes?.trim()) {
       wsLines.push(`Note: ${setlist.worshipService.notes.trim()}`);
@@ -117,11 +130,13 @@ export function formatSetlistForMessenger(setlist: Setlist): string {
     const progLines: string[] = [];
     progLines.push(`${progTitle}: ${progLeader || ''}`.trimEnd());
     progSongs.forEach((song, idx) => {
-      progLines.push(`${idx + 1}. ${song.title.trim()}${song.keyNote ? ` (${song.keyNote})` : ''}`);
+      const displayTitle = resolveTitle(song.title, song.songId);
+      progLines.push(`${idx + 1}. ${displayTitle}${song.keyNote ? ` (${song.keyNote})` : ''}`);
     });
     if (setlist.themeSong?.trim()) {
       const themeNum = progSongs.length + 1;
-      progLines.push(`${themeNum}. ${setlist.themeSong.trim()} (Month Theme Song)`);
+      const displayTheme = resolveTitle(setlist.themeSong);
+      progLines.push(`${themeNum}. ${displayTheme} (Theme Song)`);
     }
     if (setlist.program?.notes?.trim()) {
       progLines.push(`Note: ${setlist.program.notes.trim()}`);
@@ -212,7 +227,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       e.preventDefault();
       e.stopPropagation();
     }
-    const text = formatSetlistForMessenger(setlist);
+    const text = formatSetlistForMessenger(setlist, songs);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text);
@@ -516,12 +531,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       return songsList
         .filter((s) => s.title.trim().length > 0)
         .map((s) => {
-          const matchedSong = songs.find(
-            (item) => item.title.trim().toLowerCase() === s.title.trim().toLowerCase()
-          );
+          const matchedSong = s.songId
+            ? songs.find((item) => item.id === s.songId)
+            : songs.find((item) => item.title.trim().toLowerCase() === s.title.trim().toLowerCase());
           return {
             id: s.id || `song-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            title: s.title.trim(),
+            title: matchedSong ? matchedSong.title : s.title.trim(),
             songId: matchedSong ? matchedSong.id : s.songId,
           };
         });
@@ -889,7 +904,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
                                     >
-                                      {item.welcomeSong}
+                                      {matchedSong ? matchedSong.title : item.welcomeSong}
                                     </span>
                                     {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
                                   </div>
@@ -912,7 +927,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
                                     >
-                                      {item.closingSong}
+                                      {matchedSong ? matchedSong.title : item.closingSong}
                                     </span>
                                     {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
                                   </div>
@@ -953,7 +968,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       }`}
                                       title={targetSongId ? 'Click to open in Song Library' : undefined}
                                     >
-                                      {idx + 1}. {song.title}
+                                      {idx + 1}. {matchedSong ? matchedSong.title : song.title}
                                     </span>
                                     {song.keyNote && (
                                       <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
@@ -1004,7 +1019,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       }`}
                                       title={targetSongId ? 'Click to open in Song Library' : undefined}
                                     >
-                                      {idx + 1}. {song.title}
+                                      {idx + 1}. {matchedSong ? matchedSong.title : song.title}
                                     </span>
                                     {song.keyNote && (
                                       <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
@@ -1015,7 +1030,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                               })}
 
-                              {/* Month Theme Song in Worship Service */}
+                              {/* Theme Song in Worship Service */}
                               {item.themeSong && (() => {
                                 const matchedSong = songs.find(
                                   (s) => s.title.trim().toLowerCase() === item.themeSong?.trim().toLowerCase()
@@ -1034,7 +1049,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                         }`}
                                         title={matchedSong ? 'Click to open in Song Library' : undefined}
                                       >
-                                        {songNumber}. {item.themeSong} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(Month Theme Song)</span>
+                                        {songNumber}. {matchedSong ? matchedSong.title : item.themeSong} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(Theme Song)</span>
                                       </span>
                                     </div>
                                   </div>
@@ -1095,7 +1110,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
                                     >
-                                      {item.welcomeSong}
+                                      {matchedSong ? matchedSong.title : item.welcomeSong}
                                     </span>
                                     {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
                                   </div>
@@ -1118,7 +1133,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       }`}
                                       title={matchedSong ? 'Click to open in Song Library' : undefined}
                                     >
-                                      {item.closingSong}
+                                      {matchedSong ? matchedSong.title : item.closingSong}
                                     </span>
                                     {matchedSong && <ExternalLink className="w-3 h-3 text-slate-400" />}
                                   </div>
@@ -1152,7 +1167,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     }`}
                                     title={targetSongId ? 'Click to open in Song Library' : undefined}
                                   >
-                                    {idx + 1}. {song.title}
+                                    {idx + 1}. {matchedSong ? matchedSong.title : song.title}
                                   </span>
                                   {song.keyNote && (
                                     <span className="text-[10px] text-slate-400 font-medium shrink-0 ml-2">
@@ -1345,7 +1360,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 </div>
               )}
 
-              {/* Welcome Song & Closing Song & Month Theme Song */}
+              {/* Welcome Song & Closing Song & Theme Song */}
               {editingSetlist.type !== 'prayer_meeting' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                   {/* Welcome Song Selection */}
@@ -1396,13 +1411,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Month Theme Song (Sunday Setlist) */}
+                  {/* Theme Song (Sunday Setlist) */}
                   {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
                     <div className="sm:col-span-2 pt-1 border-t border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1">
                           <Sparkles className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Month Theme Song</span>
+                          <span>Theme Song</span>
                         </label>
                       </div>
                       <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
@@ -1414,7 +1429,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           songs={songs}
                           setlists={setlists}
                           showLastSung={false}
-                          placeholder="Type or select month theme song..."
+                          placeholder="Type or select theme song..."
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                         />
                       </div>

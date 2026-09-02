@@ -55,7 +55,7 @@ export interface Setlist {
   presider?: string; // Optional for prayer meeting
   welcomeSong?: string; // Welcome song (e.g. "Napakaligaya")
   closingSong?: string; // Closing song (e.g. "Give Thanks")
-  themeSong?: string; // Month theme song
+  themeSong?: string; // Theme song
   sundaySchool?: {
     songLeader: string;
     songs: SetlistSongItem[]; // 2-3 songs

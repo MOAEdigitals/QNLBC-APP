@@ -620,7 +620,7 @@ export function getAllDirectoryNames(customSavedNames?: string[]): string[] {
 }
 
 /**
- * Month Theme Song Rule:
+ * Theme Song Rule:
  * The first theme song scheduled for the first Sunday of the month will auto-populate
  * for all upcoming setlists within that same month and year.
  */

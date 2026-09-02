@@ -33,6 +33,8 @@ import {
   Radio,
   Cloud,
   Loader2,
+  Tag,
+  Filter,
 } from 'lucide-react';
 import {
   searchSong,
@@ -50,6 +52,7 @@ interface SongsTabProps {
   songs: Song[];
   setlists: Setlist[];
   onSaveSong: (song: Song) => void;
+  onBatchSaveSongs?: (songs: Song[]) => void;
   onDeleteSong: (id: string) => void;
   onAddSongToNewSetlist: (song: Song) => void;
   onAddSongToExistingUpcomingSetlist: (song: Song, targetSetlistId: string, part: 'sundaySchool' | 'worshipService') => void;
@@ -62,6 +65,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   songs,
   setlists,
   onSaveSong,
+  onBatchSaveSongs,
   onDeleteSong,
   onAddSongToNewSetlist,
   onAddSongToExistingUpcomingSetlist,
@@ -71,10 +75,19 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortMode, setSortMode] = useState<'alpha' | 'date'>('alpha');
+  const [sortMode, setSortMode] = useState<'alpha' | 'recent' | 'date' | 'category'>('alpha');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'Hymn' | 'Special' | 'Contemporary' | 'uncategorized'>('all');
   const [isEditing, setIsEditing] = useState(false);
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
   const [showArtistInput, setShowArtistInput] = useState(false);
+  const [isLyricsExpandedInEditor, setIsLyricsExpandedInEditor] = useState(false);
+
+  // Category quick-picker popup state for song card
+  const [categoryPickerSongId, setCategoryPickerSongId] = useState<string | null>(null);
+
+  // AI Hymn Identification loading and notice states
+  const [isIdentifyingHymns, setIsIdentifyingHymns] = useState(false);
+  const [aiResultNotice, setAiResultNotice] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
 
   // 3-dot dropdown menu open state for song id
   const [openMenuSongId, setOpenMenuSongId] = useState<string | null>(null);
@@ -144,10 +157,11 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expandedItemRef = useRef<HTMLDivElement>(null);
 
-  // Close 3-dot menus when clicking outside
+  // Close 3-dot menus and category picker when clicking outside
   useEffect(() => {
     const handleGlobalClick = () => {
       setOpenMenuSongId(null);
+      setCategoryPickerSongId(null);
     };
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -155,7 +169,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   const lastProcessedSignalRef = useRef<number>(0);
 
-  // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
+  // Songs Tab Click Action: Pressing tab again collapses open song; pressing once more scrolls to top
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
@@ -174,26 +188,17 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         return;
       }
 
+      // Step 1: If an expanded song is open, pressing the tab collapses it
       if (selectedSongId) {
-        const el = document.getElementById(`song-card-${selectedSongId}`);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + 80;
-          if (!inView) {
-            // Step 1: Return view smoothly to the currently open song container
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-          }
-        }
-        // Step 2: If already in view, collapse the open container
         setSelectedSongId(null);
         setActiveMedia(null);
         setOpenMenuSongId(null);
+        setCategoryPickerSongId(null);
         onClearInitialSelectedSongId?.();
         return;
       }
 
-      // Step 3: If nothing is open, scroll smoothly to the top
+      // Step 2: Pressing once more after that scrolls back to the top of the song list
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [collapseSignal, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
@@ -247,24 +252,70 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     }, 2500);
   };
 
-  // Sorting: strictly A-Z or Newest (memoized)
+  // Fast O(1) cached usage map
+  const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
+
+  // Sorting: strictly A-Z, Recent, Newest, or Category (memoized)
   const sortedSongs = useMemo(() => {
     return [...songs].sort((a, b) => {
+      if (sortMode === 'recent') {
+        const historyA = getSongUsageHistoryFromMap(a.title, usageMap);
+        const historyB = getSongUsageHistoryFromMap(b.title, usageMap);
+        const dateA = historyA.lastDate || '';
+        const dateB = historyB.lastDate || '';
+        // Most recently used setlist date comes first
+        if (dateA && !dateB) return -1;
+        if (!dateA && dateB) return 1;
+        if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+        return a.title.localeCompare(b.title);
+      }
       if (sortMode === 'date') {
         const dateA = a.updatedAt || '';
         const dateB = b.updatedAt || '';
         return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
       }
+      if (sortMode === 'category') {
+        const categoryPriority: Record<string, number> = {
+          Hymn: 1,
+          Special: 2,
+          Contemporary: 3,
+        };
+        const pA = a.category ? categoryPriority[a.category] || 4 : 5;
+        const pB = b.category ? categoryPriority[b.category] || 4 : 5;
+        if (pA !== pB) return pA - pB;
+        return a.title.localeCompare(b.title);
+      }
       return a.title.localeCompare(b.title);
     });
-  }, [songs, sortMode]);
+  }, [songs, sortMode, usageMap]);
 
-  // Fast O(1) cached usage map
-  const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
+  // Category counts across library
+  const categoryCounts = useMemo(() => {
+    let hymn = 0;
+    let special = 0;
+    let contemporary = 0;
+    let uncategorized = 0;
+    for (const s of songs) {
+      if (s.category === 'Hymn') hymn++;
+      else if (s.category === 'Special') special++;
+      else if (s.category === 'Contemporary') contemporary++;
+      else uncategorized++;
+    }
+    return { Hymn: hymn, Special: special, Contemporary: contemporary, uncategorized };
+  }, [songs]);
+
+  // Category Filtered Songs
+  const categoryFilteredSongs = useMemo(() => {
+    if (categoryFilter === 'all') return sortedSongs;
+    if (categoryFilter === 'uncategorized') {
+      return sortedSongs.filter((s) => !s.category || !['Hymn', 'Special', 'Contemporary'].includes(s.category));
+    }
+    return sortedSongs.filter((s) => s.category === categoryFilter);
+  }, [sortedSongs, categoryFilter]);
 
   const songSearchResults = useMemo(() => {
     if (!searchQuery.trim()) {
-      return sortedSongs.map((song) => ({
+      return categoryFilteredSongs.map((song) => ({
         song,
         matches: true,
         score: 100,
@@ -274,7 +325,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       }));
     }
 
-    const results = sortedSongs
+    const results = categoryFilteredSongs
       .map((song) => {
         const searchRes = searchSong(song, searchQuery);
         const history = getSongUsageHistoryFromMap(song.title, usageMap);
@@ -288,9 +339,93 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     // When actively searching, sort by search match relevance score descending
     results.sort((a, b) => b.score - a.score);
     return results;
-  }, [sortedSongs, searchQuery, usageMap]);
+  }, [categoryFilteredSongs, searchQuery, usageMap]);
 
   const filteredSongs = useMemo(() => songSearchResults.map((r) => r.song), [songSearchResults]);
+
+  // AI-powered hymn identifier
+  const handleIdentifyHymnsWithAI = async () => {
+    if (songs.length === 0 || isIdentifyingHymns) return;
+    setIsIdentifyingHymns(true);
+    setAiResultNotice(null);
+
+    try {
+      const response = await fetch('/api/identify-hymns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          songs: songs.map((s) => ({
+            id: s.id,
+            title: s.title,
+            artist: s.artist,
+            lyrics: s.lyrics,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      const hymnIds: string[] = Array.isArray(data.hymnIds) ? data.hymnIds : [];
+
+      if (hymnIds.length === 0) {
+        setAiResultNotice({
+          type: 'info',
+          message: 'AI analyzed all songs in the database. No unflagged classic hymns were detected.',
+        });
+        return;
+      }
+
+      // Update identified hymns
+      const updatedSongs: Song[] = [];
+      let newHymnsCount = 0;
+
+      for (const song of songs) {
+        if (hymnIds.includes(song.id)) {
+          if (song.category !== 'Hymn') {
+            newHymnsCount++;
+            updatedSongs.push({
+              ...song,
+              category: 'Hymn',
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      }
+
+      if (updatedSongs.length > 0) {
+        if (onBatchSaveSongs) {
+          onBatchSaveSongs(updatedSongs);
+        } else {
+          for (const s of updatedSongs) {
+            onSaveSong(s);
+          }
+        }
+        setAiResultNotice({
+          type: 'success',
+          message: `AI identified and categorized ${newHymnsCount} hymn${newHymnsCount > 1 ? 's' : ''}! Remaining songs are left for manual categorization.`,
+        });
+      } else {
+        setAiResultNotice({
+          type: 'info',
+          message: `AI confirmed all ${hymnIds.length} classic hymns in your library are already categorized as Hymns.`,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to identify hymns with AI:', err);
+      setAiResultNotice({
+        type: 'error',
+        message: 'Could not connect to AI hymn identifier. Please check server logs and try again.',
+      });
+    } finally {
+      setIsIdentifyingHymns(false);
+      setTimeout(() => {
+        setAiResultNotice(null);
+      }, 7000);
+    }
+  };
 
   const selectedSong = useMemo(() => songs.find((s) => s.id === selectedSongId), [songs, selectedSongId]);
 
@@ -357,6 +492,22 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     onSaveSong(updated);
   };
 
+  const handleUpdateSongCategory = (
+    song: Song,
+    category: 'Hymn' | 'Special' | 'Contemporary' | undefined,
+    e?: React.MouseEvent
+  ) => {
+    if (e) e.stopPropagation();
+    setOpenMenuSongId(null);
+    setCategoryPickerSongId(null);
+    const updated: Song = {
+      ...song,
+      category,
+      updatedAt: new Date().toISOString(),
+    };
+    onSaveSong(updated);
+  };
+
   const handleSaveSongForm = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSong || !editingSong.title?.trim()) return;
@@ -368,6 +519,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       title: formattedTitle,
       artist: showArtistInput && editingSong.artist?.trim() ? editingSong.artist.trim() : undefined,
       lyrics: editingSong.lyrics || '',
+      category: editingSong.category,
       minusOneLink: editingSong.minusOneLink,
       attachments: editingSong.attachments || [],
       isThemeSong: editingSong.isThemeSong,
@@ -564,18 +716,135 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         )}
       </div>
 
-      {/* Song List Header with Sorted A-Z / Newest button strictly on the right */}
-      <div className="flex items-center justify-between px-1">
+      {/* Category Filter Pills & AI Hymn Identification */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+        <div className="flex items-center gap-1.5 flex-wrap overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('all')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+              categoryFilter === 'all'
+                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <span>All</span>
+            <span className="text-[10px] opacity-75">({songs.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('Hymn')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+              categoryFilter === 'Hymn'
+                ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+            }`}
+          >
+            <span>Hymns</span>
+            <span className="text-[10px] opacity-80">({categoryCounts.Hymn})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('Special')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+              categoryFilter === 'Special'
+                ? 'bg-purple-600 dark:bg-purple-500 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-900/60 hover:bg-purple-50 dark:hover:bg-purple-950/40'
+            }`}
+          >
+            <span>Special</span>
+            <span className="text-[10px] opacity-80">({categoryCounts.Special})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('Contemporary')}
+            className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+              categoryFilter === 'Contemporary'
+                ? 'bg-cyan-600 dark:bg-cyan-500 text-white shadow-xs'
+                : 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-900/60 hover:bg-cyan-50 dark:hover:bg-cyan-950/40'
+            }`}
+          >
+            <span>Contemporary</span>
+            <span className="text-[10px] opacity-80">({categoryCounts.Contemporary})</span>
+          </button>
+
+          {categoryCounts.uncategorized > 0 && (
+            <button
+              type="button"
+              onClick={() => setCategoryFilter('uncategorized')}
+              className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+                categoryFilter === 'uncategorized'
+                  ? 'bg-slate-700 text-white shadow-xs'
+                  : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <span>Uncategorized</span>
+              <span className="text-[10px] opacity-75">({categoryCounts.uncategorized})</span>
+            </button>
+          )}
+        </div>
+
+        {/* AI Hymn Identification Action */}
+        <button
+          type="button"
+          disabled={isIdentifyingHymns || songs.length === 0}
+          onClick={handleIdentifyHymnsWithAI}
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-sky-500/10 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:border-slate-400 dark:hover:border-slate-500 transition-all shadow-2xs shrink-0 cursor-pointer disabled:opacity-50"
+          title="Scan library with Gemini to identify classic hymns"
+        >
+          {isIdentifyingHymns ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+              <span>Identifying Hymns...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Auto-Identify Hymns (AI)</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* AI Identification Result Banner */}
+      {aiResultNotice && (
+        <div
+          className={`p-3 rounded-xl border flex items-center gap-2 text-xs font-semibold ${
+            aiResultNotice.type === 'success'
+              ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+              : aiResultNotice.type === 'error'
+              ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+              : 'bg-sky-50 dark:bg-sky-950/50 border-sky-200 dark:border-sky-800 text-sky-800 dark:text-sky-300'
+          }`}
+        >
+          <Sparkles className="w-4 h-4 shrink-0 text-amber-500" />
+          <span className="flex-1">{aiResultNotice.message}</span>
+          <button
+            type="button"
+            onClick={() => setAiResultNotice(null)}
+            className="p-1 hover:opacity-75 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Song List Header with Sorted buttons (A-Z, Recent, Newest, Category) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          All Songs ({filteredSongs.length})
+          {categoryFilter !== 'all' ? `${categoryFilter} Songs` : 'All Songs'} ({filteredSongs.length})
         </span>
 
-        {/* Sorted button located in text part on the right (2 options: A-Z, Newest) */}
-        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold">
+        {/* Sorted button located on the right (4 options: A-Z, Recent, Newest, Category) */}
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold overflow-x-auto">
+          <span className="text-[11px] text-slate-400 font-medium pl-1.5 pr-0.5">Sort:</span>
           <button
             type="button"
             onClick={() => setSortMode('alpha')}
-            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none ${
+            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
               sortMode === 'alpha'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -585,14 +854,39 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           </button>
           <button
             type="button"
+            onClick={() => setSortMode('recent')}
+            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
+              sortMode === 'recent'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+            title="Sort by most recently sung in setlists"
+          >
+            Recent
+          </button>
+          <button
+            type="button"
             onClick={() => setSortMode('date')}
-            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none ${
+            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
               sortMode === 'date'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
+            title="Sort by newly added/updated in library"
           >
             Newest
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortMode('category')}
+            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
+              sortMode === 'category'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+            }`}
+            title="Sort grouped by Category (Hymns first, then Special, Contemporary)"
+          >
+            Category
           </button>
         </div>
       </div>
@@ -647,6 +941,82 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       <h4 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-colors truncate">
                         {song.title}
                       </h4>
+
+                      {/* Category Badge with quick-change picker */}
+                      <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+                        {song.category ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCategoryPickerSongId(categoryPickerSongId === song.id ? null : song.id)
+                            }
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 transition-all cursor-pointer ${
+                              song.category === 'Hymn'
+                                ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                                : song.category === 'Special'
+                                ? 'bg-purple-50 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800'
+                                : 'bg-cyan-50 dark:bg-cyan-950/70 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800'
+                            }`}
+                            title="Click to change song category"
+                          >
+                            <Tag className="w-2.5 h-2.5 opacity-70" />
+                            <span>{song.category}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCategoryPickerSongId(categoryPickerSongId === song.id ? null : song.id)
+                            }
+                            className="px-1.5 py-0.5 rounded text-[10px] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 border border-dashed border-slate-300 dark:border-slate-700 flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Categorize this song"
+                          >
+                            <Tag className="w-2.5 h-2.5" />
+                            <span>+ Category</span>
+                          </button>
+                        )}
+
+                        {categoryPickerSongId === song.id && (
+                          <div className="absolute left-0 top-full mt-1.5 w-44 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Set Category
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUpdateSongCategory(song, 'Hymn', e)}
+                              className="w-full px-3 py-1.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-between cursor-pointer"
+                            >
+                              <span>Hymn</span>
+                              {song.category === 'Hymn' && <Check className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUpdateSongCategory(song, 'Special', e)}
+                              className="w-full px-3 py-1.5 text-left text-xs font-semibold text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center justify-between cursor-pointer"
+                            >
+                              <span>Special</span>
+                              {song.category === 'Special' && <Check className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUpdateSongCategory(song, 'Contemporary', e)}
+                              className="w-full px-3 py-1.5 text-left text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 flex items-center justify-between cursor-pointer"
+                            >
+                              <span>Contemporary</span>
+                              {song.category === 'Contemporary' && <Check className="w-3.5 h-3.5" />}
+                            </button>
+                            {song.category && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleUpdateSongCategory(song, undefined, e)}
+                                className="w-full px-3 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800 cursor-pointer"
+                              >
+                                <span>Clear Category</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
                       {/* Theme Song Badge */}
                       {song.isThemeSong && (
@@ -831,6 +1201,46 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                             >
                               <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500" />
                               <span>{song.isClosingSong ? 'Remove Closing Song Badge' : 'Mark as Closing Song'}</span>
+                            </button>
+
+                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+
+                            {/* Quick Category Options in 3-dot menu */}
+                            <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Category: {song.category || 'None'}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Hymn' ? undefined : 'Hymn', e)}
+                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-between cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Tag className="w-3 h-3" />
+                                <span>Set as Hymn</span>
+                              </span>
+                              {song.category === 'Hymn' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Special' ? undefined : 'Special', e)}
+                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center justify-between cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Tag className="w-3 h-3" />
+                                <span>Set as Special</span>
+                              </span>
+                              {song.category === 'Special' && <Check className="w-3.5 h-3.5 text-purple-600" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Contemporary' ? undefined : 'Contemporary', e)}
+                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 flex items-center justify-between cursor-pointer"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Tag className="w-3 h-3" />
+                                <span>Set as Contemporary</span>
+                              </span>
+                              {song.category === 'Contemporary' && <Check className="w-3.5 h-3.5 text-cyan-600" />}
                             </button>
 
                             <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
@@ -1537,17 +1947,89 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 )}
               </div>
 
-              {/* Lyrics Field */}
+              {/* Song Category Selector */}
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Lyrics
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                  Song Category
                 </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingSong({ ...editingSong, category: undefined })}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer ${
+                      !editingSong.category
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs'
+                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    Uncategorized
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSong({ ...editingSong, category: 'Hymn' })}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                      editingSong.category === 'Hymn'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-100/70'
+                    }`}
+                  >
+                    <span>Hymn</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSong({ ...editingSong, category: 'Special' })}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                      editingSong.category === 'Special'
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                        : 'bg-purple-50 dark:bg-purple-950/40 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-900/60 hover:bg-purple-100/70'
+                    }`}
+                  >
+                    <span>Special</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingSong({ ...editingSong, category: 'Contemporary' })}
+                    className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center cursor-pointer flex items-center justify-center gap-1.5 ${
+                      editingSong.category === 'Contemporary'
+                        ? 'bg-cyan-600 text-white border-cyan-600 shadow-xs'
+                        : 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-200 dark:border-cyan-900/60 hover:bg-cyan-100/70'
+                    }`}
+                  >
+                    <span>Contemporary</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Lyrics Field with Expand/Collapse toggle */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                    Lyrics
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsLyricsExpandedInEditor(!isLyricsExpandedInEditor)}
+                    className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer flex items-center gap-1"
+                  >
+                    {isLyricsExpandedInEditor ? (
+                      <>
+                        <ChevronUp className="w-3.5 h-3.5" />
+                        <span>Compact box</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-3.5 h-3.5" />
+                        <span>Expand box</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <textarea
-                  rows={9}
+                  rows={isLyricsExpandedInEditor ? 18 : 8}
                   value={editingSong.lyrics || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed"
+                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y transition-all"
                 />
               </div>
 
@@ -1572,7 +2054,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                     }`}
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Month Theme Song</span>
+                    <span>Theme Song</span>
                   </button>
 
                   <button
