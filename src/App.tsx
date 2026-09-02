@@ -188,11 +188,6 @@ export default function App() {
 
   // Subscribe to real-time Firestore synchronization across all devices
   useEffect(() => {
-    // Purge all non-admin user accounts and accesses so only Admin remains
-    const adminOnlyUsers = deleteAllNonAdminUsers();
-    setUsers(adminOnlyUsers);
-    syncDeleteAllNonAdminUsers();
-
     // Seed cloud database on first setup if empty
     initializeFirestoreCloudSeed();
 

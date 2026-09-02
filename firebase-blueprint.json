@@ -46,6 +46,17 @@
       },
       "required": ["id", "groupName", "songTitle"]
     },
+    "ChoirEntry": {
+      "title": "ChoirEntry",
+      "description": "Church choir rehearsal and piece schedule entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
     "Birthday": {
       "title": "Birthday",
       "description": "Church member birthday celebrant",
@@ -139,6 +150,10 @@
     "/practice_entries/{id}": {
       "schema": "PracticeEntry",
       "description": "Rehearsal entries"
+    },
+    "/choir_entries/{id}": {
+      "schema": "ChoirEntry",
+      "description": "Choir rehearsal and performance entries"
     },
     "/birthdays/{id}": {
       "schema": "Birthday",

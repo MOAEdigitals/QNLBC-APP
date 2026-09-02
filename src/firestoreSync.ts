@@ -600,6 +600,8 @@ export function subscribeToCollection<T extends { id: string }>(
         const items: T[] = [];
         const remoteIds = new Set<string>();
 
+        const liveDocIds = new Set<string>();
+
         snapshot.forEach((docSnap) => {
           remoteIds.add(docSnap.id);
           if (LEGACY_MOCK_IDS.has(docSnap.id)) {
@@ -610,12 +612,20 @@ export function subscribeToCollection<T extends { id: string }>(
             return;
           }
 
-          // If document exists on Firestore, it's live! Remove any stale local tombstone
-          const list = getTombstones().filter((t) => !(t.collectionName === collectionName && t.id === docSnap.id));
-          updateTombstoneCache(list);
-
+          liveDocIds.add(docSnap.id);
           items.push({ ...(docSnap.data() as T), id: docSnap.id });
         });
+
+        // If documents exist on Firestore, remove any stale local tombstones in a single batch
+        if (liveDocIds.size > 0) {
+          const currentTombstones = getTombstones();
+          const filteredTombstones = currentTombstones.filter(
+            (t) => !(t.collectionName === collectionName && liveDocIds.has(t.id))
+          );
+          if (filteredTombstones.length !== currentTombstones.length) {
+            updateTombstoneCache(filteredTombstones);
+          }
+        }
 
         // Merge any locally queued writes that have not reached the server snapshot yet
         const pending = getPendingQueue().filter(
