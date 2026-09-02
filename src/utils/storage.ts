@@ -658,16 +658,31 @@ export function upsertSongFromSpecialNumber(songTitle: string, lyrics: string, m
 }
 
 /**
- * Reset all data to default samples
+ * Reset all local storage data completely to 0 (empty library)
+ */
+export function clearAllLocalDataToZero(): void {
+  saveSetlists([]);
+  saveSongs([]);
+  saveBirthdays([]);
+  saveAnniversaries([]);
+  saveVisitors([]);
+  saveSpecialRecognitions([]);
+  saveSpecialNumbers([]);
+  saveChoirEntries([]);
+  savePracticeEntries([]);
+  saveSavedNames([]);
+  saveWelcomeSongs([]);
+  try {
+    localStorage.removeItem('nlbc_deleted_tombstones_v1');
+    localStorage.removeItem('nlbc_firestore_pending_queue_v1');
+  } catch {}
+}
+
+/**
+ * Reset all data to 0 clean state
  */
 export function resetAppToDefaults(): void {
-  localStorage.clear();
-  sessionStorage.clear();
-  loadUsers();
-  loadSongs();
-  loadSavedNames();
-  loadWelcomeSongs();
-  getInitialData();
+  clearAllLocalDataToZero();
 }
 
 /**

@@ -858,120 +858,80 @@ const SEED_STORAGE_FLAG = 'nlbc_firestore_cloud_seeded_v3';
  * Guarded against repeated loops and quota exhaustion. Runs once per project client instance.
  */
 export async function initializeFirestoreCloudSeed(): Promise<void> {
-  if (isQuotaExhausted) return;
-
+  // Cloud seeding is disabled so all devices start clean at 0 unless restored via backup JSON
   try {
-    if (localStorage.getItem(SEED_STORAGE_FLAG) === 'true') {
-      reconcileAllLocalDataToCloud().catch(() => {});
-      return;
-    }
-
-    // Light check: query just 1 song document to see if DB is already populated
-    const songsQuery = query(collection(db, COLLECTIONS.SONGS), limit(1));
-    const songsSnap = await getDocs(songsQuery);
-
-    if (!songsSnap.empty) {
-      // Database is already populated by another device/session
-      localStorage.setItem(SEED_STORAGE_FLAG, 'true');
-      reconcileAllLocalDataToCloud().catch(() => {});
-      return;
-    }
-
-    // Otherwise, seed initial dataset gently
-    const initialSongs = loadSongs();
-    for (const s of initialSongs) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.SONGS, s.id), sanitizeDoc(s), { merge: true });
-    }
-
-    const initialSetlists = loadSetlists();
-    for (const setlist of initialSetlists) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.SETLISTS, setlist.id), sanitizeDoc(setlist), { merge: true });
-    }
-
-    const initialSpecialNumbers = loadSpecialNumbers();
-    for (const sp of initialSpecialNumbers) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.SPECIAL_NUMBERS, sp.id), sanitizeDoc(sp), { merge: true });
-    }
-
-    const initialPractice = loadPracticeEntries();
-    for (const pr of initialPractice) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.PRACTICE_ENTRIES, pr.id), sanitizeDoc(pr), { merge: true });
-    }
-
-    const initialBirthdays = loadBirthdays();
-    for (const b of initialBirthdays) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.BIRTHDAYS, b.id), sanitizeDoc(b), { merge: true });
-    }
-
-    const initialAnniv = loadAnniversaries();
-    for (const a of initialAnniv) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.ANNIVERSARIES, a.id), sanitizeDoc(a), { merge: true });
-    }
-
-    const initialVisitors = loadVisitors();
-    for (const v of initialVisitors) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.VISITORS, v.id), sanitizeDoc(v), { merge: true });
-    }
-
-    const initialRecognitions = loadSpecialRecognitions();
-    for (const r of initialRecognitions) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.SPECIAL_RECOGNITIONS, r.id), sanitizeDoc(r), { merge: true });
-    }
-
-    const initialUsers = loadUsers();
-    for (const u of initialUsers) {
-      if (isQuotaExhausted) break;
-      await setDoc(doc(db, COLLECTIONS.USERS, u.id), sanitizeDoc(u), { merge: true });
-    }
-
-    try {
-      const namesSnap = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'));
-      const initialNames = loadSavedNames();
-      if (!namesSnap.exists()) {
-        await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'saved_names'), {
-          id: 'saved_names',
-          names: initialNames,
-          updatedAt: new Date().toISOString(),
-        });
-        await setDoc(doc(db, COLLECTIONS.SAVED_NAMES, 'list'), {
-          id: 'list',
-          names: initialNames,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    } catch {
-      // ignore
-    }
-
-    try {
-      const welcomeSnap = await getDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'));
-      if (!welcomeSnap.exists()) {
-        const initialWelcome = loadWelcomeSongs();
-        await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'welcome_songs'), {
-          id: 'welcome_songs',
-          songs: initialWelcome,
-          updatedAt: new Date().toISOString(),
-        });
-      }
-    } catch {
-      // ignore
-    }
-
     localStorage.setItem(SEED_STORAGE_FLAG, 'true');
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, 'cloud_seed');
+  } catch {}
+}
+
+export async function wipeAllChurchDataToZero(adminUsername: string = 'admin'): Promise<void> {
+  const collectionsToWipe = [
+    COLLECTIONS.SETLISTS,
+    COLLECTIONS.SONGS,
+    COLLECTIONS.BIRTHDAYS,
+    COLLECTIONS.ANNIVERSARIES,
+    COLLECTIONS.VISITORS,
+    COLLECTIONS.SPECIAL_RECOGNITIONS,
+    COLLECTIONS.SPECIAL_NUMBERS,
+    COLLECTIONS.CHOIR_ENTRIES,
+    COLLECTIONS.PRACTICE_ENTRIES,
+    COLLECTIONS.SAVED_NAMES,
+    COLLECTIONS.WELCOME_SONGS,
+    COLLECTIONS.PRACTICE_AUDIOS,
+  ];
+
+  // Clear in-memory tombstones and queues
+  cachedTombstones = [];
+  cachedTombstoneKeySet = new Set();
+  savePendingQueue([]);
+  try {
+    localStorage.removeItem(TOMBSTONES_STORAGE_KEY);
+    localStorage.removeItem(PENDING_QUEUE_KEY);
+  } catch {}
+
+  // Delete all cloud documents
+  for (const colName of collectionsToWipe) {
     try {
-      localStorage.setItem(SEED_STORAGE_FLAG, 'true');
+      const snap = await getDocs(collection(db, colName));
+      for (const d of snap.docs) {
+        await deleteDoc(doc(db, colName, d.id)).catch(() => {});
+      }
     } catch {
       // ignore
     }
+  }
+
+  // Clear cloud tombstones and broadcast global_wipe event
+  const wipeTimestamp = Date.now();
+  try {
+    await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones'), {
+      id: 'tombstones',
+      list: [],
+      updatedAt: new Date().toISOString(),
+    });
+    await setDoc(doc(db, COLLECTIONS.APP_SETTINGS, 'global_wipe'), {
+      id: 'global_wipe',
+      wipeTimestamp,
+      requestedBy: adminUsername,
+      requestedAt: new Date().toISOString(),
+    });
+    localStorage.setItem('nlbc_last_applied_wipe_ts', String(wipeTimestamp));
+  } catch {}
+}
+
+export function subscribeToGlobalWipe(onWipeReceived: (wipeTs: number) => void): () => void {
+  try {
+    const wipeDocRef = doc(db, COLLECTIONS.APP_SETTINGS, 'global_wipe');
+    return onSnapshot(wipeDocRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const wipeTs = Number(data?.wipeTimestamp || 0);
+        if (wipeTs > 0) {
+          onWipeReceived(wipeTs);
+        }
+      }
+    });
+  } catch {
+    return () => {};
   }
 }

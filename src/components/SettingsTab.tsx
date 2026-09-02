@@ -5,6 +5,7 @@ import {
   updateUserAvatar,
   DEFAULT_ADMIN,
   resetAppToDefaults,
+  clearAllLocalDataToZero,
   exportChurchDataJSON,
   importChurchDataJSON,
   importBatchLyricsTxt,
@@ -40,6 +41,7 @@ import {
   syncSaveSpecialNumber,
   syncSavePracticeEntry,
   syncSaveChoirEntry,
+  wipeAllChurchDataToZero,
 } from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
@@ -459,28 +461,26 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     e.target.value = '';
   };
 
-  const handleResetData = () => {
-    if (
-      confirm(
-        'Are you sure you want to reset all church data to default Quezon sample data? This will clear any new items not in the sample set.'
-      )
-    ) {
-      resetAppToDefaults();
-      const defaultNames = loadSavedNames();
-      setSavedNames(defaultNames);
-      syncSaveSavedNames(defaultNames);
-      if (onUpdateSavedNames) onUpdateSavedNames(defaultNames);
+  const [isWiping, setIsWiping] = useState(false);
 
-      loadSongs().forEach(syncSaveSong);
-      loadSetlists().forEach(syncSaveSetlist);
-      loadBirthdays().forEach(syncSaveBirthday);
-      loadAnniversaries().forEach(syncSaveAnniversary);
-      loadVisitors().forEach(syncSaveVisitor);
-      loadSpecialRecognitions().forEach(syncSaveSpecialRecognition);
-      loadSpecialNumbers().forEach(syncSaveSpecialNumber);
-
-      onDataReset();
-      alert('Data reset to default Quezon sample library.');
+  const handleResetData = async () => {
+    const confirmation = prompt(
+      'Type RESET to permanently wipe all saved songs, setlists, birthdays, anniversaries, special numbers, choir and practice entries across ALL connected devices and the cloud database back to 0:'
+    );
+    if (confirmation === 'RESET' || confirmation === 'reset') {
+      setIsWiping(true);
+      try {
+        await wipeAllChurchDataToZero(currentUser?.username || 'admin');
+        clearAllLocalDataToZero();
+        setSavedNames([]);
+        if (onUpdateSavedNames) onUpdateSavedNames([]);
+        onDataReset();
+        alert('All church data has been successfully reset back to 0 across all devices and the cloud database.');
+      } catch (err: any) {
+        alert('Error resetting data: ' + (err.message || 'Unknown error'));
+      } finally {
+        setIsWiping(false);
+      }
     }
   };
 
@@ -1481,15 +1481,27 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleResetData}
-                  className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  <span>Reset to default Quezon sample data</span>
-                </button>
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
+                <div className="p-4 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <h5 className="text-sm font-bold text-rose-900 dark:text-rose-300 flex items-center gap-1.5">
+                      <RotateCcw className="w-4 h-4 text-rose-600" />
+                      <span>Global Reset (Back to 0)</span>
+                    </h5>
+                    <p className="text-xs text-rose-700/80 dark:text-rose-400 mt-0.5">
+                      Permanently wipes all songs, setlists, birthdays, and registrations to 0 across all phones, tablets, and computers.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isWiping}
+                    onClick={handleResetData}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs shadow-sm cursor-pointer transition-colors shrink-0 flex items-center gap-1.5"
+                  >
+                    <RotateCcw className={`w-3.5 h-3.5 ${isWiping ? 'animate-spin' : ''}`} />
+                    <span>{isWiping ? 'Wiping Database...' : 'Wipe Everything to 0'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

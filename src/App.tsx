@@ -39,6 +39,7 @@ import {
   saveChoirEntries,
   normalizePracticeEntry,
   upsertSongFromSpecialNumber,
+  clearAllLocalDataToZero,
 } from './utils/storage';
 import {
   subscribeToCollection,
@@ -67,6 +68,7 @@ import {
   initializeFirestoreCloudSeed,
   subscribeToFirestoreStatus,
   getFirestoreConnectionStatus,
+  subscribeToGlobalWipe,
   FirestoreStatusInfo,
   isItemTombstoned,
   LEGACY_MOCK_IDS,
@@ -358,6 +360,25 @@ export default function App() {
       setFirestoreStatus(statusInfo);
     });
 
+    // Listen for global cloud wipe events to reset all devices to 0
+    const unsubGlobalWipe = subscribeToGlobalWipe((wipeTs) => {
+      const lastApplied = Number(localStorage.getItem('nlbc_last_applied_wipe_ts') || '0');
+      if (wipeTs > lastApplied) {
+        localStorage.setItem('nlbc_last_applied_wipe_ts', String(wipeTs));
+        clearAllLocalDataToZero();
+        setSetlists([]);
+        setSongs([]);
+        setBirthdays([]);
+        setAnniversaries([]);
+        setVisitors([]);
+        setSpecialRecognitions([]);
+        setSpecialNumbers([]);
+        setChoirEntries([]);
+        setPracticeEntries([]);
+        setSavedNames([]);
+      }
+    });
+
     return () => {
       unsubSetlists();
       unsubSongs();
@@ -372,6 +393,7 @@ export default function App() {
       unsubAppSettings();
       unsubPracticeAudios();
       unsubFirestoreStatus();
+      unsubGlobalWipe();
     };
   }, []);
 
