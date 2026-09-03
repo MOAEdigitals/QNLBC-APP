@@ -172,6 +172,7 @@ export default function App() {
 
   // Cross-tab deep links
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
+  const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
   const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
   const returnSetlistIdRef = useRef<string | null>(null);
 
@@ -876,6 +877,7 @@ export default function App() {
   const handleOpenSongDetail = (songId: string, returnSetlistId?: string) => {
     returnSetlistIdRef.current = returnSetlistId || null;
     setSelectedSongIdForTab(songId);
+    setSongNavigationTrigger({ songId, timestamp: Date.now() });
     handleNavigateTab('songs');
   };
 
@@ -1117,6 +1119,7 @@ export default function App() {
             onAddSongToNewSetlist={handleAddSongToNewSetlist}
             onAddSongToExistingUpcomingSetlist={handleAddSongToExistingUpcomingSetlist}
             initialSelectedSongId={selectedSongIdForTab}
+            songNavigationTrigger={songNavigationTrigger}
             onClearInitialSelectedSongId={() => setSelectedSongIdForTab(null)}
             collapseSignal={collapseSignals.songs}
           />

@@ -48,6 +48,24 @@ import {
   getYouTubeEmbedUrl,
 } from '../utils/mediaUtils';
 
+export const VALID_SONG_CATEGORIES = ['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'] as const;
+export type SongCategory = (typeof VALID_SONG_CATEGORIES)[number];
+
+export function getSongCategories(song: Song): SongCategory[] {
+  if (Array.isArray(song.categories) && song.categories.length > 0) {
+    return song.categories.filter((c): c is SongCategory =>
+      (VALID_SONG_CATEGORIES as readonly string[]).includes(c)
+    );
+  }
+  if (song.category && typeof song.category === 'string') {
+    const parts = song.category.split(',').map((c) => c.trim());
+    return parts.filter((c): c is SongCategory =>
+      (VALID_SONG_CATEGORIES as readonly string[]).includes(c)
+    );
+  }
+  return [];
+}
+
 interface SongsTabProps {
   songs: Song[];
   setlists: Setlist[];
@@ -57,6 +75,7 @@ interface SongsTabProps {
   onAddSongToNewSetlist: (song: Song) => void;
   onAddSongToExistingUpcomingSetlist: (song: Song, targetSetlistId: string, part: 'sundaySchool' | 'worshipService') => void;
   initialSelectedSongId?: string | null;
+  songNavigationTrigger?: { songId: string; timestamp: number } | null;
   onClearInitialSelectedSongId?: () => void;
   collapseSignal?: number;
 }
@@ -70,12 +89,13 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   onAddSongToNewSetlist,
   onAddSongToExistingUpcomingSetlist,
   initialSelectedSongId,
+  songNavigationTrigger,
   onClearInitialSelectedSongId,
   collapseSignal,
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortMode, setSortMode] = useState<'alpha' | 'recent' | 'date' | 'category'>('alpha');
+  const [sortMode, setSortMode] = useState<'alpha' | 'recent' | 'date'>('alpha');
   const [categoryFilter, setCategoryFilter] = useState<
     'all' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized'
   >('all');
@@ -232,11 +252,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   useEffect(() => {
     if (initialSelectedSongId) {
       setSelectedSongId(initialSelectedSongId);
+      setCategoryFilter('all');
+      setSearchQuery('');
       setTimeout(() => {
         expandedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
     }
   }, [initialSelectedSongId]);
+
+  useEffect(() => {
+    if (songNavigationTrigger?.songId) {
+      setSelectedSongId(songNavigationTrigger.songId);
+      setCategoryFilter('all');
+      setSearchQuery('');
+      setTimeout(() => {
+        expandedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [songNavigationTrigger]);
 
   const handleCopySong = (song: Song, e?: React.MouseEvent) => {
     if (e) {
@@ -253,7 +286,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   // Fast O(1) cached usage map
   const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
 
-  // Sorting: strictly A-Z, Recent, Newest, or Category (memoized)
+  // Sorting: strictly A-Z, Recent, or Newest (memoized)
   const sortedSongs = useMemo(() => {
     return [...songs].sort((a, b) => {
       if (sortMode === 'recent') {
@@ -272,24 +305,11 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         const dateB = b.updatedAt || '';
         return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
       }
-      if (sortMode === 'category') {
-        const categoryPriority: Record<string, number> = {
-          Hymn: 1,
-          Special: 2,
-          Contemporary: 3,
-          Choir: 4,
-          Tagalog: 5,
-        };
-        const pA = a.category ? categoryPriority[a.category] || 6 : 7;
-        const pB = b.category ? categoryPriority[b.category] || 6 : 7;
-        if (pA !== pB) return pA - pB;
-        return a.title.localeCompare(b.title);
-      }
       return a.title.localeCompare(b.title);
     });
   }, [songs, sortMode, usageMap]);
 
-  // Category counts across library
+  // Category counts across library (multi-category compatible)
   const categoryCounts = useMemo(() => {
     let hymn = 0;
     let special = 0;
@@ -298,25 +318,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     let tagalog = 0;
     let uncategorized = 0;
     for (const s of songs) {
-      if (s.category === 'Hymn') hymn++;
-      else if (s.category === 'Special') special++;
-      else if (s.category === 'Contemporary') contemporary++;
-      else if (s.category === 'Choir') choir++;
-      else if (s.category === 'Tagalog') tagalog++;
-      else uncategorized++;
+      const cats = getSongCategories(s);
+      if (cats.includes('Hymn')) hymn++;
+      if (cats.includes('Special')) special++;
+      if (cats.includes('Contemporary')) contemporary++;
+      if (cats.includes('Choir')) choir++;
+      if (cats.includes('Tagalog')) tagalog++;
+      if (cats.length === 0) uncategorized++;
     }
     return { Hymn: hymn, Special: special, Contemporary: contemporary, Choir: choir, Tagalog: tagalog, uncategorized };
   }, [songs]);
 
-  // Category Filtered Songs
+  // Category Filtered Songs (multi-category compatible)
   const categoryFilteredSongs = useMemo(() => {
     if (categoryFilter === 'all') return sortedSongs;
     if (categoryFilter === 'uncategorized') {
-      return sortedSongs.filter(
-        (s) => !s.category || !['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'].includes(s.category)
-      );
+      return sortedSongs.filter((s) => getSongCategories(s).length === 0);
     }
-    return sortedSongs.filter((s) => s.category === categoryFilter);
+    return sortedSongs.filter((s) => getSongCategories(s).includes(categoryFilter as SongCategory));
   }, [sortedSongs, categoryFilter]);
 
   const songSearchResults = useMemo(() => {
@@ -414,17 +433,33 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     onSaveSong(updated);
   };
 
-  const handleUpdateSongCategory = (
+  const handleToggleSongCategory = (
     song: Song,
-    category: 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | undefined,
+    categoryToToggle: SongCategory,
     e?: React.MouseEvent
   ) => {
     if (e) e.stopPropagation();
-    setOpenMenuSongId(null);
-    setCategoryPickerSongId(null);
+    const currentCats = getSongCategories(song);
+    const exists = currentCats.includes(categoryToToggle);
+    const nextCats = exists
+      ? currentCats.filter((c) => c !== categoryToToggle)
+      : [...currentCats, categoryToToggle];
+
     const updated: Song = {
       ...song,
-      category,
+      categories: nextCats,
+      category: nextCats.length > 0 ? nextCats.join(', ') : undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    onSaveSong(updated);
+  };
+
+  const handleClearSongCategories = (song: Song, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const updated: Song = {
+      ...song,
+      categories: [],
+      category: undefined,
       updatedAt: new Date().toISOString(),
     };
     onSaveSong(updated);
@@ -442,6 +477,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       artist: showArtistInput && editingSong.artist?.trim() ? editingSong.artist.trim() : undefined,
       lyrics: editingSong.lyrics || '',
       category: editingSong.category,
+      categories: editingSong.categories,
       minusOneLink: editingSong.minusOneLink,
       attachments: editingSong.attachments || [],
       isThemeSong: editingSong.isThemeSong,
@@ -732,7 +768,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           {categoryFilter !== 'all' ? `${categoryFilter} Songs` : 'All Songs'} ({filteredSongs.length})
         </span>
 
-        {/* Sorted button located on the right (4 options: A-Z, Recent, Newest, Category) */}
+        {/* Sorted button located on the right (3 options: A-Z, Recent, Newest) */}
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold overflow-x-auto">
           <span className="text-[11px] text-slate-400 font-medium pl-1.5 pr-0.5">Sort:</span>
           <button
@@ -769,18 +805,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             title="Sort by newly added/updated in library"
           >
             Newest
-          </button>
-          <button
-            type="button"
-            onClick={() => setSortMode('category')}
-            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
-              sortMode === 'category'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-            title="Sort grouped by Category (Hymns first, then Special, Contemporary)"
-          >
-            Category
           </button>
         </div>
       </div>
@@ -968,53 +992,37 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           {categoryPickerSongId === song.id && (
                             <div className="absolute left-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
                               <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                Set Category
+                                Categories
                               </div>
-                              <button
-                                type="button"
-                                onClick={(e) => handleUpdateSongCategory(song, 'Hymn', e)}
-                                className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-between cursor-pointer"
-                              >
-                                <span>Hymn</span>
-                                {song.category === 'Hymn' && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleUpdateSongCategory(song, 'Special', e)}
-                                className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center justify-between cursor-pointer"
-                              >
-                                <span>Special</span>
-                                {song.category === 'Special' && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleUpdateSongCategory(song, 'Contemporary', e)}
-                                className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 flex items-center justify-between cursor-pointer"
-                              >
-                                <span>Contemporary</span>
-                                {song.category === 'Contemporary' && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleUpdateSongCategory(song, 'Choir', e)}
-                                className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between cursor-pointer"
-                              >
-                                <span>Choir</span>
-                                {song.category === 'Choir' && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => handleUpdateSongCategory(song, 'Tagalog', e)}
-                                className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center justify-between cursor-pointer"
-                              >
-                                <span>Tagalog</span>
-                                {song.category === 'Tagalog' && <Check className="w-3.5 h-3.5" />}
-                              </button>
-                              {song.category && (
+                              {VALID_SONG_CATEGORIES.map((cat) => {
+                                const isChecked = getSongCategories(song).includes(cat);
+                                return (
+                                  <button
+                                    key={cat}
+                                    type="button"
+                                    onClick={(e) => handleToggleSongCategory(song, cat, e)}
+                                    className={`w-full px-3.5 py-1.5 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
+                                      cat === 'Hymn'
+                                        ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                                        : cat === 'Special'
+                                        ? 'text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
+                                        : cat === 'Contemporary'
+                                        ? 'text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40'
+                                        : cat === 'Choir'
+                                        ? 'text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
+                                        : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                                    }`}
+                                  >
+                                    <span>{cat}</span>
+                                    {isChecked && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
+                                  </button>
+                                );
+                              })}
+                              {getSongCategories(song).length > 0 && (
                                 <button
                                   type="button"
-                                  onClick={(e) => handleUpdateSongCategory(song, undefined, e)}
-                                  className="w-full px-3.5 py-1.5 text-left text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800 cursor-pointer"
+                                  onClick={(e) => handleClearSongCategories(song, e)}
+                                  className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800 cursor-pointer"
                                 >
                                   <span>Clear Category</span>
                                 </button>
@@ -1063,68 +1071,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                             >
                               <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500" />
                               <span>{song.isClosingSong ? 'Remove Closing Song Badge' : 'Mark as Closing Song'}</span>
-                            </button>
-
-                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-
-                            {/* Quick Category Options in 3-dot menu */}
-                            <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Category: {song.category || 'None'}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Hymn' ? undefined : 'Hymn', e)}
-                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center justify-between cursor-pointer"
-                            >
-                              <span className="flex items-center gap-2">
-                                <Tag className="w-3 h-3" />
-                                <span>Set as Hymn</span>
-                              </span>
-                              {song.category === 'Hymn' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Special' ? undefined : 'Special', e)}
-                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40 flex items-center justify-between cursor-pointer"
-                            >
-                              <span className="flex items-center gap-2">
-                                <Tag className="w-3 h-3" />
-                                <span>Set as Special</span>
-                              </span>
-                              {song.category === 'Special' && <Check className="w-3.5 h-3.5 text-purple-600" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Contemporary' ? undefined : 'Contemporary', e)}
-                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40 flex items-center justify-between cursor-pointer"
-                            >
-                              <span className="flex items-center gap-2">
-                                <Tag className="w-3 h-3" />
-                                <span>Set as Contemporary</span>
-                              </span>
-                              {song.category === 'Contemporary' && <Check className="w-3.5 h-3.5 text-cyan-600" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Choir' ? undefined : 'Choir', e)}
-                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 flex items-center justify-between cursor-pointer"
-                            >
-                              <span className="flex items-center gap-2">
-                                <Tag className="w-3 h-3" />
-                                <span>Set as Choir</span>
-                              </span>
-                              {song.category === 'Choir' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleUpdateSongCategory(song, song.category === 'Tagalog' ? undefined : 'Tagalog', e)}
-                              className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 flex items-center justify-between cursor-pointer"
-                            >
-                              <span className="flex items-center gap-2">
-                                <Tag className="w-3 h-3" />
-                                <span>Set as Tagalog</span>
-                              </span>
-                              {song.category === 'Tagalog' && <Check className="w-3.5 h-3.5 text-amber-600" />}
                             </button>
 
                             <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
@@ -1862,68 +1808,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
                   className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y transition-all"
                 />
-              </div>
-
-              {/* Tag / Category Badges for Song */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  Song Badges & Markings
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingSong({
-                        ...editingSong,
-                        isThemeSong: !editingSong.isThemeSong,
-                      })
-                    }
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                      editingSong.isThemeSong
-                        ? 'bg-amber-100 dark:bg-amber-950/90 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700 shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Theme Song</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingSong({
-                        ...editingSong,
-                        isWelcomeSong: !editingSong.isWelcomeSong,
-                      })
-                    }
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                      editingSong.isWelcomeSong
-                        ? 'bg-sky-100 dark:bg-sky-950/90 text-sky-900 dark:text-sky-300 border-sky-300 dark:border-sky-700 shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-                    <span>Welcome Song</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setEditingSong({
-                        ...editingSong,
-                        isClosingSong: !editingSong.isClosingSong,
-                      })
-                    }
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
-                      editingSong.isClosingSong
-                        ? 'bg-indigo-100 dark:bg-indigo-950/90 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 shadow-xs'
-                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>Closing Song</span>
-                  </button>
-                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">

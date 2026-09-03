@@ -27,6 +27,7 @@ export interface Song {
   title: string;
   artist?: string;
   category?: string;
+  categories?: string[];
   lyrics: string;
   minusOneLink?: string;
   attachments?: SongAttachment[];
