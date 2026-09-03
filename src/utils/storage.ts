@@ -11,6 +11,7 @@ import {
   ChoirEntry,
 } from '../types';
 import { getNextSundayStr } from './dateUtils';
+import { isKnownHymnTitle } from './hymnCatalog';
 
 const STORAGE_KEYS = {
   USERS: 'nlbc_users_v1',
@@ -207,6 +208,8 @@ Then sings my soul, my Savior God, to Thee
 How great Thou art, how great Thou art!
 Then sings my soul, my Savior God, to Thee
 How great Thou art, how great Thou art!`,
+    category: 'Hymn',
+    categories: ['Hymn'],
     updatedAt: '2026-08-16',
   },
   {
@@ -429,7 +432,32 @@ export function loadSongs(): Song[] {
     if (!raw) {
       return [];
     }
-    return JSON.parse(raw);
+    const parsed: Song[] = JSON.parse(raw);
+    let modified = false;
+    const enriched = parsed.map((s) => {
+      if (isKnownHymnTitle(s.title)) {
+        const currentCats = Array.isArray(s.categories)
+          ? s.categories
+          : s.category
+          ? s.category.split(',').map((c) => c.trim()).filter(Boolean)
+          : [];
+        if (!currentCats.includes('Hymn')) {
+          modified = true;
+          const nextCats = [...currentCats, 'Hymn'];
+          return {
+            ...s,
+            categories: nextCats,
+            category: nextCats.join(', '),
+          };
+        }
+      }
+      return s;
+    });
+
+    if (modified) {
+      saveSongs(enriched);
+    }
+    return enriched;
   } catch {
     return [];
   }
