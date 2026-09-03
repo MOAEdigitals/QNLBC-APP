@@ -955,27 +955,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 {/* IN-LINE EXPANDED VIEW (When clicked directly in place!) */}
                 {isSelected && (
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
-                    {/* Action Bar (With Set Category, Stage Font, and 3-dot menu) */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                    {/* Action Bar (With Set Category, Stage Font, and 3-dot menu at the far right) */}
+                    <div className="flex items-center justify-between gap-2 pt-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          onClick={() => handleCopySong(song)}
-                          className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                          title="Copy Title and Lyrics"
-                        >
-                          {copiedSongId === song.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-
                         <button
                           onClick={() => {
                             setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');
@@ -1000,30 +982,16 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           <span>{largeFontMode ? 'Standard Font' : 'Stage Font'}</span>
                         </button>
 
-                        {/* Set Category Button inside extended container next to Stage Font */}
+                        {/* Subtle Category Button next to Stage Font (maintains subtle dashed look regardless of selection) */}
                         <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => setCategoryPickerSongId(categoryPickerSongId === song.id ? null : song.id)}
-                            className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                              song.category
-                                ? song.category === 'Hymn'
-                                  ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
-                                  : song.category === 'Special'
-                                  ? 'bg-purple-50 dark:bg-purple-950/50 border-purple-300 dark:border-purple-800 text-purple-800 dark:text-purple-300'
-                                  : song.category === 'Contemporary'
-                                  ? 'bg-cyan-50 dark:bg-cyan-950/50 border-cyan-300 dark:border-cyan-800 text-cyan-800 dark:text-cyan-300'
-                                  : song.category === 'Choir'
-                                  ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-300 dark:border-indigo-800 text-indigo-800 dark:text-indigo-300'
-                                  : song.category === 'Tagalog'
-                                  ? 'bg-amber-50 dark:bg-amber-950/50 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300'
-                                  : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200'
-                                : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            }`}
+                            className="px-3 py-1.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                             title="Set or change song category"
                           >
-                            <Tag className="w-3.5 h-3.5" />
-                            <span>{song.category ? `Category: ${song.category}` : 'Set Category'}</span>
+                            <Tag className="w-3.5 h-3.5 opacity-70" />
+                            <span>{song.category ? `Category: ${song.category}` : '+ Category'}</span>
                             <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
                           </button>
 
@@ -1086,8 +1054,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                         </div>
                       </div>
 
-                      {/* 3-Dot Menu Button (Contains Mark as Welcome, Mark as Closing, Edit, Delete) */}
-                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                      {/* 3-Dot Menu Button (Anchored at the far right) */}
+                      <div className="relative shrink-0 ml-auto self-start" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => setOpenMenuSongId(isMenuOpen ? null : song.id)}
