@@ -35,6 +35,7 @@ import {
   Loader2,
   Tag,
   Filter,
+  StickyNote,
 } from 'lucide-react';
 import {
   searchSong,
@@ -175,6 +176,45 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expandedItemRef = useRef<HTMLDivElement>(null);
 
+  // Quick Song Scratchpad / Notepad state (persists instantly to localStorage)
+  const [isNotepadOpen, setIsNotepadOpen] = useState(false);
+  const [notepadText, setNotepadText] = useState<string>(() => {
+    try {
+      return localStorage.getItem('nlbc_song_notepad_notes') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [notepadCopied, setNotepadCopied] = useState(false);
+
+  const handleNotepadChange = (newText: string) => {
+    setNotepadText(newText);
+    try {
+      localStorage.setItem('nlbc_song_notepad_notes', newText);
+    } catch {}
+  };
+
+  const handleCopyNotepad = () => {
+    if (!notepadText.trim()) return;
+    navigator.clipboard.writeText(notepadText);
+    setNotepadCopied(true);
+    setTimeout(() => setNotepadCopied(false), 2000);
+  };
+
+  const handleClearNotepad = () => {
+    if (!notepadText.trim()) return;
+    if (window.confirm('Clear all notes in the scratchpad?')) {
+      handleNotepadChange('');
+    }
+  };
+
+  const notepadLineCount = useMemo(() => {
+    return notepadText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean).length;
+  }, [notepadText]);
+
   // Close 3-dot menus and category picker when clicking outside
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -192,6 +232,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
 
+      if (isNotepadOpen) {
+        setIsNotepadOpen(false);
+        return;
+      }
       if (isEditing) {
         setIsEditing(false);
         setEditingSong(null);
@@ -219,11 +263,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       // Step 2: Pressing once more after that scrolls back to the top of the song list
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
+  }, [collapseSignal, isNotepadOpen, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
 
   // Back swipe / popstate listener to collapse container
   useEffect(() => {
     const handlePopState = () => {
+      if (isNotepadOpen) {
+        setIsNotepadOpen(false);
+        return;
+      }
       if (isEditing) {
         setIsEditing(false);
         setEditingSong(null);
@@ -247,7 +295,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
+  }, [isNotepadOpen, isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
 
   useEffect(() => {
     if (initialSelectedSongId) {
@@ -630,13 +678,35 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   return (
     <div className="space-y-5">
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Music className="w-5 h-5 text-slate-800 dark:text-slate-200" />
             <span>Shared Song Library</span>
           </h2>
         </div>
+
+        {/* Quick Notepad Button */}
+        <button
+          type="button"
+          onClick={() => setIsNotepadOpen(true)}
+          className={`group flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-semibold cursor-pointer select-none ${
+            notepadLineCount > 0
+              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/80 hover:bg-amber-100 dark:hover:bg-amber-950/60 shadow-xs'
+              : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+          title="Quick Song Notepad - Auto-saving scratchpad for song titles"
+          aria-label="Open Song Notepad"
+        >
+          <StickyNote className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
+          <span className="hidden sm:inline">Song Notepad</span>
+          <span className="sm:hidden">Notes</span>
+          {notepadLineCount > 0 && (
+            <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1.5 text-[10px] font-bold rounded-full bg-amber-500 text-white leading-none">
+              {notepadLineCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {addedNotice && (
@@ -1829,6 +1899,109 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           </div>
         </div>
       )}
+      {/* Song Notepad Modal (Windows Notepad style - clean, instant auto-save) */}
+      {isNotepadOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+          onClick={() => setIsNotepadOpen(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 dark:bg-amber-950/80 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <StickyNote className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                      Song Scratchpad
+                    </h3>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 flex items-center gap-1 shrink-0">
+                      <Check className="w-3 h-3 stroke-[2.5]" />
+                      <span>Autosaved</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    Quickly jot song titles to add to the library later
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {notepadText.trim() && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleCopyNotepad}
+                      className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title={notepadCopied ? 'Copied to clipboard!' : 'Copy all notes'}
+                      aria-label="Copy all notes"
+                    >
+                      {notepadCopied ? (
+                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearNotepad}
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                      title="Clear scratchpad"
+                      aria-label="Clear scratchpad"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsNotepadOpen(false)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Close (saves automatically)"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Notepad Text Area */}
+            <div className="flex-1 flex flex-col p-4 sm:p-5 overflow-hidden">
+              <textarea
+                value={notepadText}
+                onChange={(e) => handleNotepadChange(e.target.value)}
+                autoFocus
+                placeholder={"Type or paste song titles here (one per line)...\n\ne.g.\nGoodness of God (Key of C)\nLiving Hope\nLord I Need You\nKing of Kings"}
+                className="w-full h-64 sm:h-80 bg-transparent text-sm sm:text-base text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 resize-none focus:outline-none leading-relaxed font-sans"
+              />
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 sm:px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {notepadLineCount} {notepadLineCount === 1 ? 'title / line' : 'titles / lines'}
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <span className="text-[11px] text-slate-400 hidden sm:inline">Never lose notes on close</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNotepadOpen(false)}
+                className="px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Action Button (FAB) - Add Song to Library */}
       <button
         type="button"
