@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore } from 'firebase/firestore';
+import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -17,18 +17,10 @@ export const storage = getStorage(
   (firebaseConfig as any).storageBucket || undefined
 );
 
-// Initialize Firestore with custom database ID and force long polling for web/proxy/iframe environments
+// Initialize Firestore with custom database ID according to the Firebase Integration Skill specification
 const customDbId = (firebaseConfig as any).firestoreDatabaseId;
 export const db = customDbId
-  ? initializeFirestore(
-      firebaseApp,
-      {
-        experimentalForceLongPolling: true,
-      },
-      customDbId
-    )
-  : initializeFirestore(firebaseApp, {
-      experimentalForceLongPolling: true,
-    });
+  ? getFirestore(firebaseApp, customDbId)
+  : getFirestore(firebaseApp);
 
 

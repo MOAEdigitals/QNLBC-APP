@@ -10,7 +10,7 @@ import {
   query,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import firebaseConfig from '../firebase-applet-config.json';
 import {
   Setlist,
@@ -435,7 +435,33 @@ export function handleFirestoreError(
     rawMsg.includes('offline') ||
     rawMsg.includes('Could not reach Cloud Firestore backend');
 
+  const isPermissionDenied =
+    rawMsg.includes('permission-denied') ||
+    rawMsg.includes('Missing or insufficient permissions');
+
   lastErrorMessage = rawMsg;
+
+  if (isPermissionDenied) {
+    const errInfo: FirestoreErrorInfo = {
+      error: rawMsg,
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+        emailVerified: auth.currentUser?.emailVerified,
+        isAnonymous: auth.currentUser?.isAnonymous,
+        tenantId: auth.currentUser?.tenantId,
+        providerInfo:
+          auth.currentUser?.providerData?.map((provider) => ({
+            providerId: provider.providerId,
+            email: provider.email,
+          })) || [],
+      },
+      operationType,
+      path,
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+    throw new Error(JSON.stringify(errInfo));
+  }
 
   if (isQuota) {
     isQuotaExhausted = true;
