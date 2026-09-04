@@ -178,6 +178,91 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
 
+  // Section collapse/expand state for edit forms
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (sectionKey: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }));
+  };
+
+  const getSectionStatus = (
+    sectionKey: string,
+    setlist: Partial<Setlist> | null
+  ): { isComplete: boolean; summary: string } => {
+    if (!setlist) return { isComplete: false, summary: '' };
+
+    if (sectionKey === 'general_flow') {
+      const isSunday = !setlist.type || setlist.type === 'sunday';
+      const isPrayer = setlist.type === 'prayer_meeting';
+
+      if (isPrayer) {
+        const hasDate = !!setlist.date;
+        const hasTitle = !!setlist.title?.trim();
+        const isComplete = hasDate && hasTitle;
+        const summary = `${setlist.title || 'Prayer Meeting'} • ${setlist.date ? formatDateStr(setlist.date) : 'No date'}`;
+        return { isComplete, summary };
+      }
+
+      const hasDate = !!setlist.date;
+      const hasPresider = !!setlist.presider?.trim();
+      const hasWelcome = !!setlist.welcomeSong?.trim();
+      const hasClosing = !!setlist.closingSong?.trim();
+      const hasTheme = isSunday ? !!setlist.themeSong?.trim() : true;
+
+      const flowSongsCount =
+        (hasWelcome ? 1 : 0) + (hasClosing ? 1 : 0) + (isSunday && hasTheme ? 1 : 0);
+      const summary = `${setlist.presider ? `Presider: ${setlist.presider}` : 'No presider set'} • ${flowSongsCount} flow ${flowSongsCount === 1 ? 'song' : 'songs'}`;
+      const isComplete = hasDate && hasPresider && hasWelcome && hasClosing && hasTheme;
+      return { isComplete, summary };
+    }
+
+    if (sectionKey === 'sunday_school') {
+      const leader = setlist.sundaySchool?.songLeader?.trim() || '';
+      const songs = (setlist.sundaySchool?.songs || []).filter((s) => s.title?.trim());
+      const isComplete = !!leader && songs.length >= 2;
+      const summary = `Sunday School — Leader: ${leader || 'Not set'}, ${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`;
+      return { isComplete, summary };
+    }
+
+    if (sectionKey === 'worship_service') {
+      const leader = setlist.worshipService?.songLeader?.trim() || '';
+      const songs = (setlist.worshipService?.songs || []).filter((s) => s.title?.trim());
+      const isComplete = !!leader && songs.length >= 2;
+      const summary = `Worship Service — Leader: ${leader || 'Not set'}, ${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`;
+      return { isComplete, summary };
+    }
+
+    if (sectionKey === 'program') {
+      const leader = setlist.program?.songLeader?.trim() || '';
+      const songs = (setlist.program?.songs || []).filter((s) => s.title?.trim());
+      const isComplete = !!leader && songs.length >= 1;
+      const label =
+        setlist.type === 'prayer_meeting'
+          ? 'Prayer Meeting'
+          : setlist.type === 'fellowship'
+          ? 'Fellowship'
+          : 'Event';
+      const summary = `${label} — Leader: ${leader || 'Not set'}, ${songs.length} ${songs.length === 1 ? 'song' : 'songs'}`;
+      return { isComplete, summary };
+    }
+
+    if (sectionKey === 'notes') {
+      const notes = setlist.generalNotes?.trim() || '';
+      const isComplete = notes.length > 0;
+      const summary = notes
+        ? notes.length > 40
+          ? `${notes.slice(0, 40)}...`
+          : notes
+        : 'No announcements or notes';
+      return { isComplete, summary };
+    }
+
+    return { isComplete: false, summary: '' };
+  };
+
   // Scroll anchor reference for keeping tapped setlist card pinned in place on screen
   const scrollAnchorRef = useRef<{
     setlistId: string;
@@ -509,6 +594,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     setEditPromptMsg(null);
     backSwipeCountRef.current = 0;
     setShowTypeSelector(false);
+    setExpandedSections({
+      general_flow: !getSectionStatus('general_flow', initialData).isComplete,
+      sunday_school: !getSectionStatus('sunday_school', initialData).isComplete,
+      worship_service: !getSectionStatus('worship_service', initialData).isComplete,
+      notes: false,
+    });
     window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
   };
 
@@ -586,6 +677,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     setEditPromptMsg(null);
     backSwipeCountRef.current = 0;
     setShowTypeSelector(false);
+    setExpandedSections({
+      general_flow: !getSectionStatus('general_flow', initialData).isComplete,
+      program: !getSectionStatus('program', initialData).isComplete,
+      notes: false,
+    });
     window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
   };
 
@@ -597,6 +693,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     setIsEditing(true);
     setEditPromptMsg(null);
     backSwipeCountRef.current = 0;
+    setExpandedSections({
+      general_flow: !getSectionStatus('general_flow', cloned).isComplete,
+      sunday_school: !getSectionStatus('sunday_school', cloned).isComplete,
+      worship_service: !getSectionStatus('worship_service', cloned).isComplete,
+      program: !getSectionStatus('program', cloned).isComplete,
+      notes: false,
+    });
     window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
   };
 
@@ -1334,13 +1437,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         )}
       </div>
 
-      {/* Create / Edit Form Modal */}
+      {/* Create / Edit Form View: Full-screen on mobile, centered modal on desktop */}
       {isEditing && editingSetlist && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-100 dark:bg-slate-950 sm:bg-black/60 sm:backdrop-blur-sm sm:flex sm:items-center sm:justify-center sm:p-4 sm:overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 w-full sm:max-w-2xl min-h-screen sm:min-h-0 sm:max-h-[90vh] sm:rounded-2xl border-0 sm:border border-slate-200 dark:border-slate-800 shadow-none sm:shadow-2xl flex flex-col my-0 sm:my-4 overflow-hidden">
+            {/* Sticky Header */}
+            <div className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 sm:px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 <span>
                   {editingSetlist.type === 'prayer_meeting'
                     ? 'Edit Prayer Meeting Program'
@@ -1358,7 +1462,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   setEditingSetlist(null);
                   setEditPromptMsg(null);
                 }}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                title="Close form"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1367,7 +1472,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             {/* Back swipe warning toast/banner */}
             {editPromptMsg && (
               <div
-                className={`mx-4 sm:mx-5 mt-4 p-3 rounded-xl border flex items-center gap-2 text-xs font-semibold ${
+                className={`mx-4 sm:mx-5 mt-3 p-3 rounded-xl border flex items-center gap-2 text-xs font-semibold shrink-0 ${
                   editPromptMsg.type === 'warn'
                     ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300'
                     : 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900 text-indigo-800 dark:text-indigo-300'
@@ -1382,504 +1487,702 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
-              {/* Date & Title */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Scheduled Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={editingSetlist.date || ''}
-                    onChange={(e) => {
-                      const newDate = e.target.value;
-                      setEditingSetlist({
-                        ...editingSetlist,
-                        date: newDate,
-                      });
-                    }}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
-                  />
-                </div>
+            <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-3.5 flex-1 overflow-y-auto">
+              {/* SECTION 1: SERVICE FLOW & GENERAL DETAILS */}
+              {(() => {
+                const status = getSectionStatus('general_flow', editingSetlist);
+                const isOpen = !!expandedSections.general_flow;
 
-                {editingSetlist.type === 'event' || editingSetlist.type === 'fellowship' || editingSetlist.type === 'prayer_meeting' ? (
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                      {editingSetlist.type === 'event'
-                        ? 'Event Title *'
-                        : editingSetlist.type === 'fellowship'
-                        ? 'Fellowship Group Name *'
-                        : 'Prayer Meeting Title'}
-                    </label>
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      autoCorrect="on"
-                      autoCapitalize="sentences"
-                      spellCheck={true}
-                      required={editingSetlist.type === 'event' || editingSetlist.type === 'fellowship'}
-                      value={editingSetlist.title || ''}
-                      onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
-                      placeholder={
-                        editingSetlist.type === 'event'
-                          ? 'Enter event title'
-                          : editingSetlist.type === 'fellowship'
-                          ? 'Enter fellowship title'
-                          : 'Enter setlist title'
-                      }
-                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex flex-col justify-end">
-                    {!showCustomTitle && !editingSetlist.title ? (
-                      <div className="py-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setShowCustomTitle(true)}
-                          className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Custom Setlist Title</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                            SETLIST TITLE
-                          </label>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setShowCustomTitle(false);
-                              setEditingSetlist({ ...editingSetlist, title: undefined });
-                            }}
-                            className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
-                          >
-                            Remove custom title
-                          </button>
+                return (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('general_flow')}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/90 transition-colors cursor-pointer select-none"
+                    >
+                      <div className="min-w-0 pr-3 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                            Service Flow
+                          </h4>
+                          {status.isComplete ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <Check className="w-3 h-3" />
+                              <span>Complete</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-400">
+                              Incomplete
+                            </span>
+                          )}
                         </div>
-                        <input
-                          type="text"
-                          autoComplete="off"
-                          autoCorrect="on"
-                          autoCapitalize="sentences"
-                          spellCheck={true}
-                          value={editingSetlist.title || ''}
-                          onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
-                          placeholder="Enter setlist title"
-                          className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
+                        {!isOpen && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                            {status.summary}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 space-y-3.5">
+                        {/* Date & Title */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                              Scheduled Date *
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={editingSetlist.date || ''}
+                              onChange={(e) => {
+                                const newDate = e.target.value;
+                                setEditingSetlist({
+                                  ...editingSetlist,
+                                  date: newDate,
+                                });
+                              }}
+                              className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
+                            />
+                          </div>
+
+                          {editingSetlist.type === 'event' || editingSetlist.type === 'fellowship' || editingSetlist.type === 'prayer_meeting' ? (
+                            <div>
+                              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                                {editingSetlist.type === 'event'
+                                  ? 'Event Title *'
+                                  : editingSetlist.type === 'fellowship'
+                                  ? 'Fellowship Group Name *'
+                                  : 'Prayer Meeting Title'}
+                              </label>
+                              <input
+                                type="text"
+                                autoComplete="off"
+                                autoCorrect="on"
+                                autoCapitalize="sentences"
+                                spellCheck={true}
+                                required={editingSetlist.type === 'event' || editingSetlist.type === 'fellowship'}
+                                value={editingSetlist.title || ''}
+                                onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
+                                placeholder={
+                                  editingSetlist.type === 'event'
+                                    ? 'Enter event title'
+                                    : editingSetlist.type === 'fellowship'
+                                    ? 'Enter fellowship title'
+                                    : 'Enter setlist title'
+                                }
+                                className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
+                              />
+                            </div>
+                          ) : (
+                            <div className="flex flex-col justify-end">
+                              {!showCustomTitle && !editingSetlist.title ? (
+                                <div className="py-2.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowCustomTitle(true)}
+                                    className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white underline inline-flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>Custom Setlist Title</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                                      SETLIST TITLE
+                                    </label>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setShowCustomTitle(false);
+                                        setEditingSetlist({ ...editingSetlist, title: undefined });
+                                      }}
+                                      className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 underline cursor-pointer"
+                                    >
+                                      Remove custom title
+                                    </button>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    autoComplete="off"
+                                    autoCorrect="on"
+                                    autoCapitalize="sentences"
+                                    spellCheck={true}
+                                    value={editingSetlist.title || ''}
+                                    onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
+                                    placeholder="Enter setlist title"
+                                    className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm"
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Presider */}
+                        {editingSetlist.type !== 'prayer_meeting' && (
+                          <div>
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                              Presider
+                            </label>
+                            <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                              <AutofillInput
+                                value={editingSetlist.presider || ''}
+                                onChange={(val) => setEditingSetlist({ ...editingSetlist, presider: val })}
+                                suggestions={directoryNames}
+                                placeholder="Enter presider's name"
+                                inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Welcome Song & Closing Song & Theme Song */}
+                        {editingSetlist.type !== 'prayer_meeting' && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                            {/* Welcome Song Selection */}
+                            <div>
+                              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                                Welcome Song
+                              </label>
+                              <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                                <AutofillInput
+                                  value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
+                                  onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
+                                  suggestions={markedWelcomeSongs}
+                                  allSuggestions={songTitleSuggestions}
+                                  defaultValue="Napakaligaya"
+                                  songs={songs}
+                                  setlists={setlists}
+                                  showLastSung={false}
+                                  placeholder="Search or select welcome song..."
+                                  inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Closing Song Selection */}
+                            <div>
+                              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                                Closing Song
+                              </label>
+                              <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                                <AutofillInput
+                                  value={editingSetlist.closingSong ?? 'Give Thanks'}
+                                  onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
+                                  suggestions={markedClosingSongs}
+                                  allSuggestions={songTitleSuggestions}
+                                  defaultValue="Give Thanks"
+                                  songs={songs}
+                                  setlists={setlists}
+                                  showLastSung={false}
+                                  placeholder="Search or select closing song..."
+                                  inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Theme Song (Sunday Setlist) */}
+                            {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
+                              <div className="sm:col-span-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1">
+                                  <Sparkles className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Theme Song</span>
+                                </label>
+                                <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                                  <AutofillInput
+                                    value={editingSetlist.themeSong || ''}
+                                    onChange={(val) => setEditingSetlist({ ...editingSetlist, themeSong: val })}
+                                    suggestions={markedThemeSongs}
+                                    allSuggestions={songTitleSuggestions}
+                                    songs={songs}
+                                    setlists={setlists}
+                                    showLastSung={false}
+                                    placeholder="Search or select theme song..."
+                                    inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* SECTION 2: SUNDAY SCHOOL (Sunday Setlist) */}
+              {(!editingSetlist.type || editingSetlist.type === 'sunday') && (() => {
+                const status = getSectionStatus('sunday_school', editingSetlist);
+                const isOpen = !!expandedSections.sunday_school;
+
+                return (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('sunday_school')}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/90 transition-colors cursor-pointer select-none"
+                    >
+                      <div className="min-w-0 pr-3 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                            Sunday School
+                          </h4>
+                          {status.isComplete ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <Check className="w-3 h-3" />
+                              <span>Complete</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-400">
+                              Incomplete
+                            </span>
+                          )}
+                        </div>
+                        {!isOpen && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                            {status.summary}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 space-y-3.5">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Sunday School Song Leader
+                          </label>
+                          <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                            <AutofillInput
+                              value={editingSetlist.sundaySchool?.songLeader || ''}
+                              onChange={(val) =>
+                                setEditingSetlist({
+                                  ...editingSetlist,
+                                  sundaySchool: {
+                                    ...editingSetlist.sundaySchool!,
+                                    songLeader: val,
+                                    songs: editingSetlist.sundaySchool?.songs || [],
+                                  },
+                                })
+                              }
+                              suggestions={directoryNames}
+                              placeholder="Enter Sunday School song leader"
+                              inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Compact Stacked Song Fields with Numbers Right Before */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                              Songs:
+                            </span>
+                            {(editingSetlist.sundaySchool?.songs?.length || 0) < 3 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const curr = editingSetlist.sundaySchool?.songs || [];
+                                  setEditingSetlist({
+                                    ...editingSetlist,
+                                    sundaySchool: {
+                                      ...editingSetlist.sundaySchool!,
+                                      songs: [...curr, { id: `ss-${Date.now()}`, title: '' }],
+                                    },
+                                  });
+                                }}
+                                className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Song</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {(editingSetlist.sundaySchool?.songs || []).map((s, idx) => (
+                            <div key={s.id || idx} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
+                                {idx + 1}.
+                              </span>
+                              <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                                <AutofillInput
+                                  value={s.title}
+                                  onChange={(val) => handleUpdateSongSlot('sundaySchool', idx, val)}
+                                  suggestions={songTitleSuggestions}
+                                  songs={songs}
+                                  setlists={setlists}
+                                  placeholder="Search or select song..."
+                                  inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                                />
+                              </div>
+
+                              {(editingSetlist.sundaySchool?.songs?.length || 0) > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSetlist.sundaySchool?.songs || []).filter((_, i) => i !== idx);
+                                    setEditingSetlist({
+                                      ...editingSetlist,
+                                      sundaySchool: { ...editingSetlist.sundaySchool!, songs: updated },
+                                    });
+                                  }}
+                                  className="p-2 text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
+                                  title="Delete song"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* SECTION 3: WORSHIP SERVICE (Sunday Setlist) */}
+              {(!editingSetlist.type || editingSetlist.type === 'sunday') && (() => {
+                const status = getSectionStatus('worship_service', editingSetlist);
+                const isOpen = !!expandedSections.worship_service;
+
+                return (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('worship_service')}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/90 transition-colors cursor-pointer select-none"
+                    >
+                      <div className="min-w-0 pr-3 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                            Worship Service
+                          </h4>
+                          {status.isComplete ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <Check className="w-3 h-3" />
+                              <span>Complete</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-400">
+                              Incomplete
+                            </span>
+                          )}
+                        </div>
+                        {!isOpen && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                            {status.summary}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 space-y-3.5">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Worship Service Song Leader
+                          </label>
+                          <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                            <AutofillInput
+                              value={editingSetlist.worshipService?.songLeader || ''}
+                              onChange={(val) =>
+                                setEditingSetlist({
+                                  ...editingSetlist,
+                                  worshipService: {
+                                    ...editingSetlist.worshipService!,
+                                    songLeader: val,
+                                    songs: editingSetlist.worshipService?.songs || [],
+                                  },
+                                })
+                              }
+                              suggestions={directoryNames}
+                              placeholder="Enter Worship song leader"
+                              inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Compact Stacked Song Fields with Numbers Right Before */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                              Songs:
+                            </span>
+                            {(editingSetlist.worshipService?.songs?.length || 0) < 4 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const curr = editingSetlist.worshipService?.songs || [];
+                                  setEditingSetlist({
+                                    ...editingSetlist,
+                                    worshipService: {
+                                      ...editingSetlist.worshipService!,
+                                      songs: [...curr, { id: `ws-${Date.now()}`, title: '' }],
+                                    },
+                                  });
+                                }}
+                                className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Song</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {(editingSetlist.worshipService?.songs || []).map((s, idx) => (
+                            <div key={s.id || idx} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
+                                {idx + 1}.
+                              </span>
+                              <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                                <AutofillInput
+                                  value={s.title}
+                                  onChange={(val) => handleUpdateSongSlot('worshipService', idx, val)}
+                                  suggestions={songTitleSuggestions}
+                                  songs={songs}
+                                  setlists={setlists}
+                                  placeholder="Search or select song..."
+                                  inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                                />
+                              </div>
+
+                              {(editingSetlist.worshipService?.songs?.length || 0) > 2 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSetlist.worshipService?.songs || []).filter((_, i) => i !== idx);
+                                    setEditingSetlist({
+                                      ...editingSetlist,
+                                      worshipService: { ...editingSetlist.worshipService!, songs: updated },
+                                    });
+                                  }}
+                                  className="p-2 text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
+                                  title="Delete song"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* SECTION 2 (Non-Sunday): PROGRAM SONGS (Prayer Meeting, Fellowship, Event) */}
+              {editingSetlist.type && editingSetlist.type !== 'sunday' && (() => {
+                const status = getSectionStatus('program', editingSetlist);
+                const isOpen = !!expandedSections.program;
+                const sectionTitle =
+                  editingSetlist.type === 'prayer_meeting'
+                    ? 'Prayer Meeting Songs'
+                    : editingSetlist.type === 'fellowship'
+                    ? 'Fellowship Songs'
+                    : 'Event Songs';
+
+                return (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('program')}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/90 transition-colors cursor-pointer select-none"
+                    >
+                      <div className="min-w-0 pr-3 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                            {sectionTitle}
+                          </h4>
+                          {status.isComplete ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <Check className="w-3 h-3" />
+                              <span>Complete</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-400">
+                              Incomplete
+                            </span>
+                          )}
+                        </div>
+                        {!isOpen && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                            {status.summary}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 space-y-3.5">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                            Song Leader
+                          </label>
+                          <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                            <AutofillInput
+                              value={editingSetlist.program?.songLeader || ''}
+                              onChange={(val) =>
+                                setEditingSetlist({
+                                  ...editingSetlist,
+                                  program: {
+                                    ...editingSetlist.program!,
+                                    songLeader: val,
+                                    songs: editingSetlist.program?.songs || [],
+                                  },
+                                })
+                              }
+                              suggestions={directoryNames}
+                              placeholder="Enter song leader's name"
+                              inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Compact Stacked Song Fields with Numbers Right Before */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                              Songs:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const curr = editingSetlist.program?.songs || [];
+                                setEditingSetlist({
+                                  ...editingSetlist,
+                                  program: {
+                                    ...editingSetlist.program!,
+                                    songs: [...curr, { id: `prog-${Date.now()}`, title: '' }],
+                                  },
+                                });
+                              }}
+                              className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Song</span>
+                            </button>
+                          </div>
+
+                          {(editingSetlist.program?.songs || []).map((s, idx) => (
+                            <div key={s.id || idx} className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
+                                {idx + 1}.
+                              </span>
+                              <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
+                                <AutofillInput
+                                  value={s.title}
+                                  onChange={(val) => handleUpdateSongSlot('program', idx, val)}
+                                  suggestions={songTitleSuggestions}
+                                  songs={songs}
+                                  setlists={setlists}
+                                  placeholder="Search or select song..."
+                                  inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
+                                />
+                              </div>
+
+                              {(editingSetlist.program?.songs?.length || 0) > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = (editingSetlist.program?.songs || []).filter((_, i) => i !== idx);
+                                    setEditingSetlist({
+                                      ...editingSetlist,
+                                      program: { ...editingSetlist.program!, songs: updated },
+                                    });
+                                  }}
+                                  className="p-2 text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
+                                  title="Delete song"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* SECTION 4: GENERAL ANNOUNCEMENTS & NOTES */}
+              {(() => {
+                const status = getSectionStatus('notes', editingSetlist);
+                const isOpen = !!expandedSections.notes;
+
+                return (
+                  <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection('notes')}
+                      className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/90 transition-colors cursor-pointer select-none"
+                    >
+                      <div className="min-w-0 pr-3 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                            Announcements & Notes
+                          </h4>
+                          {status.isComplete ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                              <Check className="w-3 h-3" />
+                              <span>Added</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-200/80 dark:bg-slate-700/80 text-slate-600 dark:text-slate-400">
+                              Optional
+                            </span>
+                          )}
+                        </div>
+                        {!isOpen && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-1">
+                            {status.summary}
+                          </p>
+                        )}
+                      </div>
+                      <div className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </div>
+                    </button>
+
+                    {isOpen && (
+                      <div className="p-4 pt-3 border-t border-slate-200/80 dark:border-slate-700/80 space-y-2">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          General Program Announcements & Reminders
+                        </label>
+                        <textarea
+                          rows={3}
+                          value={editingSetlist.generalNotes || ''}
+                          onChange={(e) => setEditingSetlist({ ...editingSetlist, generalNotes: e.target.value })}
+                          placeholder="Announcements, reminders, or program notes..."
+                          className="w-full p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs"
                         />
                       </div>
                     )}
                   </div>
-                )}
-              </div>
+                );
+              })()}
 
-              {/* Presider */}
-              {editingSetlist.type !== 'prayer_meeting' && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Presider
-                  </label>
-                  <div className="p-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
-                    <AutofillInput
-                      value={editingSetlist.presider || ''}
-                      onChange={(val) => setEditingSetlist({ ...editingSetlist, presider: val })}
-                      suggestions={directoryNames}
-                      placeholder="Enter presider's name"
-                      inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Welcome Song & Closing Song & Theme Song */}
-              {editingSetlist.type !== 'prayer_meeting' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  {/* Welcome Song Selection */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Welcome Song
-                      </label>
-                    </div>
-
-                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
-                      <AutofillInput
-                        value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
-                        onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
-                        suggestions={markedWelcomeSongs}
-                        allSuggestions={songTitleSuggestions}
-                        defaultValue="Napakaligaya"
-                        songs={songs}
-                        setlists={setlists}
-                        showLastSung={false}
-                        placeholder="Type or select welcome song..."
-                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Closing Song Selection */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Closing Song
-                      </label>
-                    </div>
-
-                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
-                      <AutofillInput
-                        value={editingSetlist.closingSong ?? 'Give Thanks'}
-                        onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
-                        suggestions={markedClosingSongs}
-                        allSuggestions={songTitleSuggestions}
-                        defaultValue="Give Thanks"
-                        songs={songs}
-                        setlists={setlists}
-                        showLastSung={false}
-                        placeholder="Type or select closing song..."
-                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Theme Song (Sunday Setlist) */}
-                  {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
-                    <div className="sm:col-span-2 pt-1 border-t border-slate-200 dark:border-slate-700">
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                          <Sparkles className="w-3.5 h-3.5 text-slate-400" />
-                          <span>Theme Song</span>
-                        </label>
-                      </div>
-                      <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                        <AutofillInput
-                          value={editingSetlist.themeSong || ''}
-                          onChange={(val) => setEditingSetlist({ ...editingSetlist, themeSong: val })}
-                          suggestions={markedThemeSongs}
-                          allSuggestions={songTitleSuggestions}
-                          songs={songs}
-                          setlists={setlists}
-                          showLastSung={false}
-                          placeholder="Type or select theme song..."
-                          inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Sunday School & Worship Service Forms (Sunday Setlist) */}
-              {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
-                <>
-                  {/* Sunday School Section */}
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                    <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                      Sunday School
-                    </h4>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Sunday School Song Leader
-                      </label>
-                      <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                        <AutofillInput
-                          value={editingSetlist.sundaySchool?.songLeader || ''}
-                          onChange={(val) =>
-                            setEditingSetlist({
-                              ...editingSetlist,
-                              sundaySchool: {
-                                ...editingSetlist.sundaySchool!,
-                                songLeader: val,
-                                songs: editingSetlist.sundaySchool?.songs || [],
-                              },
-                            })
-                          }
-                          suggestions={directoryNames}
-                          placeholder="Enter Sunday School song leader"
-                          inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Compact Stacked Song Fields with Numbers Right Before */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                          Songs:
-                        </span>
-                        {(editingSetlist.sundaySchool?.songs?.length || 0) < 3 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = editingSetlist.sundaySchool?.songs || [];
-                              setEditingSetlist({
-                                ...editingSetlist,
-                                sundaySchool: {
-                                  ...editingSetlist.sundaySchool!,
-                                  songs: [...curr, { id: `ss-${Date.now()}`, title: '' }],
-                                },
-                              });
-                            }}
-                            className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Song</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {(editingSetlist.sundaySchool?.songs || []).map((s, idx) => (
-                        <div key={s.id || idx} className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
-                            {idx + 1}.
-                          </span>
-                          <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                            <AutofillInput
-                              value={s.title}
-                              onChange={(val) => handleUpdateSongSlot('sundaySchool', idx, val)}
-                              suggestions={songTitleSuggestions}
-                              songs={songs}
-                              setlists={setlists}
-                              placeholder="Song Title"
-                              inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                            />
-                          </div>
-
-                          {(editingSetlist.sundaySchool?.songs?.length || 0) > 2 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (editingSetlist.sundaySchool?.songs || []).filter((_, i) => i !== idx);
-                                setEditingSetlist({
-                                  ...editingSetlist,
-                                  sundaySchool: { ...editingSetlist.sundaySchool!, songs: updated },
-                                });
-                              }}
-                              className="p-2 text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
-                              title="Delete song"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Worship Service Section */}
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                    <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      Worship Service
-                    </h4>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                        Worship Service Song Leader
-                      </label>
-                      <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                        <AutofillInput
-                          value={editingSetlist.worshipService?.songLeader || ''}
-                          onChange={(val) =>
-                            setEditingSetlist({
-                              ...editingSetlist,
-                              worshipService: {
-                                ...editingSetlist.worshipService!,
-                                songLeader: val,
-                                songs: editingSetlist.worshipService?.songs || [],
-                              },
-                            })
-                          }
-                          suggestions={directoryNames}
-                          placeholder="Enter Worship song leader"
-                          inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Compact Stacked Song Fields with Numbers Right Before */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                          Songs:
-                        </span>
-                        {(editingSetlist.worshipService?.songs?.length || 0) < 4 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const curr = editingSetlist.worshipService?.songs || [];
-                              setEditingSetlist({
-                                ...editingSetlist,
-                                worshipService: {
-                                  ...editingSetlist.worshipService!,
-                                  songs: [...curr, { id: `ws-${Date.now()}`, title: '' }],
-                                },
-                              });
-                            }}
-                            className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 cursor-pointer"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Song</span>
-                          </button>
-                        )}
-                      </div>
-
-                      {(editingSetlist.worshipService?.songs || []).map((s, idx) => (
-                        <div key={s.id || idx} className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
-                            {idx + 1}.
-                          </span>
-                          <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                            <AutofillInput
-                              value={s.title}
-                              onChange={(val) => handleUpdateSongSlot('worshipService', idx, val)}
-                              suggestions={songTitleSuggestions}
-                              songs={songs}
-                              setlists={setlists}
-                              placeholder="Song Title"
-                              inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                            />
-                          </div>
-
-                          {(editingSetlist.worshipService?.songs?.length || 0) > 2 && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = (editingSetlist.worshipService?.songs || []).filter((_, i) => i !== idx);
-                                setEditingSetlist({
-                                  ...editingSetlist,
-                                  worshipService: { ...editingSetlist.worshipService!, songs: updated },
-                                });
-                              }}
-                              className="p-2 text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
-                              title="Delete song"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Non-Sunday Program Editor (Prayer Meeting, Fellowship, Event) */}
-              {editingSetlist.type && editingSetlist.type !== 'sunday' && (
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                    Program Songs
-                  </h4>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                      Song Leader
-                    </label>
-                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                      <AutofillInput
-                        value={editingSetlist.program?.songLeader || ''}
-                        onChange={(val) =>
-                          setEditingSetlist({
-                            ...editingSetlist,
-                            program: {
-                              ...editingSetlist.program!,
-                              songLeader: val,
-                              songs: editingSetlist.program?.songs || [],
-                            },
-                          })
-                        }
-                        suggestions={directoryNames}
-                        placeholder="Enter song leader's name"
-                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Compact Stacked Song Fields with Numbers Right Before */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                        Songs:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const curr = editingSetlist.program?.songs || [];
-                          setEditingSetlist({
-                            ...editingSetlist,
-                            program: {
-                              ...editingSetlist.program!,
-                              songs: [...curr, { id: `prog-${Date.now()}`, title: '' }],
-                            },
-                          });
-                        }}
-                        className="text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Song</span>
-                      </button>
-                    </div>
-
-                    {(editingSetlist.program?.songs || []).map((s, idx) => (
-                      <div key={s.id || idx} className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
-                          {idx + 1}.
-                        </span>
-                        <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
-                          <AutofillInput
-                            value={s.title}
-                            onChange={(val) => handleUpdateSongSlot('program', idx, val)}
-                            suggestions={songTitleSuggestions}
-                            songs={songs}
-                            setlists={setlists}
-                            placeholder="Song Title"
-                            inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
-                          />
-                        </div>
-
-                        {(editingSetlist.program?.songs?.length || 0) > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const updated = (editingSetlist.program?.songs || []).filter((_, i) => i !== idx);
-                              setEditingSetlist({
-                                ...editingSetlist,
-                                program: { ...editingSetlist.program!, songs: updated },
-                              });
-                            }}
-                            className="p-2 text-rose-500 hover:text-rose-700 shrink-0 cursor-pointer"
-                            title="Delete song"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* General Notes */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                  General Program Announcements & Notes
-                </label>
-                <textarea
-                  rows={2}
-                  value={editingSetlist.generalNotes || ''}
-                  onChange={(e) => setEditingSetlist({ ...editingSetlist, generalNotes: e.target.value })}
-                  placeholder="Announcements, reminders, or program notes..."
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-xs"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Sticky Bottom Action Bar */}
+              <div className="sticky bottom-0 z-20 -mx-4 sm:-mx-5 -mb-4 sm:-mb-5 p-3.5 sm:p-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3 mt-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -1893,7 +2196,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-white shadow-xs cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-white shadow-xs cursor-pointer active:scale-98 transition-transform"
                 >
                   Save Setlist Program
                 </button>
