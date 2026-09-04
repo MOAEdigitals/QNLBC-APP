@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
@@ -175,6 +175,83 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expandedItemRef = useRef<HTMLDivElement>(null);
+
+  // Bottom-anchored collapse tracking: footer tap keeps footer's screen position stable
+  const collapseAnchorRef = useRef<{
+    songId: string;
+    bottomBefore: number;
+    heightBefore: number;
+    scrollYBefore: number;
+    nextCardTopBefore?: number;
+  } | null>(null);
+
+  const footerTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const footerTouchMovedRef = useRef<boolean>(false);
+
+  // Triggered when tapping the song footer to collapse bottom-anchored
+  const handleCollapseFromBottom = (songId: string) => {
+    const cardEl = document.getElementById(`song-card-${songId}`);
+    if (cardEl) {
+      const rectBefore = cardEl.getBoundingClientRect();
+      const nextCardEl = cardEl.nextElementSibling as HTMLElement | null;
+      const nextCardTopBefore = nextCardEl ? nextCardEl.getBoundingClientRect().top : undefined;
+      const scrollYBefore = window.scrollY;
+
+      collapseAnchorRef.current = {
+        songId,
+        bottomBefore: rectBefore.bottom,
+        heightBefore: rectBefore.height,
+        scrollYBefore,
+        nextCardTopBefore,
+      };
+    }
+
+    setSelectedSongId(null);
+    setActiveMedia(null);
+    setOpenMenuSongId(null);
+    setCategoryPickerSongId(null);
+    onClearInitialSelectedSongId?.();
+  };
+
+  // Synchronously adjust window scroll position before paint so the bottom stays anchored
+  useLayoutEffect(() => {
+    if (!collapseAnchorRef.current) return;
+    const { songId, bottomBefore, heightBefore, scrollYBefore, nextCardTopBefore } = collapseAnchorRef.current;
+    collapseAnchorRef.current = null;
+
+    const cardEl = document.getElementById(`song-card-${songId}`);
+    if (!cardEl) return;
+
+    const rectAfter = cardEl.getBoundingClientRect();
+    const heightAfter = rectAfter.height;
+    const deltaHeight = heightBefore - heightAfter;
+
+    if (deltaHeight > 0) {
+      // 1. Initial scroll adjustment by deltaHeight so songs below stay in place
+      const targetScrollY = Math.max(0, scrollYBefore - deltaHeight);
+      window.scrollTo(0, targetScrollY);
+
+      // 2. Fine-tune anchor against the next song's top position if available
+      if (nextCardTopBefore !== undefined) {
+        const nextCardEl = cardEl.nextElementSibling as HTMLElement | null;
+        if (nextCardEl) {
+          const currentNextTop = nextCardEl.getBoundingClientRect().top;
+          const diff = currentNextTop - nextCardTopBefore;
+          if (Math.abs(diff) >= 0.5) {
+            window.scrollTo(0, Math.max(0, window.scrollY + diff));
+          }
+          return;
+        }
+      }
+
+      // 3. Fallback: fine-tune anchor against cardEl's bottom edge
+      const currentBottom = cardEl.getBoundingClientRect().bottom;
+      const diff = currentBottom - bottomBefore;
+      if (Math.abs(diff) >= 0.5) {
+        window.scrollTo(0, Math.max(0, window.scrollY + diff));
+      }
+    }
+  }, [selectedSongId]);
 
   // Quick Song Scratchpad / Notepad state (persists instantly to localStorage)
   const [isNotepadOpen, setIsNotepadOpen] = useState(false);
@@ -1484,16 +1561,64 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       </div>
                     )}
 
-                    {/* Centered "Add Attachment" Button at the bottom (Icon + Text without duplicate +) */}
-                    <div className="flex justify-center pt-2">
-                      <button
-                        type="button"
-                        onClick={(e) => handleOpenAddAttachment('minus_one', e)}
-                        className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
+                    {/* Song Card Footer (Bottom-anchored collapse trigger & attachment button) */}
+                    <div
+                      id={`song-footer-${song.id}`}
+                      onTouchStart={(e) => {
+                        const touch = e.touches[0];
+                        footerTouchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+                        footerTouchMovedRef.current = false;
+                      }}
+                      onTouchMove={(e) => {
+                        if (!footerTouchStartPosRef.current) return;
+                        const touch = e.touches[0];
+                        const dx = Math.abs(touch.clientX - footerTouchStartPosRef.current.x);
+                        const dy = Math.abs(touch.clientY - footerTouchStartPosRef.current.y);
+                        if (dx > 8 || dy > 8) {
+                          footerTouchMovedRef.current = true;
+                        }
+                      }}
+                      onTouchEnd={() => {
+                        footerTouchStartPosRef.current = null;
+                      }}
+                      onClick={() => {
+                        if (footerTouchMovedRef.current) return;
+                        handleCollapseFromBottom(song.id);
+                      }}
+                      className="mt-4 pt-3 pb-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 cursor-pointer select-none group/footer rounded-xl hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors px-2 -mx-2"
+                      title="Tap footer to collapse (anchored from bottom)"
+                    >
+                      {/* Left footer tap area / collapse prompt */}
+                      <div className="flex-1 flex items-center gap-1.5 text-slate-400 dark:text-slate-500 group-hover/footer:text-slate-700 dark:group-hover/footer:text-slate-300 transition-colors">
+                        <ChevronUp className="w-4 h-4 shrink-0 opacity-70 group-hover/footer:opacity-100 transition-opacity" />
+                        <span className="text-[11px] font-semibold tracking-wide">Collapse</span>
+                      </div>
+
+                      {/* Centered Add Attachment Button (stops propagation to open modal without collapsing) */}
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        className="shrink-0"
                       >
-                        <Plus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
-                        <span>Add Attachment</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenAddAttachment('minus_one', e);
+                          }}
+                          className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/90 hover:bg-slate-50 dark:hover:bg-slate-700/80 text-xs font-bold text-slate-800 dark:text-slate-200 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                          <span>Add Attachment</span>
+                        </button>
+                      </div>
+
+                      {/* Right footer tap area / collapse prompt */}
+                      <div className="flex-1 flex items-center justify-end gap-1.5 text-slate-400 dark:text-slate-500 group-hover/footer:text-slate-700 dark:group-hover/footer:text-slate-300 transition-colors">
+                        <span className="text-[11px] font-semibold tracking-wide">Collapse</span>
+                        <ChevronUp className="w-4 h-4 shrink-0 opacity-70 group-hover/footer:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                   </div>
                 )}
