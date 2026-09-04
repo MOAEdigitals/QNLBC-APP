@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   SpecialNumberEntry,
   PracticeGroupEntry,
@@ -215,6 +215,154 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Song artist input inside Practice session state
   const [newSongArtist, setNewSongArtist] = useState('');
   const [showSongArtistInput, setShowSongArtistInput] = useState(false);
+
+  // Scroll anchor reference for keeping tapped schedule card pinned in place on screen
+  const scheduleAnchorRef = useRef<{
+    id: string;
+    initialScreenY: number;
+  } | null>(null);
+
+  // Scroll anchor reference for keeping tapped practice card pinned in place on screen
+  const practiceAnchorRef = useRef<{
+    id: string;
+    initialScreenY: number;
+  } | null>(null);
+
+  // Precise Scroll Anchoring for Special Number Schedules
+  useLayoutEffect(() => {
+    const anchor = scheduleAnchorRef.current;
+    if (!anchor) return;
+    if (selectedEntryId !== anchor.id) {
+      scheduleAnchorRef.current = null;
+      return;
+    }
+
+    const cardEl = document.getElementById(`schedule-card-${anchor.id}`);
+    if (!cardEl) {
+      scheduleAnchorRef.current = null;
+      return;
+    }
+
+    const currentScreenY = cardEl.getBoundingClientRect().top;
+    const delta = currentScreenY - anchor.initialScreenY;
+
+    const applyScrollCorrection = (offset: number) => {
+      let scrollContainer: HTMLElement | null = null;
+      let parent = cardEl.parentElement;
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        const style = window.getComputedStyle(parent);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+          scrollContainer = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+
+      if (scrollContainer) {
+        scrollContainer.scrollTop += offset;
+      } else {
+        const scroller = document.scrollingElement || document.documentElement || document.body;
+        const currentTop = window.scrollY || scroller.scrollTop || 0;
+        const newTop = Math.max(0, currentTop + offset);
+        try {
+          window.scrollTo({ top: newTop, behavior: 'instant' as ScrollBehavior });
+        } catch {
+          window.scrollTo(0, newTop);
+        }
+        if (scroller && scroller.scrollTop !== newTop) {
+          scroller.scrollTop = newTop;
+        }
+      }
+    };
+
+    if (Math.abs(delta) > 0.5) {
+      applyScrollCorrection(delta);
+    }
+
+    const rafId = requestAnimationFrame(() => {
+      const el = document.getElementById(`schedule-card-${anchor.id}`);
+      if (el) {
+        const rafScreenY = el.getBoundingClientRect().top;
+        const rafDelta = rafScreenY - anchor.initialScreenY;
+        if (Math.abs(rafDelta) > 1) {
+          applyScrollCorrection(rafDelta);
+        }
+      }
+      scheduleAnchorRef.current = null;
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [selectedEntryId]);
+
+  // Precise Scroll Anchoring for Practice Sessions
+  useLayoutEffect(() => {
+    const anchor = practiceAnchorRef.current;
+    if (!anchor) return;
+    if (selectedPracticeId !== anchor.id) {
+      practiceAnchorRef.current = null;
+      return;
+    }
+
+    const cardEl = document.getElementById(`practice-card-${anchor.id}`);
+    if (!cardEl) {
+      practiceAnchorRef.current = null;
+      return;
+    }
+
+    const currentScreenY = cardEl.getBoundingClientRect().top;
+    const delta = currentScreenY - anchor.initialScreenY;
+
+    const applyScrollCorrection = (offset: number) => {
+      let scrollContainer: HTMLElement | null = null;
+      let parent = cardEl.parentElement;
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        const style = window.getComputedStyle(parent);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+          scrollContainer = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+
+      if (scrollContainer) {
+        scrollContainer.scrollTop += offset;
+      } else {
+        const scroller = document.scrollingElement || document.documentElement || document.body;
+        const currentTop = window.scrollY || scroller.scrollTop || 0;
+        const newTop = Math.max(0, currentTop + offset);
+        try {
+          window.scrollTo({ top: newTop, behavior: 'instant' as ScrollBehavior });
+        } catch {
+          window.scrollTo(0, newTop);
+        }
+        if (scroller && scroller.scrollTop !== newTop) {
+          scroller.scrollTop = newTop;
+        }
+      }
+    };
+
+    if (Math.abs(delta) > 0.5) {
+      applyScrollCorrection(delta);
+    }
+
+    const rafId = requestAnimationFrame(() => {
+      const el = document.getElementById(`practice-card-${anchor.id}`);
+      if (el) {
+        const rafScreenY = el.getBoundingClientRect().top;
+        const rafDelta = rafScreenY - anchor.initialScreenY;
+        if (Math.abs(rafDelta) > 1) {
+          applyScrollCorrection(rafDelta);
+        }
+      }
+      practiceAnchorRef.current = null;
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [selectedPracticeId]);
 
   // Modal 1: Add/Edit Track & Attachment Modal (Image 2 style)
   const [isAddingTrackModal, setIsAddingTrackModal] = useState(false);
@@ -1731,7 +1879,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 No special song numbers scheduled. Click "Schedule Special Song Number" to add one!
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
                 {filteredScheduleEntries.map((item) => {
                   const isPast = isPastDate(item.scheduledDate);
                   const today = isToday(item.scheduledDate);
@@ -1743,7 +1891,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={item.id}
                       id={`schedule-card-${item.id}`}
-                      onClick={() => setSelectedEntryId(isSelected ? null : item.id)}
+                      onClick={(e) => {
+                        if (isSelected) {
+                          setSelectedEntryId(null);
+                        } else {
+                          const cardEl = e.currentTarget;
+                          scheduleAnchorRef.current = {
+                            id: item.id,
+                            initialScreenY: cardEl.getBoundingClientRect().top,
+                          };
+                          setSelectedEntryId(item.id);
+                        }
+                      }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                         isSelected
                           ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
@@ -2031,7 +2190,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 No practice groups created yet. Click "New Practice Session" to organize choir or ensemble rehearsals with vocal stems.
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
                 {filteredPracticeEntries.map((group) => {
                   const isSelected = selectedPracticeId === group.id;
                   const isDone = Boolean(group.isDone);
@@ -2040,7 +2199,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
-                      onClick={() => setSelectedPracticeId(isSelected ? null : group.id)}
+                      onClick={(e) => {
+                        if (isSelected) {
+                          setSelectedPracticeId(null);
+                        } else {
+                          const cardEl = e.currentTarget;
+                          practiceAnchorRef.current = {
+                            id: group.id,
+                            initialScreenY: cardEl.getBoundingClientRect().top,
+                          };
+                          setSelectedPracticeId(group.id);
+                        }
+                      }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer select-none ${
                         isDone
                           ? isSelected

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
   formatDateStr,
@@ -177,6 +177,86 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
+
+  // Scroll anchor reference for keeping tapped setlist card pinned in place on screen
+  const scrollAnchorRef = useRef<{
+    setlistId: string;
+    initialScreenY: number;
+  } | null>(null);
+
+  // Precise Scroll Anchoring:
+  // When a setlist is tapped while another setlist above it collapses, the document height shrinks.
+  // We capture the tapped setlist card's screen position before the state change and in useLayoutEffect
+  // after the DOM updates, we adjust the scroll position by the exact difference (delta) so the tapped
+  // setlist card stays locked in the exact same screen position without jumping up or down.
+  useLayoutEffect(() => {
+    const anchor = scrollAnchorRef.current;
+    if (!anchor) return;
+    if (selectedSetlistId !== anchor.setlistId) {
+      scrollAnchorRef.current = null;
+      return;
+    }
+
+    const cardEl = document.getElementById(`setlist-card-${anchor.setlistId}`);
+    if (!cardEl) {
+      scrollAnchorRef.current = null;
+      return;
+    }
+
+    // Measure new position of the card header/top after collapse of previous and expansion of current
+    const currentScreenY = cardEl.getBoundingClientRect().top;
+    const delta = currentScreenY - anchor.initialScreenY;
+
+    const applyScrollCorrection = (offset: number) => {
+      let scrollContainer: HTMLElement | null = null;
+      let parent = cardEl.parentElement;
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        const style = window.getComputedStyle(parent);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+          scrollContainer = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+
+      if (scrollContainer) {
+        scrollContainer.scrollTop += offset;
+      } else {
+        const scroller = document.scrollingElement || document.documentElement || document.body;
+        const currentTop = window.scrollY || scroller.scrollTop || 0;
+        const newTop = Math.max(0, currentTop + offset);
+        try {
+          window.scrollTo({ top: newTop, behavior: 'instant' as ScrollBehavior });
+        } catch {
+          window.scrollTo(0, newTop);
+        }
+        if (scroller && scroller.scrollTop !== newTop) {
+          scroller.scrollTop = newTop;
+        }
+      }
+    };
+
+    if (Math.abs(delta) > 0.5) {
+      applyScrollCorrection(delta);
+    }
+
+    // Secondary verification on requestAnimationFrame to compensate for any micro-shifts
+    const rafId = requestAnimationFrame(() => {
+      const el = document.getElementById(`setlist-card-${anchor.setlistId}`);
+      if (el) {
+        const rafScreenY = el.getBoundingClientRect().top;
+        const rafDelta = rafScreenY - anchor.initialScreenY;
+        if (Math.abs(rafDelta) > 1) {
+          applyScrollCorrection(rafDelta);
+        }
+      }
+      scrollAnchorRef.current = null;
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [selectedSetlistId]);
 
   // Sync initialSelectedSetlistId prop if provided
   useEffect(() => {
@@ -627,10 +707,19 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     setSelectedSetlistId(finalSetlist.id);
   };
 
-  const handleSelectSetlist = (id: string) => {
+  const handleSelectSetlist = (id: string, e?: React.MouseEvent) => {
     if (selectedSetlistId === id) {
       setSelectedSetlistId(null);
     } else {
+      if (e) {
+        const cardEl = document.getElementById(`setlist-card-${id}`);
+        if (cardEl) {
+          scrollAnchorRef.current = {
+            setlistId: id,
+            initialScreenY: cardEl.getBoundingClientRect().top,
+          };
+        }
+      }
       setSelectedSetlistId(id);
       window.history.pushState({ tab: 'home', subView: 'detail', id }, '', '#home');
     }
@@ -719,7 +808,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             No setlists created yet. Click "Sunday Setlist" or "Event Setlist" to start.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
             {sortedSetlists.map((item) => {
               const isPast = isPastDate(item.date);
               const today = isToday(item.date);
@@ -730,7 +819,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 <div
                   key={item.id}
                   id={`setlist-card-${item.id}`}
-                  onClick={() => handleSelectSetlist(item.id)}
+                  onClick={(e) => handleSelectSetlist(item.id, e)}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
                       ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
