@@ -520,6 +520,37 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
   };
 
+  const handleUpdateSongSlot = (
+    section: 'sundaySchool' | 'worshipService' | 'program',
+    idx: number,
+    newTitle: string
+  ) => {
+    if (!editingSetlist) return;
+    const currentSection = editingSetlist[section];
+    if (!currentSection) return;
+
+    const matched = songs.find(
+      (item) => item.title.trim().toLowerCase() === newTitle.trim().toLowerCase()
+    );
+
+    const updated = (currentSection.songs || []).map((songItem, i) => {
+      if (i !== idx) return songItem;
+      return {
+        ...songItem,
+        title: newTitle,
+        songId: matched ? matched.id : undefined,
+      };
+    });
+
+    setEditingSetlist({
+      ...editingSetlist,
+      [section]: {
+        ...currentSection,
+        songs: updated,
+      },
+    });
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSetlist || !editingSetlist.date) return;
@@ -529,15 +560,18 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     const cleanSongs = (songsList: SetlistSongItem[] | undefined): SetlistSongItem[] => {
       if (!songsList) return [];
       return songsList
-        .filter((s) => s.title.trim().length > 0)
+        .filter((s) => s && s.title && s.title.trim().length > 0)
         .map((s) => {
-          const matchedSong = s.songId
-            ? songs.find((item) => item.id === s.songId)
-            : songs.find((item) => item.title.trim().toLowerCase() === s.title.trim().toLowerCase());
+          const trimmedTitle = s.title.trim();
+          const matchedSong = songs.find(
+            (item) => item.title.trim().toLowerCase() === trimmedTitle.toLowerCase()
+          );
           return {
             id: s.id || `song-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            title: matchedSong ? matchedSong.title : s.title.trim(),
-            songId: matchedSong ? matchedSong.id : s.songId,
+            title: matchedSong ? matchedSong.title : trimmedTitle,
+            songId: matchedSong ? matchedSong.id : undefined,
+            keyNote: s.keyNote,
+            notes: s.notes,
           };
         });
     };
@@ -548,8 +582,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       title: editingSetlist.title?.trim() || undefined,
       date: editingSetlist.date,
       presider: editingSetlist.presider?.trim() || undefined,
-      welcomeSong: editingSetlist.welcomeSong?.trim() || undefined,
-      closingSong: editingSetlist.closingSong?.trim() || undefined,
+      welcomeSong:
+        editingSetlist.welcomeSong !== undefined
+          ? (editingSetlist.welcomeSong.trim() || undefined)
+          : (setlistType === 'sunday' ? 'Napakaligaya' : undefined),
+      closingSong:
+        editingSetlist.closingSong !== undefined
+          ? (editingSetlist.closingSong.trim() || undefined)
+          : (setlistType === 'sunday' ? 'Give Thanks' : undefined),
       themeSong: editingSetlist.themeSong?.trim() || undefined,
       sundaySchool:
         setlistType === 'sunday'
@@ -949,9 +989,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                             <div className="space-y-1.5">
                               {(item.sundaySchool?.songs || []).map((song, idx) => {
-                                const matchedSong = song.songId
-                                  ? songs.find((s) => s.id === song.songId)
-                                  : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                                const matchedSong =
+                                  songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
+                                  (song.songId ? songs.find((s) => s.id === song.songId) : undefined);
                                 const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
                                 return (
@@ -1000,9 +1040,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                             <div className="space-y-1.5">
                               {(item.worshipService?.songs || []).map((song, idx) => {
-                                const matchedSong = song.songId
-                                  ? songs.find((s) => s.id === song.songId)
-                                  : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                                const matchedSong =
+                                  songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
+                                  (song.songId ? songs.find((s) => s.id === song.songId) : undefined);
                                 const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
                                 return (
@@ -1148,9 +1188,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               Program Songs:
                             </span>
                             {(item.program?.songs || []).map((song, idx) => {
-                              const matchedSong = song.songId
-                                ? songs.find((s) => s.id === song.songId)
-                                : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
+                              const matchedSong =
+                                songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
+                                (song.songId ? songs.find((s) => s.id === song.songId) : undefined);
                               const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
                               return (
@@ -1506,14 +1546,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                             <AutofillInput
                               value={s.title}
-                              onChange={(val) => {
-                                const updated = [...(editingSetlist.sundaySchool?.songs || [])];
-                                updated[idx].title = val;
-                                setEditingSetlist({
-                                  ...editingSetlist,
-                                  sundaySchool: { ...editingSetlist.sundaySchool!, songs: updated },
-                                });
-                              }}
+                              onChange={(val) => handleUpdateSongSlot('sundaySchool', idx, val)}
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               setlists={setlists}
@@ -1608,14 +1641,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                             <AutofillInput
                               value={s.title}
-                              onChange={(val) => {
-                                const updated = [...(editingSetlist.worshipService?.songs || [])];
-                                updated[idx].title = val;
-                                setEditingSetlist({
-                                  ...editingSetlist,
-                                  worshipService: { ...editingSetlist.worshipService!, songs: updated },
-                                });
-                              }}
+                              onChange={(val) => handleUpdateSongSlot('worshipService', idx, val)}
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               setlists={setlists}
@@ -1711,14 +1737,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div className="flex-1 p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                           <AutofillInput
                             value={s.title}
-                            onChange={(val) => {
-                              const updated = [...(editingSetlist.program?.songs || [])];
-                              updated[idx].title = val;
-                              setEditingSetlist({
-                                ...editingSetlist,
-                                program: { ...editingSetlist.program!, songs: updated },
-                              });
-                            }}
+                            onChange={(val) => handleUpdateSongSlot('program', idx, val)}
                             suggestions={songTitleSuggestions}
                             songs={songs}
                             setlists={setlists}
