@@ -36,6 +36,7 @@ import {
   Tag,
   Filter,
   StickyNote,
+  Star,
 } from 'lucide-react';
 import {
   searchSong,
@@ -98,7 +99,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortMode, setSortMode] = useState<'alpha' | 'recent' | 'date'>('alpha');
   const [categoryFilter, setCategoryFilter] = useState<
-    'all' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized'
+    'all' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized' | 'Starred'
   >('all');
   const [isEditing, setIsEditing] = useState(false);
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
@@ -442,6 +443,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     let choir = 0;
     let tagalog = 0;
     let uncategorized = 0;
+    let starred = 0;
     for (const s of songs) {
       const cats = getSongCategories(s);
       if (cats.includes('Hymn')) hymn++;
@@ -450,13 +452,17 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       if (cats.includes('Choir')) choir++;
       if (cats.includes('Tagalog')) tagalog++;
       if (cats.length === 0) uncategorized++;
+      if (s.isStarred || (s as any).starred) starred++;
     }
-    return { Hymn: hymn, Special: special, Contemporary: contemporary, Choir: choir, Tagalog: tagalog, uncategorized };
+    return { Hymn: hymn, Special: special, Contemporary: contemporary, Choir: choir, Tagalog: tagalog, uncategorized, starred };
   }, [songs]);
 
   // Category Filtered Songs (multi-category compatible)
   const categoryFilteredSongs = useMemo(() => {
     if (categoryFilter === 'all') return sortedSongs;
+    if (categoryFilter === 'Starred') {
+      return sortedSongs.filter((s) => Boolean(s.isStarred || (s as any).starred));
+    }
     if (categoryFilter === 'uncategorized') {
       return sortedSongs.filter((s) => getSongCategories(s).length === 0);
     }
@@ -558,6 +564,19 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     onSaveSong(updated);
   };
 
+  const handleToggleStar = (song: Song, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const currentStarred = Boolean(song.isStarred || (song as any).starred);
+    const nextVal = !currentStarred;
+    const updated: Song = {
+      ...song,
+      isStarred: nextVal,
+      starred: nextVal,
+      updatedAt: new Date().toISOString(),
+    };
+    onSaveSong(updated);
+  };
+
   const handleToggleSongCategory = (
     song: Song,
     categoryToToggle: SongCategory,
@@ -608,6 +627,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       isThemeSong: editingSong.isThemeSong,
       isWelcomeSong: editingSong.isWelcomeSong,
       isClosingSong: editingSong.isClosingSong,
+      isStarred: editingSong.isStarred,
+      starred: (editingSong as any)?.starred,
       updatedAt: new Date().toISOString(),
     };
 
@@ -767,22 +788,11 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         <button
           type="button"
           onClick={() => setIsNotepadOpen(true)}
-          className={`group flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-semibold cursor-pointer select-none ${
-            notepadLineCount > 0
-              ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700/80 hover:bg-amber-100 dark:hover:bg-amber-950/60 shadow-xs'
-              : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-          title="Quick Song Notepad - Auto-saving scratchpad for song titles"
+          className="p-1.5 text-slate-500 hover:text-amber-500 dark:text-slate-400 dark:hover:text-amber-400 transition-colors cursor-pointer select-none"
+          title="Song Notepad"
           aria-label="Open Song Notepad"
         >
-          <StickyNote className="w-4 h-4 text-amber-500 group-hover:scale-110 transition-transform" />
-          <span className="hidden sm:inline">Song Notepad</span>
-          <span className="sm:hidden">Notes</span>
-          {notepadLineCount > 0 && (
-            <span className="inline-flex items-center justify-center min-w-4.5 h-4.5 px-1.5 text-[10px] font-bold rounded-full bg-amber-500 text-white leading-none">
-              {notepadLineCount}
-            </span>
-          )}
+          <StickyNote className="w-5 h-5" />
         </button>
       </div>
 
@@ -907,12 +917,30 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             <span className="text-[10px] opacity-75">({categoryCounts.uncategorized})</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={() => setCategoryFilter('Starred')}
+          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+            categoryFilter === 'Starred'
+              ? 'bg-amber-500 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+          }`}
+        >
+          <Star className={`w-3.5 h-3.5 ${categoryFilter === 'Starred' ? 'fill-white text-white' : 'fill-amber-400 text-amber-500'}`} />
+          <span>Starred</span>
+          <span className="text-[10px] opacity-80">({categoryCounts.starred})</span>
+        </button>
       </div>
 
       {/* Song List Header with Sorted buttons (A-Z, Recent, Newest, Category) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          {categoryFilter !== 'all' ? `${categoryFilter} Songs` : 'All Songs'} ({filteredSongs.length})
+          {categoryFilter === 'all'
+            ? 'All Songs'
+            : categoryFilter === 'Starred'
+            ? 'Starred Songs'
+            : `${categoryFilter} Songs`} ({filteredSongs.length})
         </span>
 
         {/* Sorted button located on the right (3 options: A-Z, Recent, Newest) */}
@@ -1083,13 +1111,25 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       )}
                     </button>
 
-                    <div className="p-1 text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform">
-                      {isSelected ? (
-                        <ChevronUp className="w-5 h-5" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5" />
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleStar(song, e)}
+                      className={`p-2 rounded-xl transition-all cursor-pointer select-none ${
+                        song.isStarred || (song as any).starred
+                          ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50/80 dark:hover:bg-amber-950/50'
+                          : 'text-slate-300 dark:text-slate-600 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      }`}
+                      title={song.isStarred || (song as any).starred ? 'Starred (tap to unstar)' : 'Tap to star song'}
+                      aria-label={song.isStarred || (song as any).starred ? 'Unstar song' : 'Star song'}
+                    >
+                      <Star
+                        className={`w-5 h-5 transition-transform active:scale-125 ${
+                          song.isStarred || (song as any).starred
+                            ? 'fill-amber-400 text-amber-500'
+                            : 'text-slate-300 dark:text-slate-600 hover:text-amber-400 stroke-[1.75]'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 
@@ -1193,6 +1233,18 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                         {/* 3-Dot Dropdown Menu Popover */}
                         {isMenuOpen && (
                           <div className="absolute right-0 top-full mt-1.5 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                handleToggleStar(song, e);
+                                setOpenMenuSongId(null);
+                              }}
+                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
+                            >
+                              <Star className={`w-3.5 h-3.5 ${song.isStarred || (song as any).starred ? 'fill-amber-400 text-amber-500' : 'text-amber-500'}`} />
+                              <span>{song.isStarred || (song as any).starred ? 'Remove from Starred' : 'Add to Starred'}</span>
+                            </button>
+
                             <button
                               type="button"
                               onClick={(e) => handleToggleThemeSong(song, e)}

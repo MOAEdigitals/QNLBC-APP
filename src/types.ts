@@ -35,6 +35,8 @@ export interface Song {
   isClosingSong?: boolean;
   isThemeSong?: boolean;
   isSpecialNumber?: boolean;
+  isStarred?: boolean;
+  starred?: boolean;
   updatedAt: string;
 }
 
