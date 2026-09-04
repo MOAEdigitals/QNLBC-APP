@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
@@ -179,6 +179,87 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   const footerTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const footerTouchMovedRef = useRef<boolean>(false);
+
+  // Scroll anchor reference for keeping tapped song header pinned in place on screen
+  const scrollAnchorRef = useRef<{
+    songId: string;
+    initialScreenY: number;
+  } | null>(null);
+
+  // Precise Scroll Anchoring:
+  // When a song is tapped while another song above it collapses, the document height above shrinks.
+  // We capture the tapped song header's screen position before the state change and in useLayoutEffect
+  // after the DOM updates, we adjust the scroll position by the exact difference (delta) so the tapped
+  // song's header stays locked in the exact same screen position without jumping up or down.
+  useLayoutEffect(() => {
+    const anchor = scrollAnchorRef.current;
+    if (!anchor) return;
+    if (selectedSongId !== anchor.songId) {
+      scrollAnchorRef.current = null;
+      return;
+    }
+
+    const headerEl = document.getElementById(`song-header-${anchor.songId}`);
+    if (!headerEl) {
+      scrollAnchorRef.current = null;
+      return;
+    }
+
+    // Measure new position of the header after collapse of previous and expansion of current
+    const currentScreenY = headerEl.getBoundingClientRect().top;
+    const delta = currentScreenY - anchor.initialScreenY;
+
+    if (Math.abs(delta) > 0.5) {
+      let scrollContainer: HTMLElement | null = null;
+      let parent = headerEl.parentElement;
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        const style = window.getComputedStyle(parent);
+        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+          scrollContainer = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+
+      if (scrollContainer) {
+        scrollContainer.scrollTop += delta;
+      } else {
+        window.scrollBy(0, delta);
+      }
+    }
+
+    // Secondary verification on requestAnimationFrame to compensate for any micro-shifts
+    const rafId = requestAnimationFrame(() => {
+      const el = document.getElementById(`song-header-${anchor.songId}`);
+      if (el) {
+        const rafScreenY = el.getBoundingClientRect().top;
+        const rafDelta = rafScreenY - anchor.initialScreenY;
+        if (Math.abs(rafDelta) > 1) {
+          let scrollContainer: HTMLElement | null = null;
+          let parent = el.parentElement;
+          while (parent && parent !== document.body && parent !== document.documentElement) {
+            const style = window.getComputedStyle(parent);
+            if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+              scrollContainer = parent;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          if (scrollContainer) {
+            scrollContainer.scrollTop += rafDelta;
+          } else {
+            window.scrollBy(0, rafDelta);
+          }
+        }
+      }
+      scrollAnchorRef.current = null;
+    });
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [selectedSongId]);
 
   // Triggered when collapsing an open song (e.g. from footer tap or header toggle)
   const handleCollapseSong = () => {
@@ -931,7 +1012,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           No songs found matching "{searchQuery}".
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3" style={{ overflowAnchor: 'none' }}>
           {songSearchResults.map((result) => {
             const { song, history, matchedField, lyricSnippet } = result;
             const isSelected = selectedSongId === song.id;
@@ -954,9 +1035,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-xs'
                 }`}
               >
-                {/* Song Card Header (Tapping expands/collapses with natural CSS layout reflow) */}
+                {/* Song Card Header (Tapping expands/collapses with scroll anchoring) */}
                 <div
-                  onClick={() => {
+                  id={`song-header-${song.id}`}
+                  onClick={(e) => {
                     if (isSelected) {
                       // Tapping the currently open song collapses it
                       setSelectedSongId(null);
@@ -965,7 +1047,16 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       setCategoryPickerSongId(null);
                       onClearInitialSelectedSongId?.();
                     } else {
-                      // Tapping a new song collapses the currently open one and expands the tapped one
+                      // Tapping a different song:
+                      // Capture the tapped song header's current screen position before layout change
+                      const headerEl = e.currentTarget;
+                      const initialScreenY = headerEl.getBoundingClientRect().top;
+                      scrollAnchorRef.current = {
+                        songId: song.id,
+                        initialScreenY,
+                      };
+
+                      // Collapse previously open container and expand tapped container
                       setSelectedSongId(song.id);
                       setActiveMedia(null);
                       setOpenMenuSongId(null);
