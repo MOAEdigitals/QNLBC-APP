@@ -845,6 +845,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   required
                   value={annivForm.title}
                   onChange={(e) => setAnnivForm({ ...annivForm, title: e.target.value })}
@@ -905,6 +909,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="sentences"
+                  spellCheck={true}
                   value={annivForm.notes}
                   onChange={(e) => setAnnivForm({ ...annivForm, notes: e.target.value })}
                   placeholder="Anniversary description or notes"
@@ -953,6 +961,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   required
                   value={visitorForm.name}
                   onChange={(e) => setVisitorForm({ ...visitorForm, name: e.target.value })}
@@ -967,6 +979,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   required
                   value={visitorForm.barangay}
                   onChange={(e) => setVisitorForm({ ...visitorForm, barangay: e.target.value })}
@@ -1017,6 +1033,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="sentences"
+                  spellCheck={true}
                   value={visitorForm.notes}
                   onChange={(e) => setVisitorForm({ ...visitorForm, notes: e.target.value })}
                   placeholder="Visitor notes and follow-up details"
@@ -1065,6 +1085,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   required
                   value={specialForm.name}
                   onChange={(e) => setSpecialForm({ ...specialForm, name: e.target.value })}
@@ -1103,6 +1127,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="sentences"
+                  spellCheck={true}
                   value={specialForm.customType}
                   onChange={(e) => setSpecialForm({ ...specialForm, customType: e.target.value })}
                   placeholder="Enter title, degree, or license details"

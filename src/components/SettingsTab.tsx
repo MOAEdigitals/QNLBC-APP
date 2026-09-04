@@ -839,6 +839,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       </label>
                       <input
                         type="text"
+                        autoComplete="off"
+                        autoCorrect="on"
+                        autoCapitalize="words"
+                        spellCheck={false}
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         placeholder="e.g. John Santos"
@@ -865,6 +869,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <div className="relative">
                         <input
                           type={showNewPassword ? 'text' : 'password'}
+                          autoComplete="new-password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Secret password"
@@ -1227,6 +1232,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
                   required
@@ -1251,6 +1260,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div className="relative">
                   <input
                     type={showEditPassword ? 'text' : 'password'}
+                    autoComplete="new-password"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
                     required
@@ -1341,6 +1351,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <form onSubmit={handleAddDirectoryName} className="flex items-center gap-2">
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   value={newNameInput}
                   onChange={(e) => setNewNameInput(e.target.value)}
                   placeholder="Enter church member name (e.g. Bro. Juan Dela Cruz)..."

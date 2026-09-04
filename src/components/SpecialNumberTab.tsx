@@ -2952,6 +2952,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <input
                   type="url"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={editingSchedule.minusOneLink || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, minusOneLink: e.target.value })}
                   placeholder="https://www.youtube.com/watch?v=..."
@@ -2965,6 +2969,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="sentences"
+                  spellCheck={true}
                   value={editingSchedule.notes || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, notes: e.target.value })}
                   placeholder="Rehearsal schedule, key, or practice notes..."
@@ -3073,6 +3081,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   value={editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent : 'Sunday Service'}
                   onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
                   placeholder="Sunday Service / Event occasion"
@@ -3119,6 +3131,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     </div>
                     <input
                       type="text"
+                      autoComplete="off"
+                      autoCorrect="on"
+                      autoCapitalize="words"
+                      spellCheck={false}
                       value={newSongArtist}
                       onChange={(e) => setNewSongArtist(e.target.value)}
                       placeholder="Artist, composer, or origin"
@@ -3268,6 +3284,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="sentences"
+                  spellCheck={true}
                   value={trackTitle}
                   onChange={(e) => setTrackTitle(e.target.value)}
                   placeholder={
@@ -3287,6 +3307,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <div className="relative">
                   <input
                     type="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     value={
                       trackUrlOrData.startsWith('indexeddb:') || trackUrlOrData.startsWith('data:')
                         ? (trackFileName ? `Attached: ${trackFileName}` : '(Attached Audio Track)')
@@ -3464,6 +3488,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   <div className="mt-2">
                     <input
                       type="text"
+                      autoComplete="off"
+                      autoCorrect="on"
+                      autoCapitalize="words"
+                      spellCheck={false}
                       value={vocalPartCustomLabel}
                       onChange={(e) => setVocalPartCustomLabel(e.target.value)}
                       placeholder="Enter custom vocal part name"
@@ -3636,6 +3664,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div className="relative">
                       <input
                         type="text"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
                         value={vocalPartAudioUrl}
                         onChange={(e) => {
                           setVocalPartAudioUrl(e.target.value);
@@ -3812,6 +3844,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="on"
+                  autoCapitalize="words"
+                  spellCheck={false}
                   value={editingChoir.choirGroup || ''}
                   onChange={(e) =>
                     setEditingChoir({ ...editingChoir, choirGroup: e.target.value })
@@ -3898,6 +3934,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 {(showChoirArtistInput || editingChoir.artist) && (
                   <input
                     type="text"
+                    autoComplete="off"
+                    autoCorrect="on"
+                    autoCapitalize="words"
+                    spellCheck={false}
                     value={newChoirArtist || editingChoir.artist || ''}
                     onChange={(e) => {
                       setNewChoirArtist(e.target.value);

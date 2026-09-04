@@ -1326,6 +1326,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </label>
                     <input
                       type="text"
+                      autoComplete="off"
+                      autoCorrect="on"
+                      autoCapitalize="sentences"
+                      spellCheck={true}
                       required={editingSetlist.type === 'event' || editingSetlist.type === 'fellowship'}
                       value={editingSetlist.title || ''}
                       onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
@@ -1371,6 +1375,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         </div>
                         <input
                           type="text"
+                          autoComplete="off"
+                          autoCorrect="on"
+                          autoCapitalize="sentences"
+                          spellCheck={true}
                           value={editingSetlist.title || ''}
                           onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
                           placeholder="Enter setlist title"
