@@ -177,13 +177,17 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const expandedItemRef = useRef<HTMLDivElement>(null);
 
-  // Bottom-anchored collapse tracking: footer tap keeps footer's screen position stable
+  // Collapse tracking: anchors header (top-anchored) or footer (bottom-anchored) on collapse
   const collapseAnchorRef = useRef<{
     songId: string;
-    bottomBefore: number;
-    heightBefore: number;
+    mode: 'top-anchored' | 'bottom-anchored';
+    topBefore?: number;
+    bottomBefore?: number;
+    heightBefore?: number;
     scrollYBefore: number;
     nextCardTopBefore?: number;
+    newSongId?: string;
+    isBelow?: boolean;
   } | null>(null);
 
   const footerTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -200,6 +204,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
       collapseAnchorRef.current = {
         songId,
+        mode: 'bottom-anchored',
         bottomBefore: rectBefore.bottom,
         heightBefore: rectBefore.height,
         scrollYBefore,
@@ -214,42 +219,70 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     onClearInitialSelectedSongId?.();
   };
 
-  // Synchronously adjust window scroll position before paint so the bottom stays anchored
+  // Synchronously adjust window scroll position before paint so collapse is anchored correctly without jumping
   useLayoutEffect(() => {
     if (!collapseAnchorRef.current) return;
-    const { songId, bottomBefore, heightBefore, scrollYBefore, nextCardTopBefore } = collapseAnchorRef.current;
+    const anchor = collapseAnchorRef.current;
     collapseAnchorRef.current = null;
 
-    const cardEl = document.getElementById(`song-card-${songId}`);
-    if (!cardEl) return;
+    if (anchor.mode === 'top-anchored') {
+      const { songId, topBefore, newSongId, isBelow } = anchor;
+      const cardEl = document.getElementById(`song-card-${songId}`);
+      if (!cardEl || topBefore === undefined) return;
 
-    const rectAfter = cardEl.getBoundingClientRect();
-    const heightAfter = rectAfter.height;
-    const deltaHeight = heightBefore - heightAfter;
-
-    if (deltaHeight > 0) {
-      // 1. Initial scroll adjustment by deltaHeight so songs below stay in place
-      const targetScrollY = Math.max(0, scrollYBefore - deltaHeight);
-      window.scrollTo(0, targetScrollY);
-
-      // 2. Fine-tune anchor against the next song's top position if available
-      if (nextCardTopBefore !== undefined) {
-        const nextCardEl = cardEl.nextElementSibling as HTMLElement | null;
-        if (nextCardEl) {
-          const currentNextTop = nextCardEl.getBoundingClientRect().top;
-          const diff = currentNextTop - nextCardTopBefore;
-          if (Math.abs(diff) >= 0.5) {
-            window.scrollTo(0, Math.max(0, window.scrollY + diff));
+      // 1. If the old song's header was on screen (topBefore >= 0), anchor its header at that exact screen position
+      if (topBefore >= 0) {
+        const currentTop = cardEl.getBoundingClientRect().top;
+        const diff = currentTop - topBefore;
+        if (Math.abs(diff) >= 0.5) {
+          window.scrollTo(0, Math.max(0, window.scrollY + diff));
+        }
+      } else if (newSongId && isBelow) {
+        // 2. If the old song's header was scrolled above viewport and user tapped a song below it, ensure new song is visible
+        const newCardEl = document.getElementById(`song-card-${newSongId}`);
+        if (newCardEl) {
+          const newTop = newCardEl.getBoundingClientRect().top;
+          if (newTop < 10) {
+            window.scrollTo(0, Math.max(0, window.scrollY + newTop - 20));
           }
-          return;
         }
       }
+      return;
+    }
 
-      // 3. Fallback: fine-tune anchor against cardEl's bottom edge
-      const currentBottom = cardEl.getBoundingClientRect().bottom;
-      const diff = currentBottom - bottomBefore;
-      if (Math.abs(diff) >= 0.5) {
-        window.scrollTo(0, Math.max(0, window.scrollY + diff));
+    if (anchor.mode === 'bottom-anchored') {
+      const { songId, bottomBefore, heightBefore, scrollYBefore, nextCardTopBefore } = anchor;
+      const cardEl = document.getElementById(`song-card-${songId}`);
+      if (!cardEl || bottomBefore === undefined || heightBefore === undefined) return;
+
+      const rectAfter = cardEl.getBoundingClientRect();
+      const heightAfter = rectAfter.height;
+      const deltaHeight = heightBefore - heightAfter;
+
+      if (deltaHeight > 0) {
+        // 1. Initial scroll adjustment by deltaHeight so songs below stay in place
+        const targetScrollY = Math.max(0, scrollYBefore - deltaHeight);
+        window.scrollTo(0, targetScrollY);
+
+        // 2. Fine-tune anchor against the next song's top position if available
+        if (nextCardTopBefore !== undefined) {
+          const nextCardEl = cardEl.nextElementSibling as HTMLElement | null;
+          if (nextCardEl) {
+            const currentNextTop = nextCardEl.getBoundingClientRect().top;
+            const diff = currentNextTop - nextCardTopBefore;
+            if (Math.abs(diff) >= 0.5) {
+              window.scrollTo(0, Math.max(0, window.scrollY + diff));
+            }
+            return;
+          }
+        }
+
+        // 3. Fallback: fine-tune anchor against cardEl's bottom edge
+        const currentBottom = cardEl.getBoundingClientRect().bottom;
+        const diff = currentBottom - bottomBefore;
+        if (Math.abs(diff) >= 0.5) {
+          window.scrollTo(0, Math.max(0, window.scrollY + diff));
+        }
       }
     }
   }, [selectedSongId]);
@@ -895,8 +928,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           onClick={() => setCategoryFilter('Tagalog')}
           className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
             categoryFilter === 'Tagalog'
-              ? 'bg-amber-600 dark:bg-amber-500 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+              ? 'bg-rose-600 dark:bg-rose-500 text-white shadow-xs'
+              : 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40'
           }`}
         >
           <span>Tagalog</span>
@@ -1007,7 +1040,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 key={song.id}
                 id={`song-card-${song.id}`}
                 ref={isSelected ? expandedItemRef : null}
-                className={`rounded-2xl transition-all border overflow-hidden ${
+                style={{ overflowAnchor: 'none' }}
+                className={`rounded-2xl transition-colors border overflow-hidden ${
                   isSelected
                     ? 'bg-white dark:bg-slate-900 border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 shadow-md'
                     : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 shadow-xs'
@@ -1017,11 +1051,40 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 <div
                   onClick={() => {
                     if (isSelected) {
+                      // Clicking the currently open song's header collapses it in place
+                      const cardEl = document.getElementById(`song-card-${song.id}`);
+                      if (cardEl) {
+                        const topBefore = cardEl.getBoundingClientRect().top;
+                        collapseAnchorRef.current = {
+                          songId: song.id,
+                          mode: 'top-anchored',
+                          topBefore,
+                          scrollYBefore: window.scrollY,
+                        };
+                      }
                       setSelectedSongId(null);
                       setActiveMedia(null);
                       setOpenMenuSongId(null);
                       onClearInitialSelectedSongId?.();
                     } else {
+                      // If another song is currently open, anchor it so it collapses in place
+                      if (selectedSongId) {
+                        const prevCard = document.getElementById(`song-card-${selectedSongId}`);
+                        const newCard = document.getElementById(`song-card-${song.id}`);
+                        if (prevCard && newCard) {
+                          const prevRect = prevCard.getBoundingClientRect();
+                          const newRect = newCard.getBoundingClientRect();
+                          const isBelow = newRect.top > prevRect.top;
+                          collapseAnchorRef.current = {
+                            songId: selectedSongId,
+                            mode: 'top-anchored',
+                            topBefore: prevRect.top,
+                            scrollYBefore: window.scrollY,
+                            newSongId: song.id,
+                            isBelow,
+                          };
+                        }
+                      }
                       setSelectedSongId(song.id);
                       setActiveMedia(null);
                       setOpenMenuSongId(null);
@@ -1197,7 +1260,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                                         ? 'text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40'
                                         : cat === 'Choir'
                                         ? 'text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
-                                        : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40'
+                                        : 'text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
                                     }`}
                                   >
                                     <span>{cat}</span>
