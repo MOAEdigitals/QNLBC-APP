@@ -209,7 +209,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     const currentScreenY = headerEl.getBoundingClientRect().top;
     const delta = currentScreenY - anchor.initialScreenY;
 
-    if (Math.abs(delta) > 0.5) {
+    const applyScrollCorrection = (offset: number) => {
       let scrollContainer: HTMLElement | null = null;
       let parent = headerEl.parentElement;
       while (parent && parent !== document.body && parent !== document.documentElement) {
@@ -222,10 +222,24 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       }
 
       if (scrollContainer) {
-        scrollContainer.scrollTop += delta;
+        scrollContainer.scrollTop += offset;
       } else {
-        window.scrollBy(0, delta);
+        const scroller = document.scrollingElement || document.documentElement || document.body;
+        const currentTop = window.scrollY || scroller.scrollTop || 0;
+        const newTop = Math.max(0, currentTop + offset);
+        try {
+          window.scrollTo({ top: newTop, behavior: 'instant' as ScrollBehavior });
+        } catch {
+          window.scrollTo(0, newTop);
+        }
+        if (scroller && scroller.scrollTop !== newTop) {
+          scroller.scrollTop = newTop;
+        }
       }
+    };
+
+    if (Math.abs(delta) > 0.5) {
+      applyScrollCorrection(delta);
     }
 
     // Secondary verification on requestAnimationFrame to compensate for any micro-shifts
@@ -235,22 +249,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         const rafScreenY = el.getBoundingClientRect().top;
         const rafDelta = rafScreenY - anchor.initialScreenY;
         if (Math.abs(rafDelta) > 1) {
-          let scrollContainer: HTMLElement | null = null;
-          let parent = el.parentElement;
-          while (parent && parent !== document.body && parent !== document.documentElement) {
-            const style = window.getComputedStyle(parent);
-            if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
-              scrollContainer = parent;
-              break;
-            }
-            parent = parent.parentElement;
-          }
-
-          if (scrollContainer) {
-            scrollContainer.scrollTop += rafDelta;
-          } else {
-            window.scrollBy(0, rafDelta);
-          }
+          applyScrollCorrection(rafDelta);
         }
       }
       scrollAnchorRef.current = null;
