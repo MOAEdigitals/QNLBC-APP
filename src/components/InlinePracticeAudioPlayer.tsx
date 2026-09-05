@@ -284,6 +284,8 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
           <div className="space-y-1">
             <div className="relative flex items-center">
               <input
+                id="practice-audio-scrubber"
+                name="audio_scrubber_position"
                 type="range"
                 min="0"
                 max={duration > 0 ? duration : 100}

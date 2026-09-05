@@ -606,11 +606,19 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
-              type="text"
+              id="visitor-records-search"
+              name="visitor_records_query"
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search visitor by name, barangay, or tier..."
-              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="w-full pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
           </div>
 
@@ -750,13 +758,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddBirthday} className="p-5 space-y-4">
+            <form onSubmit={handleAddBirthday} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Full Name *
                 </label>
                 <input
+                  id="bday-celebrant-name"
+                  name="bday_celebrant_name"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={bdayForm.name}
                   onChange={(e) => setBdayForm({ ...bdayForm, name: e.target.value })}
@@ -770,6 +786,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Birthdate (Calendar Picker) *
                 </label>
                 <input
+                  id="bday-birth-date"
+                  name="bday_birth_date"
                   type="date"
                   required
                   value={bdayForm.birthDate}
@@ -783,7 +801,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Ministry / Group (Optional)
                 </label>
                 <input
+                  id="bday-ministry-group"
+                  name="bday_ministry_group"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={bdayForm.ministryOrGroup}
                   onChange={(e) => setBdayForm({ ...bdayForm, ministryOrGroup: e.target.value })}
                   placeholder="Enter ministry or group"
@@ -796,6 +822,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Notes / Greeting (Optional)
                 </label>
                 <textarea
+                  id="bday-notes-greeting"
+                  name="bday_notes_greeting"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={2}
                   value={bdayForm.notes}
                   onChange={(e) => setBdayForm({ ...bdayForm, notes: e.target.value })}
@@ -838,17 +872,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddAnniversary} className="p-5 space-y-4">
+            <form onSubmit={handleAddAnniversary} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Couple / Event / Ministry Title *
                 </label>
                 <input
+                  id="anniv-entry-title"
+                  name="anniv_entry_title"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={annivForm.title}
                   onChange={(e) => setAnnivForm({ ...annivForm, title: e.target.value })}
@@ -863,6 +901,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                     Date *
                   </label>
                   <input
+                    id="anniv-event-date"
+                    name="anniv_event_date"
                     type="date"
                     required
                     value={annivForm.anniversaryDate}
@@ -893,6 +933,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Years Count (Optional)
                 </label>
                 <input
+                  id="anniv-years-count"
+                  name="anniv_years_count"
                   type="number"
                   min={1}
                   max={150}
@@ -908,11 +950,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Notes
                 </label>
                 <input
+                  id="anniv-event-notes"
+                  name="anniv_event_notes"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="sentences"
-                  spellCheck={true}
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={annivForm.notes}
                   onChange={(e) => setAnnivForm({ ...annivForm, notes: e.target.value })}
                   placeholder="Anniversary description or notes"
@@ -954,17 +1000,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddVisitor} className="p-5 space-y-4">
+            <form onSubmit={handleAddVisitor} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Visitor Name *
                 </label>
                 <input
+                  id="visitor-guest-name"
+                  name="visitor_guest_name"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={visitorForm.name}
                   onChange={(e) => setVisitorForm({ ...visitorForm, name: e.target.value })}
@@ -978,11 +1028,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Barangay / Place of Origin *
                 </label>
                 <input
+                  id="visitor-place-origin"
+                  name="visitor_origin_locality"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={visitorForm.barangay}
                   onChange={(e) => setVisitorForm({ ...visitorForm, barangay: e.target.value })}
@@ -1019,6 +1073,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Date Visited
                 </label>
                 <input
+                  id="visitor-date-attended"
+                  name="visitor_date_attended"
                   type="date"
                   required
                   value={visitorForm.dateVisited}
@@ -1032,11 +1088,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Notes / Invited By (Optional)
                 </label>
                 <input
+                  id="visitor-additional-notes"
+                  name="visitor_additional_notes"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="sentences"
-                  spellCheck={true}
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={visitorForm.notes}
                   onChange={(e) => setVisitorForm({ ...visitorForm, notes: e.target.value })}
                   placeholder="Visitor notes and follow-up details"
@@ -1078,17 +1138,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddSpecial} className="p-5 space-y-4">
+            <form onSubmit={handleAddSpecial} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Name / Honoree *
                 </label>
                 <input
+                  id="special-honoree-name"
+                  name="special_honoree_name"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={specialForm.name}
                   onChange={(e) => setSpecialForm({ ...specialForm, name: e.target.value })}
@@ -1126,11 +1190,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                     : 'Specific Title / Subtitle'}
                 </label>
                 <input
+                  id="special-custom-title"
+                  name="special_custom_title"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="sentences"
-                  spellCheck={true}
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={specialForm.customType}
                   onChange={(e) => setSpecialForm({ ...specialForm, customType: e.target.value })}
                   placeholder="Enter title, degree, or license details"
@@ -1143,6 +1211,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Recognition Date
                 </label>
                 <input
+                  id="special-event-date"
+                  name="special_event_date"
                   type="date"
                   required
                   value={specialForm.date}
@@ -1156,6 +1226,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Description / Details (Optional)
                 </label>
                 <textarea
+                  id="special-recognition-details"
+                  name="special_recognition_details"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={2}
                   value={specialForm.description}
                   onChange={(e) => setSpecialForm({ ...specialForm, description: e.target.value })}

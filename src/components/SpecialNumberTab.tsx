@@ -143,6 +143,14 @@ const PracticeGroupNotesInput: React.FC<{
 
   return (
     <textarea
+      id={`practice-notes-${group.id}`}
+      name="practice_group_notes"
+      autoComplete="off"
+      autoCorrect="off"
+      autoCapitalize="sentences"
+      spellCheck={false}
+      data-form-type="other"
+      data-lpignore="true"
       rows={3}
       value={localNotes}
       onChange={handleChange}
@@ -1858,11 +1866,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
-              type="text"
+              id="schedule-search-input"
+              name="schedule_search_query"
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
               value={scheduleSearchQuery}
               onChange={(e) => setScheduleSearchQuery(e.target.value)}
               placeholder="Search performer, song title, or notes..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
           </div>
 
@@ -2169,11 +2185,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
-              type="text"
+              id="practice-search-input"
+              name="practice_search_query"
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
               value={practiceSearchQuery}
               onChange={(e) => setPracticeSearchQuery(e.target.value)}
               placeholder="Search singing group, song, vocal part, or singer name..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
           </div>
 
@@ -2691,11 +2715,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
-                type="text"
+                id="choir-search-input"
+                name="choir_search_query"
+                type="search"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="sentences"
+                spellCheck={false}
+                data-form-type="other"
+                data-lpignore="true"
                 value={choirSearchQuery}
                 onChange={(e) => setChoirSearchQuery(e.target.value)}
                 placeholder="Search choir song title, lyrics, notes, or ministry group..."
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 shadow-xs"
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 shadow-xs [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
               />
               {choirSearchQuery && (
                 <button
@@ -3059,13 +3091,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveScheduleSubmit} className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveScheduleSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Performer Name(s) *
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
+                    id="schedule-performer-input"
+                    name="schedule_performer_name"
                     value={editingSchedule.performerName || ''}
                     onChange={(val) => setEditingSchedule({ ...editingSchedule, performerName: val })}
                     suggestions={directoryNames}
@@ -3080,6 +3114,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Scheduled Service Date *
                 </label>
                 <input
+                  id="schedule-date-input"
+                  name="schedule_service_date"
                   type="date"
                   required
                   value={editingSchedule.scheduledDate || getNextSundayStr()}
@@ -3094,6 +3130,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
+                    id="schedule-song-title-input"
+                    name="schedule_song_title"
                     value={editingSchedule.songTitle || ''}
                     onChange={(val) => {
                       const matched = songs.find(
@@ -3121,11 +3159,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Minus-One Link (YouTube / Audio Cloud Link)
                 </label>
                 <input
+                  id="schedule-minus-one-link"
+                  name="perf_minus_one_link"
                   type="url"
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="none"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={editingSchedule.minusOneLink || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, minusOneLink: e.target.value })}
                   placeholder="https://www.youtube.com/watch?v=..."
@@ -3138,11 +3180,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Rehearsal / Practice Notes (Optional)
                 </label>
                 <input
+                  id="schedule-notes-input"
+                  name="perf_rehearsal_notes"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="sentences"
-                  spellCheck={true}
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={editingSchedule.notes || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, notes: e.target.value })}
                   placeholder="Rehearsal schedule, key, or practice notes..."
@@ -3176,6 +3222,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   </button>
                 </div>
                 <textarea
+                  id="schedule-lyrics-input"
+                  name="perf_lyrics_content"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={isScheduleModalLyricsExpanded ? 18 : 9}
                   value={editingSchedule.lyrics || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, lyrics: e.target.value })}
@@ -3227,7 +3281,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSavePracticeSubmit} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSavePracticeSubmit} autoComplete="off" data-form-type="other" className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
               {/* Singer / Group Name */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
@@ -3235,6 +3289,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
+                    id="practice-group-name"
+                    name="practice_group_name"
                     value={editingPractice.groupName || ''}
                     onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
                     suggestions={directoryNames}
@@ -3250,11 +3306,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Target Event / Occasion (Optional)
                 </label>
                 <input
+                  id="practice-assigned-event"
+                  name="practice_assigned_event"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent : 'Sunday Service'}
                   onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
                   placeholder="Sunday Service / Event occasion"
@@ -3269,6 +3329,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
+                    id="practice-song-title"
+                    name="practice_song_title"
                     value={editingPractice.songTitle || ''}
                     onChange={(val) => handleSelectSongForPractice(val)}
                     suggestions={songTitleSuggestions}
@@ -3300,11 +3362,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       </button>
                     </div>
                     <input
+                      id="practice-song-artist"
+                      name="practice_song_artist"
                       type="text"
                       autoComplete="off"
-                      autoCorrect="on"
+                      autoCorrect="off"
                       autoCapitalize="words"
                       spellCheck={false}
+                      data-form-type="other"
+                      data-lpignore="true"
                       value={newSongArtist}
                       onChange={(e) => setNewSongArtist(e.target.value)}
                       placeholder="Artist, composer, or origin"
@@ -3350,6 +3416,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   </button>
                 </div>
                 <textarea
+                  id="practice-lyrics-input"
+                  name="practice_lyrics_content"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={isPracticeModalLyricsExpanded ? 18 : 9}
                   value={editingPractice.lyrics || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
@@ -3413,7 +3487,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveTrackModalSubmit} className="p-4 sm:p-5 space-y-4">
+            <form onSubmit={handleSaveTrackModalSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
               {/* Attachment Category (Segmented Buttons matching Image 2) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -3453,11 +3527,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Attachment Title
                 </label>
                 <input
+                  id="special-track-title"
+                  name="special_track_title"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="sentences"
-                  spellCheck={true}
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={trackTitle}
                   onChange={(e) => setTrackTitle(e.target.value)}
                   placeholder={
@@ -3476,11 +3554,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <div className="relative">
                   <input
+                    id="special-track-url"
+                    name="special_track_url"
                     type="text"
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="none"
                     spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     value={
                       trackUrlOrData.startsWith('indexeddb:') || trackUrlOrData.startsWith('data:')
                         ? (trackFileName ? `Attached: ${trackFileName}` : '(Attached Audio Track)')
@@ -3631,7 +3713,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveVocalPartModalSubmit} className="p-4 sm:p-5 space-y-4">
+            <form onSubmit={handleSaveVocalPartModalSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
               {/* Vocal Part Selection */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -3657,11 +3739,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 {vocalPartLabel === 'Custom' && (
                   <div className="mt-2">
                     <input
+                      id="vocal-part-custom-name"
+                      name="vocal_part_custom_name"
                       type="text"
                       autoComplete="off"
-                      autoCorrect="on"
+                      autoCorrect="off"
                       autoCapitalize="words"
                       spellCheck={false}
+                      data-form-type="other"
+                      data-lpignore="true"
                       value={vocalPartCustomLabel}
                       onChange={(e) => setVocalPartCustomLabel(e.target.value)}
                       placeholder="Enter custom vocal part name"
@@ -3679,6 +3765,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
+                    id="vocal-part-assigned-users"
+                    name="vocal_part_assigned_users"
                     value={vocalPartAssignedUsers}
                     onChange={(val) => setVocalPartAssignedUsers(val)}
                     suggestions={directoryNames}
@@ -3833,11 +3921,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   <div className="space-y-2">
                     <div className="relative">
                       <input
+                        id="vocal-part-audio-url"
+                        name="vocal_part_audio_url"
                         type="text"
                         autoComplete="off"
                         autoCorrect="off"
                         autoCapitalize="none"
                         spellCheck={false}
+                        data-form-type="other"
+                        data-lpignore="true"
                         value={vocalPartAudioUrl}
                         onChange={(e) => {
                           setVocalPartAudioUrl(e.target.value);
@@ -3959,13 +4051,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveChoirSubmit} className="p-4 sm:p-5 space-y-4">
+            <form onSubmit={handleSaveChoirSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
               {/* Service Date & Preset Buttons */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
                   Service Presentation Date <span className="text-rose-500">*</span>
                 </label>
                 <input
+                  id="choir-service-date"
+                  name="choir_service_date"
                   type="date"
                   required
                   value={editingChoir.date}
@@ -4013,11 +4107,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Choir Group / Ministry
                 </label>
                 <input
+                  id="choir-group-name"
+                  name="choir_group_name"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={editingChoir.choirGroup || ''}
                   onChange={(e) =>
                     setEditingChoir({ ...editingChoir, choirGroup: e.target.value })
@@ -4053,6 +4151,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Choir Song Title <span className="text-rose-500">*</span>
                 </label>
                 <AutofillInput
+                  id="choir-song-title-input"
+                  name="choir_song_title"
                   value={editingChoir.songTitle}
                   onChange={(val) => {
                     const matchedSong = songs.find(
@@ -4103,11 +4203,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </div>
                 {(showChoirArtistInput || editingChoir.artist) && (
                   <input
+                    id="choir-artist-input"
+                    name="choir_artist_input"
                     type="text"
                     autoComplete="off"
-                    autoCorrect="on"
+                    autoCorrect="off"
                     autoCapitalize="words"
                     spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     value={newChoirArtist || editingChoir.artist || ''}
                     onChange={(e) => {
                       setNewChoirArtist(e.target.value);
@@ -4125,6 +4229,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Presentation / Conductor Notes (Optional)
                 </label>
                 <textarea
+                  id="choir-conductor-notes"
+                  name="choir_conductor_notes"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={2}
                   value={editingChoir.notes || ''}
                   onChange={(e) => setEditingChoir({ ...editingChoir, notes: e.target.value })}
@@ -4139,6 +4251,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   Lyrics & Arrangement
                 </label>
                 <textarea
+                  id="choir-lyrics-arrangement"
+                  name="choir_lyrics_arrangement"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={5}
                   value={editingChoir.lyrics || ''}
                   onChange={(e) => setEditingChoir({ ...editingChoir, lyrics: e.target.value })}

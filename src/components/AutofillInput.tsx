@@ -35,6 +35,8 @@ interface AutofillInputProps {
   onSelectSuggestion?: (val: string) => void;
   id?: string;
   showAllOnFocus?: boolean;
+  name?: string;
+  autoComplete?: string;
 }
 
 const AutofillInputComponent: React.FC<AutofillInputProps> = ({
@@ -50,9 +52,11 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   className = '',
   inputClassName = '',
   required = false,
-  type = 'text',
+  type = 'search',
   onSelectSuggestion,
   id,
+  name,
+  autoComplete = 'off',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -423,8 +427,15 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       <div className="relative flex items-center w-full">
         <input
           ref={inputRef}
-          id={id}
+          id={id || `field-input-${Math.random().toString(36).slice(2, 7)}`}
+          name={name || "search_field_query"}
           type={type}
+          autoComplete={autoComplete}
+          autoCorrect="off"
+          autoCapitalize="sentences"
+          spellCheck={false}
+          data-form-type="other"
+          data-lpignore="true"
           required={required}
           value={value}
           onChange={(e) => {
@@ -442,7 +453,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          className={`w-full bg-transparent ${inputClassName}`}
+          className={`w-full bg-transparent [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden ${inputClassName}`}
         />
       </div>
 

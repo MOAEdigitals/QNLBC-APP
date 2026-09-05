@@ -1382,7 +1382,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
+            <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
               {/* Date & Title */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
@@ -1390,6 +1390,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     Scheduled Date *
                   </label>
                   <input
+                    id="setlist-scheduled-date"
+                    name="scheduled_calendar_date"
                     type="date"
                     required
                     value={editingSetlist.date || ''}
@@ -1414,11 +1416,15 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         : 'Prayer Meeting Title'}
                     </label>
                     <input
+                      id="setlist-event-title"
+                      name="program_event_title"
                       type="text"
                       autoComplete="off"
-                      autoCorrect="on"
+                      autoCorrect="off"
                       autoCapitalize="sentences"
-                      spellCheck={true}
+                      spellCheck={false}
+                      data-form-type="other"
+                      data-lpignore="true"
                       required={editingSetlist.type === 'event' || editingSetlist.type === 'fellowship'}
                       value={editingSetlist.title || ''}
                       onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
@@ -1463,11 +1469,15 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           </button>
                         </div>
                         <input
+                          id="setlist-custom-title"
+                          name="program_custom_title"
                           type="text"
                           autoComplete="off"
-                          autoCorrect="on"
+                          autoCorrect="off"
                           autoCapitalize="sentences"
-                          spellCheck={true}
+                          spellCheck={false}
+                          data-form-type="other"
+                          data-lpignore="true"
                           value={editingSetlist.title || ''}
                           onChange={(e) => setEditingSetlist({ ...editingSetlist, title: e.target.value })}
                           placeholder="Enter setlist title"
@@ -1871,6 +1881,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   General Program Announcements & Notes
                 </label>
                 <textarea
+                  id="setlist-general-notes"
+                  name="program_general_notes"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={2}
                   value={editingSetlist.generalNotes || ''}
                   onChange={(e) => setEditingSetlist({ ...editingSetlist, generalNotes: e.target.value })}

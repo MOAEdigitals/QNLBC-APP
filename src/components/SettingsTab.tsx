@@ -815,6 +815,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {showAddUserForm && (
                 <form
                   onSubmit={handleCreateUser}
+                  autoComplete="off"
+                  data-form-type="other"
                   className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-2xs"
                 >
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
@@ -838,11 +840,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Username / Member Name *
                       </label>
                       <input
+                        id="new-member-username"
+                        name="member_display_name"
                         type="text"
                         autoComplete="off"
-                        autoCorrect="on"
+                        autoCorrect="off"
                         autoCapitalize="words"
                         spellCheck={false}
+                        data-form-type="other"
+                        data-lpignore="true"
                         value={newUsername}
                         onChange={(e) => setNewUsername(e.target.value)}
                         placeholder="e.g. John Santos"
@@ -868,8 +874,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       </div>
                       <div className="relative">
                         <input
+                          id="new-member-passphrase"
+                          name="member_secret_token"
                           type={showNewPassword ? 'text' : 'password'}
-                          autoComplete="new-password"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          data-form-type="other"
+                          data-lpignore="true"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Secret password"
@@ -956,11 +969,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div className="relative flex-1">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                   <input
-                    type="text"
+                    id="user-accounts-search"
+                    name="user_accounts_query"
+                    type="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="sentences"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
                     placeholder="Search accounts by username..."
-                    className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                   />
                   {userSearchQuery && (
                     <button
@@ -1225,17 +1246,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditUser} className="space-y-3.5">
+            <form onSubmit={handleSaveEditUser} autoComplete="off" data-form-type="other" className="space-y-3.5">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                   Username / Member Name
                 </label>
                 <input
+                  id="edit-member-username"
+                  name="edit_member_name"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={editUsername}
                   onChange={(e) => setEditUsername(e.target.value)}
                   required
@@ -1259,8 +1284,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
                 <div className="relative">
                   <input
+                    id="edit-member-passphrase"
+                    name="edit_member_token"
                     type={showEditPassword ? 'text' : 'password'}
-                    autoComplete="new-password"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     value={editPassword}
                     onChange={(e) => setEditPassword(e.target.value)}
                     required
@@ -1348,13 +1380,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           {!isChurchDirectoryCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
               {/* Add name input form */}
-              <form onSubmit={handleAddDirectoryName} className="flex items-center gap-2">
+              <form onSubmit={handleAddDirectoryName} autoComplete="off" data-form-type="other" className="flex items-center gap-2">
                 <input
+                  id="directory-member-name"
+                  name="directory_person_name"
                   type="text"
                   autoComplete="off"
-                  autoCorrect="on"
+                  autoCorrect="off"
                   autoCapitalize="words"
                   spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={newNameInput}
                   onChange={(e) => setNewNameInput(e.target.value)}
                   placeholder="Enter church member name (e.g. Bro. Juan Dela Cruz)..."

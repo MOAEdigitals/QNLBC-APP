@@ -127,7 +127,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
 
       <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white dark:bg-slate-900 py-7 px-5 sm:py-8 sm:px-8 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl">
-          <form className="space-y-4 sm:space-y-5" onSubmit={handleSubmit}>
+          <form className="space-y-4 sm:space-y-5" onSubmit={handleSubmit} autoComplete="off" data-form-type="other">
             {errorMsg && (
               <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start space-x-3 text-rose-700 dark:text-rose-300 text-xs sm:text-sm">
                 <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 shrink-0 mt-0.5" />
@@ -137,7 +137,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
 
             <div>
               <label
-                htmlFor="username"
+                htmlFor="auth-account-user"
                 className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
               >
                 Username
@@ -147,10 +147,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
                   <User className="w-4 h-4" />
                 </div>
                 <input
-                  id="username"
-                  name="username"
+                  id="auth-account-user"
+                  name="account_user_id"
                   type="text"
-                  autoComplete="username"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -162,7 +167,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
 
             <div>
               <label
-                htmlFor="password"
+                htmlFor="auth-secret-entry"
                 className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5"
               >
                 Password
@@ -172,10 +177,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
-                  id="password"
-                  name="password"
+                  id="auth-secret-entry"
+                  name="account_secret_token"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

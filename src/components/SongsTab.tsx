@@ -826,13 +826,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           name="song_search"
           type="search"
           autoComplete="off"
-          autoCorrect="on"
+          autoCorrect="off"
           autoCapitalize="sentences"
-          spellCheck={true}
+          spellCheck={false}
+          data-form-type="other"
+          data-lpignore="true"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by song title, composer/artist, or lyrics phrase..."
-          className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden"
+          className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
         />
         {searchQuery && (
           <button
@@ -1828,7 +1830,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveAttachment} className="p-5 space-y-4">
+            <form onSubmit={handleSaveAttachment} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
               {/* Category Choice: Plus One vs. Minus One */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -1866,7 +1868,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   Attachment Title
                 </label>
                 <input
+                  id="attachment-title-input"
+                  name="media_track_title"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={attachmentName}
                   onChange={(e) => setAttachmentName(e.target.value)}
                   placeholder={
@@ -1885,7 +1895,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 </label>
                 <div className="relative flex items-center">
                   <input
+                    id="attachment-link-input"
+                    name="media_web_link"
                     type="text"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     required
                     value={attachmentFileName ? `Attached File: ${attachmentFileName}` : attachmentLinkOrData}
                     onChange={(e) => {
@@ -2003,14 +2021,22 @@ export const SongsTab: React.FC<SongsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveSongForm} className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveSongForm} autoComplete="off" data-form-type="other" className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
               {/* Song Title (Required) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Song Title *
                 </label>
                 <input
+                  id="song-title-input"
+                  name="library_song_title"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   required
                   value={editingSong.title || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, title: e.target.value })}
@@ -2039,7 +2065,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       </button>
                     </div>
                     <input
+                      id="song-artist-input"
+                      name="library_song_artist"
                       type="text"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="sentences"
+                      spellCheck={false}
+                      data-form-type="other"
+                      data-lpignore="true"
                       value={editingSong.artist || ''}
                       onChange={(e) => setEditingSong({ ...editingSong, artist: e.target.value })}
                       placeholder="Enter artist, composer, or hymn origin"
@@ -2084,6 +2118,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   </button>
                 </div>
                 <textarea
+                  id="song-lyrics-input"
+                  name="library_song_lyrics"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="sentences"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   rows={isLyricsExpandedInEditor ? 18 : 8}
                   value={editingSong.lyrics || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, lyrics: e.target.value })}
@@ -2185,6 +2227,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
             {/* Notepad Text Area */}
             <div className="flex-1 flex flex-col p-4 sm:p-5 overflow-hidden">
               <textarea
+                id="song-scratchpad-input"
+                name="library_scratchpad_notes"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="sentences"
+                spellCheck={false}
+                data-form-type="other"
+                data-lpignore="true"
                 value={notepadText}
                 onChange={(e) => handleNotepadChange(e.target.value)}
                 autoFocus
