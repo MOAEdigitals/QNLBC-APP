@@ -171,16 +171,11 @@ const PENDING_QUEUE_KEY = 'nlbc_firestore_pending_queue_v1';
 const TOMBSTONES_STORAGE_KEY = 'nlbc_deleted_tombstones_v1';
 const QUOTA_STORAGE_KEY = 'nlbc_firestore_quota_exhausted_date';
 
-// Check local storage for previously recorded quota exhaustion for today
+// Clear any legacy or false quota storage key from earlier sessions so all cloud operations run cleanly
 try {
-  const todayStr = new Date().toISOString().split('T')[0];
-  const savedDate = localStorage.getItem(QUOTA_STORAGE_KEY);
-  if (savedDate === todayStr) {
-    isQuotaExhausted = true;
-    currentStatus = 'quota-exceeded';
-  } else if (savedDate) {
-    localStorage.removeItem(QUOTA_STORAGE_KEY);
-  }
+  localStorage.removeItem(QUOTA_STORAGE_KEY);
+  isQuotaExhausted = false;
+  currentStatus = 'online';
 } catch {
   // ignore
 }
@@ -266,7 +261,6 @@ export async function clearAllTombstones(): Promise<void> {
 }
 
 async function removeTombstoneFromCloud(collectionName: string, id: string): Promise<void> {
-  if (isQuotaExhausted) return;
   try {
     const tombstonesDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
     const snap = await getDoc(tombstonesDoc);
@@ -298,7 +292,6 @@ export function mergeRemoteTombstones(remoteTombstones: { collectionName: string
 }
 
 async function broadcastTombstoneToCloud(collectionName: string, id: string): Promise<void> {
-  if (isQuotaExhausted) return;
   try {
     const tombstonesDoc = doc(db, COLLECTIONS.APP_SETTINGS, 'tombstones');
     const snap = await getDoc(tombstonesDoc);
@@ -511,7 +504,7 @@ function sanitizeDoc<T>(data: T): Record<string, any> {
   return cleanObject(data);
 }
 
-// Central safe Firestore write wrapper with quota circuit-breaker and offline queueing
+// Central safe Firestore write wrapper with offline queueing
 async function executeFirestoreWrite(
   collectionName: string,
   docId: string,
@@ -521,11 +514,6 @@ async function executeFirestoreWrite(
   removeTombstone(collectionName, docId);
   enqueuePending(collectionName, docId, sanitized, 'write');
 
-  if (isQuotaExhausted) {
-    recordCollectionSync(collectionName, undefined, 'pending', 'Local Queued (Quota Exceeded)');
-    return;
-  }
-
   try {
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, sanitized, { merge: true });
@@ -533,12 +521,12 @@ async function executeFirestoreWrite(
     markWriteSuccess();
     recordCollectionSync(collectionName, undefined, 'synced', 'Document Saved to Cloud');
   } catch (err) {
-    recordCollectionSync(collectionName, undefined, 'error', 'Write Error');
+    recordCollectionSync(collectionName, undefined, 'pending', 'Local Queued');
     handleFirestoreError(err, OperationType.WRITE, `${collectionName}/${docId}`);
   }
 }
 
-// Central safe Firestore delete wrapper with quota circuit-breaker and offline queueing
+// Central safe Firestore delete wrapper with offline queueing and active cloud purge
 async function executeFirestoreDelete(
   collectionName: string,
   docId: string
@@ -546,30 +534,24 @@ async function executeFirestoreDelete(
   recordTombstone(collectionName, docId);
   enqueuePending(collectionName, docId, undefined, 'delete');
 
-  if (isQuotaExhausted) {
-    recordCollectionSync(collectionName, undefined, 'pending', 'Delete Queued (Quota Exceeded)');
-    return;
-  }
-
   try {
-    await deleteDoc(doc(db, collectionName, docId));
+    const docRef = doc(db, collectionName, docId);
+    await deleteDoc(docRef);
     dequeuePending(collectionName, docId);
     markWriteSuccess();
     recordCollectionSync(collectionName, undefined, 'synced', 'Document Purged from Cloud');
   } catch (err) {
-    recordCollectionSync(collectionName, undefined, 'error', 'Delete Error');
+    recordCollectionSync(collectionName, undefined, 'pending', 'Delete Queued');
     handleFirestoreError(err, OperationType.DELETE, `${collectionName}/${docId}`);
   }
 }
 
 // Flush pending offline/quota-deferred queue
 export async function flushPendingSyncQueue(): Promise<void> {
-  if (isQuotaExhausted) return;
   const queue = getPendingQueue();
   if (queue.length === 0) return;
 
   for (const item of queue) {
-    if (isQuotaExhausted) break;
     try {
       const docRef = doc(db, item.collectionName, item.id);
       if (item.operation === 'write' && item.data) {
@@ -581,7 +563,7 @@ export async function flushPendingSyncQueue(): Promise<void> {
       markWriteSuccess();
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, `${item.collectionName}/${item.id}`);
-      break; // Pause flushing if quota error happens
+      break; // Pause flushing if network error happens
     }
   }
 }
@@ -612,8 +594,8 @@ export const LEGACY_MOCK_IDS = new Set([
   'spec-4',
 ]);
 
-// Subscribe to real-time updates for any collection
-export function subscribeToCollection<T extends { id: string }>(
+// Subscribe to real-time updates for any collection with tombstone immunity & pending write overlay
+export function subscribeToCollection<T extends { id: string; updatedAt?: string }>(
   collectionName: string,
   onUpdate: (items: T[]) => void
 ) {
@@ -623,46 +605,49 @@ export function subscribeToCollection<T extends { id: string }>(
       colRef,
       (snapshot) => {
         markReadSuccess();
-        const items: T[] = [];
-        const remoteIds = new Set<string>();
-
-        const liveDocIds = new Set<string>();
+        const itemsMap = new Map<string, T>();
+        const pendingQueue = getPendingQueue().filter((p) => p.collectionName === collectionName);
+        const pendingDeletes = new Set(pendingQueue.filter((p) => p.operation === 'delete').map((p) => p.id));
+        const pendingWrites = new Map(
+          pendingQueue
+            .filter((p) => p.operation === 'write' && p.data)
+            .map((p) => [p.id, p.data as T])
+        );
 
         snapshot.forEach((docSnap) => {
-          remoteIds.add(docSnap.id);
-          if (LEGACY_MOCK_IDS.has(docSnap.id)) {
-            // Background cleanup of legacy mock IDs only if quota is available
-            if (!isQuotaExhausted) {
-              deleteDoc(doc(db, collectionName, docSnap.id)).catch(() => {});
-            }
+          const docId = docSnap.id;
+
+          // 1. Skip and purge legacy mock IDs
+          if (LEGACY_MOCK_IDS.has(docId)) {
+            deleteDoc(doc(db, collectionName, docId)).catch(() => {});
             return;
           }
 
-          liveDocIds.add(docSnap.id);
-          items.push({ ...(docSnap.data() as T), id: docSnap.id });
+          // 2. Critical: Skip tombstoned or pending-delete items!
+          // Actively purge from server if still sitting on Firestore, but NEVER resurrect!
+          if (isItemTombstoned(collectionName, docId) || pendingDeletes.has(docId)) {
+            deleteDoc(doc(db, collectionName, docId)).catch(() => {});
+            return;
+          }
+
+          // 3. If there is a pending local write for this document (e.g. rename), prefer the local version
+          const pendingWrite = pendingWrites.get(docId);
+          if (pendingWrite) {
+            itemsMap.set(docId, { ...pendingWrite, id: docId });
+          } else {
+            const remoteData = { ...(docSnap.data() as T), id: docId };
+            itemsMap.set(docId, remoteData);
+          }
         });
 
-        // If documents exist on Firestore, remove any stale local tombstones in a single batch
-        if (liveDocIds.size > 0) {
-          const currentTombstones = getTombstones();
-          const filteredTombstones = currentTombstones.filter(
-            (t) => !(t.collectionName === collectionName && liveDocIds.has(t.id))
-          );
-          if (filteredTombstones.length !== currentTombstones.length) {
-            updateTombstoneCache(filteredTombstones);
+        // 4. Add any pending writes for documents that haven't appeared in snapshot yet
+        for (const [id, data] of pendingWrites.entries()) {
+          if (!itemsMap.has(id) && !isItemTombstoned(collectionName, id) && !pendingDeletes.has(id)) {
+            itemsMap.set(id, { ...data, id });
           }
         }
 
-        // Merge any locally queued writes that have not reached the server snapshot yet
-        const pending = getPendingQueue().filter(
-          (p) => p.collectionName === collectionName && p.operation === 'write' && p.data
-        );
-        for (const p of pending) {
-          if (!remoteIds.has(p.id)) {
-            items.push({ ...(p.data as T), id: p.id });
-          }
-        }
-
+        const items = Array.from(itemsMap.values());
         recordCollectionSync(collectionName, items.length, 'synced', 'Live Server Snapshot');
         onUpdate(items);
       },
@@ -1081,8 +1066,11 @@ export async function pushAllLocalDataToFirestore(): Promise<{
   }
 
   try {
-    // 1. Clear all deletion tombstones so no devices suppress the uploaded data
-    await clearAllTombstones();
+    // 1. Actively purge all deletion tombstones from Firestore so deleted records stay deleted
+    const currentTombstones = getTombstones();
+    for (const t of currentTombstones) {
+      deleteDoc(doc(db, t.collectionName, t.id)).catch(() => {});
+    }
 
     const setlists = loadSetlists();
     const songs = loadSongs();

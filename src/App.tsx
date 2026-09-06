@@ -74,6 +74,7 @@ import {
   subscribeToGlobalWipe,
   FirestoreStatusInfo,
   isItemTombstoned,
+  recordTombstone,
   LEGACY_MOCK_IDS,
 } from './firestoreSync';
 import {
@@ -194,49 +195,86 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
-      setSetlists(validRemote);
-      saveSetlists(validRemote);
+      const currentLocal = loadSetlists();
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('setlists', i.id));
+      const localMap = new Map(currentLocal.map((s) => [s.id, s]));
+      const merged = validRemote.map((remoteSetlist) => {
+        const localSetlist = localMap.get(remoteSetlist.id);
+        if (localSetlist) {
+          const localTime = localSetlist.updatedAt ? new Date(localSetlist.updatedAt).getTime() : 0;
+          const remoteTime = remoteSetlist.updatedAt ? new Date(remoteSetlist.updatedAt).getTime() : 0;
+          if (localTime > remoteTime) {
+            syncSaveSetlist(localSetlist);
+            return localSetlist;
+          }
+        }
+        return remoteSetlist;
+      });
+      setSetlists(merged);
+      saveSetlists(merged);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
-      setSongs(validRemote);
-      saveSongs(validRemote);
+      const currentLocal = loadSongs();
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('songs', i.id));
+      const localMap = new Map(currentLocal.map((s) => [s.id, s]));
+      const merged = validRemote.map((remoteSong) => {
+        const localSong = localMap.get(remoteSong.id);
+        if (localSong) {
+          const localTime = localSong.updatedAt ? new Date(localSong.updatedAt).getTime() : 0;
+          const remoteTime = remoteSong.updatedAt ? new Date(remoteSong.updatedAt).getTime() : 0;
+          if (localTime > remoteTime) {
+            syncSaveSong(localSong);
+            return localSong;
+          }
+        }
+        return remoteSong;
+      });
+
+      const remoteIdSet = new Set(merged.map((s) => s.id));
+      for (const localSong of currentLocal) {
+        if (!remoteIdSet.has(localSong.id) && !isItemTombstoned('songs', localSong.id) && !LEGACY_MOCK_IDS.has(localSong.id)) {
+          merged.push(localSong);
+          syncSaveSong(localSong);
+        }
+      }
+
+      setSongs(merged);
+      saveSongs(merged);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('birthdays', i.id));
       setBirthdays(validRemote);
       saveBirthdays(validRemote);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('anniversaries', i.id));
       setAnniversaries(validRemote);
       saveAnniversaries(validRemote);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('visitors', i.id));
       setVisitors(validRemote);
       saveVisitors(validRemote);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('special_recognitions', i.id));
       setSpecialRecognitions(validRemote);
       saveSpecialRecognitions(validRemote);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('special_numbers', i.id));
       setSpecialNumbers(validRemote);
       saveSpecialNumbers(validRemote);
     });
 
     const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
-      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id));
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('choir_entries', i.id));
       setChoirEntries(validRemote);
       saveChoirEntries(validRemote);
     });
@@ -244,11 +282,18 @@ export default function App() {
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
       const currentLocal = loadPracticeEntries();
       const validRemote = items
-        .filter((remoteItem) => !LEGACY_MOCK_IDS.has(remoteItem.id))
+        .filter((remoteItem) => !LEGACY_MOCK_IDS.has(remoteItem.id) && !isItemTombstoned('practice_entries', remoteItem.id))
         .map((remoteItem) => {
           const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
           const normalized = normalizePracticeEntry(remoteItem);
           if (!localMatch) return normalized;
+
+          const localTime = localMatch.updatedAt ? new Date(localMatch.updatedAt).getTime() : 0;
+          const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt).getTime() : 0;
+          if (localTime > remoteTime) {
+            syncSavePracticeEntry(localMatch);
+            return localMatch;
+          }
 
           // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
           const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
@@ -265,6 +310,14 @@ export default function App() {
             parts: mergedVocalParts,
           };
         });
+
+      const remoteIdSet = new Set(validRemote.map((p) => p.id));
+      for (const localPrac of currentLocal) {
+        if (!remoteIdSet.has(localPrac.id) && !isItemTombstoned('practice_entries', localPrac.id) && !LEGACY_MOCK_IDS.has(localPrac.id)) {
+          validRemote.push(localPrac);
+          syncSavePracticeEntry(localPrac);
+        }
+      }
 
       setPracticeEntries(validRemote);
       savePracticeEntries(validRemote);
@@ -731,10 +784,19 @@ export default function App() {
   // Special Number Operations
   const handleSaveSpecialNumber = (entry: SpecialNumberEntry) => {
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
-      entry.songId = syncedSong.id;
-      setSongs(loadSongs());
-      syncSaveSong(syncedSong);
+      const currentSongs = loadSongs();
+      const existing = currentSongs.find(
+        (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const isTombstoned = (entry.songId && isItemTombstoned('songs', entry.songId)) ||
+        (existing && isItemTombstoned('songs', existing.id));
+
+      if (!isTombstoned) {
+        const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
+        entry.songId = syncedSong.id;
+        setSongs(loadSongs());
+        syncSaveSong(syncedSong);
+      }
     }
 
     const idx = specialNumbers.findIndex((s) => s.id === entry.id);
@@ -751,6 +813,7 @@ export default function App() {
   };
 
   const handleDeleteSpecialNumber = (id: string) => {
+    recordTombstone('special_numbers', id);
     const updated = specialNumbers.filter((s) => s.id !== id);
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
@@ -760,10 +823,19 @@ export default function App() {
   // Choir Operations
   const handleSaveChoirEntry = (entry: ChoirEntry) => {
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
-      entry.songId = syncedSong.id;
-      setSongs(loadSongs());
-      syncSaveSong(syncedSong);
+      const currentSongs = loadSongs();
+      const existing = currentSongs.find(
+        (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const isTombstoned = (entry.songId && isItemTombstoned('songs', entry.songId)) ||
+        (existing && isItemTombstoned('songs', existing.id));
+
+      if (!isTombstoned) {
+        const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
+        entry.songId = syncedSong.id;
+        setSongs(loadSongs());
+        syncSaveSong(syncedSong);
+      }
     }
 
     const idx = choirEntries.findIndex((c) => c.id === entry.id);
@@ -780,6 +852,7 @@ export default function App() {
   };
 
   const handleDeleteChoirEntry = (id: string) => {
+    recordTombstone('choir_entries', id);
     const updated = choirEntries.filter((c) => c.id !== id);
     setChoirEntries(updated);
     saveChoirEntries(updated);
