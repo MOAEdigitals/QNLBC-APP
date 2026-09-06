@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import multer from 'multer';
-import { uploadMedia, deleteMedia, getR2Client } from './server/mediaStorage';
+import { uploadMedia, deleteMedia, getR2Config } from './server/mediaStorage';
 
 dotenv.config();
 
@@ -38,12 +38,12 @@ app.get('/api/health', (req, res) => {
 
 // Storage status check endpoint
 app.get('/api/storage/status', (req, res) => {
-  const r2Config = getR2Client();
+  const r2Config = getR2Config();
   res.json({
-    r2Configured: Boolean(r2Config),
-    provider: r2Config ? 'cloudflare-r2' : 'local-server',
-    publicUrl: r2Config?.publicUrl || `${req.protocol}://${req.get('host')}/uploads`,
-    bucketName: r2Config?.bucketName || null,
+    r2Configured: Boolean(r2Config.hasToken || r2Config.hasS3Credentials),
+    provider: (r2Config.hasToken || r2Config.hasS3Credentials) ? 'cloudflare-r2' : 'local-server',
+    publicUrl: r2Config.publicUrl,
+    bucketName: r2Config.bucketName,
   });
 });
 
