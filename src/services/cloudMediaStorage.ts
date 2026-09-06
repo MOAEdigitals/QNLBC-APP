@@ -1,15 +1,7 @@
-// Universal Cloud Media Storage Service (Firebase Storage)
+// Universal Cloud Media Storage Service (Cloudflare R2 & Server Storage)
 // Allows all church members to upload audio/media (>1MB, MP3s, WAV, voice recordings)
 // and have them instantly streamable and synced across all devices without personal Google logins.
 
-import {
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  deleteObject,
-  UploadTaskSnapshot,
-} from 'firebase/storage';
-import { storage } from '../firebase';
 import { saveAudioToStorage } from '../utils/audioStorage';
 
 export interface MediaUploadResult {
@@ -17,13 +9,7 @@ export interface MediaUploadResult {
   fileName: string;
   size: number;
   isCloudUrl: boolean;
-}
-
-/**
- * Sanitize filename for safe storage keys
- */
-function sanitizeFileName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_').toLowerCase();
+  provider?: string;
 }
 
 /**
@@ -42,8 +28,9 @@ export function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 /**
- * Upload an Audio File or Voice Recording to Universal Cloud Media Storage (Firebase Storage)
- * Automatically falls back to local storage if offline or unavailable.
+ * Upload an Audio File or Voice Recording to Universal Cloud Media Storage (Cloudflare R2)
+ * Supports full MP3 minus-ones, vocal stems, and choir practice tracks (>1MB, up to 50MB).
+ * Automatically caches to IndexedDB for local offline capability.
  */
 export async function uploadMediaToCloudStorage(
   fileOrData: File | Blob | string,
@@ -64,7 +51,7 @@ export async function uploadMediaToCloudStorage(
         fileName = `recording_${cleanId}.${mimeType.includes('webm') ? 'webm' : 'mp3'}`;
       }
     } else {
-      // Already an external URL
+      // Already an external URL (e.g. YouTube, external MP3 link)
       return {
         url: fileOrData,
         fileName,
@@ -86,7 +73,6 @@ export async function uploadMediaToCloudStorage(
       console.warn('Local audio cache error:', err);
     });
   } else {
-    // Read as DataURL for IndexedDB local caching
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
@@ -96,55 +82,59 @@ export async function uploadMediaToCloudStorage(
     reader.readAsDataURL(blob);
   }
 
-  // 2. Upload to Firebase Cloud Storage for universal sync across all devices
+  // 2. Upload to Cloud Media Storage via /api/upload-media (Cloudflare R2)
   try {
-    const cleanFileName = sanitizeFileName(fileName);
-    const storagePath = `worship_media/${cleanId}_${cleanFileName}`;
-    const storageRef = ref(storage, storagePath);
+    const formData = new FormData();
+    formData.append('file', blob, fileName);
+    formData.append('fileId', cleanId);
+    formData.append('fileName', fileName);
 
-    const metadata = {
-      contentType: mimeType,
-      customMetadata: {
-        originalName: fileName,
-        uploadedAt: new Date().toISOString(),
-        trackId: cleanId,
-      },
-    };
+    const uploadResponse = await new Promise<MediaUploadResult>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload-media', true);
 
-    const uploadTask = uploadBytesResumable(storageRef, blob, metadata);
-
-    const downloadUrl = await new Promise<string>((resolve, reject) => {
-      uploadTask.on(
-        'state_changed',
-        (snapshot: UploadTaskSnapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          if (onProgress) {
-            onProgress(Math.round(progress));
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            onProgress(percent);
           }
-        },
-        (error) => {
-          console.warn('Firebase Storage upload warning:', error);
-          reject(error);
-        },
-        async () => {
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
           try {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
+            const json = JSON.parse(xhr.responseText);
+            if (json.success && json.url) {
+              resolve({
+                url: json.url,
+                fileName: json.fileName || fileName,
+                size: json.size || blob.size,
+                isCloudUrl: Boolean(json.isCloudUrl),
+                provider: json.provider,
+              });
+            } else {
+              reject(new Error(json.error || 'Upload failed'));
+            }
           } catch (err) {
             reject(err);
           }
+        } else {
+          reject(new Error(`Server upload returned status ${xhr.status}`));
         }
-      );
+      };
+
+      xhr.onerror = () => {
+        reject(new Error('Network error during media upload'));
+      };
+
+      xhr.send(formData);
     });
 
-    return {
-      url: downloadUrl,
-      fileName,
-      size: blob.size,
-      isCloudUrl: true,
-    };
+    return uploadResponse;
   } catch (cloudErr) {
-    console.warn('Could not upload to cloud storage, falling back to local storage ID:', cloudErr);
+    console.warn('Could not upload to cloud media storage, falling back to local storage ID:', cloudErr);
     // Return indexeddb locator so the app continues working offline
     return {
       url: `indexeddb:${cleanId}`,
@@ -156,16 +146,15 @@ export async function uploadMediaToCloudStorage(
 }
 
 /**
- * Delete a media file from Firebase Cloud Storage
+ * Delete a media file from Cloud Media Storage
  */
 export async function deleteMediaFromCloudStorage(urlOrPath: string): Promise<void> {
   if (!urlOrPath) return;
-  if (!urlOrPath.includes('firebasestorage.googleapis.com')) return;
-
   try {
-    const storageRef = ref(storage, urlOrPath);
-    await deleteObject(storageRef);
+    await fetch(`/api/upload-media?url=${encodeURIComponent(urlOrPath)}`, {
+      method: 'DELETE',
+    });
   } catch (err) {
-    console.warn('Could not delete file from Firebase Storage:', err);
+    console.warn('Could not delete media file from storage:', err);
   }
 }
