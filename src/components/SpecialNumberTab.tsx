@@ -27,7 +27,7 @@ import {
   getAudioFromStorage,
   deleteAudioFromStorage,
 } from '../utils/audioStorage';
-import { uploadMediaToCloudStorage } from '../services/cloudMediaStorage';
+import { uploadMediaToCloudStorage, syncLocalAudioToCloud } from '../services/cloudMediaStorage';
 import { isItemTombstoned } from '../firestoreSync';
 import {
   resolveMediaUrl,
@@ -1404,19 +1404,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         }
       } else if (finalUrl.startsWith('indexeddb:')) {
         const existingAudioId = finalUrl.replace(/^indexeddb:/, '');
-        if (existingAudioId && existingAudioId !== attId) {
-          const audioData = await getAudioFromStorage(existingAudioId);
-          if (audioData) {
-            if (audioData.startsWith('data:')) {
-              try {
-                const res = await uploadMediaToCloudStorage(audioData, attId, finalTitle);
+        const audioData = await getAudioFromStorage(existingAudioId, attId);
+        if (audioData) {
+          if (audioData.startsWith('data:')) {
+            setIsUploadingCloudMedia(true);
+            setUploadStatusText('Syncing audio track to Universal Cloud Storage...');
+            try {
+              const res = await uploadMediaToCloudStorage(audioData, attId, finalTitle);
+              if (res.isCloudUrl && res.url) {
                 finalUrl = res.url;
-              } catch {
-                await saveAudioToStorage(attId, audioData, finalTitle);
               }
-            } else {
+            } catch {
               await saveAudioToStorage(attId, audioData, finalTitle);
+            } finally {
+              setIsUploadingCloudMedia(false);
+              setUploadStatusText('');
             }
+          } else {
+            await saveAudioToStorage(attId, audioData, finalTitle);
           }
         }
       }
@@ -1481,6 +1486,138 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       });
     }
   };
+
+  const handleUpdateTrackAudioUrl = (group: PracticeGroupEntry, trackIndex: number, newCloudUrl: string) => {
+    if (!group || !newCloudUrl) return;
+    const liveGroup = practiceEntries.find((p) => p.id === group.id) || group;
+    const currentList = [...(liveGroup.customAttachments || liveGroup.attachments || [])];
+    if (!currentList[trackIndex]) return;
+
+    const updated = currentList.map((att, idx) => {
+      if (idx === trackIndex) {
+        return { ...att, url: newCloudUrl };
+      }
+      return att;
+    });
+
+    const currentVocalParts = liveGroup.vocalParts && liveGroup.vocalParts.length > 0
+      ? liveGroup.vocalParts
+      : liveGroup.parts || [];
+
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({
+        ...liveGroup,
+        customAttachments: updated,
+        attachments: updated,
+        vocalParts: currentVocalParts,
+        parts: currentVocalParts,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  };
+
+  const handleUpdateVocalPartAudioUrl = (group: PracticeGroupEntry, partIndex: number, newCloudUrl: string) => {
+    if (!group || !newCloudUrl) return;
+    const liveGroup = practiceEntries.find((p) => p.id === group.id) || group;
+    const currentList = [...(liveGroup.vocalParts || liveGroup.parts || [])];
+    if (!currentList[partIndex]) return;
+
+    const updated = currentList.map((part, idx) => {
+      if (idx === partIndex) {
+        return { ...part, audioUrl: newCloudUrl };
+      }
+      return part;
+    });
+
+    const currentAttachments = liveGroup.customAttachments && liveGroup.customAttachments.length > 0
+      ? liveGroup.customAttachments
+      : liveGroup.attachments || [];
+
+    if (onSavePracticeEntry) {
+      onSavePracticeEntry({
+        ...liveGroup,
+        vocalParts: updated,
+        parts: updated,
+        customAttachments: currentAttachments,
+        attachments: currentAttachments,
+        updatedAt: new Date().toISOString(),
+      });
+    }
+  };
+
+  // Auto-sync any tracks stuck in local IndexedDB to Cloudflare R2 if this device holds the audio data
+  useEffect(() => {
+    if (!practiceEntries || practiceEntries.length === 0 || !onSavePracticeEntry) return;
+
+    let isCancelled = false;
+
+    const runAutoSync = async () => {
+      for (const group of practiceEntries) {
+        let hasChanges = false;
+        let updatedAtts = [...(group.customAttachments || group.attachments || [])];
+        let updatedParts = [...(group.vocalParts || group.parts || [])];
+
+        for (let i = 0; i < updatedAtts.length; i++) {
+          const att = updatedAtts[i];
+          const rawUrl = (att.url || '').trim();
+          if (rawUrl.startsWith('indexeddb:')) {
+            const cleanId = rawUrl.replace(/^indexeddb:/, '');
+            const localData = await getAudioFromStorage(cleanId, att.id);
+            if (localData && !isCancelled) {
+              try {
+                const cloudUrl = await syncLocalAudioToCloud(cleanId, att.name || 'track');
+                if (cloudUrl && !isCancelled) {
+                  updatedAtts[i] = { ...att, url: cloudUrl };
+                  hasChanges = true;
+                  console.log(`[Auto-Sync] Cloud-synced practice track ${att.name || att.id} -> ${cloudUrl}`);
+                }
+              } catch (err) {
+                console.warn('[Auto-Sync] Could not upload local track to Cloud:', err);
+              }
+            }
+          }
+        }
+
+        for (let i = 0; i < updatedParts.length; i++) {
+          const part = updatedParts[i];
+          const rawUrl = (part.audioUrl || '').trim();
+          if (rawUrl.startsWith('indexeddb:')) {
+            const cleanId = rawUrl.replace(/^indexeddb:/, '');
+            const localData = await getAudioFromStorage(cleanId, part.id);
+            if (localData && !isCancelled) {
+              try {
+                const cloudUrl = await syncLocalAudioToCloud(cleanId, part.partLabel || 'vocal_part');
+                if (cloudUrl && !isCancelled) {
+                  updatedParts[i] = { ...part, audioUrl: cloudUrl };
+                  hasChanges = true;
+                  console.log(`[Auto-Sync] Cloud-synced vocal part ${part.partLabel || part.id} -> ${cloudUrl}`);
+                }
+              } catch (err) {
+                console.warn('[Auto-Sync] Could not upload local vocal part to Cloud:', err);
+              }
+            }
+          }
+        }
+
+        if (hasChanges && !isCancelled) {
+          onSavePracticeEntry({
+            ...group,
+            customAttachments: updatedAtts,
+            attachments: updatedAtts,
+            vocalParts: updatedParts,
+            parts: updatedParts,
+            updatedAt: new Date().toISOString(),
+          });
+        }
+      }
+    };
+
+    const timeout = setTimeout(runAutoSync, 1500);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [practiceEntries, onSavePracticeEntry]);
 
   // Handlers for Add/Edit Vocal Part Modal
   const handleOpenAddVocalPartModal = (
@@ -2480,6 +2617,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                         onEdit={() => handleOpenAddVocalPartModal(group, pIdx)}
                                         onDelete={() => handleDeleteVocalPart(group, pIdx)}
                                         onRecordNewAudio={() => handleOpenAddVocalPartModal(group, pIdx, 'record')}
+                                        onAudioUrlUpdated={(newCloudUrl) => handleUpdateVocalPartAudioUrl(group, pIdx, newCloudUrl)}
                                       />
                                     );
                                   })}
@@ -2596,6 +2734,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       }}
                                       onEdit={() => handleOpenAddTrackModal(group, aIdx)}
                                       onDelete={() => handleDeleteTrack(group, aIdx)}
+                                      onAudioUrlUpdated={(newCloudUrl) => handleUpdateTrackAudioUrl(group, aIdx, newCloudUrl)}
                                     />
                                   );
                                 })}

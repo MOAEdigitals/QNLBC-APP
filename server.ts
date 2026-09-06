@@ -15,6 +15,17 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+// Enable CORS for all incoming client requests (including mobile browsers & preview iframes)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -47,8 +58,16 @@ app.get('/api/storage/status', (req, res) => {
   });
 });
 
-// Media upload endpoint for MP3s and minus-ones
-app.post('/api/upload-media', upload.single('file'), async (req, res) => {
+// Media upload endpoint for MP3s and minus-ones with explicit multer error handling
+app.post('/api/upload-media', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('[Upload Error] Multer error:', err);
+      return res.status(400).json({ error: err.message || 'File upload parsing error' });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     const file = req.file;
     if (!file) {
