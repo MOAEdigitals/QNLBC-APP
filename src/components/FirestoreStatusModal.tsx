@@ -214,6 +214,27 @@ export const FirestoreStatusModal: React.FC<FirestoreStatusModalProps> = ({
           </div>
         )}
 
+        {/* Cloud Media Storage Status Banner */}
+        <div className="mx-4 sm:mx-5 my-2.5 p-3 rounded-xl bg-violet-50/70 dark:bg-violet-950/30 border border-violet-200/70 dark:border-violet-800/60 flex items-center justify-between gap-3 shrink-0 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 rounded-lg bg-white dark:bg-slate-800 border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 shrink-0">
+              <Cloud className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-900 dark:text-white">Cloudflare R2 Universal Media Storage</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Active & Synced
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Practice audio stems, vocal tracks, and minus-ones sync directly via Cloudflare R2 CDN and are streamable by all users across all devices.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Collection Sync Timestamps List */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5 divide-y divide-slate-100 dark:divide-slate-800/60">
           <div className="pb-1 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1">

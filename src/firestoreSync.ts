@@ -135,7 +135,6 @@ const collectionSyncLogs: Record<string, CollectionSyncLogEntry> = {
   practice_entries: { collection: 'practice_entries', displayName: 'Practice Sessions & Tracks', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
   users: { collection: 'users', displayName: 'User Accounts & Roles', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
   app_settings: { collection: 'app_settings', displayName: 'Directory Names & Settings', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
-  practice_audios: { collection: 'practice_audios', displayName: 'Practice Audio Stems', lastSyncTimestamp: null, itemCount: 0, status: 'pending' },
 };
 
 let lastGlobalSyncTime: number | null = null;
