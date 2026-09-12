@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Song } from '../types';
 import {
   X,
@@ -88,6 +88,24 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const touchStartRef = useRef<{ x: number; y: number; time: number; isEdge: boolean; isIgnored: boolean } | null>(null);
   const [swipeOffset, setSwipeOffset] = useState<number>(0);
   const [isSwiping, setIsSwiping] = useState<boolean>(false);
+  const isExplicitlyTogglingFullscreenRef = useRef<boolean>(false);
+
+  // Unified exit handler: exits native fullscreen (if active) and closes stage view
+  const handleExit = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    onClose();
+  }, [onClose]);
+
+  // Clean up native fullscreen when unmounting
+  useEffect(() => {
+    return () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+    };
+  }, []);
 
   // Browser history popstate integration (supports OS native swipe-back & Android back button)
   useEffect(() => {
@@ -104,7 +122,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
     const handlePopState = () => {
       closedViaPopState = true;
-      onClose();
+      handleExit();
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -116,7 +134,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
         window.history.back();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, handleExit]);
 
   // Touch handlers for swipe-back gesture to exit
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -195,7 +213,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
         (dx > 35 && dt < 280));
 
     if (shouldExit) {
-      onClose();
+      handleExit();
     }
 
     setSwipeOffset(0);
@@ -265,6 +283,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   // Native Fullscreen Toggle
   const toggleNativeFullscreen = async () => {
     try {
+      isExplicitlyTogglingFullscreenRef.current = true;
       if (!document.fullscreenElement) {
         await document.documentElement.requestFullscreen().catch(() => {});
         setIsFullscreen(true);
@@ -274,16 +293,27 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       }
     } catch (err) {
       console.warn('Fullscreen error:', err);
+    } finally {
+      setTimeout(() => {
+        isExplicitlyTogglingFullscreenRef.current = false;
+      }, 400);
     }
   };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      const isCurrentlyFullscreen = !!document.fullscreenElement;
+      setIsFullscreen(isCurrentlyFullscreen);
+      // When in fullscreen mode, if the user pressed the device back button or swiped back,
+      // mobile browsers automatically exit native fullscreen. If this exit was not triggered
+      // by the explicit toggle button, treat it as an exit command and dismiss the Stage View too.
+      if (!isCurrentlyFullscreen && isOpen && !isExplicitlyTogglingFullscreenRef.current) {
+        onClose();
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, []);
+  }, [isOpen, onClose]);
 
   // Keyboard navigation (Esc to close, Arrow keys for prev/next song)
   useEffect(() => {
@@ -291,7 +321,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        handleExit();
       } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
         handleNextSong();
       } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
@@ -305,7 +335,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, song, songList]);
+  }, [isOpen, song, songList, handleExit]);
 
   // Auto-scroll loop
   useEffect(() => {
@@ -621,7 +651,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           {/* Close Prompter */}
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleExit}
             className="p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 transition-transform active:scale-95 shadow-md cursor-pointer"
             title="Exit Stage Prompter (Esc)"
           >
