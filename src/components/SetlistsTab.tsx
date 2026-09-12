@@ -33,6 +33,8 @@ import {
   MoreVertical,
   Copy,
   Check,
+  Mic,
+  Music,
 } from 'lucide-react';
 
 export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []): string {
@@ -1068,11 +1070,21 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {/* Sunday School Container */}
                           <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                              <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                              <div className="flex items-center space-x-2.5">
+                                <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60">
+                                  <User className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                                    Song Leader
+                                  </span>
+                                  <span className="text-sm font-bold text-indigo-700 dark:text-indigo-400">
+                                    {item.sundaySchool?.songLeader || 'Unassigned'}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-50/80 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 border border-indigo-200/80 dark:border-indigo-800/60">
                                 Sunday School
-                              </h4>
-                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-indigo-50/80 dark:bg-indigo-950/50 text-slate-700 dark:text-slate-300 border border-indigo-200/80 dark:border-indigo-800/60">
-                                Leader: <span className="font-bold text-indigo-700 dark:text-indigo-400">{item.sundaySchool?.songLeader || 'Unassigned'}</span>
                               </span>
                             </div>
 
@@ -1119,11 +1131,21 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {/* Worship Service Container */}
                           <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
                             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                              <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                              <div className="flex items-center space-x-2.5">
+                                <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
+                                  <User className="w-4 h-4" />
+                                </div>
+                                <div>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
+                                    Song Leader
+                                  </span>
+                                  <span className="text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                                    {item.worshipService?.songLeader || 'Unassigned'}
+                                  </span>
+                                </div>
+                              </div>
+                              <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50/80 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60">
                                 Worship Service
-                              </h4>
-                              <span className="text-xs font-medium px-2 py-0.5 rounded bg-emerald-50/80 dark:bg-emerald-950/50 text-slate-700 dark:text-slate-300 border border-emerald-200/80 dark:border-emerald-800/60">
-                                Leader: <span className="font-bold text-emerald-700 dark:text-emerald-400">{item.worshipService?.songLeader || 'Unassigned'}</span>
                               </span>
                             </div>
 
@@ -1489,78 +1511,83 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 )}
               </div>
 
-              {/* Presider */}
+              {/* Container 1: Presider & Service Songs */}
               {editingSetlist.type !== 'prayer_meeting' && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Presider
-                  </label>
-                  <div className="p-1 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
-                    <AutofillInput
-                      value={editingSetlist.presider || ''}
-                      onChange={(val) => setEditingSetlist({ ...editingSetlist, presider: val })}
-                      suggestions={directoryNames}
-                      placeholder="Enter presider's name"
-                      inputClassName="p-1.5 text-sm text-slate-900 dark:text-white"
-                    />
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-sky-600 dark:text-sky-400 flex items-center gap-1.5">
+                      <User className="w-4 h-4" />
+                      <span>Presider</span>
+                    </h4>
                   </div>
-                </div>
-              )}
 
-              {/* Welcome Song & Closing Song & Theme Song */}
-              {editingSetlist.type !== 'prayer_meeting' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-                  {/* Welcome Song Selection */}
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Welcome Song
-                      </label>
-                    </div>
-
-                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                      Presider Name
+                    </label>
+                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                       <AutofillInput
-                        value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
-                        onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
-                        suggestions={markedWelcomeSongs}
-                        allSuggestions={songTitleSuggestions}
-                        defaultValue="Napakaligaya"
-                        songs={songs}
-                        setlists={setlists}
-                        showLastSung={false}
-                        placeholder="Type or select welcome song..."
-                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                        value={editingSetlist.presider || ''}
+                        onChange={(val) => setEditingSetlist({ ...editingSetlist, presider: val })}
+                        suggestions={directoryNames}
+                        placeholder="Enter presider's name"
+                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                       />
                     </div>
                   </div>
 
-                  {/* Closing Song Selection */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Closing Song
-                      </label>
+                  {/* Welcome Song & Closing Song Selection */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          Welcome Song
+                        </label>
+                      </div>
+
+                      <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                        <AutofillInput
+                          value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
+                          onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
+                          suggestions={markedWelcomeSongs}
+                          allSuggestions={songTitleSuggestions}
+                          defaultValue="Napakaligaya"
+                          songs={songs}
+                          setlists={setlists}
+                          showLastSung={false}
+                          placeholder="Type or select welcome song..."
+                          inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                        />
+                      </div>
                     </div>
 
-                    <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
-                      <AutofillInput
-                        value={editingSetlist.closingSong ?? 'Give Thanks'}
-                        onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
-                        suggestions={markedClosingSongs}
-                        allSuggestions={songTitleSuggestions}
-                        defaultValue="Give Thanks"
-                        songs={songs}
-                        setlists={setlists}
-                        showLastSung={false}
-                        placeholder="Type or select closing song..."
-                        inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
-                      />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                          Closing Song
+                        </label>
+                      </div>
+
+                      <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
+                        <AutofillInput
+                          value={editingSetlist.closingSong ?? 'Give Thanks'}
+                          onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
+                          suggestions={markedClosingSongs}
+                          allSuggestions={songTitleSuggestions}
+                          defaultValue="Give Thanks"
+                          songs={songs}
+                          setlists={setlists}
+                          showLastSung={false}
+                          placeholder="Type or select closing song..."
+                          inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Theme Song (Sunday Setlist) */}
                   {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
-                    <div className="sm:col-span-2 pt-1 border-t border-slate-200 dark:border-slate-700">
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1">
                           <Sparkles className="w-3.5 h-3.5 text-slate-400" />
@@ -1588,11 +1615,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {/* Sunday School & Worship Service Forms (Sunday Setlist) */}
               {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
                 <>
-                  {/* Sunday School Section */}
+                  {/* Container 2: Sunday School Section */}
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                    <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                      Sunday School
-                    </h4>
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                        <Mic className="w-4 h-4" />
+                        <span>Sunday School</span>
+                      </h4>
+                    </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1683,11 +1713,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Worship Service Section */}
+                  {/* Container 3: Worship Service Section */}
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-3.5">
-                    <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                      Worship Service
-                    </h4>
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                      <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <Music className="w-4 h-4" />
+                        <span>Worship Service</span>
+                      </h4>
+                    </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
