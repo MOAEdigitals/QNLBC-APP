@@ -1195,9 +1195,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                 {/* IN-LINE EXPANDED VIEW (When clicked directly in place!) */}
                 {isSelected && (
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
-                    {/* Action Bar (With Set Category, Stage Font, and 3-dot menu at the far right) */}
-                    <div className="flex items-center justify-between gap-2 pt-2">
-                      <div className="flex flex-wrap items-center gap-2">
+                    {/* Action Bar (With Add to Setlist, Category Icon, Font Stepper, Stage View, and 3-dot menu) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                         <button
                           onClick={() => {
                             setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');
@@ -1209,17 +1209,16 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                           <span>Add to Setlist</span>
                         </button>
 
-                        {/* Subtle Category Button next to Add to Setlist */}
+                        {/* Category Button (Icon Only) */}
                         <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => setCategoryPickerSongId(categoryPickerSongId === song.id ? null : song.id)}
-                            className="px-3 py-1.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                            title="Set or change song category"
+                            className="p-2 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:border-slate-400 dark:hover:border-slate-500 transition-colors cursor-pointer flex items-center justify-center shadow-2xs"
+                            title={getSongCategories(song).length > 0 ? `Category: ${getSongCategories(song).join(', ')}` : "Set song category"}
+                            aria-label="Set song category"
                           >
-                            <Tag className="w-3.5 h-3.5 opacity-70" />
-                            <span>Category</span>
-                            <ChevronDown className="w-3 h-3 opacity-60 ml-0.5" />
+                            <Tag className="w-4 h-4 opacity-80" />
                           </button>
 
                           {categoryPickerSongId === song.id && (
@@ -1263,10 +1262,49 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                             </div>
                           )}
                         </div>
+
+                        {/* In-Card Font Stepper A- / A+ */}
+                        <div className="flex items-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs">
+                          <button
+                            type="button"
+                            onClick={() => setInCardFontSize((prev) => Math.max(0, prev - 1))}
+                            disabled={inCardFontSize <= 0}
+                            className="px-1.5 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30 cursor-pointer"
+                            title="Decrease font size in card"
+                          >
+                            A-
+                          </button>
+                          <span className="px-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 min-w-[34px] text-center">
+                            {['15px', '18px', '22px', '28px'][inCardFontSize]}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setInCardFontSize((prev) => Math.min(3, prev + 1))}
+                            disabled={inCardFontSize >= 3}
+                            className="px-1.5 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30 cursor-pointer"
+                            title="Increase font size in card"
+                          >
+                            A+
+                          </button>
+                        </div>
+
+                        {/* Stage Prompter / Fullscreen Stage View - One Icon Only */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStagePrompterSong(song);
+                            setIsStagePrompterOpen(true);
+                          }}
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 hover:border-sky-300 dark:hover:border-sky-700 transition-colors shadow-2xs cursor-pointer flex items-center justify-center"
+                          title="Stage Prompter / Fullscreen Stage View"
+                          aria-label="Stage Prompter"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
                       </div>
 
                       {/* 3-Dot Menu Button (Anchored at the far right) */}
-                      <div className="relative shrink-0 ml-auto self-start" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative shrink-0 ml-auto self-center" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => setOpenMenuSongId(isMenuOpen ? null : song.id)}
@@ -1351,57 +1389,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                     </div>
 
                     {/* Lyrics Block */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* In-Card Font Stepper A- / A+ */}
-                        <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs">
-                          <button
-                            type="button"
-                            onClick={() => setInCardFontSize((prev) => Math.max(0, prev - 1))}
-                            disabled={inCardFontSize <= 0}
-                            className="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30 cursor-pointer"
-                            title="Decrease font size in card"
-                          >
-                            A-
-                          </button>
-                          <span className="px-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 min-w-[36px] text-center">
-                            {['15px', '18px', '22px', '28px'][inCardFontSize]}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setInCardFontSize((prev) => Math.min(3, prev + 1))}
-                            disabled={inCardFontSize >= 3}
-                            className="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30 cursor-pointer"
-                            title="Increase font size in card"
-                          >
-                            A+
-                          </button>
-                        </div>
-
-                        {/* Stage Prompter / Stage View - One Icon Only */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setStagePrompterSong(song);
-                            setIsStagePrompterOpen(true);
-                          }}
-                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 hover:border-sky-300 dark:hover:border-sky-700 transition-colors shadow-2xs cursor-pointer flex items-center justify-center"
-                          title="Stage Prompter / Fullscreen Stage View"
-                          aria-label="Stage Prompter"
-                        >
-                          <Maximize2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div
-                        className={`p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
-                          ['text-[15px] leading-relaxed', 'text-[18px] leading-relaxed', 'text-[22px] leading-relaxed', 'text-[28px] leading-relaxed'][inCardFontSize]
-                        }`}
-                      >
-                        {song.lyrics || (
-                          <span className="text-slate-400 italic">No lyrics entered yet for this song.</span>
-                        )}
-                      </div>
+                    <div
+                      className={`p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
+                        ['text-[15px] leading-relaxed', 'text-[18px] leading-relaxed', 'text-[22px] leading-relaxed', 'text-[28px] leading-relaxed'][inCardFontSize]
+                      }`}
+                    >
+                      {song.lyrics || (
+                        <span className="text-slate-400 italic">No lyrics entered yet for this song.</span>
+                      )}
                     </div>
 
                     {/* VIDEO / SOUND PLAYER (Placed right after the lyrics with Repeat / Loop button) */}
