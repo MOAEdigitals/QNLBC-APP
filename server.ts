@@ -58,48 +58,115 @@ app.get('/api/storage/status', (req, res) => {
   });
 });
 
-// Media upload endpoint for MP3s and minus-ones with explicit multer error handling
-app.post('/api/upload-media', (req, res, next) => {
-  upload.single('file')(req, res, (err) => {
+// Media upload endpoint for MP3s and minus-ones with support for both multipart/form-data and JSON base64 dataUrls
+app.post('/api/upload-media', async (req, res) => {
+  // 1. Check if request is JSON containing a base64 dataUrl
+  if (req.is('application/json') && req.body && req.body.dataUrl) {
+    try {
+      const { dataUrl, fileId, fileName } = req.body;
+      const cleanId = (fileId as string) || `track_${Date.now()}`;
+      const originalFileName = (fileName as string) || 'audio_track.mp3';
+      
+      const parts = dataUrl.split(',');
+      const meta = parts[0] || '';
+      const base64Content = parts[1] || '';
+      const mimeType = meta.split(';')[0]?.replace('data:', '') || 'audio/mpeg';
+
+      const fileBuffer = Buffer.from(base64Content.replace(/\s+/g, ''), 'base64');
+      const result = await uploadMedia(fileBuffer, originalFileName, mimeType, cleanId);
+
+      let finalUrl = result.url;
+      if (finalUrl.startsWith('/uploads/')) {
+        finalUrl = `${req.protocol}://${req.get('host')}${finalUrl}`;
+      }
+
+      console.log(`[Upload JSON] Successfully processed ${originalFileName} (${fileBuffer.length} bytes) -> ${finalUrl}`);
+
+      return res.json({
+        success: true,
+        url: finalUrl,
+        fileName: originalFileName,
+        size: result.size || fileBuffer.length,
+        provider: result.provider,
+        isCloudUrl: result.isCloudUrl,
+      });
+    } catch (err: any) {
+      console.error('[Upload JSON Error] Failed to process base64 upload:', err);
+      return res.status(500).json({
+        error: 'Failed to upload media file from dataUrl',
+        details: err?.message || String(err),
+      });
+    }
+  }
+
+  // 2. Otherwise handle as multipart/form-data via multer
+  upload.single('file')(req, res, async (err) => {
     if (err) {
       console.error('[Upload Error] Multer error:', err);
       return res.status(400).json({ error: err.message || 'File upload parsing error' });
     }
-    next();
+
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const fileId = (req.body.fileId as string) || `track_${Date.now()}`;
+      const originalFileName = (req.body.fileName as string) || file.originalname || 'audio_track.mp3';
+      const mimeType = file.mimetype || 'audio/mpeg';
+
+      const result = await uploadMedia(file.buffer, originalFileName, mimeType, fileId);
+
+      // If local server fallback, qualify with full host URL if needed
+      let finalUrl = result.url;
+      if (finalUrl.startsWith('/uploads/')) {
+        finalUrl = `${req.protocol}://${req.get('host')}${finalUrl}`;
+      }
+
+      return res.json({
+        success: true,
+        url: finalUrl,
+        fileName: originalFileName,
+        size: result.size,
+        provider: result.provider,
+        isCloudUrl: result.isCloudUrl,
+      });
+    } catch (err: any) {
+      console.error('Error handling media upload:', err);
+      return res.status(500).json({
+        error: 'Failed to upload media file',
+        details: err?.message || String(err),
+      });
+    }
   });
-}, async (req, res) => {
+});
+
+// Optional server backup storage for practice entries (to ensure sync even during Firestore quota pauses)
+const PRACTICE_BACKUP_FILE = path.join(process.cwd(), 'uploads', 'practice_entries_backup.json');
+
+app.get('/api/practice-entries', (req, res) => {
   try {
-    const file = req.file;
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+    if (fs.existsSync(PRACTICE_BACKUP_FILE)) {
+      const data = JSON.parse(fs.readFileSync(PRACTICE_BACKUP_FILE, 'utf-8'));
+      return res.json({ success: true, entries: data });
     }
-
-    const fileId = (req.body.fileId as string) || `track_${Date.now()}`;
-    const originalFileName = (req.body.fileName as string) || file.originalname || 'audio_track.mp3';
-    const mimeType = file.mimetype || 'audio/mpeg';
-
-    const result = await uploadMedia(file.buffer, originalFileName, mimeType, fileId);
-
-    // If local server fallback, qualify with full host URL if needed
-    let finalUrl = result.url;
-    if (finalUrl.startsWith('/uploads/')) {
-      finalUrl = `${req.protocol}://${req.get('host')}${finalUrl}`;
-    }
-
-    return res.json({
-      success: true,
-      url: finalUrl,
-      fileName: originalFileName,
-      size: result.size,
-      provider: result.provider,
-      isCloudUrl: result.isCloudUrl,
-    });
+    return res.json({ success: true, entries: [] });
   } catch (err: any) {
-    console.error('Error handling media upload:', err);
-    return res.status(500).json({
-      error: 'Failed to upload media file',
-      details: err?.message || String(err),
-    });
+    return res.json({ success: false, entries: [] });
+  }
+});
+
+app.post('/api/practice-entries', (req, res) => {
+  try {
+    const { entries } = req.body;
+    if (Array.isArray(entries)) {
+      fs.writeFileSync(PRACTICE_BACKUP_FILE, JSON.stringify(entries, null, 2), 'utf-8');
+      return res.json({ success: true, count: entries.length });
+    }
+    return res.status(400).json({ error: 'Invalid entries array' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 });
 

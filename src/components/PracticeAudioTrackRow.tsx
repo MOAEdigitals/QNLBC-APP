@@ -134,7 +134,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             // If we have the audio in IndexedDB on THIS device (e.g. phone),
             // auto-upload it to Cloudflare R2 so all other devices (laptop!) get it!
             if (onAudioUrlUpdated && !isUploadingCloud) {
-              syncLocalAudioToCloud(targetId, performerName).then((cloudUrl) => {
+              syncLocalAudioToCloud(targetId, performerName, id).then((cloudUrl) => {
                 if (cloudUrl && !isCancelled) {
                   console.log(`[Auto-Sync] Cloud-synced local track ${targetId} -> ${cloudUrl}`);
                   onAudioUrlUpdated(cloudUrl);

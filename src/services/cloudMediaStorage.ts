@@ -21,14 +21,20 @@ export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
     const res = await fetch(dataUrl);
     return await res.blob();
   } catch {
-    const arr = dataUrl.split(',');
-    const mime = arr[0]?.match(/:(.*?);/)?.[1] || 'audio/mpeg';
-    const bstr = atob(arr[1] || '');
-    const u8arr = new Uint8Array(bstr.length);
-    for (let i = 0; i < bstr.length; i++) {
-      u8arr[i] = bstr.charCodeAt(i);
+    try {
+      const arr = dataUrl.split(',');
+      const mime = arr[0]?.match(/:(.*?);/)?.[1] || 'audio/mpeg';
+      const cleanBase64 = (arr[1] || '').replace(/\s+/g, '');
+      const bstr = atob(cleanBase64);
+      const u8arr = new Uint8Array(bstr.length);
+      for (let i = 0; i < bstr.length; i++) {
+        u8arr[i] = bstr.charCodeAt(i);
+      }
+      return new Blob([u8arr], { type: mime });
+    } catch (e) {
+      console.warn('Fallback Blob creation failed:', e);
+      return new Blob([], { type: 'audio/mpeg' });
     }
-    return new Blob([u8arr], { type: mime });
   }
 }
 
@@ -44,32 +50,16 @@ export async function uploadMediaToCloudStorage(
   onProgress?: (percent: number) => void
 ): Promise<MediaUploadResult> {
   const cleanId = fileId.replace(/^indexeddb:/, '');
-  let blob: Blob;
   let fileName = originalFileName || `track_${cleanId}.mp3`;
-  let mimeType = 'audio/mpeg';
 
-  if (typeof fileOrData === 'string') {
-    if (fileOrData.startsWith('data:')) {
-      blob = await dataUrlToBlob(fileOrData);
-      mimeType = blob.type || 'audio/mpeg';
-      if (!originalFileName) {
-        fileName = `recording_${cleanId}.${mimeType.includes('webm') ? 'webm' : 'mp3'}`;
-      }
-    } else {
-      // Already an external URL (e.g. YouTube, external MP3 link, or existing R2 link)
-      return {
-        url: fileOrData,
-        fileName,
-        size: 0,
-        isCloudUrl: true,
-      };
-    }
-  } else {
-    blob = fileOrData;
-    mimeType = blob.type || (blob as File).name?.split('.').pop() || 'audio/mpeg';
-    if ((fileOrData as File).name) {
-      fileName = (fileOrData as File).name;
-    }
+  // If already an external cloud URL (e.g. YouTube, external MP3 link, or existing R2 link)
+  if (typeof fileOrData === 'string' && (fileOrData.startsWith('http://') || fileOrData.startsWith('https://'))) {
+    return {
+      url: fileOrData,
+      fileName,
+      size: 0,
+      isCloudUrl: true,
+    };
   }
 
   // 1. Immediately cache to local IndexedDB for zero-latency playback on the current device
@@ -77,15 +67,66 @@ export async function uploadMediaToCloudStorage(
     saveAudioToStorage(cleanId, fileOrData, fileName).catch((err) => {
       console.warn('Local audio cache error:', err);
     });
-  } else {
-    // Read as DataURL for offline IndexedDB cache
+  } else if (typeof fileOrData !== 'string') {
     const reader = new FileReader();
     reader.onloadend = () => {
       if (typeof reader.result === 'string') {
         saveAudioToStorage(cleanId, reader.result, fileName).catch(() => {});
       }
     };
-    reader.readAsDataURL(blob);
+    reader.readAsDataURL(fileOrData);
+  }
+
+  // 2. Direct JSON upload for dataUrls (highly reliable on mobile browsers, bypasses FormData bugs)
+  if (typeof fileOrData === 'string' && fileOrData.startsWith('data:')) {
+    try {
+      if (onProgress) onProgress(15);
+      const jsonRes = await fetch('/api/upload-media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataUrl: fileOrData,
+          fileId: cleanId,
+          fileName,
+        }),
+      });
+
+      if (jsonRes.ok) {
+        const json = await jsonRes.json();
+        if (json.success && json.url) {
+          if (onProgress) onProgress(100);
+          console.log(`[Cloud Media Storage] JSON upload success: ${fileName} -> ${json.url}`);
+          return {
+            url: json.url,
+            fileName: json.fileName || fileName,
+            size: json.size || 0,
+            isCloudUrl: Boolean(json.isCloudUrl),
+            provider: json.provider,
+          };
+        }
+      }
+    } catch (jsonErr) {
+      console.warn('[Cloud Media Storage] JSON direct upload failed, attempting multipart fallback...', jsonErr);
+    }
+  }
+
+  // 3. Multipart FormData upload
+  let blob: Blob;
+  if (typeof fileOrData === 'string') {
+    if (fileOrData.startsWith('data:')) {
+      blob = await dataUrlToBlob(fileOrData);
+      const mime = blob.type || 'audio/mpeg';
+      if (!originalFileName) {
+        fileName = `recording_${cleanId}.${mime.includes('webm') ? 'webm' : 'mp3'}`;
+      }
+    } else {
+      blob = new Blob([], { type: 'audio/mpeg' });
+    }
+  } else {
+    blob = fileOrData;
+    if ((fileOrData as File).name) {
+      fileName = (fileOrData as File).name;
+    }
   }
 
   // Helper for single upload attempt with timeout
@@ -151,7 +192,7 @@ export async function uploadMediaToCloudStorage(
     });
   };
 
-  // 2. Upload to Cloud Media Storage via /api/upload-media (Cloudflare R2) with 1 auto-retry
+  // Upload to Cloud Media Storage via /api/upload-media with retries
   try {
     return await performUpload(blob, fileName, cleanId);
   } catch (firstErr) {
@@ -178,11 +219,21 @@ export async function uploadMediaToCloudStorage(
 export async function syncLocalAudioToCloud(
   audioId: string,
   customTitle?: string,
+  fallbackId?: string,
   onProgress?: (percent: number) => void
 ): Promise<string | null> {
   const cleanId = audioId.replace(/^indexeddb:/, '');
-  const localData = await getAudioFromStorage(cleanId);
-  if (!localData || !localData.startsWith('data:')) {
+  const localData = await getAudioFromStorage(cleanId, fallbackId);
+  if (!localData) {
+    return null;
+  }
+
+  // If already a cloud URL
+  if (localData.startsWith('http://') || localData.startsWith('https://')) {
+    return localData;
+  }
+
+  if (!localData.startsWith('data:')) {
     return null;
   }
 

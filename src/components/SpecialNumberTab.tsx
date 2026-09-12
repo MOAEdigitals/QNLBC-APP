@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   SpecialNumberEntry,
   PracticeGroupEntry,
@@ -80,6 +80,8 @@ import {
   Cloud,
   Loader2,
   UploadCloud,
+  RefreshCw,
+  AlertCircle,
 } from 'lucide-react';
 
 interface SpecialNumberTabProps {
@@ -220,6 +222,45 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [isEditingPractice, setIsEditingPractice] = useState(false);
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
+
+  // Practice Audio Cloud Sync status & user feedback state
+  const [isSyncingPracticeAudios, setIsSyncingPracticeAudios] = useState(false);
+  const [syncStatusBanner, setSyncStatusBanner] = useState<{
+    type: 'syncing' | 'success' | 'info';
+    message: string;
+  } | null>(null);
+
+  // Computed counts of cloud vs local practice audio tracks
+  const practiceTrackStats = useMemo(() => {
+    let total = 0;
+    let local = 0;
+    let cloud = 0;
+    for (const group of practiceEntries) {
+      const atts = group.customAttachments || group.attachments || [];
+      const parts = group.vocalParts || group.parts || [];
+      for (const att of atts) {
+        if (att.url) {
+          total++;
+          if (att.url.startsWith('indexeddb:') || att.url.startsWith('data:')) {
+            local++;
+          } else {
+            cloud++;
+          }
+        }
+      }
+      for (const part of parts) {
+        if (part.audioUrl) {
+          total++;
+          if (part.audioUrl.startsWith('indexeddb:') || part.audioUrl.startsWith('data:')) {
+            local++;
+          } else {
+            cloud++;
+          }
+        }
+      }
+    }
+    return { total, local, cloud };
+  }, [practiceEntries]);
 
   // Song artist input inside Practice session state
   const [newSongArtist, setNewSongArtist] = useState('');
@@ -1552,6 +1593,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     let isCancelled = false;
 
     const runAutoSync = async () => {
+      let syncedAny = 0;
       for (const group of practiceEntries) {
         let hasChanges = false;
         let updatedAtts = [...(group.customAttachments || group.attachments || [])];
@@ -1560,15 +1602,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         for (let i = 0; i < updatedAtts.length; i++) {
           const att = updatedAtts[i];
           const rawUrl = (att.url || '').trim();
-          if (rawUrl.startsWith('indexeddb:')) {
+          if (rawUrl.startsWith('indexeddb:') || rawUrl.startsWith('data:')) {
             const cleanId = rawUrl.replace(/^indexeddb:/, '');
-            const localData = await getAudioFromStorage(cleanId, att.id);
+            const localData = rawUrl.startsWith('data:') ? rawUrl : await getAudioFromStorage(cleanId, att.id);
             if (localData && !isCancelled) {
               try {
-                const cloudUrl = await syncLocalAudioToCloud(cleanId, att.name || 'track');
+                const cloudUrl = await syncLocalAudioToCloud(cleanId, att.name || 'track', att.id);
                 if (cloudUrl && !isCancelled) {
                   updatedAtts[i] = { ...att, url: cloudUrl };
                   hasChanges = true;
+                  syncedAny++;
                   console.log(`[Auto-Sync] Cloud-synced practice track ${att.name || att.id} -> ${cloudUrl}`);
                 }
               } catch (err) {
@@ -1581,15 +1624,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         for (let i = 0; i < updatedParts.length; i++) {
           const part = updatedParts[i];
           const rawUrl = (part.audioUrl || '').trim();
-          if (rawUrl.startsWith('indexeddb:')) {
+          if (rawUrl.startsWith('indexeddb:') || rawUrl.startsWith('data:')) {
             const cleanId = rawUrl.replace(/^indexeddb:/, '');
-            const localData = await getAudioFromStorage(cleanId, part.id);
+            const localData = rawUrl.startsWith('data:') ? rawUrl : await getAudioFromStorage(cleanId, part.id);
             if (localData && !isCancelled) {
               try {
-                const cloudUrl = await syncLocalAudioToCloud(cleanId, part.partLabel || 'vocal_part');
+                const cloudUrl = await syncLocalAudioToCloud(cleanId, part.partLabel || 'vocal_part', part.id);
                 if (cloudUrl && !isCancelled) {
                   updatedParts[i] = { ...part, audioUrl: cloudUrl };
                   hasChanges = true;
+                  syncedAny++;
                   console.log(`[Auto-Sync] Cloud-synced vocal part ${part.partLabel || part.id} -> ${cloudUrl}`);
                 }
               } catch (err) {
@@ -1600,24 +1644,138 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         }
 
         if (hasChanges && !isCancelled) {
-          onSavePracticeEntry({
+          const updatedGroup = {
             ...group,
             customAttachments: updatedAtts,
             attachments: updatedAtts,
             vocalParts: updatedParts,
             parts: updatedParts,
             updatedAt: new Date().toISOString(),
-          });
+          };
+          onSavePracticeEntry(updatedGroup);
         }
+      }
+
+      if (syncedAny > 0 && !isCancelled) {
+        setSyncStatusBanner({
+          type: 'success',
+          message: `Auto-synced ${syncedAny} practice audio track${syncedAny > 1 ? 's' : ''} to Cloud Media Storage! Now available on all devices.`,
+        });
+        setTimeout(() => setSyncStatusBanner(null), 8000);
       }
     };
 
-    const timeout = setTimeout(runAutoSync, 1500);
+    const timeout = setTimeout(runAutoSync, 1200);
     return () => {
       isCancelled = true;
       clearTimeout(timeout);
     };
   }, [practiceEntries, onSavePracticeEntry]);
+
+  // Manual trigger for user to upload all local practice audio tracks to Cloud Media Storage
+  const handleSyncAllLocalPracticeAudios = async () => {
+    if (!practiceEntries || practiceEntries.length === 0 || !onSavePracticeEntry) return;
+    setIsSyncingPracticeAudios(true);
+    setSyncStatusBanner({
+      type: 'syncing',
+      message: 'Checking local device storage and uploading audio files to cloud media storage...',
+    });
+
+    let uploadedCount = 0;
+    let totalLocalFound = 0;
+
+    for (const group of practiceEntries) {
+      let hasChanges = false;
+      const updatedAtts = [...(group.customAttachments || group.attachments || [])];
+      const updatedParts = [...(group.vocalParts || group.parts || [])];
+
+      for (let i = 0; i < updatedAtts.length; i++) {
+        const att = updatedAtts[i];
+        const rawUrl = (att.url || '').trim();
+        if (rawUrl.startsWith('indexeddb:') || rawUrl.startsWith('data:')) {
+          totalLocalFound++;
+          const cleanId = rawUrl.replace(/^indexeddb:/, '');
+          const localData = rawUrl.startsWith('data:') ? rawUrl : await getAudioFromStorage(cleanId, att.id);
+          if (localData) {
+            try {
+              setSyncStatusBanner({
+                type: 'syncing',
+                message: `Uploading "${att.name || 'track'}" to Cloudflare R2 media storage...`,
+              });
+              const cloudUrl = await syncLocalAudioToCloud(cleanId, att.name || 'track', att.id);
+              if (cloudUrl) {
+                updatedAtts[i] = { ...att, url: cloudUrl };
+                hasChanges = true;
+                uploadedCount++;
+              }
+            } catch (err) {
+              console.warn('Error syncing track:', err);
+            }
+          }
+        }
+      }
+
+      for (let i = 0; i < updatedParts.length; i++) {
+        const part = updatedParts[i];
+        const rawUrl = (part.audioUrl || '').trim();
+        if (rawUrl.startsWith('indexeddb:') || rawUrl.startsWith('data:')) {
+          totalLocalFound++;
+          const cleanId = rawUrl.replace(/^indexeddb:/, '');
+          const localData = rawUrl.startsWith('data:') ? rawUrl : await getAudioFromStorage(cleanId, part.id);
+          if (localData) {
+            try {
+              setSyncStatusBanner({
+                type: 'syncing',
+                message: `Uploading vocal part "${part.partLabel || 'vocal'}" to Cloudflare R2 media storage...`,
+              });
+              const cloudUrl = await syncLocalAudioToCloud(cleanId, part.partLabel || 'vocal_part', part.id);
+              if (cloudUrl) {
+                updatedParts[i] = { ...part, audioUrl: cloudUrl };
+                hasChanges = true;
+                uploadedCount++;
+              }
+            } catch (err) {
+              console.warn('Error syncing vocal part:', err);
+            }
+          }
+        }
+      }
+
+      if (hasChanges) {
+        const updatedGroup = {
+          ...group,
+          customAttachments: updatedAtts,
+          attachments: updatedAtts,
+          vocalParts: updatedParts,
+          parts: updatedParts,
+          updatedAt: new Date().toISOString(),
+        };
+        onSavePracticeEntry(updatedGroup);
+      }
+    }
+
+    setIsSyncingPracticeAudios(false);
+
+    if (uploadedCount > 0) {
+      setSyncStatusBanner({
+        type: 'success',
+        message: `Successfully uploaded ${uploadedCount} audio track${uploadedCount > 1 ? 's' : ''} to Cloud Media Storage! Now available on all devices.`,
+      });
+      setTimeout(() => setSyncStatusBanner(null), 8000);
+    } else if (totalLocalFound > 0) {
+      setSyncStatusBanner({
+        type: 'info',
+        message: `${totalLocalFound} track${totalLocalFound > 1 ? 's are' : ' is'} stored locally on another device (e.g. phone). Open the Practice tab on that phone to auto-sync to the cloud, or re-attach the MP3 here.`,
+      });
+      setTimeout(() => setSyncStatusBanner(null), 10000);
+    } else {
+      setSyncStatusBanner({
+        type: 'success',
+        message: 'All practice audio tracks are synced to cloud storage and available on all devices!',
+      });
+      setTimeout(() => setSyncStatusBanner(null), 5000);
+    }
+  };
 
   // Handlers for Add/Edit Vocal Part Modal
   const handleOpenAddVocalPartModal = (
@@ -2343,12 +2501,73 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             />
           </div>
 
-          {/* Practice Groups List */}
+          {/* Cloud Media Sync Banner & Feedback */}
+          {syncStatusBanner && (
+            <div
+              className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs transition-all animate-in fade-in slide-in-from-top-2 duration-200 ${
+                syncStatusBanner.type === 'syncing'
+                  ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800 text-sky-900 dark:text-sky-200'
+                  : syncStatusBanner.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+              }`}
+            >
+              {syncStatusBanner.type === 'syncing' ? (
+                <Loader2 className="w-4 h-4 text-sky-500 animate-spin shrink-0 mt-0.5" />
+              ) : syncStatusBanner.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 leading-relaxed">
+                <span>{syncStatusBanner.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSyncStatusBanner(null)}
+                className="p-1 rounded-md hover:bg-black/5 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 transition-colors"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Practice Groups List Header */}
           <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between px-1">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                 Singing Groups & Practice Sessions ({filteredPracticeEntries.length})
               </h3>
+
+              {/* Cloud Media Sync Status & Manual Sync Action */}
+              <div className="flex items-center gap-2">
+                {practiceTrackStats.local > 0 ? (
+                  <button
+                    type="button"
+                    onClick={handleSyncAllLocalPracticeAudios}
+                    disabled={isSyncingPracticeAudios}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-all cursor-pointer shadow-xs active:scale-98"
+                    title="Upload local audio files stored on this device to Cloudflare R2 media storage"
+                  >
+                    {isSyncingPracticeAudios ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                    ) : (
+                      <Cloud className="w-3.5 h-3.5 text-amber-600" />
+                    )}
+                    <span>
+                      {isSyncingPracticeAudios
+                        ? 'Syncing to Cloud...'
+                        : `Sync Local Audio (${practiceTrackStats.local})`}
+                    </span>
+                  </button>
+                ) : practiceTrackStats.total > 0 ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>Media Synced ({practiceTrackStats.cloud})</span>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {filteredPracticeEntries.length === 0 ? (
