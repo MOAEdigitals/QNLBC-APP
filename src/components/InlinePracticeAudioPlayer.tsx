@@ -333,7 +333,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
               onClick={togglePlayPause}
               className={`px-5 sm:px-7 py-2 rounded-xl font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95 cursor-pointer ${
                 isPlaying
-                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                  ? 'bg-sky-500 hover:bg-sky-400 text-white'
                   : isVocalPart
                   ? 'bg-sky-600 hover:bg-sky-500 text-white'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white'
@@ -342,7 +342,7 @@ export const InlinePracticeAudioPlayer: React.FC<InlinePracticeAudioPlayerProps>
             >
               {isPlaying ? (
                 <>
-                  <Pause className="w-4 h-4 fill-slate-950" />
+                  <Pause className="w-4 h-4 fill-white" />
                   <span>PAUSE</span>
                 </>
               ) : (

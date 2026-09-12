@@ -43,12 +43,12 @@ const COLLECTION_ICONS: Record<string, React.ReactNode> = {
   birthdays: <Cake className="w-4 h-4 text-pink-500" />,
   anniversaries: <Heart className="w-4 h-4 text-rose-500" />,
   visitors: <Users className="w-4 h-4 text-sky-500" />,
-  special_recognitions: <Award className="w-4 h-4 text-amber-500" />,
+  special_recognitions: <Award className="w-4 h-4 text-purple-500" />,
   special_numbers: <Mic className="w-4 h-4 text-purple-500" />,
   choir_entries: <Users2 className="w-4 h-4 text-teal-500" />,
   practice_entries: <Headphones className="w-4 h-4 text-cyan-500" />,
   users: <Shield className="w-4 h-4 text-blue-500" />,
-  app_settings: <Sliders className="w-4 h-4 text-amber-600" />,
+  app_settings: <Sliders className="w-4 h-4 text-slate-500" />,
   saved_names: <Users className="w-4 h-4 text-indigo-400" />,
   welcome_songs: <Music className="w-4 h-4 text-purple-400" />,
   practice_audios: <Disc className="w-4 h-4 text-violet-500" />,
@@ -140,8 +140,8 @@ export const FirestoreStatusModal: React.FC<FirestoreStatusModalProps> = ({
                   </span>
                 )}
                 {isQuota && (
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                    <AlertTriangle className="w-3 h-3 text-amber-600" />
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700">
+                    <AlertTriangle className="w-3 h-3 text-slate-600 dark:text-slate-400" />
                     Free Quota Limit Reached
                   </span>
                 )}
@@ -187,7 +187,7 @@ export const FirestoreStatusModal: React.FC<FirestoreStatusModalProps> = ({
               <span
                 className={`font-bold ${
                   statusInfo.pendingQueueCount > 0
-                    ? 'text-amber-600 dark:text-amber-400'
+                    ? 'text-sky-600 dark:text-sky-400'
                     : 'text-emerald-600 dark:text-emerald-400'
                 }`}
               >

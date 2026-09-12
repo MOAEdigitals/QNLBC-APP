@@ -1202,33 +1202,33 @@ export default function App() {
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
         {/* Firestore Quota / Connection Status Notice */}
         {firestoreStatus.status === 'quota-exceeded' && !dismissQuotaBanner && (
-          <div className="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-xs">
+          <div className="mb-4 p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-xs">
             <div className="flex items-start gap-2.5">
-              <Database className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <Database className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <div className="font-bold flex items-center gap-2">
                   <span>Firestore Daily Free Write Quota Reached</span>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-amber-200/80 dark:bg-amber-900/80 text-amber-900 dark:text-amber-200">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
                     Offline Mode Active
                   </span>
                 </div>
-                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                   {firestoreStatus.quotaResetMessage}
                 </p>
                 <div className="pt-1 flex items-center gap-4 text-xs font-medium flex-wrap">
                   <button
                     type="button"
                     onClick={() => setIsStatusModalOpen(true)}
-                    className="inline-flex items-center gap-1 font-bold text-amber-900 dark:text-amber-100 bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 rounded hover:bg-amber-300/60 cursor-pointer transition-colors"
+                    className="inline-flex items-center gap-1 font-bold text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer transition-colors"
                   >
-                    <Radio className="w-3 h-3 text-amber-700 dark:text-amber-300" />
+                    <Radio className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                     <span>View Collection Sync Logs</span>
                   </button>
                   <a
                     href={firestoreStatus.databaseUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors"
+                    className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-200 transition-colors"
                   >
                     <span>View Firebase Quotas / Upgrade</span>
                     <ExternalLink className="w-3 h-3" />
@@ -1237,7 +1237,7 @@ export default function App() {
                     href="https://firebase.google.com/pricing#cloud-firestore"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300 underline hover:text-amber-900 dark:hover:text-amber-100 transition-colors"
+                    className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-200 transition-colors"
                   >
                     <span>Pricing Details</span>
                     <ExternalLink className="w-3 h-3" />
@@ -1247,7 +1247,7 @@ export default function App() {
             </div>
             <button
               onClick={() => setDismissQuotaBanner(true)}
-              className="p-1 rounded-lg text-amber-700 hover:bg-amber-200/60 dark:text-amber-300 dark:hover:bg-amber-900/60 transition-colors shrink-0 cursor-pointer"
+              className="p-1 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
               title="Dismiss notice"
             >
               <X className="w-4 h-4" />

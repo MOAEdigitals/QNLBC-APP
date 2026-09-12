@@ -479,7 +479,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40';
     }
     if (upper.includes('BASS')) {
-      return 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-200 dark:border-amber-800/40';
+      return 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800/40';
     }
     if (upper.includes('PLUS ONE')) {
       return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40';
@@ -801,11 +801,11 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
         {/* Audio Missing on Current Device (e.g. Phone -> Laptop sync pending) */}
         {audioError === 'Saved audio recording not found on this device' ? (
-          <div className="mt-1.5 p-2 rounded-lg bg-amber-500/10 border border-amber-500/25 text-slate-800 dark:text-slate-200 text-xs space-y-1.5">
+          <div className="mt-1.5 p-2 rounded-lg bg-sky-500/10 border border-sky-500/25 text-slate-800 dark:text-slate-200 text-xs space-y-1.5">
             <div className="flex items-start gap-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />
               <div className="leading-snug">
-                <span className="font-bold text-amber-700 dark:text-amber-400">
+                <span className="font-bold text-sky-700 dark:text-sky-400">
                   Audio saved on original device (Phone):
                 </span>{' '}
                 <span className="text-slate-600 dark:text-slate-300">
@@ -813,7 +813,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 </span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-sky-500/20">
               <button
                 type="button"
                 onClick={(e) => {

@@ -322,10 +322,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       bg: 'bg-black text-white',
       headerBg: 'bg-black/90 border-neutral-900',
       footerBg: 'bg-black/90 border-neutral-900',
-      sectionBadge: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-      jumpPill: 'bg-neutral-900 text-neutral-300 hover:bg-amber-500 hover:text-black border-neutral-800',
+      sectionBadge: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
+      jumpPill: 'bg-neutral-900 text-neutral-300 hover:bg-sky-500 hover:text-white border-neutral-800',
       metaText: 'text-neutral-400',
-      accent: 'text-amber-400',
+      accent: 'text-sky-400',
       btnSecondary: 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800',
     },
     charcoal: {
@@ -342,10 +342,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       bg: 'bg-white text-slate-900',
       headerBg: 'bg-white/95 border-slate-200',
       footerBg: 'bg-white/95 border-slate-200',
-      sectionBadge: 'bg-amber-100 text-amber-900 border-amber-300',
-      jumpPill: 'bg-slate-100 text-slate-700 hover:bg-amber-500 hover:text-white border-slate-200',
+      sectionBadge: 'bg-sky-100 text-sky-900 border-sky-300',
+      jumpPill: 'bg-slate-100 text-slate-700 hover:bg-sky-500 hover:text-white border-slate-200',
       metaText: 'text-slate-500',
-      accent: 'text-amber-600',
+      accent: 'text-sky-600',
       btnSecondary: 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-200',
     },
   }[theme];
@@ -463,11 +463,11 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             title={`Stage Theme: ${theme.toUpperCase()} (Click to toggle)`}
           >
             {theme === 'oled' ? (
-              <Moon className="w-4 h-4 text-amber-400" />
+              <Moon className="w-4 h-4 text-sky-400" />
             ) : theme === 'charcoal' ? (
               <Tv className="w-4 h-4 text-sky-400" />
             ) : (
-              <Sun className="w-4 h-4 text-amber-600" />
+              <Sun className="w-4 h-4 text-sky-600" />
             )}
             <span className="hidden md:inline capitalize">{theme}</span>
           </button>
@@ -571,7 +571,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             onClick={() => setIsAutoScrolling(!isAutoScrolling)}
             className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
               isAutoScrolling
-                ? 'bg-amber-500 text-slate-950 font-black animate-pulse'
+                ? 'bg-sky-500 text-white font-black animate-pulse'
                 : themeStyles.btnSecondary
             }`}
             title="Auto-scroll lyrics hands-free (Spacebar)"
@@ -594,7 +594,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                   onClick={() => setScrollSpeed(sp.val)}
                   className={`px-2 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${
                     scrollSpeed === sp.val
-                      ? 'bg-amber-500 text-black border-amber-500'
+                      ? 'bg-sky-500 text-white border-sky-500'
                       : themeStyles.btnSecondary
                   }`}
                 >
