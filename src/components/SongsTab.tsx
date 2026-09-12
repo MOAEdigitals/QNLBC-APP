@@ -652,6 +652,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
     const formattedTitle = formatDuplicateTitle(editingSong.title.trim(), songs, editingSong.id);
 
+    const isExistingSong = songs.some((s) => s.id === editingSong.id);
+    const wasAlreadySelected = selectedSongId === editingSong.id;
+
     const finalSong: Song = {
       id: editingSong.id || `song-${Date.now()}`,
       title: formattedTitle,
@@ -671,7 +674,12 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
     onSaveSong(finalSong);
     setIsEditing(false);
-    setSelectedSongId(finalSong.id);
+    // Newly created songs start collapsed. Existing songs preserve their previous open/collapsed state.
+    if (isExistingSong && wasAlreadySelected) {
+      setSelectedSongId(finalSong.id);
+    } else {
+      setSelectedSongId(null);
+    }
   };
 
   const handleOpenAddAttachment = (category: AttachmentCategory = 'minus_one', e?: React.MouseEvent) => {
