@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Smartphone,
   ChevronDown,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface StagePrompterModalProps {
@@ -82,6 +83,124 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollTimerRef = useRef<number | null>(null);
+
+  // Swipe-back gesture detection & visual states
+  const touchStartRef = useRef<{ x: number; y: number; time: number; isEdge: boolean; isIgnored: boolean } | null>(null);
+  const [swipeOffset, setSwipeOffset] = useState<number>(0);
+  const [isSwiping, setIsSwiping] = useState<boolean>(false);
+
+  // Browser history popstate integration (supports OS native swipe-back & Android back button)
+  useEffect(() => {
+    if (!isOpen) {
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      return;
+    }
+
+    // Push a temporary history state so native swipe-back / back button exits prompter without leaving the app
+    window.history.pushState({ stagePrompterOpen: true }, '');
+
+    let closedViaPopState = false;
+
+    const handlePopState = () => {
+      closedViaPopState = true;
+      onClose();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // Clean up the pushed history entry if closed via UI button or swipe gesture
+      if (!closedViaPopState && window.history.state?.stagePrompterOpen) {
+        window.history.back();
+      }
+    };
+  }, [isOpen, onClose]);
+
+  // Touch handlers for swipe-back gesture to exit
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) {
+      touchStartRef.current = null;
+      return;
+    }
+    const touch = e.touches[0];
+    const target = e.target as HTMLElement | null;
+    const isInteractive = target?.closest('button') || target?.closest('input') || target?.closest('.no-scrollbar');
+    if (isInteractive) {
+      touchStartRef.current = null;
+      return;
+    }
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      time: Date.now(),
+      isEdge: touch.clientX <= 75,
+      isIgnored: false,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || touchStartRef.current.isIgnored) return;
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+
+    // If movement is predominantly vertical (scrolling lyrics up/down), ignore gesture
+    if (Math.abs(dy) > Math.abs(dx) * 1.15 && Math.abs(dy) > 10) {
+      touchStartRef.current.isIgnored = true;
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      return;
+    }
+
+    // If swiping right (backwards gesture)
+    if (dx > 10) {
+      setIsSwiping(true);
+      const visualOffset = Math.min(180, Math.pow(dx, 0.92));
+      setSwipeOffset(visualOffset);
+    } else {
+      setSwipeOffset(0);
+      setIsSwiping(false);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchStartRef.current || touchStartRef.current.isIgnored) {
+      touchStartRef.current = null;
+      setSwipeOffset(0);
+      setIsSwiping(false);
+      return;
+    }
+
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchStartRef.current.x;
+    const dy = touch.clientY - touchStartRef.current.y;
+    const dt = Date.now() - touchStartRef.current.time;
+    const isEdge = touchStartRef.current.isEdge;
+
+    touchStartRef.current = null;
+
+    // Criteria to exit:
+    // 1. Swiped from left edge with > 35px
+    // 2. Swiped anywhere to the right with > 75px and mostly horizontal
+    // 3. Fast flick right (dt < 280ms) with > 35px
+    const isHorizontal = Math.abs(dy) < Math.abs(dx) * 1.3;
+    const shouldExit =
+      isHorizontal &&
+      ((isEdge && dx > 35) ||
+        dx > 75 ||
+        (dx > 35 && dt < 280));
+
+    if (shouldExit) {
+      onClose();
+    }
+
+    setSwipeOffset(0);
+    setIsSwiping(false);
+  };
 
   // Save preferences
   useEffect(() => {
@@ -353,8 +472,25 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   return (
     <div
       id="stage-prompter-overlay"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : undefined,
+        transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
       className={`fixed inset-0 z-[100] flex flex-col select-none transition-colors duration-200 ${themeStyles.bg}`}
     >
+      {/* Visual Feedback Indicator when Swiping Back to Exit */}
+      {swipeOffset > 15 && (
+        <div className="fixed left-4 top-1/2 -translate-y-1/2 z-[120] pointer-events-none flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/90 text-white border border-slate-700 shadow-2xl backdrop-blur-md">
+          <ArrowLeft className="w-4 h-4 text-sky-400" />
+          <span className="text-xs font-bold">
+            {swipeOffset > 65 ? 'Release to Exit' : 'Swipe to Exit'}
+          </span>
+        </div>
+      )}
+
       {/* TOP HEADER CONTROLS */}
       <header
         className={`px-4 py-3 sm:px-6 border-b backdrop-blur-md flex items-center justify-between gap-2 shrink-0 ${themeStyles.headerBg}`}
