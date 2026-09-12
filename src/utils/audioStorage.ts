@@ -1,9 +1,5 @@
-// IndexedDB Audio & Media Blob Store for offline vocal stem recordings and audio attachments with Cloud Sync
-import {
-  syncSavePracticeAudio,
-  fetchPracticeAudioFromCloud,
-  syncDeletePracticeAudio,
-} from '../firestoreSync';
+// IndexedDB Audio & Media Blob Store for offline vocal stem recordings and audio attachments
+// Audio files are hosted on Cloudflare R2 and cached locally in IndexedDB (zero Firestore reads/writes)
 
 const DB_NAME = 'nlbc_media_db_v1';
 const STORE_NAME = 'audio_blobs';
@@ -81,15 +77,6 @@ export async function saveAudioToStorage(id: string, dataUrl: string, fileName?:
 
   // Notify active components in the current window
   notifyAudioStored(cleanId, dataUrl);
-
-  // 2. Asynchronously sync to Firestore so all other devices (Desktop, Mobile, Tablet) get it
-  try {
-    syncSavePracticeAudio(cleanId, dataUrl, fileName).catch((err) => {
-      console.warn('Background audio sync error:', err);
-    });
-  } catch (err) {
-    console.warn('Failed to dispatch cloud audio sync:', err);
-  }
 }
 
 /**
@@ -206,48 +193,21 @@ export async function getAudioFromStorage(
       }
     }
   } catch {
-    // Continue to cloud fallback
-  }
-
-  // 4. If not found locally on this device, fetch from Firestore Cloud!
-  for (const testId of allIds) {
-    try {
-      const cloudAudio = await fetchPracticeAudioFromCloud(testId);
-      if (cloudAudio) {
-        audioMemCache.set(testId, cloudAudio);
-        // Cache into local IndexedDB for future plays
-        try {
-          const db = await getDB();
-          const tx = db.transaction(STORE_NAME, 'readwrite');
-          const store = tx.objectStore(STORE_NAME);
-          store.put({
-            id: testId,
-            dataUrl: cloudAudio,
-            mimeType: cloudAudio.split(';')[0]?.replace('data:', '') || 'audio/webm',
-            updatedAt: new Date().toISOString(),
-          });
-        } catch {
-          // Cache failure is non-fatal
-        }
-        return cloudAudio;
-      }
-    } catch (err) {
-      console.warn(`Failed to fetch audio ${testId} from cloud:`, err);
-    }
+    // Return null if not found locally; cloud audio URLs (e.g. Cloudflare R2) are resolved directly
   }
 
   return null;
 }
 
 /**
- * Delete audio data by ID (both locally and from Firestore Cloud)
+ * Delete audio data by ID from local IndexedDB & memory cache
  */
 export async function deleteAudioFromStorage(id: string): Promise<void> {
   if (!id) return;
   const cleanId = id.replace(/^indexeddb:/, '');
   audioMemCache.delete(cleanId);
 
-  // 1. Delete from IndexedDB
+  // Delete from IndexedDB
   try {
     const db = await getDB();
     await new Promise<void>((resolve) => {
@@ -259,13 +219,6 @@ export async function deleteAudioFromStorage(id: string): Promise<void> {
     });
   } catch {
     // ignore
-  }
-
-  // 2. Delete from Firestore Cloud
-  try {
-    await syncDeletePracticeAudio(cleanId);
-  } catch (err) {
-    console.warn(`Failed to delete audio ${cleanId} from cloud:`, err);
   }
 }
 

@@ -798,81 +798,21 @@ export async function syncDeleteAllNonAdminUsers(): Promise<void> {
   }
 }
 
-// --- Practice Audio Cloud Sync (Cross-Device Audio Stem & Voice Memo Sync) ---
-const MAX_CHUNK_SIZE = 700000; // 700KB safe single document limit
+// --- Practice Audio Cloud Sync (Zero Firestore Reads/Writes - Handled via Cloudflare R2) ---
 
-export async function syncSavePracticeAudio(id: string, dataUrl: string, title?: string): Promise<void> {
-  if (isQuotaExhausted || !id || !dataUrl) return;
-  const cleanId = id.replace(/^indexeddb:/, '');
-
-  try {
-    if (dataUrl.length <= MAX_CHUNK_SIZE) {
-      const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
-      await setDoc(
-        docRef,
-        {
-          id: cleanId,
-          dataUrl,
-          title: title || '',
-          isChunked: false,
-          size: dataUrl.length,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-      markWriteSuccess();
-    }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
-  }
+export async function syncSavePracticeAudio(_id: string, _dataUrl: string, _title?: string): Promise<void> {
+  // Audio files are hosted on Cloudflare R2 and cached in IndexedDB to preserve Firestore quotas
+  return;
 }
 
-export async function fetchPracticeAudioFromCloud(id: string): Promise<string | null> {
-  if (!id) return null;
-  const cleanId = id.replace(/^indexeddb:/, '');
-
-  try {
-    const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) return null;
-
-    const data = docSnap.data();
-    if (!data.isChunked && data.dataUrl) {
-      return data.dataUrl;
-    }
-
-    if (data.isChunked && data.totalChunks) {
-      let combined = '';
-      for (let i = 0; i < data.totalChunks; i++) {
-        const chunkDocRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, `${cleanId}_chunk_${i}`);
-        const chunkSnap = await getDoc(chunkDocRef);
-        if (chunkSnap.exists() && chunkSnap.data().data) {
-          combined += chunkSnap.data().data;
-        } else {
-          return null; // Missing chunk
-        }
-      }
-      return combined || null;
-    }
-
-    return null;
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
-    return null;
-  }
+export async function fetchPracticeAudioFromCloud(_id: string): Promise<string | null> {
+  // Audio files are hosted on Cloudflare R2 and cached in IndexedDB to preserve Firestore quotas
+  return null;
 }
 
-export async function syncDeletePracticeAudio(id: string): Promise<void> {
-  if (!id || isQuotaExhausted) return;
-  const cleanId = id.replace(/^indexeddb:/, '');
-
-  try {
-    const docRef = doc(db, COLLECTIONS.PRACTICE_AUDIOS, cleanId);
-    await deleteDoc(docRef);
-    markWriteSuccess();
-  } catch (err) {
-    handleFirestoreError(err, OperationType.DELETE, `${COLLECTIONS.PRACTICE_AUDIOS}/${cleanId}`);
-  }
+export async function syncDeletePracticeAudio(_id: string): Promise<void> {
+  // Audio files are hosted on Cloudflare R2 and cached in IndexedDB to preserve Firestore quotas
+  return;
 }
 
 export function subscribeToPracticeAudios(

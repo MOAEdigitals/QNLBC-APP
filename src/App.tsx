@@ -458,6 +458,51 @@ export default function App() {
     };
   }, []);
 
+  // Sync practice entries with server backup (keeps devices updated even during Firestore quota cooldowns)
+  useEffect(() => {
+    const fetchServerEntries = async () => {
+      try {
+        const res = await fetch('/api/practice-entries');
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.entries) && data.entries.length > 0) {
+          setPracticeEntries((prev) => {
+            const currentLocal = prev.length > 0 ? prev : loadPracticeEntries();
+            let hasNewer = false;
+
+            const merged = [...currentLocal];
+            for (const serverEntry of data.entries) {
+              const existingIdx = merged.findIndex((p) => p.id === serverEntry.id);
+              if (existingIdx >= 0) {
+                const localItem = merged[existingIdx];
+                const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
+                const serverTime = serverEntry.updatedAt ? new Date(serverEntry.updatedAt).getTime() : 0;
+                if (serverTime > localTime) {
+                  merged[existingIdx] = serverEntry;
+                  hasNewer = true;
+                }
+              } else {
+                merged.push(serverEntry);
+                hasNewer = true;
+              }
+            }
+
+            if (hasNewer) {
+              savePracticeEntries(merged);
+              return merged;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // network error non-fatal
+      }
+    };
+
+    fetchServerEntries();
+    const interval = setInterval(fetchServerEntries, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {
     setUsers(loadUsers());
@@ -872,6 +917,12 @@ export default function App() {
     setPracticeEntries(updated);
     savePracticeEntries(updated);
     syncSavePracticeEntry(entry);
+    // Mirror to server practice-entries endpoint so other devices get the update even if Firestore is in quota cooldown
+    fetch('/api/practice-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: updated }),
+    }).catch(() => {});
   };
 
   const handleDeletePracticeEntry = (id: string) => {
@@ -879,6 +930,11 @@ export default function App() {
     setPracticeEntries(updated);
     savePracticeEntries(updated);
     syncDeletePracticeEntry(id);
+    fetch('/api/practice-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: updated }),
+    }).catch(() => {});
   };
 
   // Recognitions Operations
