@@ -37,7 +37,10 @@ import {
   Filter,
   StickyNote,
   Star,
+  Tv,
+  Maximize2,
 } from 'lucide-react';
+import { StagePrompterModal } from './StagePrompterModal';
 import {
   searchSong,
   getSongUsageHistory,
@@ -118,8 +121,27 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   // Background play mode for tracks & links to keep playing even when minimized
   const [isBgPlayEnabled, setIsBgPlayEnabled] = useState(false);
 
-  // Large lyrics reading mode for stage worship singing
-  const [largeFontMode, setLargeFontMode] = useState(false);
+  // Fullscreen Stage Prompter Modal for Stage Worship Leaders
+  const [isStagePrompterOpen, setIsStagePrompterOpen] = useState(false);
+  const [stagePrompterSong, setStagePrompterSong] = useState<Song | null>(null);
+
+  // In-card lyrics reading font level (0: 15px, 1: 18px, 2: 22px, 3: 28px)
+  const [inCardFontSize, setInCardFontSize] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('worship_incard_font_size');
+      if (saved !== null) {
+        const idx = parseInt(saved, 10);
+        if (!isNaN(idx) && idx >= 0 && idx <= 3) return idx;
+      }
+    } catch {}
+    return 1; // Default to 18px (clean, easily legible)
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('worship_incard_font_size', inCardFontSize.toString());
+    } catch {}
+  }, [inCardFontSize]);
 
   // Active playing media for the in-line player right after lyrics
   const [activeMedia, setActiveMedia] = useState<{
@@ -1135,6 +1157,21 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       </span>
                     )}
 
+                    {/* Direct Stage Prompter Launch */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setStagePrompterSong(song);
+                        setIsStagePrompterOpen(true);
+                      }}
+                      className="p-2 rounded-xl text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                      title="Stage Prompter (Full Screen Lyrics for Song Leaders)"
+                      aria-label="Stage Prompter"
+                    >
+                      <Tv className="w-4 h-4" />
+                    </button>
+
                     <button
                       type="button"
                       onClick={(e) => handleCopySong(song, e)}
@@ -1188,16 +1225,16 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                         </button>
 
                         <button
-                          onClick={() => setLargeFontMode(!largeFontMode)}
-                          className={`px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            largeFontMode
-                              ? 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-bold'
-                              : 'border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                          }`}
-                          title="Toggle Stage Font Size"
+                          type="button"
+                          onClick={() => {
+                            setStagePrompterSong(song);
+                            setIsStagePrompterOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-xs transition-transform cursor-pointer"
+                          title="Open Fullscreen Stage Prompter for Song Leaders"
                         >
-                          <Type className="w-3.5 h-3.5" />
-                          <span>{largeFontMode ? 'Standard Font' : 'Stage Font'}</span>
+                          <Tv className="w-3.5 h-3.5" />
+                          <span>Stage Prompter</span>
                         </button>
 
                         {/* Subtle Category Button next to Stage Font (maintains subtle dashed look regardless of selection) */}
@@ -1343,21 +1380,57 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
                     {/* Lyrics Block */}
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                          <BookOpen className="w-4 h-4" />
+                          <BookOpen className="w-4 h-4 text-amber-500" />
                           <span>Lyrics</span>
                         </span>
-                        <span className="text-xs text-slate-400">
-                          {largeFontMode ? 'Stage Size (Large)' : 'Standard Size'}
-                        </span>
+
+                        <div className="flex items-center gap-2">
+                          {/* In-Card Font Stepper A- / A+ */}
+                          <div className="flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => setInCardFontSize((prev) => Math.max(0, prev - 1))}
+                              disabled={inCardFontSize <= 0}
+                              className="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30 cursor-pointer"
+                              title="Decrease font size in card"
+                            >
+                              A-
+                            </button>
+                            <span className="px-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 min-w-[36px] text-center">
+                              {['15px', '18px', '22px', '28px'][inCardFontSize]}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setInCardFontSize((prev) => Math.min(3, prev + 1))}
+                              disabled={inCardFontSize >= 3}
+                              className="px-2 py-0.5 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded disabled:opacity-30 cursor-pointer"
+                              title="Increase font size in card"
+                            >
+                              A+
+                            </button>
+                          </div>
+
+                          {/* Prominent Stage View Fullscreen Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStagePrompterSong(song);
+                              setIsStagePrompterOpen(true);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 text-xs font-bold flex items-center gap-1 transition-transform shadow-xs cursor-pointer"
+                            title="Open Fullscreen Stage Prompter for Song Leaders"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            <span>Stage View</span>
+                          </button>
+                        </div>
                       </div>
 
                       <div
-                        className={`p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text ${
-                          largeFontMode
-                            ? 'text-lg sm:text-xl font-medium leading-relaxed font-sans'
-                            : 'text-sm leading-relaxed font-mono'
+                        className={`p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
+                          ['text-[15px] leading-relaxed', 'text-[18px] leading-relaxed', 'text-[22px] leading-relaxed', 'text-[28px] leading-relaxed'][inCardFontSize]
                         }`}
                       >
                         {song.lyrics || (
@@ -2263,6 +2336,15 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* Stage Prompter Modal for Stage Worship Leaders */}
+      <StagePrompterModal
+        isOpen={isStagePrompterOpen}
+        onClose={() => setIsStagePrompterOpen(false)}
+        song={stagePrompterSong}
+        songList={filteredSongs}
+        onSelectSong={(newSong) => setStagePrompterSong(newSong)}
+      />
 
       {/* Floating Action Button (FAB) - Add Song to Library */}
       <button
