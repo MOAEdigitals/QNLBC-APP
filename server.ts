@@ -142,8 +142,11 @@ app.post('/api/upload-media', async (req, res) => {
   });
 });
 
-// Optional server backup storage for practice entries (to ensure sync even during Firestore quota pauses)
-const PRACTICE_BACKUP_FILE = path.join(process.cwd(), 'uploads', 'practice_entries_backup.json');
+// Optional server backup storage for songs and practice entries (to ensure sync even during Firestore quota pauses)
+const BACKUP_DIR = path.join(process.cwd(), 'uploads');
+const PRACTICE_BACKUP_FILE = path.join(BACKUP_DIR, 'practice_entries_backup.json');
+const SONGS_BACKUP_FILE = path.join(BACKUP_DIR, 'songs_backup.json');
+const SPECIAL_NUMBERS_BACKUP_FILE = path.join(BACKUP_DIR, 'special_numbers_backup.json');
 
 app.get('/api/practice-entries', (req, res) => {
   try {
@@ -165,6 +168,56 @@ app.post('/api/practice-entries', (req, res) => {
       return res.json({ success: true, count: entries.length });
     }
     return res.status(400).json({ error: 'Invalid entries array' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/songs-backup', (req, res) => {
+  try {
+    if (fs.existsSync(SONGS_BACKUP_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SONGS_BACKUP_FILE, 'utf-8'));
+      return res.json({ success: true, songs: data });
+    }
+    return res.json({ success: true, songs: [] });
+  } catch (err: any) {
+    return res.json({ success: false, songs: [] });
+  }
+});
+
+app.post('/api/songs-backup', (req, res) => {
+  try {
+    const { songs } = req.body;
+    if (Array.isArray(songs)) {
+      fs.writeFileSync(SONGS_BACKUP_FILE, JSON.stringify(songs, null, 2), 'utf-8');
+      return res.json({ success: true, count: songs.length });
+    }
+    return res.status(400).json({ error: 'Invalid songs array' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/special-numbers-backup', (req, res) => {
+  try {
+    if (fs.existsSync(SPECIAL_NUMBERS_BACKUP_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SPECIAL_NUMBERS_BACKUP_FILE, 'utf-8'));
+      return res.json({ success: true, specialNumbers: data });
+    }
+    return res.json({ success: true, specialNumbers: [] });
+  } catch (err: any) {
+    return res.json({ success: false, specialNumbers: [] });
+  }
+});
+
+app.post('/api/special-numbers-backup', (req, res) => {
+  try {
+    const { specialNumbers } = req.body;
+    if (Array.isArray(specialNumbers)) {
+      fs.writeFileSync(SPECIAL_NUMBERS_BACKUP_FILE, JSON.stringify(specialNumbers, null, 2), 'utf-8');
+      return res.json({ success: true, count: specialNumbers.length });
+    }
+    return res.status(400).json({ error: 'Invalid special numbers array' });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }

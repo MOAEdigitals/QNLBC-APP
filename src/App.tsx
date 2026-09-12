@@ -503,6 +503,80 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Sync songs and special numbers with server backup (keeps all devices up to date during quota cooldowns)
+  useEffect(() => {
+    const fetchBackupData = async () => {
+      try {
+        const [songsRes, specialsRes] = await Promise.all([
+          fetch('/api/songs-backup').then((r) => r.json()).catch(() => null),
+          fetch('/api/special-numbers-backup').then((r) => r.json()).catch(() => null),
+        ]);
+
+        if (songsRes && songsRes.success && Array.isArray(songsRes.songs) && songsRes.songs.length > 0) {
+          setSongs((prev) => {
+            const current = prev.length > 0 ? prev : loadSongs();
+            let changed = false;
+            const map = new Map<string, Song>(current.map((s) => [s.id, s]));
+            for (const s of (songsRes.songs as Song[])) {
+              const existing = map.get(s.id);
+              if (!existing) {
+                map.set(s.id, s);
+                changed = true;
+              } else {
+                const sTime = s.updatedAt ? new Date(s.updatedAt).getTime() : 0;
+                const eTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+                if (sTime > eTime) {
+                  map.set(s.id, s);
+                  changed = true;
+                }
+              }
+            }
+            if (changed) {
+              const merged = Array.from(map.values());
+              saveSongs(merged);
+              return merged;
+            }
+            return prev;
+          });
+        }
+
+        if (specialsRes && specialsRes.success && Array.isArray(specialsRes.specialNumbers) && specialsRes.specialNumbers.length > 0) {
+          setSpecialNumbers((prev) => {
+            const current = prev.length > 0 ? prev : loadSpecialNumbers();
+            let changed = false;
+            const map = new Map<string, SpecialNumberEntry>(current.map((sn) => [sn.id, sn]));
+            for (const sn of (specialsRes.specialNumbers as SpecialNumberEntry[])) {
+              const existing = map.get(sn.id);
+              if (!existing) {
+                map.set(sn.id, sn);
+                changed = true;
+              } else {
+                const snTime = sn.updatedAt ? new Date(sn.updatedAt).getTime() : 0;
+                const eTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+                if (snTime > eTime) {
+                  map.set(sn.id, sn);
+                  changed = true;
+                }
+              }
+            }
+            if (changed) {
+              const merged = Array.from(map.values());
+              saveSpecialNumbers(merged);
+              return merged;
+            }
+            return prev;
+          });
+        }
+      } catch {
+        // network non-fatal
+      }
+    };
+
+    fetchBackupData();
+    const timer = setInterval(fetchBackupData, 7000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {
     setUsers(loadUsers());
@@ -800,6 +874,14 @@ export default function App() {
       return updated;
     });
     syncSaveSong(newOrUpdated);
+    // Mirror to server backup so other devices get songs even during Firestore quota cooldown
+    try {
+      fetch('/api/songs-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ songs: loadSongs() }),
+      }).catch(() => {});
+    } catch {}
   }, []);
 
   const handleBatchSaveSongs = useCallback((updatedSongs: Song[]) => {
@@ -855,6 +937,13 @@ export default function App() {
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
     syncSaveSpecialNumber(entry);
+    try {
+      fetch('/api/special-numbers-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialNumbers: updated }),
+      }).catch(() => {});
+    } catch {}
   };
 
   const handleDeleteSpecialNumber = (id: string) => {
@@ -863,6 +952,13 @@ export default function App() {
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
     syncDeleteSpecialNumber(id);
+    try {
+      fetch('/api/special-numbers-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialNumbers: updated }),
+      }).catch(() => {});
+    } catch {}
   };
 
   // Choir Operations

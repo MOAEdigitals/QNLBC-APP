@@ -137,6 +137,7 @@ export interface SpecialNumberEntry {
   notes?: string;
   lyrics?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface ChoirEntry {
