@@ -195,52 +195,23 @@ export default function App() {
     initializeFirestoreCloudSeed();
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      const currentLocal = loadSetlists();
       const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('setlists', i.id));
-      const localMap = new Map(currentLocal.map((s) => [s.id, s]));
-      const merged = validRemote.map((remoteSetlist) => {
-        const localSetlist = localMap.get(remoteSetlist.id);
-        if (localSetlist) {
-          const localTime = localSetlist.updatedAt ? new Date(localSetlist.updatedAt).getTime() : 0;
-          const remoteTime = remoteSetlist.updatedAt ? new Date(remoteSetlist.updatedAt).getTime() : 0;
-          if (localTime > remoteTime) {
-            syncSaveSetlist(localSetlist);
-            return localSetlist;
-          }
-        }
-        return remoteSetlist;
-      });
-      setSetlists(merged);
-      saveSetlists(merged);
+      setSetlists(validRemote);
+      saveSetlists(validRemote);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
       const currentLocal = loadSongs();
       const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('songs', i.id));
-      const localMap = new Map(currentLocal.map((s) => [s.id, s]));
-      const merged = validRemote.map((remoteSong) => {
-        const localSong = localMap.get(remoteSong.id);
-        if (localSong) {
-          const localTime = localSong.updatedAt ? new Date(localSong.updatedAt).getTime() : 0;
-          const remoteTime = remoteSong.updatedAt ? new Date(remoteSong.updatedAt).getTime() : 0;
-          if (localTime > remoteTime) {
-            syncSaveSong(localSong);
-            return localSong;
-          }
-        }
-        return remoteSong;
-      });
-
-      const remoteIdSet = new Set(merged.map((s) => s.id));
-      for (const localSong of currentLocal) {
-        if (!remoteIdSet.has(localSong.id) && !isItemTombstoned('songs', localSong.id) && !LEGACY_MOCK_IDS.has(localSong.id)) {
-          merged.push(localSong);
-          syncSaveSong(localSong);
-        }
+      
+      // If Firestore has songs, use them as authoritative source
+      if (validRemote.length > 0) {
+        setSongs(validRemote);
+        saveSongs(validRemote);
+      } else if (currentLocal.length > 0) {
+        // First-time fallback: keep local songs until remote items arrive
+        setSongs(currentLocal);
       }
-
-      setSongs(merged);
-      saveSongs(merged);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
@@ -288,13 +259,6 @@ export default function App() {
           const normalized = normalizePracticeEntry(remoteItem);
           if (!localMatch) return normalized;
 
-          const localTime = localMatch.updatedAt ? new Date(localMatch.updatedAt).getTime() : 0;
-          const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt).getTime() : 0;
-          if (localTime > remoteTime) {
-            syncSavePracticeEntry(localMatch);
-            return localMatch;
-          }
-
           // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
           const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
             const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
@@ -311,16 +275,12 @@ export default function App() {
           };
         });
 
-      const remoteIdSet = new Set(validRemote.map((p) => p.id));
-      for (const localPrac of currentLocal) {
-        if (!remoteIdSet.has(localPrac.id) && !isItemTombstoned('practice_entries', localPrac.id) && !LEGACY_MOCK_IDS.has(localPrac.id)) {
-          validRemote.push(localPrac);
-          syncSavePracticeEntry(localPrac);
-        }
+      if (validRemote.length > 0) {
+        setPracticeEntries(validRemote);
+        savePracticeEntries(validRemote);
+      } else if (currentLocal.length > 0) {
+        setPracticeEntries(currentLocal);
       }
-
-      setPracticeEntries(validRemote);
-      savePracticeEntries(validRemote);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
@@ -876,10 +836,10 @@ export default function App() {
     syncSaveSong(newOrUpdated);
     // Mirror to server backup so other devices get songs even during Firestore quota cooldown
     try {
-      fetch('/api/songs-backup', {
+      fetch('/api/song-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songs: loadSongs() }),
+        body: JSON.stringify({ song: newOrUpdated }),
       }).catch(() => {});
     } catch {}
   }, []);

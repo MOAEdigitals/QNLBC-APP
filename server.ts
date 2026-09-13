@@ -198,6 +198,32 @@ app.post('/api/songs-backup', (req, res) => {
   }
 });
 
+// Single song sync endpoint for fast, lightweight sync across devices
+app.post('/api/song-sync', (req, res) => {
+  try {
+    const song = req.body?.song;
+    if (!song || !song.id) {
+      return res.status(400).json({ error: 'Invalid song' });
+    }
+    let allSongs: any[] = [];
+    if (fs.existsSync(SONGS_BACKUP_FILE)) {
+      try {
+        allSongs = JSON.parse(fs.readFileSync(SONGS_BACKUP_FILE, 'utf-8'));
+      } catch {}
+    }
+    const idx = allSongs.findIndex((s) => s.id === song.id);
+    if (idx >= 0) {
+      allSongs[idx] = song;
+    } else {
+      allSongs.push(song);
+    }
+    fs.writeFileSync(SONGS_BACKUP_FILE, JSON.stringify(allSongs, null, 2), 'utf-8');
+    return res.json({ success: true, song });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/special-numbers-backup', (req, res) => {
   try {
     if (fs.existsSync(SPECIAL_NUMBERS_BACKUP_FILE)) {

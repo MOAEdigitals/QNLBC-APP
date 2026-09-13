@@ -616,16 +616,13 @@ export function subscribeToCollection<T extends { id: string; updatedAt?: string
         snapshot.forEach((docSnap) => {
           const docId = docSnap.id;
 
-          // 1. Skip and purge legacy mock IDs
+          // 1. Skip legacy mock IDs
           if (LEGACY_MOCK_IDS.has(docId)) {
-            deleteDoc(doc(db, collectionName, docId)).catch(() => {});
             return;
           }
 
-          // 2. Critical: Skip tombstoned or pending-delete items!
-          // Actively purge from server if still sitting on Firestore, but NEVER resurrect!
+          // 2. Skip tombstoned or pending-delete items
           if (isItemTombstoned(collectionName, docId) || pendingDeletes.has(docId)) {
-            deleteDoc(doc(db, collectionName, docId)).catch(() => {});
             return;
           }
 
