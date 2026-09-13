@@ -73,6 +73,50 @@ export const DEFAULT_ADMIN: UserAccount = {
   createdAt: '2026-01-01T00:00:00.000Z',
 };
 
+// Complete team member accounts synced across all devices
+export const DEFAULT_USERS: UserAccount[] = [
+  DEFAULT_ADMIN,
+  { id: 'user-1787660674227', username: 'ERIC', passwordHash: 'm@rkeric', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1787660687804', username: 'JOSHUA', passwordHash: 'm@rkjoshua', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1787717185626', username: 'JONAH', passwordHash: 'jon@bhi', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1787736377241', username: 'RONNIE', passwordHash: 'ronni3P', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1787744129805', username: 'JOY', passwordHash: 'alici@joy', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1788055364792', username: 'DM', passwordHash: 'dennism@tthew', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1788055448825', username: 'ALJOE', passwordHash: 'aljo3pogi', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1788062000655', username: 'ROGER', passwordHash: 'qnlbcroger', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1788062100280', username: 'MARY ROSE', passwordHash: 'maryros3', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1788350524465', username: 'JV', passwordHash: 'johnvinc3nt', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+  { id: 'user-1788695551324', username: 'LUZ', passwordHash: 'luzvimind@', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
+];
+
+export const DEFAULT_ACTIVE_SETLISTS: Setlist[] = [
+  {
+    id: 'setlist-1788669713519',
+    type: 'sunday',
+    date: '2026-09-13',
+    presider: 'BRO JOSHUA',
+    welcomeSong: 'Napakaligaya',
+    closingSong: 'Give Thanks',
+    themeSong: "God's Wonderful People",
+    sundaySchool: {
+      songLeader: 'BRO MARIUS',
+      songs: [
+        { id: 'ss-1789203744587', songId: 'song-1787656751861-bo07p', title: "My Saviour's Love" },
+        { id: 'ss-1789203745260', songId: 'song-1787656751871-twugj', title: 'Revive Us Again' },
+      ],
+    },
+    worshipService: {
+      songLeader: 'BRO ERIC',
+      songs: [
+        { id: 'ws-1788670322362', songId: 'song-1787656751888-m06y3', title: 'Victory In Jesus' },
+        { id: 'wo-1788670476267', songId: 'song-1787656751846-ghsyt', title: 'I Am Thine, O Lord' },
+      ],
+    },
+    createdAt: '2026-09-06T04:41:53.519Z',
+    updatedAt: '2026-09-12T17:07:49.187Z',
+  },
+];
+
 // Initial realistic songs library
 const INITIAL_SONGS: Song[] = [
   {
@@ -259,18 +303,25 @@ export function loadUsers(): UserAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
     if (!raw) {
-      const defaultList = [DEFAULT_ADMIN];
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultList));
-      return defaultList;
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
+      return DEFAULT_USERS;
     }
     const parsed: UserAccount[] = JSON.parse(raw);
-    if (!parsed.find((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase())) {
-      parsed.unshift(DEFAULT_ADMIN);
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(parsed));
+    let modified = false;
+    const map = new Map<string, UserAccount>(parsed.map((u) => [u.username.toLowerCase(), u]));
+    for (const defUser of DEFAULT_USERS) {
+      if (!map.has(defUser.username.toLowerCase())) {
+        map.set(defUser.username.toLowerCase(), defUser);
+        modified = true;
+      }
     }
-    return parsed;
+    const result = Array.from(map.values());
+    if (modified) {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(result));
+    }
+    return result;
   } catch {
-    return [DEFAULT_ADMIN];
+    return DEFAULT_USERS;
   }
 }
 
@@ -408,17 +459,27 @@ export function loadSetlists(): Setlist[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETLISTS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify([]));
-      return [];
+      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(DEFAULT_ACTIVE_SETLISTS));
+      return DEFAULT_ACTIVE_SETLISTS;
     }
     const parsed: Setlist[] = JSON.parse(raw);
     const cleaned = parsed.filter((s) => !LEGACY_MOCK_IDS.has(s.id));
+    if (cleaned.length === 0) {
+      saveSetlists(DEFAULT_ACTIVE_SETLISTS);
+      return DEFAULT_ACTIVE_SETLISTS;
+    }
+    // Ensure the Sunday, Sept 13 setlist is included
+    if (!cleaned.some((s) => s.id === 'setlist-1788669713519')) {
+      const merged = [...DEFAULT_ACTIVE_SETLISTS, ...cleaned];
+      saveSetlists(merged);
+      return merged;
+    }
     if (cleaned.length !== parsed.length) {
       saveSetlists(cleaned);
     }
     return cleaned;
   } catch {
-    return [];
+    return DEFAULT_ACTIVE_SETLISTS;
   }
 }
 

@@ -1066,8 +1066,9 @@ export async function pushAllLocalDataToFirestore(): Promise<{
 
     const allItems: { collectionName: string; id: string; data: Record<string, any> }[] = [];
 
+    // Note: Do not rewrite the 652 static songs in batch, as that exhausts Firestore's 20,000 daily free limit.
+    // Individual songs are synced via syncSaveSong whenever created or edited.
     setlists.forEach((s) => allItems.push({ collectionName: COLLECTIONS.SETLISTS, id: s.id, data: s }));
-    songs.forEach((s) => allItems.push({ collectionName: COLLECTIONS.SONGS, id: s.id, data: s }));
     birthdays.forEach((b) => allItems.push({ collectionName: COLLECTIONS.BIRTHDAYS, id: b.id, data: b }));
     anniversaries.forEach((a) => allItems.push({ collectionName: COLLECTIONS.ANNIVERSARIES, id: a.id, data: a }));
     visitors.forEach((v) => allItems.push({ collectionName: COLLECTIONS.VISITORS, id: v.id, data: v }));
