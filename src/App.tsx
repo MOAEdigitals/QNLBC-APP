@@ -196,21 +196,51 @@ export default function App() {
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
       const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('setlists', i.id));
-      setSetlists(validRemote);
-      saveSetlists(validRemote);
+      if (validRemote.length > 0) {
+        setSetlists((prev) => {
+          const current = prev.length > 0 ? prev : loadSetlists();
+          const map = new Map<string, Setlist>(current.map((s) => [s.id, s]));
+          for (const rem of validRemote) {
+            const loc = map.get(rem.id);
+            if (!loc) {
+              map.set(rem.id, rem);
+            } else {
+              const rTime = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
+              const lTime = loc.updatedAt ? new Date(loc.updatedAt).getTime() : 0;
+              if (rTime >= lTime) {
+                map.set(rem.id, rem);
+              }
+            }
+          }
+          const merged = Array.from(map.values());
+          saveSetlists(merged);
+          return merged;
+        });
+      }
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      const currentLocal = loadSongs();
       const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('songs', i.id));
-      
-      // If Firestore has songs, use them as authoritative source
       if (validRemote.length > 0) {
-        setSongs(validRemote);
-        saveSongs(validRemote);
-      } else if (currentLocal.length > 0) {
-        // First-time fallback: keep local songs until remote items arrive
-        setSongs(currentLocal);
+        setSongs((prev) => {
+          const current = prev.length > 0 ? prev : loadSongs();
+          const map = new Map<string, Song>(current.map((s) => [s.id, s]));
+          for (const rem of validRemote) {
+            const loc = map.get(rem.id);
+            if (!loc) {
+              map.set(rem.id, rem);
+            } else {
+              const rTime = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
+              const lTime = loc.updatedAt ? new Date(loc.updatedAt).getTime() : 0;
+              if (rTime >= lTime) {
+                map.set(rem.id, rem);
+              }
+            }
+          }
+          const merged = Array.from(map.values());
+          saveSongs(merged);
+          return merged;
+        });
       }
     });
 
@@ -463,21 +493,20 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Sync songs and special numbers with server backup (keeps all devices up to date during quota cooldowns)
+  // Real-time server sync hub: keeps all user mobile devices and screens completely synchronized
   useEffect(() => {
-    const fetchBackupData = async () => {
+    const fetchSyncState = async () => {
       try {
-        const [songsRes, specialsRes] = await Promise.all([
-          fetch('/api/songs-backup').then((r) => r.json()).catch(() => null),
-          fetch('/api/special-numbers-backup').then((r) => r.json()).catch(() => null),
-        ]);
+        const res = await fetch('/api/sync/state').then((r) => r.json()).catch(() => null);
+        if (!res || !res.success || !res.data) return;
 
-        if (songsRes && songsRes.success && Array.isArray(songsRes.songs) && songsRes.songs.length > 0) {
+        // 1. Sync Songs
+        if (Array.isArray(res.data.songs) && res.data.songs.length > 0) {
           setSongs((prev) => {
             const current = prev.length > 0 ? prev : loadSongs();
             let changed = false;
             const map = new Map<string, Song>(current.map((s) => [s.id, s]));
-            for (const s of (songsRes.songs as Song[])) {
+            for (const s of (res.data.songs as Song[])) {
               const existing = map.get(s.id);
               if (!existing) {
                 map.set(s.id, s);
@@ -500,12 +529,42 @@ export default function App() {
           });
         }
 
-        if (specialsRes && specialsRes.success && Array.isArray(specialsRes.specialNumbers) && specialsRes.specialNumbers.length > 0) {
+        // 2. Sync Setlists
+        if (Array.isArray(res.data.setlists) && res.data.setlists.length > 0) {
+          setSetlists((prev) => {
+            const current = prev.length > 0 ? prev : loadSetlists();
+            let changed = false;
+            const map = new Map<string, Setlist>(current.map((sl) => [sl.id, sl]));
+            for (const sl of (res.data.setlists as Setlist[])) {
+              const existing = map.get(sl.id);
+              if (!existing) {
+                map.set(sl.id, sl);
+                changed = true;
+              } else {
+                const sTime = sl.updatedAt ? new Date(sl.updatedAt).getTime() : 0;
+                const eTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+                if (sTime > eTime) {
+                  map.set(sl.id, sl);
+                  changed = true;
+                }
+              }
+            }
+            if (changed) {
+              const merged = Array.from(map.values());
+              saveSetlists(merged);
+              return merged;
+            }
+            return prev;
+          });
+        }
+
+        // 3. Sync Special Numbers
+        if (Array.isArray(res.data.specialNumbers) && res.data.specialNumbers.length > 0) {
           setSpecialNumbers((prev) => {
             const current = prev.length > 0 ? prev : loadSpecialNumbers();
             let changed = false;
             const map = new Map<string, SpecialNumberEntry>(current.map((sn) => [sn.id, sn]));
-            for (const sn of (specialsRes.specialNumbers as SpecialNumberEntry[])) {
+            for (const sn of (res.data.specialNumbers as SpecialNumberEntry[])) {
               const existing = map.get(sn.id);
               if (!existing) {
                 map.set(sn.id, sn);
@@ -527,15 +586,57 @@ export default function App() {
             return prev;
           });
         }
+
+        // 4. Sync Users
+        if (Array.isArray(res.data.users) && res.data.users.length > 0) {
+          setUsers((prev) => {
+            const current = prev.length > 0 ? prev : loadUsers();
+            let changed = false;
+            const map = new Map<string, UserAccount>(current.map((u) => [u.id || u.username.toLowerCase(), u]));
+            for (const u of (res.data.users as UserAccount[])) {
+              const key = u.id || u.username.toLowerCase();
+              const existing = map.get(key);
+              if (!existing || existing.passwordHash !== u.passwordHash || existing.role !== u.role) {
+                map.set(key, u);
+                changed = true;
+              }
+            }
+            if (changed) {
+              const merged = Array.from(map.values());
+              saveUsers(merged);
+              return merged;
+            }
+            return prev;
+          });
+        }
       } catch {
         // network non-fatal
       }
     };
 
-    fetchBackupData();
-    const timer = setInterval(fetchBackupData, 7000);
+    fetchSyncState();
+    const timer = setInterval(fetchSyncState, 5000);
     return () => clearInterval(timer);
   }, []);
+
+  // Automatic push to server sync hub whenever admin is active
+  useEffect(() => {
+    if (currentUser?.role === 'admin') {
+      try {
+        fetch('/api/sync/push', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            songs: loadSongs(),
+            setlists: loadSetlists(),
+            practiceEntries: loadPracticeEntries(),
+            specialNumbers: loadSpecialNumbers(),
+            users: loadUsers(),
+          }),
+        }).catch(() => {});
+      } catch {}
+    }
+  }, [currentUser]);
 
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {

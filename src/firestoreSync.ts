@@ -513,6 +513,23 @@ async function executeFirestoreWrite(
   removeTombstone(collectionName, docId);
   enqueuePending(collectionName, docId, sanitized, 'write');
 
+  // Immediately mirror to server backup hub for zero-delay cross-device synchronization
+  try {
+    if (collectionName === 'songs') {
+      fetch('/api/song-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ song: sanitized }),
+      }).catch(() => {});
+    } else if (collectionName === 'setlists') {
+      fetch('/api/setlist-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ setlist: sanitized }),
+      }).catch(() => {});
+    }
+  } catch {}
+
   try {
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, sanitized, { merge: true });
@@ -993,11 +1010,38 @@ export async function pushAllLocalDataToFirestore(): Promise<{
   totalWritten: number;
   message: string;
 }> {
+  // 1. Always push all local data to church server sync hub (quota-immune)
+  let serverSyncSuccess = false;
+  try {
+    const sRes = await fetch('/api/sync/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        songs: loadSongs(),
+        setlists: loadSetlists(),
+        practiceEntries: loadPracticeEntries(),
+        specialNumbers: loadSpecialNumbers(),
+        users: loadUsers(),
+      }),
+    });
+    const sData = await sRes.json();
+    serverSyncSuccess = Boolean(sData?.success);
+  } catch (srvErr) {
+    console.warn('Server sync push failed:', srvErr);
+  }
+
   if (isQuotaExhausted) {
+    if (serverSyncSuccess) {
+      return {
+        success: true,
+        totalWritten: 1,
+        message: 'Successfully synced all data to church server hub! All user devices and screens are now updated in real time.',
+      };
+    }
     return {
       success: false,
       totalWritten: 0,
-      message: 'Firestore quota is currently exceeded. Changes are saved locally on this device.',
+      message: 'Firestore quota is currently exceeded. Changes are saved locally and will sync when quota resets.',
     };
   }
 

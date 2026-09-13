@@ -142,11 +142,15 @@ app.post('/api/upload-media', async (req, res) => {
   });
 });
 
-// Optional server backup storage for songs and practice entries (to ensure sync even during Firestore quota pauses)
+// Optional server backup storage for songs, setlists, users, and practice entries (to ensure sync even during Firestore quota pauses)
 const BACKUP_DIR = path.join(process.cwd(), 'uploads');
 const PRACTICE_BACKUP_FILE = path.join(BACKUP_DIR, 'practice_entries_backup.json');
 const SONGS_BACKUP_FILE = path.join(BACKUP_DIR, 'songs_backup.json');
 const SPECIAL_NUMBERS_BACKUP_FILE = path.join(BACKUP_DIR, 'special_numbers_backup.json');
+const SETLISTS_BACKUP_FILE = path.join(BACKUP_DIR, 'setlists_backup.json');
+const USERS_BACKUP_FILE = path.join(BACKUP_DIR, 'users_backup.json');
+
+let serverSyncRevision = Date.now();
 
 app.get('/api/practice-entries', (req, res) => {
   try {
@@ -241,9 +245,166 @@ app.post('/api/special-numbers-backup', (req, res) => {
     const { specialNumbers } = req.body;
     if (Array.isArray(specialNumbers)) {
       fs.writeFileSync(SPECIAL_NUMBERS_BACKUP_FILE, JSON.stringify(specialNumbers, null, 2), 'utf-8');
+      serverSyncRevision = Date.now();
       return res.json({ success: true, count: specialNumbers.length });
     }
     return res.status(400).json({ error: 'Invalid special numbers array' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/setlists-backup', (req, res) => {
+  try {
+    if (fs.existsSync(SETLISTS_BACKUP_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SETLISTS_BACKUP_FILE, 'utf-8'));
+      return res.json({ success: true, setlists: data });
+    }
+    return res.json({ success: true, setlists: [] });
+  } catch (err: any) {
+    return res.json({ success: false, setlists: [] });
+  }
+});
+
+app.post('/api/setlists-backup', (req, res) => {
+  try {
+    const { setlists } = req.body;
+    if (Array.isArray(setlists)) {
+      fs.writeFileSync(SETLISTS_BACKUP_FILE, JSON.stringify(setlists, null, 2), 'utf-8');
+      serverSyncRevision = Date.now();
+      return res.json({ success: true, count: setlists.length });
+    }
+    return res.status(400).json({ error: 'Invalid setlists array' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/setlist-sync', (req, res) => {
+  try {
+    const setlist = req.body?.setlist;
+    if (!setlist || !setlist.id) {
+      return res.status(400).json({ error: 'Invalid setlist' });
+    }
+    let allSetlists: any[] = [];
+    if (fs.existsSync(SETLISTS_BACKUP_FILE)) {
+      try {
+        allSetlists = JSON.parse(fs.readFileSync(SETLISTS_BACKUP_FILE, 'utf-8'));
+      } catch {}
+    }
+    const idx = allSetlists.findIndex((s) => s.id === setlist.id);
+    if (idx >= 0) {
+      allSetlists[idx] = setlist;
+    } else {
+      allSetlists.push(setlist);
+    }
+    fs.writeFileSync(SETLISTS_BACKUP_FILE, JSON.stringify(allSetlists, null, 2), 'utf-8');
+    serverSyncRevision = Date.now();
+    return res.json({ success: true, setlist });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/users-backup', (req, res) => {
+  try {
+    if (fs.existsSync(USERS_BACKUP_FILE)) {
+      const data = JSON.parse(fs.readFileSync(USERS_BACKUP_FILE, 'utf-8'));
+      return res.json({ success: true, users: data });
+    }
+    return res.json({ success: true, users: [] });
+  } catch (err: any) {
+    return res.json({ success: false, users: [] });
+  }
+});
+
+app.post('/api/users-backup', (req, res) => {
+  try {
+    const { users } = req.body;
+    if (Array.isArray(users)) {
+      fs.writeFileSync(USERS_BACKUP_FILE, JSON.stringify(users, null, 2), 'utf-8');
+      serverSyncRevision = Date.now();
+      return res.json({ success: true, count: users.length });
+    }
+    return res.status(400).json({ error: 'Invalid users array' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Lightweight version check for polling across all client devices
+app.get('/api/sync/version', (req, res) => {
+  res.json({
+    version: serverSyncRevision,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Comprehensive sync state endpoint: pulls latest data for all church modules
+app.get('/api/sync/state', (req, res) => {
+  try {
+    const safeRead = (file: string) => {
+      try {
+        if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, 'utf-8'));
+      } catch {}
+      return [];
+    };
+
+    const songs = safeRead(SONGS_BACKUP_FILE);
+    const setlists = safeRead(SETLISTS_BACKUP_FILE);
+    const practiceEntries = safeRead(PRACTICE_BACKUP_FILE);
+    const specialNumbers = safeRead(SPECIAL_NUMBERS_BACKUP_FILE);
+    const users = safeRead(USERS_BACKUP_FILE);
+
+    return res.json({
+      success: true,
+      version: serverSyncRevision,
+      timestamp: new Date().toISOString(),
+      data: {
+        songs,
+        setlists,
+        practiceEntries,
+        specialNumbers,
+        users,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin push endpoint: receives full or partial state from admin device and persists immediately
+app.post('/api/sync/push', (req, res) => {
+  try {
+    const { songs, setlists, practiceEntries, specialNumbers, users } = req.body || {};
+    let updated = false;
+
+    if (Array.isArray(songs) && songs.length > 0) {
+      fs.writeFileSync(SONGS_BACKUP_FILE, JSON.stringify(songs, null, 2), 'utf-8');
+      updated = true;
+    }
+    if (Array.isArray(setlists)) {
+      fs.writeFileSync(SETLISTS_BACKUP_FILE, JSON.stringify(setlists, null, 2), 'utf-8');
+      updated = true;
+    }
+    if (Array.isArray(practiceEntries)) {
+      fs.writeFileSync(PRACTICE_BACKUP_FILE, JSON.stringify(practiceEntries, null, 2), 'utf-8');
+      updated = true;
+    }
+    if (Array.isArray(specialNumbers)) {
+      fs.writeFileSync(SPECIAL_NUMBERS_BACKUP_FILE, JSON.stringify(specialNumbers, null, 2), 'utf-8');
+      updated = true;
+    }
+    if (Array.isArray(users)) {
+      fs.writeFileSync(USERS_BACKUP_FILE, JSON.stringify(users, null, 2), 'utf-8');
+      updated = true;
+    }
+
+    if (updated) {
+      serverSyncRevision = Date.now();
+    }
+
+    return res.json({ success: true, version: serverSyncRevision });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
