@@ -84,7 +84,9 @@ import {
   ExternalLink,
   CheckCircle2,
   RefreshCw,
+  Copy,
 } from 'lucide-react';
+import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
 
 import { FirestoreStatusInfo, CollectionSyncLogEntry } from '../firestoreSync';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -435,6 +437,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     a.download = `qnlbc_church_music_backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
+
+  const handleDownloadPromptMd = () => {
+    const blob = new Blob([MIGRATION_PROMPT_TEXT], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'MIGRATION_PROMPT_FOR_AI_STUDIO.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyPromptText = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(MIGRATION_PROMPT_TEXT);
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 3000);
+    }
   };
 
   const [isImporting, setIsImporting] = useState(false);
@@ -1595,23 +1620,56 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>
                   </label>
 
-                  <a
-                    href="/MIGRATION_PROMPT_FOR_AI_STUDIO.md"
-                    download="MIGRATION_PROMPT_FOR_AI_STUDIO.md"
-                    className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-purple-200 dark:border-purple-900/60 text-left hover:border-purple-400 dark:hover:border-purple-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs"
-                  >
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
-                      <FileText className="w-5 h-5 text-purple-600" />
+                  <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 flex flex-col justify-between space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
+                        <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                          AI Studio Migration Prompt (.md)
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                          Ready-to-use prompt and schema specification to give Gemini / AI Studio for a brand-new repository.
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        AI Studio Prompt / Spec (.md)
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Full prompt & schema ready to copy-paste into a brand new AI Studio app.
-                      </span>
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleDownloadPromptMd}
+                        className="flex-1 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download .md</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyPromptText}
+                        className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-slate-750 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                      >
+                        {copiedPrompt ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-600 font-bold">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Prompt</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPromptModal(true)}
+                        className="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+                        title="View Prompt"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                  </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1731,6 +1789,66 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Migration Prompt Modal */}
+      {showPromptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-3xl max-h-[85vh] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                  AI Studio Migration Prompt & Specification
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPromptModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 flex-1 overflow-y-auto font-mono text-xs text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-950/50 whitespace-pre-wrap selection:bg-purple-500 selection:text-white">
+              {MIGRATION_PROMPT_TEXT}
+            </div>
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex items-center justify-end space-x-2">
+              <button
+                type="button"
+                onClick={handleCopyPromptText}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+              >
+                {copiedPrompt ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Copied to Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Copy Entire Prompt</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadPromptMd}
+                className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download .md</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPromptModal(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
