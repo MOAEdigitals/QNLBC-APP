@@ -58,6 +58,17 @@ app.get('/api/storage/status', (req, res) => {
   });
 });
 
+// Source code zip download endpoint for code audits and migrations
+app.get('/api/download-source-zip', (req, res) => {
+  const zipPath = path.join(process.cwd(), 'public', 'church-music-app-source.zip');
+  if (fs.existsSync(zipPath)) {
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="church-music-app-source.zip"');
+    return res.sendFile(zipPath);
+  }
+  return res.status(404).send('Source zip file not found');
+});
+
 // Media upload endpoint for MP3s and minus-ones with support for both multipart/form-data and JSON base64 dataUrls
 app.post('/api/upload-media', async (req, res) => {
   // 1. Check if request is JSON containing a base64 dataUrl

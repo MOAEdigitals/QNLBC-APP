@@ -85,6 +85,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Copy,
+  Code2,
 } from 'lucide-react';
 import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
 
@@ -459,6 +460,29 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       navigator.clipboard.writeText(MIGRATION_PROMPT_TEXT);
       setCopiedPrompt(true);
       setTimeout(() => setCopiedPrompt(false), 3000);
+    }
+  };
+
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
+  const handleDownloadSourceZip = async () => {
+    setIsDownloadingZip(true);
+    try {
+      const res = await fetch('/api/download-source-zip');
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'church-music-app-source.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open('/church-music-app-source.zip', '_blank');
+    } finally {
+      setIsDownloadingZip(false);
     }
   };
 
@@ -1667,6 +1691,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         title="View Prompt"
                       >
                         <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 flex flex-col justify-between space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shrink-0">
+                        <Code2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                          Download Project Source Code (.ZIP)
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                          Full codebase archive (React components, server, types, configs) for Codex bug checks or manual migration.
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isDownloadingZip}
+                        onClick={handleDownloadSourceZip}
+                        className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>{isDownloadingZip ? 'Preparing Zip...' : 'Download Codebase (.ZIP)'}</span>
                       </button>
                     </div>
                   </div>
