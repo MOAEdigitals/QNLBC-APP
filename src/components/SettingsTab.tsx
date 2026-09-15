@@ -1595,24 +1595,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>
                   </label>
 
-                  <button
-                    type="button"
-                    disabled={isPushingCloud}
-                    onClick={handlePushAllToCloud}
-                    className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-sky-400 dark:hover:border-sky-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs disabled:opacity-50"
+                  <a
+                    href="/MIGRATION_PROMPT_FOR_AI_STUDIO.md"
+                    download="MIGRATION_PROMPT_FOR_AI_STUDIO.md"
+                    className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-purple-200 dark:border-purple-900/60 text-left hover:border-purple-400 dark:hover:border-purple-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs"
                   >
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
-                      <Cloud className={`w-5 h-5 text-sky-600 ${isPushingCloud ? 'animate-pulse' : ''}`} />
+                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
+                      <FileText className="w-5 h-5 text-purple-600" />
                     </div>
-                    <div className="flex-1">
+                    <div>
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        {isPushingCloud ? 'Pushing to Cloud...' : 'Force Sync to Mobile Devices'}
+                        AI Studio Prompt / Spec (.md)
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Directly re-uploads all local songs and setlists to Firestore Cloud.
+                        Full prompt & schema ready to copy-paste into a brand new AI Studio app.
                       </span>
                     </div>
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
