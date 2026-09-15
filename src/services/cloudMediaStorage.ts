@@ -13,6 +13,9 @@ export interface MediaUploadResult {
   error?: string;
 }
 
+const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+const UPLOAD_ENDPOINT = `${API_BASE}/api/upload-media`;
+
 /**
  * Convert dataUrl to Blob safely using browser native fetch or fallback
  */
@@ -81,7 +84,7 @@ export async function uploadMediaToCloudStorage(
   if (typeof fileOrData === 'string' && fileOrData.startsWith('data:')) {
     try {
       if (onProgress) onProgress(15);
-      const jsonRes = await fetch('/api/upload-media', {
+      const jsonRes = await fetch(UPLOAD_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -133,7 +136,7 @@ export async function uploadMediaToCloudStorage(
   const performUpload = (currentBlob: Blob, curFileName: string, curId: string): Promise<MediaUploadResult> => {
     return new Promise<MediaUploadResult>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/api/upload-media', true);
+      xhr.open('POST', UPLOAD_ENDPOINT, true);
       // Allow 3 minutes for slow mobile cellular connections
       xhr.timeout = 180000;
 
@@ -192,7 +195,7 @@ export async function uploadMediaToCloudStorage(
     });
   };
 
-  // Upload to Cloud Media Storage via /api/upload-media with retries
+  // Upload to Cloud Media Storage via UPLOAD_ENDPOINT with retries
   try {
     return await performUpload(blob, fileName, cleanId);
   } catch (firstErr) {
@@ -246,15 +249,17 @@ export async function syncLocalAudioToCloud(
 }
 
 /**
- * Delete a media file from Cloud Media Storage
+ * Delete a media file from Cloud Media Storage with verified HTTP response check
  */
-export async function deleteMediaFromCloudStorage(urlOrPath: string): Promise<void> {
-  if (!urlOrPath) return;
+export async function deleteMediaFromCloudStorage(urlOrPath: string): Promise<boolean> {
+  if (!urlOrPath) return false;
   try {
-    await fetch(`/api/upload-media?url=${encodeURIComponent(urlOrPath)}`, {
+    const res = await fetch(`${UPLOAD_ENDPOINT}?url=${encodeURIComponent(urlOrPath)}`, {
       method: 'DELETE',
     });
+    return res.ok;
   } catch (err) {
     console.warn('Could not delete media file from storage:', err);
+    return false;
   }
 }

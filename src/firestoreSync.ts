@@ -179,7 +179,8 @@ try {
   // ignore
 }
 
-interface PendingSyncItem {
+export interface PendingSyncItem {
+  opId: string;
   collectionName: string;
   id: string;
   data?: Record<string, any>;
@@ -314,7 +315,7 @@ export function isItemTombstoned(collectionName: string, id: string): boolean {
   return cachedTombstoneKeySet?.has(`${collectionName}::${id}`) || false;
 }
 
-function getPendingQueue(): PendingSyncItem[] {
+export function getPendingQueue(): PendingSyncItem[] {
   try {
     const raw = localStorage.getItem(PENDING_QUEUE_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -323,17 +324,25 @@ function getPendingQueue(): PendingSyncItem[] {
   }
 }
 
-function savePendingQueue(queue: PendingSyncItem[]) {
+export function savePendingQueue(queue: PendingSyncItem[]): void {
   try {
-    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(queue.slice(-50))); // Keep last 50
-  } catch {
-    // ignore
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(queue)); // Retain all operations without truncation
+  } catch (err) {
+    console.warn('Failed to persist pending queue:', err);
   }
 }
 
-function enqueuePending(collectionName: string, id: string, data?: Record<string, any>, operation: 'write' | 'delete' = 'write') {
-  const queue = getPendingQueue().filter((item) => !(item.collectionName === collectionName && item.id === id));
+export function enqueuePending(
+  collectionName: string,
+  id: string,
+  data?: Record<string, any>,
+  operation: 'write' | 'delete' = 'write',
+  opId?: string
+): string {
+  const finalOpId = opId || `op_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const queue = getPendingQueue();
   queue.push({
+    opId: finalOpId,
     collectionName,
     id,
     data,
@@ -341,10 +350,18 @@ function enqueuePending(collectionName: string, id: string, data?: Record<string
     timestamp: Date.now(),
   });
   savePendingQueue(queue);
+  return finalOpId;
 }
 
-function dequeuePending(collectionName: string, id: string) {
-  const queue = getPendingQueue().filter((item) => !(item.collectionName === collectionName && item.id === id));
+export function dequeuePending(opIdOrCollection: string, id?: string): void {
+  if (id !== undefined) {
+    const queue = getPendingQueue().filter(
+      (item) => !(item.collectionName === opIdOrCollection && item.id === id)
+    );
+    savePendingQueue(queue);
+    return;
+  }
+  const queue = getPendingQueue().filter((item) => item.opId !== opIdOrCollection);
   savePendingQueue(queue);
 }
 
@@ -471,17 +488,13 @@ export function handleFirestoreError(
   }
 }
 
-// Generic recursive sanitize helper to avoid undefined fields and payload limits in Firestore documents
-function sanitizeDoc<T>(data: T): Record<string, any> {
+// Generic recursive sanitize helper to avoid undefined fields in Firestore documents
+export function sanitizeDoc<T>(data: T): Record<string, any> {
   if (data === null || data === undefined) return {} as Record<string, any>;
 
   const cleanObject = (obj: any): any => {
     if (obj === null || obj === undefined) return null;
     if (typeof obj !== 'object') {
-      // Guard against oversized base64 data URLs in Firestore documents (> 100KB)
-      if (typeof obj === 'string' && obj.startsWith('data:') && obj.length > 100000) {
-        return 'indexeddb:local_storage';
-      }
       return obj;
     }
 
@@ -503,37 +516,47 @@ function sanitizeDoc<T>(data: T): Record<string, any> {
   return cleanObject(data);
 }
 
-// Central safe Firestore write wrapper with offline queueing
+// Explicit restore method for intentional user or admin document restoration
+export async function restoreTombstonedRecord(
+  collectionName: string,
+  docId: string,
+  rawData: any
+): Promise<void> {
+  removeTombstone(collectionName, docId);
+  const sanitized = sanitizeDoc(rawData);
+  const opId = enqueuePending(collectionName, docId, sanitized, 'write');
+
+  try {
+    const docRef = doc(db, collectionName, docId);
+    await setDoc(docRef, sanitized, { merge: true });
+    dequeuePending(opId);
+    markWriteSuccess();
+    recordCollectionSync(collectionName, undefined, 'synced', 'Document Restored to Cloud');
+  } catch (err) {
+    recordCollectionSync(collectionName, undefined, 'pending', 'Restore Queued');
+    handleFirestoreError(err, OperationType.WRITE, `${collectionName}/${docId}`);
+  }
+}
+
+// Central safe Firestore write wrapper with offline queueing and tombstone enforcement
 async function executeFirestoreWrite(
   collectionName: string,
   docId: string,
   rawData: any
 ): Promise<void> {
-  const sanitized = sanitizeDoc(rawData);
-  removeTombstone(collectionName, docId);
-  enqueuePending(collectionName, docId, sanitized, 'write');
+  // Enforce tombstone immunity: regular writes cannot silently resurrect deleted records
+  if (isItemTombstoned(collectionName, docId)) {
+    console.warn(`[Write Blocked] Cannot write to tombstoned record ${collectionName}/${docId}. Regular writes cannot resurrect deleted documents.`);
+    return;
+  }
 
-  // Immediately mirror to server backup hub for zero-delay cross-device synchronization
-  try {
-    if (collectionName === 'songs') {
-      fetch('/api/song-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ song: sanitized }),
-      }).catch(() => {});
-    } else if (collectionName === 'setlists') {
-      fetch('/api/setlist-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ setlist: sanitized }),
-      }).catch(() => {});
-    }
-  } catch {}
+  const sanitized = sanitizeDoc(rawData);
+  const opId = enqueuePending(collectionName, docId, sanitized, 'write');
 
   try {
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, sanitized, { merge: true });
-    dequeuePending(collectionName, docId);
+    dequeuePending(opId);
     markWriteSuccess();
     recordCollectionSync(collectionName, undefined, 'synced', 'Document Saved to Cloud');
   } catch (err) {
@@ -548,12 +571,12 @@ async function executeFirestoreDelete(
   docId: string
 ): Promise<void> {
   recordTombstone(collectionName, docId);
-  enqueuePending(collectionName, docId, undefined, 'delete');
+  const opId = enqueuePending(collectionName, docId, undefined, 'delete');
 
   try {
     const docRef = doc(db, collectionName, docId);
     await deleteDoc(docRef);
-    dequeuePending(collectionName, docId);
+    dequeuePending(opId);
     markWriteSuccess();
     recordCollectionSync(collectionName, undefined, 'synced', 'Document Purged from Cloud');
   } catch (err) {
@@ -562,25 +585,41 @@ async function executeFirestoreDelete(
   }
 }
 
+let isFlushingQueue = false;
+
 // Flush pending offline/quota-deferred queue
 export async function flushPendingSyncQueue(): Promise<void> {
-  const queue = getPendingQueue();
-  if (queue.length === 0) return;
+  if (isFlushingQueue) return;
+  isFlushingQueue = true;
 
-  for (const item of queue) {
-    try {
-      const docRef = doc(db, item.collectionName, item.id);
-      if (item.operation === 'write' && item.data) {
-        await setDoc(docRef, sanitizeDoc(item.data), { merge: true });
-      } else if (item.operation === 'delete') {
-        await deleteDoc(docRef);
+  try {
+    const queue = getPendingQueue();
+    if (queue.length === 0) return;
+
+    for (const item of queue) {
+      // Check if document was deleted after the write was queued
+      if (item.operation === 'write' && isItemTombstoned(item.collectionName, item.id)) {
+        console.log(`[Queue Flush] Skipping queued write for tombstoned document ${item.collectionName}/${item.id}`);
+        dequeuePending(item.opId);
+        continue;
       }
-      dequeuePending(item.collectionName, item.id);
-      markWriteSuccess();
-    } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, `${item.collectionName}/${item.id}`);
-      break; // Pause flushing if network error happens
+
+      try {
+        const docRef = doc(db, item.collectionName, item.id);
+        if (item.operation === 'write' && item.data) {
+          await setDoc(docRef, sanitizeDoc(item.data), { merge: true });
+        } else if (item.operation === 'delete') {
+          await deleteDoc(docRef);
+        }
+        dequeuePending(item.opId);
+        markWriteSuccess();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `${item.collectionName}/${item.id}`);
+        break; // Pause flushing if network error happens
+      }
     }
+  } finally {
+    isFlushingQueue = false;
   }
 }
 
@@ -977,7 +1016,6 @@ async function writeBatchInChunks(
       for (const item of chunk) {
         const docRef = doc(db, item.collectionName, item.id);
         batch.set(docRef, sanitizeDoc(item.data), { merge: true });
-        dequeuePending(item.collectionName, item.id);
       }
       await batch.commit();
       writtenCount += chunk.length;
@@ -988,7 +1026,6 @@ async function writeBatchInChunks(
         try {
           const docRef = doc(db, item.collectionName, item.id);
           await setDoc(docRef, sanitizeDoc(item.data), { merge: true });
-          dequeuePending(item.collectionName, item.id);
           writtenCount++;
           markWriteSuccess();
         } catch (itemErr) {
@@ -1003,41 +1040,14 @@ async function writeBatchInChunks(
 
 /**
  * Pushes all current local database entries directly to Firestore Cloud in optimized batches.
- * Clears any conflicting deletion tombstones so all connected devices immediately receive and sync the data.
+ * Purges any conflicting deletion tombstones so all connected devices immediately receive and sync the data.
  */
 export async function pushAllLocalDataToFirestore(): Promise<{
   success: boolean;
   totalWritten: number;
   message: string;
 }> {
-  // 1. Always push all local data to church server sync hub (quota-immune)
-  let serverSyncSuccess = false;
-  try {
-    const sRes = await fetch('/api/sync/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        songs: loadSongs(),
-        setlists: loadSetlists(),
-        practiceEntries: loadPracticeEntries(),
-        specialNumbers: loadSpecialNumbers(),
-        users: loadUsers(),
-      }),
-    });
-    const sData = await sRes.json();
-    serverSyncSuccess = Boolean(sData?.success);
-  } catch (srvErr) {
-    console.warn('Server sync push failed:', srvErr);
-  }
-
   if (isQuotaExhausted) {
-    if (serverSyncSuccess) {
-      return {
-        success: true,
-        totalWritten: 1,
-        message: 'Successfully synced all data to church server hub! All user devices and screens are now updated in real time.',
-      };
-    }
     return {
       success: false,
       totalWritten: 0,
@@ -1066,8 +1076,8 @@ export async function pushAllLocalDataToFirestore(): Promise<{
 
     const allItems: { collectionName: string; id: string; data: Record<string, any> }[] = [];
 
-    // Note: Do not rewrite the 652 static songs in batch, as that exhausts Firestore's 20,000 daily free limit.
-    // Individual songs are synced via syncSaveSong whenever created or edited.
+    // Push all church collections to Firestore Cloud
+    songs.forEach((s) => allItems.push({ collectionName: COLLECTIONS.SONGS, id: s.id, data: s }));
     setlists.forEach((s) => allItems.push({ collectionName: COLLECTIONS.SETLISTS, id: s.id, data: s }));
     birthdays.forEach((b) => allItems.push({ collectionName: COLLECTIONS.BIRTHDAYS, id: b.id, data: b }));
     anniversaries.forEach((a) => allItems.push({ collectionName: COLLECTIONS.ANNIVERSARIES, id: a.id, data: a }));

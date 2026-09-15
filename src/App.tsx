@@ -196,52 +196,14 @@ export default function App() {
 
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
       const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('setlists', i.id));
-      if (validRemote.length > 0) {
-        setSetlists((prev) => {
-          const current = prev.length > 0 ? prev : loadSetlists();
-          const map = new Map<string, Setlist>(current.map((s) => [s.id, s]));
-          for (const rem of validRemote) {
-            const loc = map.get(rem.id);
-            if (!loc) {
-              map.set(rem.id, rem);
-            } else {
-              const rTime = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
-              const lTime = loc.updatedAt ? new Date(loc.updatedAt).getTime() : 0;
-              if (rTime >= lTime) {
-                map.set(rem.id, rem);
-              }
-            }
-          }
-          const merged = Array.from(map.values());
-          saveSetlists(merged);
-          return merged;
-        });
-      }
+      setSetlists(validRemote);
+      saveSetlists(validRemote);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
       const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('songs', i.id));
-      if (validRemote.length > 0) {
-        setSongs((prev) => {
-          const current = prev.length > 0 ? prev : loadSongs();
-          const map = new Map<string, Song>(current.map((s) => [s.id, s]));
-          for (const rem of validRemote) {
-            const loc = map.get(rem.id);
-            if (!loc) {
-              map.set(rem.id, rem);
-            } else {
-              const rTime = rem.updatedAt ? new Date(rem.updatedAt).getTime() : 0;
-              const lTime = loc.updatedAt ? new Date(loc.updatedAt).getTime() : 0;
-              if (rTime >= lTime) {
-                map.set(rem.id, rem);
-              }
-            }
-          }
-          const merged = Array.from(map.values());
-          saveSongs(merged);
-          return merged;
-        });
-      }
+      setSongs(validRemote);
+      saveSongs(validRemote);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
@@ -292,7 +254,7 @@ export default function App() {
           // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
           const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
             const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
-            if (localPart && localPart.audioUrl && (!vp.audioUrl || vp.audioUrl === 'indexeddb:local_storage')) {
+            if (localPart && localPart.audioUrl && !vp.audioUrl) {
               return { ...vp, audioUrl: localPart.audioUrl };
             }
             return vp;
@@ -305,12 +267,8 @@ export default function App() {
           };
         });
 
-      if (validRemote.length > 0) {
-        setPracticeEntries(validRemote);
-        savePracticeEntries(validRemote);
-      } else if (currentLocal.length > 0) {
-        setPracticeEntries(currentLocal);
-      }
+      setPracticeEntries(validRemote);
+      savePracticeEntries(validRemote);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
@@ -447,196 +405,6 @@ export default function App() {
       unsubGlobalWipe();
     };
   }, []);
-
-  // Sync practice entries with server backup (keeps devices updated even during Firestore quota cooldowns)
-  useEffect(() => {
-    const fetchServerEntries = async () => {
-      try {
-        const res = await fetch('/api/practice-entries');
-        const data = await res.json();
-        if (data && data.success && Array.isArray(data.entries) && data.entries.length > 0) {
-          setPracticeEntries((prev) => {
-            const currentLocal = prev.length > 0 ? prev : loadPracticeEntries();
-            let hasNewer = false;
-
-            const merged = [...currentLocal];
-            for (const serverEntry of data.entries) {
-              const existingIdx = merged.findIndex((p) => p.id === serverEntry.id);
-              if (existingIdx >= 0) {
-                const localItem = merged[existingIdx];
-                const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
-                const serverTime = serverEntry.updatedAt ? new Date(serverEntry.updatedAt).getTime() : 0;
-                if (serverTime > localTime) {
-                  merged[existingIdx] = serverEntry;
-                  hasNewer = true;
-                }
-              } else {
-                merged.push(serverEntry);
-                hasNewer = true;
-              }
-            }
-
-            if (hasNewer) {
-              savePracticeEntries(merged);
-              return merged;
-            }
-            return prev;
-          });
-        }
-      } catch {
-        // network error non-fatal
-      }
-    };
-
-    fetchServerEntries();
-    const interval = setInterval(fetchServerEntries, 6000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Real-time server sync hub: keeps all user mobile devices and screens completely synchronized
-  useEffect(() => {
-    const fetchSyncState = async () => {
-      try {
-        const res = await fetch('/api/sync/state').then((r) => r.json()).catch(() => null);
-        if (!res || !res.success || !res.data) return;
-
-        // 1. Sync Songs
-        if (Array.isArray(res.data.songs) && res.data.songs.length > 0) {
-          setSongs((prev) => {
-            const current = prev.length > 0 ? prev : loadSongs();
-            let changed = false;
-            const map = new Map<string, Song>(current.map((s) => [s.id, s]));
-            for (const s of (res.data.songs as Song[])) {
-              const existing = map.get(s.id);
-              if (!existing) {
-                map.set(s.id, s);
-                changed = true;
-              } else {
-                const sTime = s.updatedAt ? new Date(s.updatedAt).getTime() : 0;
-                const eTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-                if (sTime > eTime) {
-                  map.set(s.id, s);
-                  changed = true;
-                }
-              }
-            }
-            if (changed) {
-              const merged = Array.from(map.values());
-              saveSongs(merged);
-              return merged;
-            }
-            return prev;
-          });
-        }
-
-        // 2. Sync Setlists
-        if (Array.isArray(res.data.setlists) && res.data.setlists.length > 0) {
-          setSetlists((prev) => {
-            const current = prev.length > 0 ? prev : loadSetlists();
-            let changed = false;
-            const map = new Map<string, Setlist>(current.map((sl) => [sl.id, sl]));
-            for (const sl of (res.data.setlists as Setlist[])) {
-              const existing = map.get(sl.id);
-              if (!existing) {
-                map.set(sl.id, sl);
-                changed = true;
-              } else {
-                const sTime = sl.updatedAt ? new Date(sl.updatedAt).getTime() : 0;
-                const eTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-                if (sTime > eTime) {
-                  map.set(sl.id, sl);
-                  changed = true;
-                }
-              }
-            }
-            if (changed) {
-              const merged = Array.from(map.values());
-              saveSetlists(merged);
-              return merged;
-            }
-            return prev;
-          });
-        }
-
-        // 3. Sync Special Numbers
-        if (Array.isArray(res.data.specialNumbers) && res.data.specialNumbers.length > 0) {
-          setSpecialNumbers((prev) => {
-            const current = prev.length > 0 ? prev : loadSpecialNumbers();
-            let changed = false;
-            const map = new Map<string, SpecialNumberEntry>(current.map((sn) => [sn.id, sn]));
-            for (const sn of (res.data.specialNumbers as SpecialNumberEntry[])) {
-              const existing = map.get(sn.id);
-              if (!existing) {
-                map.set(sn.id, sn);
-                changed = true;
-              } else {
-                const snTime = sn.updatedAt ? new Date(sn.updatedAt).getTime() : 0;
-                const eTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-                if (snTime > eTime) {
-                  map.set(sn.id, sn);
-                  changed = true;
-                }
-              }
-            }
-            if (changed) {
-              const merged = Array.from(map.values());
-              saveSpecialNumbers(merged);
-              return merged;
-            }
-            return prev;
-          });
-        }
-
-        // 4. Sync Users
-        if (Array.isArray(res.data.users) && res.data.users.length > 0) {
-          setUsers((prev) => {
-            const current = prev.length > 0 ? prev : loadUsers();
-            let changed = false;
-            const map = new Map<string, UserAccount>(current.map((u) => [u.id || u.username.toLowerCase(), u]));
-            for (const u of (res.data.users as UserAccount[])) {
-              const key = u.id || u.username.toLowerCase();
-              const existing = map.get(key);
-              if (!existing || existing.passwordHash !== u.passwordHash || existing.role !== u.role) {
-                map.set(key, u);
-                changed = true;
-              }
-            }
-            if (changed) {
-              const merged = Array.from(map.values());
-              saveUsers(merged);
-              return merged;
-            }
-            return prev;
-          });
-        }
-      } catch {
-        // network non-fatal
-      }
-    };
-
-    fetchSyncState();
-    const timer = setInterval(fetchSyncState, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Automatic push to server sync hub whenever admin is active
-  useEffect(() => {
-    if (currentUser?.role === 'admin') {
-      try {
-        fetch('/api/sync/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            songs: loadSongs(),
-            setlists: loadSetlists(),
-            practiceEntries: loadPracticeEntries(),
-            specialNumbers: loadSpecialNumbers(),
-            users: loadUsers(),
-          }),
-        }).catch(() => {});
-      } catch {}
-    }
-  }, [currentUser]);
 
   // Reload all data (used when resetting to defaults or loading backup)
   const reloadAllData = () => {

@@ -15,26 +15,21 @@ function sanitizeFileName(name: string): string {
 }
 
 // Configuration for Cloudflare R2 setup
-const DEFAULT_ACCOUNT_ID = '4a4ecca01db067e2abcf09aeb8e5c4c4';
-const DEFAULT_BUCKET_NAME = 'worship-audio';
-const DEFAULT_PUBLIC_URL = 'https://pub-aaa45e93104541548f563b3496acae00.r2.dev';
-
-// Safe runtime-decoded default credentials to avoid plaintext scanning in git repositories
-const FALLBACK_TOKEN = Buffer.from('Y2ZhdF84TE9ibmNQenR0U0xKa0cwT05OQXhCTmRqdmtRRmp2SUxGOFRhbFFsZWNmNDM1MTE=', 'base64').toString('utf-8');
-const FALLBACK_ACCESS_KEY = Buffer.from('MzViNzFlZTU1MmEwYTRhMzVkNzk0MTUwYWE3Mzg4OGY=', 'base64').toString('utf-8');
-const FALLBACK_SECRET_KEY = Buffer.from('YWJmZjAwMzYwMjA2NTAwMGZhZDJiMzU2NTUxMTg5YzdjZTdmYWJkMDg2ODc1ZjAwNGI4MDFjNjEwOTI4YjRjYQ==', 'base64').toString('utf-8');
+const DEFAULT_ACCOUNT_ID = process.env.CLOUDFLARE_R2_ACCOUNT_ID?.trim() || '';
+const DEFAULT_BUCKET_NAME = process.env.CLOUDFLARE_R2_BUCKET_NAME?.trim() || 'worship-audio';
+const DEFAULT_PUBLIC_URL = (process.env.CLOUDFLARE_R2_PUBLIC_URL?.trim() || '').replace(/\/+$/, '');
 
 export function getR2Config() {
   const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID?.trim() || DEFAULT_ACCOUNT_ID;
-  const apiToken = process.env.CLOUDFLARE_R2_API_TOKEN?.trim() || FALLBACK_TOKEN;
+  const apiToken = process.env.CLOUDFLARE_R2_API_TOKEN?.trim() || '';
   const bucketName = process.env.CLOUDFLARE_R2_BUCKET_NAME?.trim() || DEFAULT_BUCKET_NAME;
   const publicUrl = (
     process.env.CLOUDFLARE_R2_PUBLIC_URL?.trim() ||
     DEFAULT_PUBLIC_URL
   ).replace(/\/+$/, '');
 
-  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID?.trim() || FALLBACK_ACCESS_KEY;
-  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY?.trim() || FALLBACK_SECRET_KEY;
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID?.trim() || '';
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY?.trim() || '';
 
   return {
     accountId,
@@ -45,6 +40,7 @@ export function getR2Config() {
     secretAccessKey,
     hasToken: Boolean(accountId && apiToken),
     hasS3Credentials: Boolean(accountId && accessKeyId && secretAccessKey),
+    isConfigured: Boolean((accountId && apiToken) || (accountId && accessKeyId && secretAccessKey)),
   };
 }
 
@@ -140,34 +136,21 @@ export async function uploadMedia(
         provider: 'cloudflare-r2',
       };
     } catch (err) {
-      console.error('[R2 Storage] S3 upload error, falling back to local server storage:', err);
+      console.error('[R2 Storage] S3 upload error:', err);
     }
   }
 
-  // 3. Fallback: Save to local server filesystem in uploads/ directory
-  console.log('[Storage] Saving to local server storage fallback for', sanitizedName);
-  const uploadsDir = path.join(process.cwd(), 'uploads');
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+  if (!config.isConfigured) {
+    throw new Error('Cloudflare R2 is not configured on this server. Set CLOUDFLARE_R2_ACCOUNT_ID and CLOUDFLARE_R2_API_TOKEN environment variables.');
   }
 
-  const localFileName = `${cleanId}_${sanitizedName}`;
-  const localFilePath = path.join(uploadsDir, localFileName);
-  fs.writeFileSync(localFilePath, fileBuffer);
-
-  return {
-    url: `/uploads/${localFileName}`,
-    key: localFileName,
-    size: fileBuffer.length,
-    isCloudUrl: false,
-    provider: 'local-server',
-  };
+  throw new Error('Failed to upload media to Cloudflare R2. Please check server logs and R2 credentials.');
 }
 
 /**
- * Delete media file
+ * Delete media file with verified response checking
  */
-export async function deleteMedia(keyOrUrl: string): Promise<void> {
+export async function deleteMedia(keyOrUrl: string): Promise<boolean> {
   const config = getR2Config();
   const isR2Url = keyOrUrl.includes('r2.dev') || keyOrUrl.startsWith('worship_media/');
 
@@ -175,16 +158,23 @@ export async function deleteMedia(keyOrUrl: string): Promise<void> {
     try {
       const key = keyOrUrl.includes('.r2.dev/') ? keyOrUrl.split('.r2.dev/')[1] : keyOrUrl;
       const deleteEndpoint = `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/r2/buckets/${config.bucketName}/objects/${encodeURIComponent(key)}`;
-      await fetch(deleteEndpoint, {
+      const res = await fetch(deleteEndpoint, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${config.apiToken}`,
         },
       });
-      console.log(`[R2 Storage] Deleted object ${key} from Cloudflare R2`);
-      return;
+      if (res.ok || res.status === 404) {
+        console.log(`[R2 Storage] Deleted object ${key} from Cloudflare R2 (status ${res.status})`);
+        return true;
+      } else {
+        const text = await res.text();
+        console.warn(`[R2 Storage] Cloudflare delete returned HTTP ${res.status}: ${text}`);
+        return false;
+      }
     } catch (err) {
       console.warn('[R2 Storage] Failed to delete from Cloudflare R2 API:', err);
+      return false;
     }
   }
 
@@ -198,9 +188,10 @@ export async function deleteMedia(keyOrUrl: string): Promise<void> {
         Key: key,
       });
       await client.send(command);
-      return;
+      return true;
     } catch (err) {
       console.warn('Failed to delete from Cloudflare R2 S3:', err);
+      return false;
     }
   }
 
@@ -211,9 +202,14 @@ export async function deleteMedia(keyOrUrl: string): Promise<void> {
     if (fs.existsSync(localFilePath)) {
       try {
         fs.unlinkSync(localFilePath);
+        return true;
       } catch (err) {
         console.warn('Failed to delete local upload:', err);
+        return false;
       }
     }
+    return true;
   }
+
+  return false;
 }
