@@ -12,51 +12,79 @@ import {
   SpecialNumberEntry,
   PracticeGroupEntry,
   ChoirEntry,
-  DatabaseStatusInfo,
 } from './types';
-import { supabase } from './supabase';
 import {
-  fetchSetlists,
-  saveSetlist as supabaseSaveSetlist,
-  deleteSetlist as supabaseDeleteSetlist,
-  fetchSongs,
-  saveSong as supabaseSaveSong,
-  deleteSong as supabaseDeleteSong,
-  fetchSpecialNumbers,
-  saveSpecialNumber as supabaseSaveSpecialNumber,
-  deleteSpecialNumber as supabaseDeleteSpecialNumber,
-  fetchChoirEntries,
-  saveChoirEntry as supabaseSaveChoirEntry,
-  deleteChoirEntry as supabaseDeleteChoirEntry,
-  fetchPracticeEntries,
-  savePracticeEntry as supabaseSavePracticeEntry,
-  deletePracticeEntry as supabaseDeletePracticeEntry,
-  fetchBirthdays,
-  saveBirthday as supabaseSaveBirthday,
-  deleteBirthday as supabaseDeleteBirthday,
-  fetchAnniversaries,
-  saveAnniversary as supabaseSaveAnniversary,
-  deleteAnniversary as supabaseDeleteAnniversary,
-  fetchVisitors,
-  saveVisitor as supabaseSaveVisitor,
-  deleteVisitor as supabaseDeleteVisitor,
-  fetchSpecialRecognitions,
-  saveSpecialRecognition as supabaseSaveSpecialRecognition,
-  deleteSpecialRecognition as supabaseDeleteSpecialRecognition,
-  fetchMinistrySavedNames,
-  saveMinistrySavedNames as supabaseSaveMinistrySavedNames,
-  fetchAllProfiles,
-  fetchCurrentUserProfile,
-  subscribeSupabaseRealtime,
-  getDatabaseConnectionStatus,
-} from './services/supabaseData';
-import {
-  cleanupLegacyStorage,
+  loadCurrentSession,
+  saveCurrentSession,
+  loadUsers,
+  saveUsers,
   loadTheme,
   saveTheme,
+  loadSetlists,
+  saveSetlists,
+  loadSongs,
+  saveSongs,
+  loadBirthdays,
+  saveBirthdays,
+  loadAnniversaries,
+  saveAnniversaries,
+  loadVisitors,
+  saveVisitors,
+  loadSpecialRecognitions,
+  saveSpecialRecognitions,
+  loadSpecialNumbers,
+  saveSpecialNumbers,
+  loadPracticeEntries,
+  savePracticeEntries,
+  loadChoirEntries,
+  saveChoirEntries,
+  normalizePracticeEntry,
   upsertSongFromSpecialNumber,
-  loadWelcomeSongs,
+  clearAllLocalDataToZero,
+  deleteAllNonAdminUsers,
 } from './utils/storage';
+import {
+  subscribeToCollection,
+  syncSaveSetlist,
+  syncDeleteSetlist,
+  syncSaveSong,
+  syncDeleteSong,
+  syncSaveSpecialNumber,
+  syncDeleteSpecialNumber,
+  syncSavePracticeEntry,
+  syncDeletePracticeEntry,
+  syncSaveChoirEntry,
+  syncDeleteChoirEntry,
+  syncSaveBirthday,
+  syncDeleteBirthday,
+  syncSaveAnniversary,
+  syncDeleteAnniversary,
+  syncSaveVisitor,
+  syncDeleteVisitor,
+  syncSaveSpecialRecognition,
+  syncDeleteSpecialRecognition,
+  syncSaveUser,
+  syncDeleteAllNonAdminUsers,
+  syncSaveSavedNames,
+  subscribeToAppSettings,
+  subscribeToPracticeAudios,
+  initializeFirestoreCloudSeed,
+  subscribeToFirestoreStatus,
+  getFirestoreConnectionStatus,
+  subscribeToGlobalWipe,
+  FirestoreStatusInfo,
+  isItemTombstoned,
+  recordTombstone,
+  LEGACY_MOCK_IDS,
+} from './firestoreSync';
+import {
+  loadSavedNames,
+  saveSavedNames,
+  loadWelcomeSongs,
+  saveWelcomeSongs,
+  DEFAULT_ADMIN,
+} from './utils/storage';
+import { saveAudioToStorage } from './utils/audioStorage';
 import {
   categorizeAnnualCelebrants,
   isPastDate,
@@ -71,27 +99,27 @@ import { SpecialNumberTab } from './components/SpecialNumberTab';
 import { SongsTab } from './components/SongsTab';
 import { SettingsTab } from './components/SettingsTab';
 import { FirestoreStatusModal } from './components/FirestoreStatusModal';
-import { ChurchLogo } from './components/ChurchLogo';
-import { LogOut, X, AlertTriangle, CloudOff } from 'lucide-react';
-
-// Execute legacy storage purge immediately before any component lifecycle
-cleanupLegacyStorage();
+import { LogOut, X, AlertTriangle, CloudOff, Database, ExternalLink, Info, Radio } from 'lucide-react';
 
 export default function App() {
-  // 1. Auth and Loading States
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  const [users, setUsers] = useState<UserAccount[]>([]);
-  const [isLoadingInitialData, setIsLoadingInitialData] = useState<boolean>(true);
+  // 1. Auth State
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    const session = loadCurrentSession();
+    return session.user;
+  });
+  const [users, setUsers] = useState<UserAccount[]>(() => loadUsers());
 
-  // Connection Status
-  const [dbStatus, setDbStatus] = useState<DatabaseStatusInfo>(() =>
-    getDatabaseConnectionStatus()
+  // Connection and Quota Status
+  const [firestoreStatus, setFirestoreStatus] = useState<FirestoreStatusInfo>(() =>
+    getFirestoreConnectionStatus()
   );
+  const [dismissQuotaBanner, setDismissQuotaBanner] = useState(false);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
-  // 2. Personal Display Preferences (Preserved)
+  // 2. Theme State
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
 
+  // Apply dark class to html tag
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -101,294 +129,347 @@ export default function App() {
     saveTheme(theme);
   }, [theme]);
 
-  // Active Tab & Browser Navigation (Preserved)
+  // 3. App Tab Navigation & History Stack (persisted across refreshes)
   const [currentTab, setCurrentTab] = useState<AppTab>(() => {
+    // Check URL hash first (e.g. #songs, #recognitions, #settings, #special-numbers)
     const hash = window.location.hash.replace('#', '');
     const validTabs: AppTab[] = ['home', 'recognitions', 'special-numbers', 'songs', 'settings'];
     if (hash && validTabs.includes(hash as AppTab)) {
       return hash as AppTab;
     }
+    // Check localStorage next
     try {
       const savedTab = localStorage.getItem('nlbc_active_tab_v1');
       if (savedTab && validTabs.includes(savedTab as AppTab)) {
         return savedTab as AppTab;
       }
-    } catch {}
+    } catch {
+      // ignore storage errors
+    }
     return 'home';
   });
-
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
-  const tabHistoryRef = useRef<AppTab[]>([currentTab]);
+  const tabHistoryRef = useRef<AppTab[]>([
+    (() => {
+      const hash = window.location.hash.replace('#', '');
+      const validTabs: AppTab[] = ['home', 'recognitions', 'special-numbers', 'songs', 'settings'];
+      if (hash && validTabs.includes(hash as AppTab)) return hash as AppTab;
+      try {
+        const savedTab = localStorage.getItem('nlbc_active_tab_v1');
+        if (savedTab && validTabs.includes(savedTab as AppTab)) return savedTab as AppTab;
+      } catch {}
+      return 'home';
+    })()
+  ]);
   const hasActiveSubViewRef = useRef(false);
   const [collapseSignals, setCollapseSignals] = useState<Record<string, number>>({});
 
+  // Save active tab on state changes
   useEffect(() => {
     try {
       localStorage.setItem('nlbc_active_tab_v1', currentTab);
     } catch {}
   }, [currentTab]);
 
-  // Deep linking and navigation helpers
+  // Cross-tab deep links
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
   const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
   const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
   const returnSetlistIdRef = useRef<string | null>(null);
 
-  // 3. Shared Collections: MUST start strictly as empty arrays - no localStorage loaders!
-  const [setlists, setSetlists] = useState<Setlist[]>([]);
-  const [songs, setSongs] = useState<Song[]>([]);
-  const [birthdays, setBirthdays] = useState<BirthdayCelebrant[]>([]);
-  const [anniversaries, setAnniversaries] = useState<AnniversaryCelebrant[]>([]);
-  const [visitors, setVisitors] = useState<Visitor[]>([]);
-  const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>([]);
-  const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>([]);
-  const [choirEntries, setChoirEntries] = useState<ChoirEntry[]>([]);
-  const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>([]);
-  const [savedNames, setSavedNames] = useState<string[]>([]);
+  // 4. Core Church Data Entities
+  const [setlists, setSetlists] = useState<Setlist[]>(() => loadSetlists());
+  const [songs, setSongs] = useState<Song[]>(() => loadSongs());
+  const [birthdays, setBirthdays] = useState<BirthdayCelebrant[]>(() => loadBirthdays());
+  const [anniversaries, setAnniversaries] = useState<AnniversaryCelebrant[]>(() => loadAnniversaries());
+  const [visitors, setVisitors] = useState<Visitor[]>(() => loadVisitors());
+  const [specialRecognitions, setSpecialRecognitions] = useState<SpecialRecognition[]>(() => loadSpecialRecognitions());
+  const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>(() => loadSpecialNumbers());
+  const [choirEntries, setChoirEntries] = useState<ChoirEntry[]>(() => loadChoirEntries());
+  const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>(() => loadPracticeEntries());
+  const [savedNames, setSavedNames] = useState<string[]>(() => loadSavedNames());
 
-  // 4. Initial Authoritative Load and Session Management
+  // Subscribe to real-time Firestore synchronization across all devices
   useEffect(() => {
-    let isMounted = true;
-    cleanupLegacyStorage();
+    // Seed cloud database on first setup if empty
+    initializeFirestoreCloudSeed();
 
-    async function initSessionAndData() {
-      try {
-        const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
-        if (sessionErr || !sessionData?.session?.user) {
-          if (isMounted) {
-            setCurrentUser(null);
-            setIsLoadingInitialData(false);
-          }
-          return;
-        }
-
-        const userId = sessionData.session.user.id;
-        const profile = await fetchCurrentUserProfile(userId);
-
-        if (!profile || !profile.active) {
-          await supabase.auth.signOut();
-          if (isMounted) {
-            setCurrentUser(null);
-            setIsLoadingInitialData(false);
-          }
-          return;
-        }
-
-        if (isMounted) {
-          setCurrentUser(profile);
-        }
-
-        // Fetch authoritative shared records directly from Supabase
-        const [
-          serverSetlists,
-          serverSongs,
-          serverSpecialNumbers,
-          serverChoir,
-          serverPractices,
-          serverBirthdays,
-          serverAnniversaries,
-          serverVisitors,
-          serverRecognitions,
-          serverSavedNames,
-          serverProfiles,
-        ] = await Promise.all([
-          fetchSetlists().catch(() => []),
-          fetchSongs().catch(() => []),
-          fetchSpecialNumbers().catch(() => []),
-          fetchChoirEntries().catch(() => []),
-          fetchPracticeEntries().catch(() => []),
-          fetchBirthdays().catch(() => []),
-          fetchAnniversaries().catch(() => []),
-          fetchVisitors().catch(() => []),
-          fetchSpecialRecognitions().catch(() => []),
-          fetchMinistrySavedNames().catch(() => []),
-          fetchAllProfiles().catch(() => []),
-        ]);
-
-        if (isMounted) {
-          setSetlists(serverSetlists);
-          setSongs(serverSongs);
-          setSpecialNumbers(serverSpecialNumbers);
-          setChoirEntries(serverChoir);
-          setPracticeEntries(serverPractices);
-          setBirthdays(serverBirthdays);
-          setAnniversaries(serverAnniversaries);
-          setVisitors(serverVisitors);
-          setSpecialRecognitions(serverRecognitions);
-          setSavedNames(serverSavedNames);
-          setUsers(serverProfiles);
-          setIsLoadingInitialData(false);
-        }
-      } catch (err) {
-        console.error('Failed to initialize authoritative data:', err);
-        if (isMounted) {
-          setIsLoadingInitialData(false);
-        }
-      }
-    }
-
-    initSessionAndData();
-
-    // Listen to Supabase Auth changes
-    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
-        if (isMounted) {
-          setCurrentUser(null);
-          setSetlists([]);
-          setSongs([]);
-          setBirthdays([]);
-          setAnniversaries([]);
-          setVisitors([]);
-          setSpecialRecognitions([]);
-          setSpecialNumbers([]);
-          setChoirEntries([]);
-          setPracticeEntries([]);
-          setUsers([]);
-          setIsLoadingInitialData(false);
-        }
-      } else if (event === 'SIGNED_IN' && session) {
-        const profile = await fetchCurrentUserProfile(session.user.id);
-        if (isMounted && profile && profile.active) {
-          setCurrentUser(profile);
-        }
-      }
+    const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('setlists', i.id));
+      setSetlists(validRemote);
+      saveSetlists(validRemote);
     });
 
-    // Realtime changes listener
-    const unsubRealtime = subscribeSupabaseRealtime({
-      onSetlistsChange: async () => {
-        const fresh = await fetchSetlists().catch(() => []);
-        if (isMounted) setSetlists(fresh);
+    const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('songs', i.id));
+      setSongs(validRemote);
+      saveSongs(validRemote);
+    });
+
+    const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('birthdays', i.id));
+      setBirthdays(validRemote);
+      saveBirthdays(validRemote);
+    });
+
+    const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('anniversaries', i.id));
+      setAnniversaries(validRemote);
+      saveAnniversaries(validRemote);
+    });
+
+    const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('visitors', i.id));
+      setVisitors(validRemote);
+      saveVisitors(validRemote);
+    });
+
+    const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('special_recognitions', i.id));
+      setSpecialRecognitions(validRemote);
+      saveSpecialRecognitions(validRemote);
+    });
+
+    const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('special_numbers', i.id));
+      setSpecialNumbers(validRemote);
+      saveSpecialNumbers(validRemote);
+    });
+
+    const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('choir_entries', i.id));
+      setChoirEntries(validRemote);
+      saveChoirEntries(validRemote);
+    });
+
+    const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
+      const currentLocal = loadPracticeEntries();
+      const validRemote = items
+        .filter((remoteItem) => !LEGACY_MOCK_IDS.has(remoteItem.id) && !isItemTombstoned('practice_entries', remoteItem.id))
+        .map((remoteItem) => {
+          const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
+          const normalized = normalizePracticeEntry(remoteItem);
+          if (!localMatch) return normalized;
+
+          // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
+          const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
+            const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
+            if (localPart && localPart.audioUrl && !vp.audioUrl) {
+              return { ...vp, audioUrl: localPart.audioUrl };
+            }
+            return vp;
+          });
+
+          return {
+            ...normalized,
+            vocalParts: mergedVocalParts,
+            parts: mergedVocalParts,
+          };
+        });
+
+      setPracticeEntries(validRemote);
+      savePracticeEntries(validRemote);
+    });
+
+    const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
+      const validUsers = items.filter((u) => !isItemTombstoned('users', u.id));
+      if (!validUsers.some((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase())) {
+        validUsers.unshift(DEFAULT_ADMIN);
+      }
+      setUsers(validUsers);
+      saveUsers(validUsers);
+
+      // If the currently logged in user on this device had their profile updated or removed:
+      setCurrentUser((prevUser) => {
+        if (!prevUser) return null;
+        const updatedSelf = validUsers.find(
+          (u) => u.id === prevUser.id || u.username.toLowerCase() === prevUser.username.toLowerCase()
+        );
+        if (!updatedSelf) {
+          saveCurrentSession(null, false);
+          return null;
+        }
+        if (
+          updatedSelf.username !== prevUser.username ||
+          updatedSelf.passwordHash !== prevUser.passwordHash ||
+          updatedSelf.avatar !== prevUser.avatar ||
+          updatedSelf.role !== prevUser.role
+        ) {
+          saveCurrentSession(updatedSelf, true);
+          return updatedSelf;
+        }
+        return prevUser;
+      });
+    });
+
+    const unsubAppSettings = subscribeToAppSettings(
+      (remoteNames) => {
+        setSavedNames(remoteNames);
+        saveSavedNames(remoteNames);
       },
-      onSongsChange: async () => {
-        const fresh = await fetchSongs().catch(() => []);
-        if (isMounted) setSongs(fresh);
+      (remoteSongs) => {
+        saveWelcomeSongs(remoteSongs);
       },
-      onSpecialNumbersChange: async () => {
-        const fresh = await fetchSpecialNumbers().catch(() => []);
-        if (isMounted) setSpecialNumbers(fresh);
-      },
-      onChoirChange: async () => {
-        const fresh = await fetchChoirEntries().catch(() => []);
-        if (isMounted) setChoirEntries(fresh);
-      },
-      onPracticeChange: async () => {
-        const fresh = await fetchPracticeEntries().catch(() => []);
-        if (isMounted) setPracticeEntries(fresh);
-      },
-      onBirthdaysChange: async () => {
-        const fresh = await fetchBirthdays().catch(() => []);
-        if (isMounted) setBirthdays(fresh);
-      },
-      onAnniversariesChange: async () => {
-        const fresh = await fetchAnniversaries().catch(() => []);
-        if (isMounted) setAnniversaries(fresh);
-      },
-      onVisitorsChange: async () => {
-        const fresh = await fetchVisitors().catch(() => []);
-        if (isMounted) setVisitors(fresh);
-      },
-      onRecognitionsChange: async () => {
-        const fresh = await fetchSpecialRecognitions().catch(() => []);
-        if (isMounted) setSpecialRecognitions(fresh);
-      },
-      onProfilesChange: async () => {
-        const fresh = await fetchAllProfiles().catch(() => []);
-        if (isMounted) setUsers(fresh);
-      },
-      onStatusChange: (status) => {
-        if (isMounted) setDbStatus(status);
-      },
+      () => {
+        // When a remote deletion tombstone is received from another device, filter active state immediately
+        setPracticeEntries((prev) => {
+          const filtered = prev.filter((p) => !isItemTombstoned('practice_entries', p.id));
+          if (filtered.length !== prev.length) savePracticeEntries(filtered);
+          return filtered;
+        });
+        setSetlists((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('setlists', s.id));
+          if (filtered.length !== prev.length) saveSetlists(filtered);
+          return filtered;
+        });
+        setSongs((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('songs', s.id));
+          if (filtered.length !== prev.length) saveSongs(filtered);
+          return filtered;
+        });
+        setSpecialNumbers((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('special_numbers', s.id));
+          if (filtered.length !== prev.length) saveSpecialNumbers(filtered);
+          return filtered;
+        });
+        setChoirEntries((prev) => {
+          const filtered = prev.filter((c) => !isItemTombstoned('choir_entries', c.id));
+          if (filtered.length !== prev.length) saveChoirEntries(filtered);
+          return filtered;
+        });
+        setBirthdays((prev) => {
+          const filtered = prev.filter((b) => !isItemTombstoned('birthdays', b.id));
+          if (filtered.length !== prev.length) saveBirthdays(filtered);
+          return filtered;
+        });
+        setAnniversaries((prev) => {
+          const filtered = prev.filter((a) => !isItemTombstoned('anniversaries', a.id));
+          if (filtered.length !== prev.length) saveAnniversaries(filtered);
+          return filtered;
+        });
+        setVisitors((prev) => {
+          const filtered = prev.filter((v) => !isItemTombstoned('visitors', v.id));
+          if (filtered.length !== prev.length) saveVisitors(filtered);
+          return filtered;
+        });
+        setSpecialRecognitions((prev) => {
+          const filtered = prev.filter((r) => !isItemTombstoned('special_recognitions', r.id));
+          if (filtered.length !== prev.length) saveSpecialRecognitions(filtered);
+          return filtered;
+        });
+      }
+    );
+
+    // Auto-sync audio files & recordings from cloud in real time
+    const unsubPracticeAudios = subscribeToPracticeAudios((audioId, dataUrl) => {
+      saveAudioToStorage(audioId, dataUrl);
+    });
+
+    const unsubFirestoreStatus = subscribeToFirestoreStatus((statusInfo) => {
+      setFirestoreStatus(statusInfo);
+    });
+
+    // Listen for global cloud wipe events to reset all devices to 0
+    const unsubGlobalWipe = subscribeToGlobalWipe((wipeTs) => {
+      const lastApplied = Number(localStorage.getItem('nlbc_last_applied_wipe_ts') || '0');
+      if (wipeTs > lastApplied) {
+        localStorage.setItem('nlbc_last_applied_wipe_ts', String(wipeTs));
+        clearAllLocalDataToZero();
+        setSetlists([]);
+        setSongs([]);
+        setBirthdays([]);
+        setAnniversaries([]);
+        setVisitors([]);
+        setSpecialRecognitions([]);
+        setSpecialNumbers([]);
+        setChoirEntries([]);
+        setPracticeEntries([]);
+        setSavedNames([]);
+      }
     });
 
     return () => {
-      isMounted = false;
-      authSub.subscription.unsubscribe();
-      unsubRealtime();
+      unsubSetlists();
+      unsubSongs();
+      unsubBirthdays();
+      unsubAnniv();
+      unsubVisitors();
+      unsubRecognitions();
+      unsubSpecials();
+      unsubChoir();
+      unsubPractice();
+      unsubUsers();
+      unsubAppSettings();
+      unsubPracticeAudios();
+      unsubFirestoreStatus();
+      unsubGlobalWipe();
     };
   }, []);
 
-  // Reload data from Supabase
-  const reloadAllData = async () => {
-    try {
-      const [
-        sList,
-        sSongs,
-        sSpec,
-        sChoir,
-        sPrac,
-        sBday,
-        sAnniv,
-        sVis,
-        sRecog,
-        sNames,
-        sUsers,
-      ] = await Promise.all([
-        fetchSetlists().catch(() => []),
-        fetchSongs().catch(() => []),
-        fetchSpecialNumbers().catch(() => []),
-        fetchChoirEntries().catch(() => []),
-        fetchPracticeEntries().catch(() => []),
-        fetchBirthdays().catch(() => []),
-        fetchAnniversaries().catch(() => []),
-        fetchVisitors().catch(() => []),
-        fetchSpecialRecognitions().catch(() => []),
-        fetchMinistrySavedNames().catch(() => []),
-        fetchAllProfiles().catch(() => []),
-      ]);
-
-      setSetlists(sList);
-      setSongs(sSongs);
-      setSpecialNumbers(sSpec);
-      setChoirEntries(sChoir);
-      setPracticeEntries(sPrac);
-      setBirthdays(sBday);
-      setAnniversaries(sAnniv);
-      setVisitors(sVis);
-      setSpecialRecognitions(sRecog);
-      setSavedNames(sNames);
-      setUsers(sUsers);
-    } catch (e) {
-      console.warn('Error refreshing data from Supabase', e);
-    }
+  // Reload all data (used when resetting to defaults or loading backup)
+  const reloadAllData = () => {
+    setUsers(loadUsers());
+    setSetlists(loadSetlists());
+    setSongs(loadSongs());
+    setBirthdays(loadBirthdays());
+    setAnniversaries(loadAnniversaries());
+    setVisitors(loadVisitors());
+    setSpecialRecognitions(loadSpecialRecognitions());
+    setSpecialNumbers(loadSpecialNumbers());
+    setChoirEntries(loadChoirEntries());
+    setPracticeEntries(loadPracticeEntries());
+    setSavedNames(loadSavedNames());
   };
 
-  // Tab Navigation
-  const handleNavigateTab = useCallback(
-    (newTab: AppTab) => {
-      if (newTab === currentTab) {
-        setCollapseSignals((prev) => ({
-          ...prev,
-          [newTab]: (prev[newTab] || 0) + 1,
-        }));
-        return;
-      }
-      window.history.pushState({ tab: newTab }, '', `#${newTab}`);
-      tabHistoryRef.current.push(newTab);
-      setCurrentTab(newTab);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    },
-    [currentTab]
-  );
+  // Navigate to a new tab with history tracking (or collapse active container if clicking same tab)
+  const handleNavigateTab = useCallback((newTab: AppTab) => {
+    if (newTab === currentTab) {
+      // Tapping the active tab icon triggers container collapse
+      setCollapseSignals((prev) => ({
+        ...prev,
+        [newTab]: (prev[newTab] || 0) + 1,
+      }));
+      return;
+    }
 
-  // Popstate history listener
+    // Push new state to browser history for standard back/swipe gestures
+    window.history.pushState({ tab: newTab }, '', `#${newTab}`);
+    tabHistoryRef.current.push(newTab);
+    setCurrentTab(newTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentTab]);
+
+  // Browser Back / Swipe Back Interceptor
   useEffect(() => {
+    // Initialize base history state on load with current active tab
     if (!window.history.state || !window.history.state.tab) {
       window.history.replaceState({ tab: currentTab }, '', `#${currentTab}`);
     }
 
     const handlePopState = (event: PopStateEvent) => {
       const targetTab: AppTab = event.state?.tab || 'home';
+
       if (currentTab !== 'home') {
+        // If we are returning from songs tab back to home, restore expanded setlist if we came from lyrics link
         if (targetTab === 'home' && returnSetlistIdRef.current) {
           setInitialSelectedSetlistId(returnSetlistIdRef.current);
           returnSetlistIdRef.current = null;
         }
+
+        // If we are not on home, go back to targetTab or home
         setCurrentTab(targetTab);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
-        if (hasActiveSubViewRef.current) return;
+        // If we are on Home and an expanded setlist or editor modal is active,
+        // SetlistsTab's handler takes precedence (collapses setlist or closes editor)
+        if (hasActiveSubViewRef.current) {
+          return;
+        }
+
+        // If we are already on Home with nothing expanded and press/swipe back:
+        // Prompt for logout or cancel per specification
         setShowLogoutConfirmModal(true);
+        // Push a state again to prevent immediately leaving window if they cancel
         window.history.pushState({ tab: 'home' }, '', '#home');
       }
     };
@@ -400,30 +481,18 @@ export default function App() {
   }, [currentTab]);
 
   // Auth Handlers
-  const handleSignInSuccess = async (user: UserAccount) => {
+  const handleSignInSuccess = (user: UserAccount) => {
     setCurrentUser(user);
-    setIsLoadingInitialData(true);
-    await reloadAllData();
-    setIsLoadingInitialData(false);
+    setUsers(loadUsers());
     setCurrentTab('home');
     tabHistoryRef.current = ['home'];
     window.history.replaceState({ tab: 'home' }, '', '#home');
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     setShowLogoutConfirmModal(false);
-    await supabase.auth.signOut();
+    saveCurrentSession(null, false);
     setCurrentUser(null);
-    setSetlists([]);
-    setSongs([]);
-    setBirthdays([]);
-    setAnniversaries([]);
-    setVisitors([]);
-    setSpecialRecognitions([]);
-    setSpecialNumbers([]);
-    setChoirEntries([]);
-    setPracticeEntries([]);
-    setUsers([]);
     window.history.replaceState(null, '', window.location.pathname);
   };
 
@@ -432,358 +501,433 @@ export default function App() {
   };
 
   // Setlist Operations
-  const handleSaveSetlist = useCallback(async (newOrUpdated: Setlist) => {
-    // Optimistic state update
+  const handleSaveSetlist = useCallback((newOrUpdated: Setlist) => {
     setSetlists((prev) => {
       const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
+      let updated: Setlist[];
       if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = newOrUpdated;
-        return next;
+        updated = [...prev];
+        updated[idx] = newOrUpdated;
+      } else {
+        updated = [newOrUpdated, ...prev];
       }
-      return [newOrUpdated, ...prev];
+      saveSetlists(updated);
+      return updated;
     });
-
-    try {
-      const saved = await supabaseSaveSetlist(newOrUpdated);
-      setSetlists((prev) => prev.map((s) => (s.id === newOrUpdated.id ? saved : s)));
-    } catch (err: any) {
-      console.error('Failed to save setlist to Supabase:', err);
-      // Refresh authoritative list
-      const fresh = await fetchSetlists().catch(() => []);
-      setSetlists(fresh);
-      alert('Unable to save setlist: ' + (err.message || 'Database error'));
-    }
+    syncSaveSetlist(newOrUpdated);
   }, []);
 
-  const handleDeleteSetlist = useCallback(async (id: string) => {
-    const target = setlists.find((s) => s.id === id);
-    setSetlists((prev) => prev.filter((s) => s.id !== id));
-
-    try {
-      await supabaseDeleteSetlist(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete setlist from Supabase:', err);
-      const fresh = await fetchSetlists().catch(() => []);
-      setSetlists(fresh);
-      alert('Unable to delete setlist: ' + (err.message || 'Database error'));
-    }
-  }, [setlists]);
+  const handleDeleteSetlist = useCallback((id: string) => {
+    setSetlists((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      saveSetlists(updated);
+      return updated;
+    });
+    syncDeleteSetlist(id);
+  }, []);
 
   // Song Operations
-  const handleSaveSong = useCallback(async (newOrUpdated: Song) => {
-    const existing = songs.find((s) => s.id === newOrUpdated.id);
-    const oldTitle = existing?.title?.trim();
-    const newTitle = newOrUpdated.title.trim();
-
+  const handleSaveSong = useCallback((newOrUpdated: Song) => {
     setSongs((prev) => {
+      const existing = prev.find((s) => s.id === newOrUpdated.id);
+      const oldTitle = existing?.title?.trim();
+      const newTitle = newOrUpdated.title.trim();
+
       const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
+      let updated: Song[];
       if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = newOrUpdated;
-        return next;
+        updated = [...prev];
+        updated[idx] = newOrUpdated;
+      } else {
+        updated = [...prev, newOrUpdated];
       }
-      return [...prev, newOrUpdated];
+      saveSongs(updated);
+
+      // If title or lyrics updated on an existing song, sync to all setlists, special numbers, choir, and practice entries
+      if (existing && oldTitle && (oldTitle.toLowerCase() !== newTitle.toLowerCase() || existing.lyrics !== newOrUpdated.lyrics)) {
+        // 1. Sync across setlists
+        setSetlists((prevSetlists) => {
+          let hasSetlistChanges = false;
+          const updatedSetlists = prevSetlists.map((setlist) => {
+            let modified = false;
+
+            const updateItem = (item: SetlistSongItem): SetlistSongItem => {
+              if (
+                item.songId === newOrUpdated.id ||
+                (oldTitle && item.title.trim().toLowerCase() === oldTitle.toLowerCase())
+              ) {
+                modified = true;
+                return {
+                  ...item,
+                  songId: newOrUpdated.id,
+                  title: newTitle,
+                };
+              }
+              return item;
+            };
+
+            const updatedSSSongs = setlist.sundaySchool?.songs ? setlist.sundaySchool.songs.map(updateItem) : undefined;
+            const updatedWSSongs = setlist.worshipService?.songs ? setlist.worshipService.songs.map(updateItem) : undefined;
+            const updatedProgSongs = setlist.program?.songs ? setlist.program.songs.map(updateItem) : undefined;
+
+            let updatedWelcome = setlist.welcomeSong;
+            if (oldTitle && updatedWelcome && updatedWelcome.trim().toLowerCase() === oldTitle.toLowerCase()) {
+              updatedWelcome = newTitle;
+              modified = true;
+            }
+
+            let updatedClosing = setlist.closingSong;
+            if (oldTitle && updatedClosing && updatedClosing.trim().toLowerCase() === oldTitle.toLowerCase()) {
+              updatedClosing = newTitle;
+              modified = true;
+            }
+
+            let updatedTheme = setlist.themeSong;
+            if (oldTitle && updatedTheme && updatedTheme.trim().toLowerCase() === oldTitle.toLowerCase()) {
+              updatedTheme = newTitle;
+              modified = true;
+            }
+
+            if (modified) {
+              hasSetlistChanges = true;
+              const newSetlist: Setlist = {
+                ...setlist,
+                welcomeSong: updatedWelcome,
+                closingSong: updatedClosing,
+                themeSong: updatedTheme,
+                sundaySchool: setlist.sundaySchool
+                  ? { ...setlist.sundaySchool, songs: updatedSSSongs || [] }
+                  : undefined,
+                worshipService: setlist.worshipService
+                  ? { ...setlist.worshipService, songs: updatedWSSongs || [] }
+                  : undefined,
+                program: setlist.program
+                  ? { ...setlist.program, songs: updatedProgSongs || [] }
+                  : undefined,
+              };
+              syncSaveSetlist(newSetlist);
+              return newSetlist;
+            }
+            return setlist;
+          });
+
+          if (hasSetlistChanges) {
+            saveSetlists(updatedSetlists);
+            return updatedSetlists;
+          }
+          return prevSetlists;
+        });
+
+        // 2. Sync across Special Numbers
+        setSpecialNumbers((prevSpecials) => {
+          let changed = false;
+          const updatedSpecials = prevSpecials.map((entry) => {
+            if (
+              entry.songId === newOrUpdated.id ||
+              (oldTitle && entry.songTitle.trim().toLowerCase() === oldTitle.toLowerCase())
+            ) {
+              changed = true;
+              const updatedEntry = {
+                ...entry,
+                songId: newOrUpdated.id,
+                songTitle: newTitle,
+                lyrics: newOrUpdated.lyrics,
+              };
+              syncSaveSpecialNumber(updatedEntry);
+              return updatedEntry;
+            }
+            return entry;
+          });
+          if (changed) {
+            saveSpecialNumbers(updatedSpecials);
+            return updatedSpecials;
+          }
+          return prevSpecials;
+        });
+
+        // 3. Sync across Choir Entries
+        setChoirEntries((prevChoir) => {
+          let changed = false;
+          const updatedChoir = prevChoir.map((entry) => {
+            if (
+              entry.songId === newOrUpdated.id ||
+              (oldTitle && entry.songTitle.trim().toLowerCase() === oldTitle.toLowerCase())
+            ) {
+              changed = true;
+              const updatedEntry = {
+                ...entry,
+                songId: newOrUpdated.id,
+                songTitle: newTitle,
+                lyrics: newOrUpdated.lyrics,
+              };
+              syncSaveChoirEntry(updatedEntry);
+              return updatedEntry;
+            }
+            return entry;
+          });
+          if (changed) {
+            saveChoirEntries(updatedChoir);
+            return updatedChoir;
+          }
+          return prevChoir;
+        });
+
+        // 4. Sync across Practice Entries
+        setPracticeEntries((prevPractice) => {
+          let changed = false;
+          const updatedPractice = prevPractice.map((entry) => {
+            if (
+              entry.songId === newOrUpdated.id ||
+              (oldTitle && entry.songTitle.trim().toLowerCase() === oldTitle.toLowerCase())
+            ) {
+              changed = true;
+              const updatedEntry = {
+                ...entry,
+                songId: newOrUpdated.id,
+                songTitle: newTitle,
+                lyrics: newOrUpdated.lyrics,
+              };
+              syncSavePracticeEntry(updatedEntry);
+              return updatedEntry;
+            }
+            return entry;
+          });
+          if (changed) {
+            savePracticeEntries(updatedPractice);
+            return updatedPractice;
+          }
+          return prevPractice;
+        });
+      }
+
+      return updated;
     });
-
+    syncSaveSong(newOrUpdated);
+    // Mirror to server backup so other devices get songs even during Firestore quota cooldown
     try {
-      const saved = await supabaseSaveSong(newOrUpdated);
-      setSongs((prev) => prev.map((s) => (s.id === newOrUpdated.id ? saved : s)));
-    } catch (err: any) {
-      console.error('Failed to save song to Supabase:', err);
-      const fresh = await fetchSongs().catch(() => []);
-      setSongs(fresh);
-      alert('Unable to save song: ' + (err.message || 'Database error'));
-    }
-  }, [songs]);
+      fetch('/api/song-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ song: newOrUpdated }),
+      }).catch(() => {});
+    } catch {}
+  }, []);
 
-  const handleBatchSaveSongs = useCallback(async (updatedSongs: Song[]) => {
+  const handleBatchSaveSongs = useCallback((updatedSongs: Song[]) => {
     setSongs((prev) => {
       const map = new Map(prev.map((s) => [s.id, s]));
       for (const s of updatedSongs) {
         map.set(s.id, s);
       }
-      return Array.from(map.values()) as Song[];
+      const all = Array.from(map.values()) as Song[];
+      saveSongs(all);
+      return all;
     });
-
-    for (const song of updatedSongs) {
-      try {
-        await supabaseSaveSong(song);
-      } catch (err) {
-        console.error('Failed to batch save song:', song.title, err);
-      }
+    for (const s of updatedSongs) {
+      syncSaveSong(s);
     }
   }, []);
 
-  const handleDeleteSong = useCallback(async (id: string) => {
-    const target = songs.find((s) => s.id === id);
-    setSongs((prev) => prev.filter((s) => s.id !== id));
-
-    try {
-      await supabaseDeleteSong(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete song from Supabase:', err);
-      const fresh = await fetchSongs().catch(() => []);
-      setSongs(fresh);
-      alert('Unable to delete song: ' + (err.message || 'Database error'));
-    }
-  }, [songs]);
+  const handleDeleteSong = useCallback((id: string) => {
+    setSongs((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      saveSongs(updated);
+      return updated;
+    });
+    syncDeleteSong(id);
+  }, []);
 
   // Special Number Operations
-  const handleSaveSpecialNumber = async (entry: SpecialNumberEntry) => {
+  const handleSaveSpecialNumber = (entry: SpecialNumberEntry) => {
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
-      entry.songId = syncedSong.id;
-      supabaseSaveSong(syncedSong).catch(console.error);
-    }
+      const currentSongs = loadSongs();
+      const existing = currentSongs.find(
+        (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const isTombstoned = (entry.songId && isItemTombstoned('songs', entry.songId)) ||
+        (existing && isItemTombstoned('songs', existing.id));
 
-    setSpecialNumbers((prev) => {
-      const idx = prev.findIndex((s) => s.id === entry.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = entry;
-        return next;
+      if (!isTombstoned) {
+        const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
+        entry.songId = syncedSong.id;
+        setSongs(loadSongs());
+        syncSaveSong(syncedSong);
       }
-      return [entry, ...prev];
-    });
-
-    try {
-      const saved = await supabaseSaveSpecialNumber(entry);
-      setSpecialNumbers((prev) => prev.map((s) => (s.id === entry.id ? saved : s)));
-    } catch (err: any) {
-      console.error('Failed to save special number:', err);
-      const fresh = await fetchSpecialNumbers().catch(() => []);
-      setSpecialNumbers(fresh);
-      alert('Unable to save special number: ' + (err.message || 'Database error'));
     }
+
+    const idx = specialNumbers.findIndex((s) => s.id === entry.id);
+    let updated: SpecialNumberEntry[];
+    if (idx >= 0) {
+      updated = [...specialNumbers];
+      updated[idx] = entry;
+    } else {
+      updated = [entry, ...specialNumbers];
+    }
+    setSpecialNumbers(updated);
+    saveSpecialNumbers(updated);
+    syncSaveSpecialNumber(entry);
+    try {
+      fetch('/api/special-numbers-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialNumbers: updated }),
+      }).catch(() => {});
+    } catch {}
   };
 
-  const handleDeleteSpecialNumber = async (id: string) => {
-    const target = specialNumbers.find((s) => s.id === id);
-    setSpecialNumbers((prev) => prev.filter((s) => s.id !== id));
+  const handleDeleteSpecialNumber = (id: string) => {
+    recordTombstone('special_numbers', id);
+    const updated = specialNumbers.filter((s) => s.id !== id);
+    setSpecialNumbers(updated);
+    saveSpecialNumbers(updated);
+    syncDeleteSpecialNumber(id);
     try {
-      await supabaseDeleteSpecialNumber(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete special number:', err);
-      const fresh = await fetchSpecialNumbers().catch(() => []);
-      setSpecialNumbers(fresh);
-    }
+      fetch('/api/special-numbers-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialNumbers: updated }),
+      }).catch(() => {});
+    } catch {}
   };
 
   // Choir Operations
-  const handleSaveChoirEntry = async (entry: ChoirEntry) => {
+  const handleSaveChoirEntry = (entry: ChoirEntry) => {
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
-      entry.songId = syncedSong.id;
-      supabaseSaveSong(syncedSong).catch(console.error);
-    }
+      const currentSongs = loadSongs();
+      const existing = currentSongs.find(
+        (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const isTombstoned = (entry.songId && isItemTombstoned('songs', entry.songId)) ||
+        (existing && isItemTombstoned('songs', existing.id));
 
-    setChoirEntries((prev) => {
-      const idx = prev.findIndex((c) => c.id === entry.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = entry;
-        return next;
+      if (!isTombstoned) {
+        const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
+        entry.songId = syncedSong.id;
+        setSongs(loadSongs());
+        syncSaveSong(syncedSong);
       }
-      return [entry, ...prev];
-    });
-
-    try {
-      const saved = await supabaseSaveChoirEntry(entry);
-      setChoirEntries((prev) => prev.map((c) => (c.id === entry.id ? saved : c)));
-    } catch (err: any) {
-      console.error('Failed to save choir presentation:', err);
-      const fresh = await fetchChoirEntries().catch(() => []);
-      setChoirEntries(fresh);
-      alert('Unable to save choir presentation: ' + (err.message || 'Database error'));
     }
+
+    const idx = choirEntries.findIndex((c) => c.id === entry.id);
+    let updated: ChoirEntry[];
+    if (idx >= 0) {
+      updated = [...choirEntries];
+      updated[idx] = entry;
+    } else {
+      updated = [entry, ...choirEntries];
+    }
+    setChoirEntries(updated);
+    saveChoirEntries(updated);
+    syncSaveChoirEntry(entry);
   };
 
-  const handleDeleteChoirEntry = async (id: string) => {
-    const target = choirEntries.find((c) => c.id === id);
-    setChoirEntries((prev) => prev.filter((c) => c.id !== id));
-    try {
-      await supabaseDeleteChoirEntry(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete choir presentation:', err);
-      const fresh = await fetchChoirEntries().catch(() => []);
-      setChoirEntries(fresh);
-    }
+  const handleDeleteChoirEntry = (id: string) => {
+    recordTombstone('choir_entries', id);
+    const updated = choirEntries.filter((c) => c.id !== id);
+    setChoirEntries(updated);
+    saveChoirEntries(updated);
+    syncDeleteChoirEntry(id);
   };
 
-  // Practice Group Operations
-  const handleSavePracticeEntry = async (entry: PracticeGroupEntry) => {
-    setPracticeEntries((prev) => {
-      const idx = prev.findIndex((p) => p.id === entry.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = entry;
-        return next;
-      }
-      return [entry, ...prev];
-    });
-
-    try {
-      const saved = await supabaseSavePracticeEntry(entry);
-      setPracticeEntries((prev) => prev.map((p) => (p.id === entry.id ? saved : p)));
-    } catch (err: any) {
-      console.error('Failed to save practice entry:', err);
-      const fresh = await fetchPracticeEntries().catch(() => []);
-      setPracticeEntries(fresh);
-      alert('Unable to save practice: ' + (err.message || 'Database error'));
+  // Practice Group / Song Operations
+  const handleSavePracticeEntry = (entry: PracticeGroupEntry) => {
+    const idx = practiceEntries.findIndex((p) => p.id === entry.id);
+    let updated: PracticeGroupEntry[];
+    if (idx >= 0) {
+      updated = [...practiceEntries];
+      updated[idx] = entry;
+    } else {
+      updated = [entry, ...practiceEntries];
     }
+    setPracticeEntries(updated);
+    savePracticeEntries(updated);
+    syncSavePracticeEntry(entry);
+    // Mirror to server practice-entries endpoint so other devices get the update even if Firestore is in quota cooldown
+    fetch('/api/practice-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: updated }),
+    }).catch(() => {});
   };
 
-  const handleDeletePracticeEntry = async (id: string) => {
-    const target = practiceEntries.find((p) => p.id === id);
-    setPracticeEntries((prev) => prev.filter((p) => p.id !== id));
-    try {
-      await supabaseDeletePracticeEntry(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete practice entry:', err);
-      const fresh = await fetchPracticeEntries().catch(() => []);
-      setPracticeEntries(fresh);
-    }
+  const handleDeletePracticeEntry = (id: string) => {
+    const updated = practiceEntries.filter((p) => p.id !== id);
+    setPracticeEntries(updated);
+    savePracticeEntries(updated);
+    syncDeletePracticeEntry(id);
+    fetch('/api/practice-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: updated }),
+    }).catch(() => {});
   };
 
-  // Celebrant & Recognitions Operations
-  const handleSaveBirthday = async (item: BirthdayCelebrant) => {
-    setBirthdays((prev) => {
-      const idx = prev.findIndex((b) => b.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [...prev, item];
-    });
-
-    try {
-      const saved = await supabaseSaveBirthday(item);
-      setBirthdays((prev) => prev.map((b) => (b.id === item.id ? saved : b)));
-    } catch (err: any) {
-      console.error('Failed to save birthday celebrant:', err);
-      const fresh = await fetchBirthdays().catch(() => []);
-      setBirthdays(fresh);
-      alert('Unable to save celebrant: ' + (err.message || 'Database error'));
-    }
+  // Recognitions Operations
+  const handleSaveBirthday = (item: BirthdayCelebrant) => {
+    const idx = birthdays.findIndex((b) => b.id === item.id);
+    const updated = idx >= 0 ? [...birthdays] : [...birthdays, item];
+    if (idx >= 0) updated[idx] = item;
+    setBirthdays(updated);
+    saveBirthdays(updated);
+    syncSaveBirthday(item);
   };
 
-  const handleDeleteBirthday = async (id: string) => {
-    const target = birthdays.find((b) => b.id === id);
-    setBirthdays((prev) => prev.filter((b) => b.id !== id));
-    try {
-      await supabaseDeleteBirthday(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete celebrant:', err);
-      const fresh = await fetchBirthdays().catch(() => []);
-      setBirthdays(fresh);
-    }
+  const handleDeleteBirthday = (id: string) => {
+    const updated = birthdays.filter((b) => b.id !== id);
+    setBirthdays(updated);
+    saveBirthdays(updated);
+    syncDeleteBirthday(id);
   };
 
-  const handleSaveAnniversary = async (item: AnniversaryCelebrant) => {
-    setAnniversaries((prev) => {
-      const idx = prev.findIndex((a) => a.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [...prev, item];
-    });
-
-    try {
-      const saved = await supabaseSaveAnniversary(item);
-      setAnniversaries((prev) => prev.map((a) => (a.id === item.id ? saved : a)));
-    } catch (err: any) {
-      console.error('Failed to save anniversary:', err);
-      const fresh = await fetchAnniversaries().catch(() => []);
-      setAnniversaries(fresh);
-      alert('Unable to save anniversary: ' + (err.message || 'Database error'));
-    }
+  const handleSaveAnniversary = (item: AnniversaryCelebrant) => {
+    const idx = anniversaries.findIndex((a) => a.id === item.id);
+    const updated = idx >= 0 ? [...anniversaries] : [...anniversaries, item];
+    if (idx >= 0) updated[idx] = item;
+    setAnniversaries(updated);
+    saveAnniversaries(updated);
+    syncSaveAnniversary(item);
   };
 
-  const handleDeleteAnniversary = async (id: string) => {
-    const target = anniversaries.find((a) => a.id === id);
-    setAnniversaries((prev) => prev.filter((a) => a.id !== id));
-    try {
-      await supabaseDeleteAnniversary(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete anniversary:', err);
-      const fresh = await fetchAnniversaries().catch(() => []);
-      setAnniversaries(fresh);
-    }
+  const handleDeleteAnniversary = (id: string) => {
+    const updated = anniversaries.filter((a) => a.id !== id);
+    setAnniversaries(updated);
+    saveAnniversaries(updated);
+    syncDeleteAnniversary(id);
   };
 
-  const handleSaveVisitor = async (item: Visitor) => {
-    setVisitors((prev) => {
-      const idx = prev.findIndex((v) => v.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [item, ...prev];
-    });
-
-    try {
-      const saved = await supabaseSaveVisitor(item);
-      setVisitors((prev) => prev.map((v) => (v.id === item.id ? saved : v)));
-    } catch (err: any) {
-      console.error('Failed to save visitor:', err);
-      const fresh = await fetchVisitors().catch(() => []);
-      setVisitors(fresh);
-      alert('Unable to save visitor: ' + (err.message || 'Database error'));
-    }
+  const handleSaveVisitor = (item: Visitor) => {
+    const idx = visitors.findIndex((v) => v.id === item.id);
+    const updated = idx >= 0 ? [...visitors] : [item, ...visitors];
+    if (idx >= 0) updated[idx] = item;
+    setVisitors(updated);
+    saveVisitors(updated);
+    syncSaveVisitor(item);
   };
 
-  const handleDeleteVisitor = async (id: string) => {
-    const target = visitors.find((v) => v.id === id);
-    setVisitors((prev) => prev.filter((v) => v.id !== id));
-    try {
-      await supabaseDeleteVisitor(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete visitor:', err);
-      const fresh = await fetchVisitors().catch(() => []);
-      setVisitors(fresh);
-    }
+  const handleDeleteVisitor = (id: string) => {
+    const updated = visitors.filter((v) => v.id !== id);
+    setVisitors(updated);
+    saveVisitors(updated);
+    syncDeleteVisitor(id);
   };
 
-  const handleSaveSpecialRecognition = async (item: SpecialRecognition) => {
-    setSpecialRecognitions((prev) => {
-      const idx = prev.findIndex((r) => r.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [item, ...prev];
-    });
-
-    try {
-      const saved = await supabaseSaveSpecialRecognition(item);
-      setSpecialRecognitions((prev) => prev.map((r) => (r.id === item.id ? saved : r)));
-    } catch (err: any) {
-      console.error('Failed to save recognition:', err);
-      const fresh = await fetchSpecialRecognitions().catch(() => []);
-      setSpecialRecognitions(fresh);
-      alert('Unable to save recognition: ' + (err.message || 'Database error'));
-    }
+  const handleSaveSpecialRecognition = (item: SpecialRecognition) => {
+    const idx = specialRecognitions.findIndex((r) => r.id === item.id);
+    const updated = idx >= 0 ? [...specialRecognitions] : [item, ...specialRecognitions];
+    if (idx >= 0) updated[idx] = item;
+    setSpecialRecognitions(updated);
+    saveSpecialRecognitions(updated);
+    syncSaveSpecialRecognition(item);
   };
 
-  const handleDeleteSpecialRecognition = async (id: string) => {
-    const target = specialRecognitions.find((r) => r.id === id);
-    setSpecialRecognitions((prev) => prev.filter((r) => r.id !== id));
-    try {
-      await supabaseDeleteSpecialRecognition(id, target?.revision || 1);
-    } catch (err: any) {
-      console.error('Failed to delete recognition:', err);
-      const fresh = await fetchSpecialRecognitions().catch(() => []);
-      setSpecialRecognitions(fresh);
-    }
+  const handleDeleteSpecialRecognition = (id: string) => {
+    const updated = specialRecognitions.filter((r) => r.id !== id);
+    setSpecialRecognitions(updated);
+    saveSpecialRecognitions(updated);
+    syncDeleteSpecialRecognition(id);
   };
 
-  // Cross-Navigation Helpers
+  // Cross-Navigation: Open song in Song Library
   const handleOpenSongDetail = (songId: string, returnSetlistId?: string) => {
     returnSetlistIdRef.current = returnSetlistId || null;
     setSelectedSongIdForTab(songId);
@@ -791,6 +935,7 @@ export default function App() {
     handleNavigateTab('songs');
   };
 
+  // Cross-Navigation: Add song to a new setlist
   const handleAddSongToNewSetlist = (song: Song) => {
     const nextSunday = getNextSundayStr();
     const newSetlist: Setlist = {
@@ -817,13 +962,13 @@ export default function App() {
       },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      revision: 1,
     };
 
     handleSaveSetlist(newSetlist);
     handleNavigateTab('home');
   };
 
+  // Cross-Navigation: Add song to an existing upcoming setlist
   const handleAddSongToExistingUpcomingSetlist = (
     song: Song,
     targetSetlistId: string,
@@ -833,7 +978,7 @@ export default function App() {
     if (!targetSetlist) return;
 
     const currentPart = targetSetlist[part] || { songLeader: '', songs: [] };
-    const newItem: SetlistSongItem = {
+    const newItem = {
       id: `${part.substring(0, 2)}-${Date.now()}`,
       songId: song.id,
       title: song.title,
@@ -853,12 +998,6 @@ export default function App() {
     handleSaveSetlist(updatedSetlist);
   };
 
-  // Directory saved names
-  const handleUpdateSavedNames = async (names: string[]) => {
-    setSavedNames(names);
-    await supabaseSaveMinistrySavedNames(names).catch(console.error);
-  };
-
   // Badge calculations
   const { currentWindow: thisWeekBirthdays } = categorizeAnnualCelebrants<BirthdayCelebrant>(
     birthdays,
@@ -870,33 +1009,6 @@ export default function App() {
   );
   const totalCelebrantsThisWeek = thisWeekBirthdays.length + thisWeekAnniversaries.length;
   const upcomingSpecialCount = specialNumbers.filter((s) => !isPastDate(s.scheduledDate)).length;
-
-  // Requirement 2: Show loading/skeleton screen until Supabase authentication and the first authoritative query finish.
-  // Do not render stale shared records during startup.
-  if (isLoadingInitialData) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-800 dark:text-slate-100 transition-colors">
-        <div className="w-full max-w-sm flex flex-col items-center text-center space-y-6 animate-pulse">
-          <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex items-center justify-center">
-            <ChurchLogo className="w-full h-full object-contain" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-              New Life Baptist Church
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Connecting to church sanctuary portal & music library...
-            </p>
-          </div>
-          <div className="w-full space-y-3 pt-2">
-            <div className="h-10 bg-slate-200 dark:bg-slate-800/60 rounded-xl w-full" />
-            <div className="h-28 bg-slate-200/80 dark:bg-slate-800/40 rounded-2xl w-full" />
-            <div className="h-20 bg-slate-200/60 dark:bg-slate-800/30 rounded-2xl w-full" />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Unauthenticated Gate
   if (!currentUser) {
@@ -911,12 +1023,92 @@ export default function App() {
         users={users}
         currentTab={currentTab}
         onNavigateToSettings={() => handleNavigateTab('settings')}
-        databaseStatus={dbStatus}
+        firestoreStatus={firestoreStatus}
         onOpenFirestoreStatusModal={() => setIsStatusModalOpen(true)}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
+        {/* Firestore Quota / Connection Status Notice */}
+        {firestoreStatus.status === 'quota-exceeded' && !dismissQuotaBanner && (
+          <div className="mb-4 p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs sm:text-sm flex items-start justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <Database className="w-4 h-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="font-bold flex items-center gap-2">
+                  <span>Firestore Daily Free Write Quota Reached</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+                    Offline Mode Active
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  {firestoreStatus.quotaResetMessage}
+                </p>
+                <div className="pt-1 flex items-center gap-4 text-xs font-medium flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsStatusModalOpen(true)}
+                    className="inline-flex items-center gap-1 font-bold text-slate-900 dark:text-white bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded hover:bg-slate-300 dark:hover:bg-slate-600 cursor-pointer transition-colors"
+                  >
+                    <Radio className="w-3 h-3 text-sky-600 dark:text-sky-400" />
+                    <span>View Collection Sync Logs</span>
+                  </button>
+                  <a
+                    href={firestoreStatus.databaseUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-200 transition-colors"
+                  >
+                    <span>View Firebase Quotas / Upgrade</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a
+                    href="https://firebase.google.com/pricing#cloud-firestore"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 underline hover:text-sky-800 dark:hover:text-sky-200 transition-colors"
+                  >
+                    <span>Pricing Details</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setDismissQuotaBanner(true)}
+              className="p-1 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
+              title="Dismiss notice"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {firestoreStatus.status === 'offline' && !dismissQuotaBanner && (
+          <div className="mb-4 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <CloudOff className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+              <span className="text-xs">
+                Firestore backend is currently unreachable. Operating in local offline storage mode — all data is saved locally.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsStatusModalOpen(true)}
+                className="ml-2 inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              >
+                <span>View Sync Logs</span>
+              </button>
+            </div>
+            <button
+              onClick={() => setDismissQuotaBanner(true)}
+              className="p-1 rounded-lg text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors shrink-0 cursor-pointer"
+              title="Dismiss notice"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className={currentTab === 'home' ? 'block' : 'hidden'}>
           <SetlistsTab
             setlists={setlists}
@@ -994,13 +1186,13 @@ export default function App() {
             users={users}
             onUpdateUsers={setUsers}
             savedNames={savedNames}
-            onUpdateSavedNames={handleUpdateSavedNames}
+            onUpdateSavedNames={setSavedNames}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}
             onDataReset={reloadAllData}
-            databaseStatus={dbStatus}
-            onOpenDatabaseStatusModal={() => setIsStatusModalOpen(true)}
+            firestoreStatus={firestoreStatus}
+            onOpenFirestoreStatusModal={() => setIsStatusModalOpen(true)}
             appData={{
               songs,
               setlists,
@@ -1026,11 +1218,11 @@ export default function App() {
         upcomingSpecialCount={upcomingSpecialCount}
       />
 
-      {/* Database Realtime Timestamps & Connection Status Modal */}
+      {/* Firestore Real-Time Collection Sync Timestamps Modal */}
       <FirestoreStatusModal
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
-        statusInfo={dbStatus}
+        statusInfo={firestoreStatus}
       />
 
       {/* Logout Confirmation Prompt on back swipe from Home */}

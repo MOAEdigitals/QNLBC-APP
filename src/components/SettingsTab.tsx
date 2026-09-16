@@ -1,31 +1,58 @@
 import React, { useState, useMemo } from 'react';
-import { UserAccount, DatabaseStatusInfo } from '../types';
+import { UserAccount } from '../types';
 import {
-  cleanupLegacyStorage,
+  saveUsers,
+  updateUserAvatar,
+  DEFAULT_ADMIN,
+  deleteAllNonAdminUsers,
+  resetAppToDefaults,
+  clearAllLocalDataToZero,
   exportChurchDataJSON,
+  importChurchDataJSON,
   importBatchLyricsTxt,
+  loadSavedNames,
+  saveSavedNames,
+  loadSongs,
+  loadSetlists,
+  loadBirthdays,
+  loadAnniversaries,
+  loadVisitors,
+  loadSpecialRecognitions,
+  loadSpecialNumbers,
+  saveSongs,
+  saveSetlists,
+  saveBirthdays,
+  saveAnniversaries,
+  saveVisitors,
+  saveSpecialRecognitions,
+  saveSpecialNumbers,
+  savePracticeEntries,
+  saveChoirEntries,
 } from '../utils/storage';
 import {
-  saveSong as supabaseSaveSong,
-  saveSetlist as supabaseSaveSetlist,
-  saveBirthday as supabaseSaveBirthday,
-  saveAnniversary as supabaseSaveAnniversary,
-  saveVisitor as supabaseSaveVisitor,
-  saveSpecialRecognition as supabaseSaveSpecialRecognition,
-  saveSpecialNumber as supabaseSaveSpecialNumber,
-  savePracticeEntry as supabaseSavePracticeEntry,
-  saveChoirEntry as supabaseSaveChoirEntry,
-  saveMinistrySavedNames as supabaseSaveMinistrySavedNames,
-  setProfileRole,
-  toggleProfileActive,
-  updateUserProfile,
-} from '../services/supabaseData';
+  syncSaveUser,
+  syncDeleteUser,
+  syncDeleteAllNonAdminUsers,
+  syncSaveSavedNames,
+  syncSaveSong,
+  syncSaveSetlist,
+  syncSaveBirthday,
+  syncSaveAnniversary,
+  syncSaveVisitor,
+  syncSaveSpecialRecognition,
+  syncSaveSpecialNumber,
+  syncSavePracticeEntry,
+  syncSaveChoirEntry,
+  pushAllLocalDataToFirestore,
+  syncBatchImportToFirestore,
+} from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
   Settings,
   Sun,
   Moon,
-  UserCheck,
+  ShieldCheck,
+  UserPlus,
   Download,
   Upload,
   LogOut,
@@ -40,9 +67,18 @@ import {
   ChevronDown,
   Camera,
   Check,
+  UserCheck,
   Search,
   Key,
+  Eye,
+  EyeOff,
+  Edit2,
+  Sparkles,
+  Share2,
+  X,
   Shield,
+  Cloud,
+  CloudOff,
   Clock,
   Radio,
   ExternalLink,
@@ -50,10 +86,11 @@ import {
   RefreshCw,
   Copy,
   Code2,
-  UserX,
-  X,
 } from 'lucide-react';
 import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
+
+import { FirestoreStatusInfo, CollectionSyncLogEntry } from '../firestoreSync';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface SettingsTabProps {
   currentUser: UserAccount;
@@ -66,9 +103,7 @@ interface SettingsTabProps {
   onToggleTheme: () => void;
   onSignOut: () => void;
   onDataReset: () => void;
-  databaseStatus?: DatabaseStatusInfo;
-  firestoreStatus?: any;
-  onOpenDatabaseStatusModal?: () => void;
+  firestoreStatus?: FirestoreStatusInfo;
   onOpenFirestoreStatusModal?: () => void;
   appData?: {
     songs: any[];
@@ -90,239 +125,414 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onUpdateCurrentUser,
   users,
   onUpdateUsers,
-  savedNames: propSavedNames = [],
+  savedNames: propSavedNames,
   onUpdateSavedNames,
   theme,
   onToggleTheme,
   onSignOut,
   onDataReset,
-  databaseStatus,
   firestoreStatus,
-  onOpenDatabaseStatusModal,
   onOpenFirestoreStatusModal,
   appData,
 }) => {
-  // Collapsible section states
-  const [isAccountCollapsed, setIsAccountCollapsed] = useState(false);
-  const [isAppearanceCollapsed, setIsAppearanceCollapsed] = useState(false);
+  // Collapsible container states for all sections (collapsed by default)
+  const [isAccountCollapsed, setIsAccountCollapsed] = useState(true);
+  const [isAppearanceCollapsed, setIsAppearanceCollapsed] = useState(true);
   const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(true);
   const [isChurchDirectoryCollapsed, setIsChurchDirectoryCollapsed] = useState(true);
   const [isDataBackupCollapsed, setIsDataBackupCollapsed] = useState(true);
   const [isSyncLogsCollapsed, setIsSyncLogsCollapsed] = useState(true);
 
-  // Profile avatar feedback
+  // New user form state
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showAddUserForm, setShowAddUserForm] = useState(false);
+  const [newUserAvatar, setNewUserAvatar] = useState<string | null>(null);
+  const [userCreatedMsg, setUserCreatedMsg] = useState<string | null>(null);
+  const [userErrorMsg, setUserErrorMsg] = useState<string | null>(null);
   const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
 
-  // User management filtering
+  // Single copy/share feedback state
+  const [copiedLoginId, setCopiedLoginId] = useState<string | null>(null);
+
+  // User database filtering and controls
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
-  const [managingUserId, setManagingUserId] = useState<string | null>(null);
+  const [revealedPasswordIds, setRevealedPasswordIds] = useState<Set<string>>(new Set());
 
-  // Church directory names state
-  const [savedNames, setSavedNames] = useState<string[]>(propSavedNames);
+  // Edit user modal state
+  const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editUserRole, setEditUserRole] = useState<'user' | 'admin'>('user');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+
+  // Church directory names state for autofill management (synced across all devices)
+  const [savedNames, setSavedNames] = useState<string[]>(() =>
+    propSavedNames !== undefined ? propSavedNames : loadSavedNames()
+  );
+
+  // Sync internal state when prop changes from Firestore
   React.useEffect(() => {
-    setSavedNames(propSavedNames);
+    if (propSavedNames !== undefined) {
+      setSavedNames(propSavedNames);
+    }
   }, [propSavedNames]);
 
   const [newNameInput, setNewNameInput] = useState('');
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [lyricsImportStatus, setLyricsImportStatus] = useState<{ success: boolean; message: string } | null>(null);
-  const [cleanStorageStatus, setCleanStorageStatus] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
 
-  // Export & prompt modals
-  const [copiedPrompt, setCopiedPrompt] = useState(false);
-  const [showPromptModal, setShowPromptModal] = useState(false);
-  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const isAdmin =
+    currentUser.role === 'admin' ||
+    currentUser.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
 
-  const isAdmin = currentUser.role === 'admin';
-  const statusObj = databaseStatus || firestoreStatus;
-  const handleOpenStatusModal = onOpenDatabaseStatusModal || onOpenFirestoreStatusModal;
+  // Ensure Admin is always included in the user database list
+  const displayUsers = useMemo(() => {
+    const list = [...users];
+    if (!list.some((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase())) {
+      list.unshift(DEFAULT_ADMIN);
+    }
+    return list;
+  }, [users]);
 
-  // Handle avatar upload for current user
-  const handleAvatarChange = async (file: File) => {
+  const generateRandomPassword = () => {
+    const prefixes = ['nlbc', 'praise', 'faith', 'grace', 'worship', 'church', 'sing', 'glory'];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const num = Math.floor(100 + Math.random() * 900);
+    return `${prefix}${num}`;
+  };
+
+  const togglePasswordReveal = (userId: string) => {
+    setRevealedPasswordIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  const handleAvatarChangeForUser = async (userId: string, file: File) => {
     try {
-      const avatarBase64 = await compressImageToAvatar(file);
-      const updated = { ...currentUser, avatar: avatarBase64 };
-      onUpdateCurrentUser(updated);
-      await updateUserProfile(currentUser.id, { avatar_url: avatarBase64 });
-      setAvatarNoticeMsg('Profile picture updated successfully!');
+      const compressed = await compressImageToAvatar(file, 256, 0.85);
+      const { updatedUser, allUsers } = updateUserAvatar(userId, compressed);
+      onUpdateUsers(allUsers);
+      if (updatedUser) {
+        syncSaveUser(updatedUser);
+      }
+      if (userId === currentUser.id && updatedUser) {
+        onUpdateCurrentUser(updatedUser);
+      }
+      setAvatarNoticeMsg('Profile picture updated successfully.');
       setTimeout(() => setAvatarNoticeMsg(null), 4000);
     } catch (err: any) {
-      alert('Failed to process image: ' + err.message);
+      alert(err.message || 'Failed to process image');
     }
   };
 
-  // Directory Name Management
-  const handleAddDirectoryName = (e: React.FormEvent) => {
+  const handleRemoveAvatarForUser = (userId: string) => {
+    const { updatedUser, allUsers } = updateUserAvatar(userId, undefined);
+    onUpdateUsers(allUsers);
+    if (updatedUser) {
+      syncSaveUser(updatedUser);
+    }
+    if (userId === currentUser.id && updatedUser) {
+      onUpdateCurrentUser(updatedUser);
+    }
+    setAvatarNoticeMsg('Profile picture removed.');
+    setTimeout(() => setAvatarNoticeMsg(null), 4000);
+  };
+
+  const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = newNameInput.trim();
-    if (!trimmed) return;
-    if (savedNames.some((n) => n.toLowerCase() === trimmed.toLowerCase())) {
-      alert('This name already exists in the church directory.');
+    setUserCreatedMsg(null);
+    setUserErrorMsg(null);
+
+    const cleanUser = newUsername.trim();
+    const cleanPass = newPassword.trim();
+
+    if (!cleanUser || !cleanPass) {
+      setUserErrorMsg('Please fill in both username and password.');
       return;
     }
-    const updated = [...savedNames, trimmed].sort();
+
+    if (displayUsers.some((u) => u.username.toLowerCase() === cleanUser.toLowerCase())) {
+      setUserErrorMsg(`An account with username "${cleanUser}" already exists.`);
+      return;
+    }
+
+    const newUser: UserAccount = {
+      id: `user-${Date.now()}`,
+      username: cleanUser,
+      passwordHash: cleanPass,
+      role: newUserRole,
+      avatar: newUserAvatar || undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...displayUsers, newUser];
+    saveUsers(updated);
+    syncSaveUser(newUser);
+    onUpdateUsers(updated);
+    setNewUsername('');
+    setNewPassword('');
+    setNewUserRole('user');
+    setNewUserAvatar(null);
+    setShowAddUserForm(false);
+    setUserCreatedMsg(`User access successfully created for "${cleanUser}".`);
+    setTimeout(() => setUserCreatedMsg(null), 4000);
+  };
+
+  const handleStartEditUser = (user: UserAccount) => {
+    setEditingUser(user);
+    setEditUsername(user.username);
+    setEditPassword(user.passwordHash || '');
+    setEditUserRole(user.role || 'user');
+    setShowEditPassword(false);
+  };
+
+  const handleSaveEditUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    const cleanUser = editUsername.trim();
+    const cleanPass = editPassword.trim();
+
+    if (!cleanUser || !cleanPass) {
+      alert('Please fill in both username and password.');
+      return;
+    }
+
+    const duplicate = displayUsers.find(
+      (u) => u.id !== editingUser.id && u.username.toLowerCase() === cleanUser.toLowerCase()
+    );
+    if (duplicate) {
+      alert(`An account with username "${cleanUser}" already exists.`);
+      return;
+    }
+
+    const isRootAdmin = editingUser.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
+    const updatedUser: UserAccount = {
+      ...editingUser,
+      username: cleanUser,
+      passwordHash: cleanPass,
+      role: isRootAdmin ? 'admin' : editUserRole,
+    };
+
+    const updatedList = displayUsers.map((u) => (u.id === editingUser.id ? updatedUser : u));
+    saveUsers(updatedList);
+    onUpdateUsers(updatedList);
+    syncSaveUser(updatedUser);
+    if (currentUser.id === editingUser.id) {
+      onUpdateCurrentUser(updatedUser);
+    }
+    setEditingUser(null);
+    setUserCreatedMsg(`Credentials updated for "${cleanUser}".`);
+    setTimeout(() => setUserCreatedMsg(null), 4000);
+  };
+
+  const handleDeleteUser = async (userToDelete: UserAccount) => {
+    if (userToDelete.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase()) {
+      alert('The root administrator account cannot be deleted.');
+      return;
+    }
+
+    if (confirm(`Delete account for user "${userToDelete.username}" from the User Database?`)) {
+      const updated = displayUsers.filter(
+        (u) =>
+          u.id !== userToDelete.id &&
+          u.username.toLowerCase() !== userToDelete.username.toLowerCase()
+      );
+      saveUsers(updated);
+      onUpdateUsers(updated);
+      await syncDeleteUser(userToDelete.id, userToDelete.username);
+      if (editingUser?.id === userToDelete.id) {
+        setEditingUser(null);
+      }
+    }
+  };
+
+  const handleDeleteAllNonAdminUsers = async () => {
+    const nonAdminCount = displayUsers.filter(
+      (u) =>
+        u.role !== 'admin' &&
+        u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
+    ).length;
+
+    if (nonAdminCount === 0) {
+      alert('Only the root Admin account exists. There are no regular user accounts to delete.');
+      return;
+    }
+
+    if (
+      confirm(
+        `Are you sure you want to delete ALL (${nonAdminCount}) regular user accounts and revoke their access? The Admin account will be the only one remaining.`
+      )
+    ) {
+      const remaining = deleteAllNonAdminUsers();
+      saveUsers(remaining);
+      onUpdateUsers(remaining);
+      await syncDeleteAllNonAdminUsers();
+      setUserCreatedMsg('All non-admin user accounts and accesses have been permanently deleted.');
+      setTimeout(() => setUserCreatedMsg(null), 5000);
+    }
+  };
+
+  // Standardized Single Copy/Share Access Function
+  const handleCopyUserAccess = (u: UserAccount) => {
+    const text = `QNLBC APP Worship Team Access\nUsername: ${u.username}\nPassword: ${u.passwordHash || ''}\nApp Link: https://moaedigitals.github.io/QNLBC-APP/`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedLoginId(u.id);
+      setTimeout(() => setCopiedLoginId(null), 2500);
+    }
+  };
+
+  const handleNewUserAvatarPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImageToAvatar(file, 256, 0.85);
+      setNewUserAvatar(compressed);
+    } catch (err: any) {
+      alert(err.message || 'Failed to process image');
+    }
+    e.target.value = '';
+  };
+
+  // Church Directory & Autofill Handlers
+  const handleAddDirectoryName = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = newNameInput.trim();
+    if (!clean) return;
+    if (savedNames.some((n) => n.toLowerCase() === clean.toLowerCase())) {
+      setNewNameInput('');
+      return;
+    }
+    const updated = [...savedNames, clean].sort((a, b) => a.localeCompare(b));
+    saveSavedNames(updated);
     setSavedNames(updated);
-    setNewNameInput('');
+    syncSaveSavedNames(updated);
     if (onUpdateSavedNames) onUpdateSavedNames(updated);
+    setNewNameInput('');
   };
 
   const handleDeleteDirectoryName = (nameToDelete: string) => {
     const updated = savedNames.filter((n) => n !== nameToDelete);
+    saveSavedNames(updated);
     setSavedNames(updated);
+    syncSaveSavedNames(updated);
     if (onUpdateSavedNames) onUpdateSavedNames(updated);
   };
 
-  // Targeted Legacy Storage Cleanup
-  const handlePurgeLegacyStorage = () => {
-    const clearedCount = cleanupLegacyStorage();
-    setCleanStorageStatus(
-      `Cleaned up obsolete browser cache keys (${clearedCount} removed). Supabase session and personal display preferences preserved.`
-    );
-    setTimeout(() => setCleanStorageStatus(null), 5000);
-  };
-
-  // Toggle user role
-  const handleToggleUserRole = async (targetUser: UserAccount) => {
-    if (targetUser.id === currentUser.id) {
-      if (!confirm('Are you sure you want to change your own role? You may lose admin privileges.')) {
-        return;
-      }
-    }
-    const nextRole = targetUser.role === 'admin' ? 'user' : 'admin';
-    setManagingUserId(targetUser.id);
-    try {
-      await setProfileRole(targetUser.id, nextRole);
-      onUpdateUsers(
-        users.map((u) => (u.id === targetUser.id ? { ...u, role: nextRole } : u))
-      );
-      if (targetUser.id === currentUser.id) {
-        onUpdateCurrentUser({ ...currentUser, role: nextRole });
-      }
-    } catch (err: any) {
-      alert('Failed to update role: ' + (err.message || 'Error'));
-    } finally {
-      setManagingUserId(null);
-    }
-  };
-
-  // Toggle user active/deactivated
-  const handleToggleUserActive = async (targetUser: UserAccount) => {
-    if (targetUser.id === currentUser.id) {
-      alert('You cannot deactivate your own account.');
-      return;
-    }
-    const nextActive = !targetUser.active;
-    const actionLabel = nextActive ? 'activate' : 'deactivate';
-    if (!confirm(`Are you sure you want to ${actionLabel} ${targetUser.username}?`)) {
-      return;
-    }
-
-    setManagingUserId(targetUser.id);
-    try {
-      await toggleProfileActive(targetUser.id, nextActive);
-      onUpdateUsers(
-        users.map((u) => (u.id === targetUser.id ? { ...u, active: nextActive } : u))
-      );
-    } catch (err: any) {
-      alert(`Failed to ${actionLabel} user: ` + (err.message || 'Error'));
-    } finally {
-      setManagingUserId(null);
-    }
-  };
-
-  // Export JSON Backup
   const handleExportBackup = () => {
-    if (!appData) {
-      alert('No data available to export.');
-      return;
-    }
-    exportChurchDataJSON(appData);
+    const jsonStr = exportChurchDataJSON();
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qnlbc_church_music_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  // Import JSON Backup directly to Supabase
-  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
+
+  const handleDownloadPromptMd = () => {
+    const blob = new Blob([MIGRATION_PROMPT_TEXT], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'MIGRATION_PROMPT_FOR_AI_STUDIO.md';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleCopyPromptText = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(MIGRATION_PROMPT_TEXT);
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 3000);
+    }
+  };
+
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
+  const handleDownloadSourceZip = async () => {
+    setIsDownloadingZip(true);
+    try {
+      const res = await fetch('/api/download-source-zip');
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'church-music-app-source.zip';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      window.open('/church-music-app-source.zip', '_blank');
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
+
+  const [isImporting, setIsImporting] = useState(false);
+  const [isPushingCloud, setIsPushingCloud] = useState(false);
+  const [cloudPushStatus, setCloudPushStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsImporting(true);
-    setImportStatus({ success: true, message: 'Parsing backup JSON file...' });
+    setImportStatus({ success: true, message: 'Reading and validating backup file...' });
 
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
-        const parsed = JSON.parse(text);
+        const res = importChurchDataJSON(text);
+        if (res.success) {
+          setImportStatus({
+            success: true,
+            message: 'Importing locally and synchronizing all data to Firestore Cloud for all mobile devices...',
+          });
 
-        setImportStatus({
-          success: true,
-          message: 'Restoring records directly to Supabase...',
-        });
+          const updatedNames = loadSavedNames();
+          setSavedNames(updatedNames);
+          if (onUpdateSavedNames) onUpdateSavedNames(updatedNames);
 
-        // Restore songs
-        if (Array.isArray(parsed.songs)) {
-          for (const s of parsed.songs) {
-            await supabaseSaveSong(s).catch(console.error);
-          }
-        }
+          // Push restored database to Firestore Cloud using high-performance chunked batches
+          const cloudRes = await syncBatchImportToFirestore();
 
-        // Restore setlists
-        if (Array.isArray(parsed.setlists)) {
-          for (const s of parsed.setlists) {
-            await supabaseSaveSetlist(s).catch(console.error);
+          if (cloudRes.success) {
+            setImportStatus({
+              success: true,
+              message: `${res.message} ${cloudRes.message}`,
+            });
+          } else {
+            setImportStatus({
+              success: true,
+              message: `${res.message} (Local restore succeeded, background sync queued)`,
+            });
           }
-        }
 
-        // Restore celebrants
-        if (Array.isArray(parsed.birthdays)) {
-          for (const b of parsed.birthdays) {
-            await supabaseSaveBirthday(b).catch(console.error);
-          }
+          onDataReset();
+        } else {
+          setImportStatus({ success: false, message: res.message });
         }
-        if (Array.isArray(parsed.anniversaries)) {
-          for (const a of parsed.anniversaries) {
-            await supabaseSaveAnniversary(a).catch(console.error);
-          }
-        }
-        if (Array.isArray(parsed.visitors)) {
-          for (const v of parsed.visitors) {
-            await supabaseSaveVisitor(v).catch(console.error);
-          }
-        }
-        if (Array.isArray(parsed.specialRecognitions)) {
-          for (const r of parsed.specialRecognitions) {
-            await supabaseSaveSpecialRecognition(r).catch(console.error);
-          }
-        }
-        if (Array.isArray(parsed.specialNumbers)) {
-          for (const sn of parsed.specialNumbers) {
-            await supabaseSaveSpecialNumber(sn).catch(console.error);
-          }
-        }
-        if (Array.isArray(parsed.practiceEntries)) {
-          for (const p of parsed.practiceEntries) {
-            await supabaseSavePracticeEntry(p).catch(console.error);
-          }
-        }
-        if (Array.isArray(parsed.choirEntries)) {
-          for (const c of parsed.choirEntries) {
-            await supabaseSaveChoirEntry(c).catch(console.error);
-          }
-        }
-        if (Array.isArray(parsed.savedNames)) {
-          await supabaseSaveMinistrySavedNames(parsed.savedNames).catch(console.error);
-          if (onUpdateSavedNames) onUpdateSavedNames(parsed.savedNames);
-        }
-
-        setImportStatus({
-          success: true,
-          message: 'All church records restored and synchronized with Supabase successfully!',
-        });
-
-        onDataReset();
       } catch (err: any) {
-        setImportStatus({ success: false, message: 'Failed to restore: ' + err.message });
+        setImportStatus({ success: false, message: 'Invalid JSON file: ' + err.message });
       } finally {
         setIsImporting(false);
       }
@@ -331,15 +541,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     e.target.value = '';
   };
 
-  // Batch Lyrics Import
+  const handlePushAllToCloud = async () => {
+    setIsPushingCloud(true);
+    setCloudPushStatus(null);
+    try {
+      const res = await pushAllLocalDataToFirestore();
+      setCloudPushStatus({ success: res.success, message: res.message });
+      onDataReset();
+    } catch (err: any) {
+      setCloudPushStatus({
+        success: false,
+        message: `Cloud sync error: ${err.message || 'Unable to connect to cloud'}`,
+      });
+    } finally {
+      setIsPushingCloud(false);
+    }
+  };
+
   const handleBatchLyricsImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     try {
       const res = await importBatchLyricsTxt(files);
-      const msg = `Successfully processed ${files.length} file(s): added ${res.importedCount} new song(s), updated ${res.updatedCount} existing song(s). Total songs: ${res.totalSongs}.`;
+      const msg = `Successfully processed ${files.length} file(s): added ${res.importedCount} new song(s), updated ${res.updatedCount} existing song(s). Total songs in library: ${res.totalSongs}.`;
       setLyricsImportStatus({ success: true, message: msg });
+      const updatedSongs = loadSongs();
+      updatedSongs.forEach((s) => syncSaveSong(s));
       onDataReset();
     } catch (err: any) {
       setLyricsImportStatus({ success: false, message: 'Failed to process files: ' + err.message });
@@ -347,62 +575,26 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     e.target.value = '';
   };
 
-  // AI Studio Migration prompt helpers
-  const handleCopyPromptText = () => {
-    navigator.clipboard.writeText(MIGRATION_PROMPT_TEXT);
-    setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 3000);
-  };
-
-  const handleDownloadPromptMd = () => {
-    const blob = new Blob([MIGRATION_PROMPT_TEXT], { type: 'text/markdown;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'qnlbc_migration_prompt.md';
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleDownloadSourceZip = async () => {
-    setIsDownloadingZip(true);
-    try {
-      const response = await fetch('/api/download-source-zip');
-      if (!response.ok) throw new Error('Failed to generate archive');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `qnlbc_source_${new Date().toISOString().split('T')[0]}.zip`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    } catch (e: any) {
-      alert('Could not download zip: ' + (e.message || 'Error'));
-    } finally {
-      setIsDownloadingZip(false);
-    }
-  };
-
   // Filtered users for table rendering
   const filteredUsers = useMemo(() => {
-    return users.filter((u) => {
+    return displayUsers.filter((u) => {
       const matchesSearch =
         u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        (u.name && u.name.toLowerCase().includes(userSearchQuery.toLowerCase()));
+        (u.passwordHash && u.passwordHash.toLowerCase().includes(userSearchQuery.toLowerCase()));
       const matchesRole =
         userRoleFilter === 'all'
           ? true
           : userRoleFilter === 'admin'
-          ? u.role === 'admin'
-          : u.role !== 'admin';
+          ? u.role === 'admin' || u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase()
+          : u.role !== 'admin' && u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase();
       return matchesSearch && matchesRole;
     });
-  }, [users, userSearchQuery, userRoleFilter]);
+  }, [displayUsers, userSearchQuery, userRoleFilter]);
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto pb-16">
       {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
+      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Settings className="w-5 h-5 text-slate-800 dark:text-slate-200" />
@@ -410,14 +602,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             {isAdmin
-              ? 'Account profile, team roles, church directory autofill, and Supabase data management'
+              ? 'Account profile, user access, church directory autofill, and data management'
               : 'Theme appearance and account session settings'}
           </p>
         </div>
       </div>
 
       {/* Container 1: Current Account Profile & Session */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
         <div
           onClick={() => setIsAccountCollapsed(!isAccountCollapsed)}
           className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
@@ -431,7 +623,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <span>Account Profile & Session</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Logged in as <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUser.name || currentUser.username}</span> ({currentUser.role === 'admin' ? 'Administrator' : 'Worship Team Member'})
+                Logged in as <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUser.username}</span> ({currentUser.role === 'admin' ? 'Administrator' : 'Worship Team Member'})
               </p>
             </div>
           </div>
@@ -464,8 +656,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             )}
 
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              {/* Avatar Picture */}
               <div className="relative shrink-0">
-                <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full ring-3 ring-white dark:ring-slate-800 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-xl overflow-hidden shadow-xs">
+                <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full ring-3 ring-white dark:ring-slate-800 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-xl overflow-hidden shadow-sm">
                   {currentUser.avatar ? (
                     <img
                       src={currentUser.avatar}
@@ -488,34 +681,61 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     className="hidden"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) handleAvatarChange(f);
+                      if (f) handleAvatarChangeForUser(currentUser.id, f);
                       e.target.value = '';
                     }}
                   />
                 </label>
               </div>
 
+              {/* User details */}
               <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-bold text-slate-900 dark:text-white">
-                    {currentUser.name || currentUser.username}
-                  </h4>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                      currentUser.role === 'admin'
-                        ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                        : 'bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                    }`}
-                  >
-                    {currentUser.role === 'admin' ? 'Administrator' : 'Team Member'}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                    {currentUser.username}
                   </span>
+                  {isAdmin ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Administrator</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                      Worship Team Member
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                  {currentUser.username}
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Profile photos and account changes sync seamlessly to all your active devices.
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-                  Connected with Supabase Cloud Authentication.
-                </p>
+
+                <div className="pt-2 flex items-center gap-2 flex-wrap">
+                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer shadow-2xs">
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>{currentUser.avatar ? 'Change Photo' : 'Upload Photo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleAvatarChangeForUser(currentUser.id, f);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+
+                  {currentUser.avatar && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAvatarForUser(currentUser.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-medium border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Remove Photo</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -523,21 +743,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       </div>
 
       {/* Container 2: Appearance & Theme */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
         <div
           onClick={() => setIsAppearanceCollapsed(!isAppearanceCollapsed)}
           className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900 shrink-0">
+            <div className="p-2.5 rounded-xl bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-900 shrink-0">
               {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                Appearance & Display
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>Appearance & Theme</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Current theme: <span className="font-semibold capitalize">{theme}</span> mode
+                Current theme: <span className="font-semibold text-slate-700 dark:text-slate-300">{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
               </p>
             </div>
           </div>
@@ -549,105 +769,268 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         {!isAppearanceCollapsed && (
           <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-              <div>
-                <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-                  Color Theme
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Switch between Light and Dark interface modes
-                </span>
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shadow-xs">
+                  {theme === 'dark' ? <Moon className="w-4 h-4 text-indigo-400" /> : <Sun className="w-4 h-4 text-sky-600" />}
+                </div>
+                <div>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-white block">
+                    {theme === 'dark' ? 'Dark Mode' : 'Light Mode'}
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {theme === 'dark' ? 'Eye-safe dark theme for sanctuary stage' : 'Crisp high-contrast daylight theme'}
+                  </span>
+                </div>
               </div>
+
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition-all shadow-xs cursor-pointer"
               >
-                {theme === 'dark' ? (
-                  <>
-                    <Sun className="w-4 h-4 text-amber-500" />
-                    <span>Light Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Moon className="w-4 h-4 text-slate-700" />
-                    <span>Dark Mode</span>
-                  </>
-                )}
+                Switch to {theme === 'dark' ? 'Light' : 'Dark'}
               </button>
             </div>
-
-            {/* Targeted Cache & Legacy Storage Tool */}
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="space-y-0.5">
-                <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-                  Purge Legacy Local Storage Cache
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 block">
-                  Removes obsolete version keys without clearing your current session or display preferences.
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={handlePurgeLegacyStorage}
-                className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
-              >
-                Clean Legacy Cache
-              </button>
-            </div>
-            {cleanStorageStatus && (
-              <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{cleanStorageStatus}</span>
-              </div>
-            )}
           </div>
         )}
       </div>
 
-      {/* Container 3: Church Team Members & Roles (Admin Only) */}
+      {/* Container 3: User Database & Access Control (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
           <div
             onClick={() => setIsUserDatabaseCollapsed(!isUserDatabaseCollapsed)}
-            className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+            className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900 shrink-0">
-                <Shield className="w-4 h-4" />
+              <div className="p-2.5 rounded-xl bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs shrink-0">
+                <Database className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Team Members & Roles
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>User Database & Access Control</span>
                   </h3>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                    {users.length} {users.length === 1 ? 'Member' : 'Members'}
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    {displayUsers.length} {displayUsers.length === 1 ? 'Account' : 'Accounts'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Manage accounts, grant administrator access, or deactivate users.
+                  Manage accounts, grant roles, and share direct login credentials.
                 </p>
               </div>
             </div>
 
-            <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isUserDatabaseCollapsed ? '' : 'rotate-180'}`} />
+            {/* Quick Action Buttons on Header */}
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAddUserForm(!showAddUserForm);
+                  if (isUserDatabaseCollapsed) {
+                    setIsUserDatabaseCollapsed(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>{showAddUserForm && !isUserDatabaseCollapsed ? 'Close Form' : 'Add User'}</span>
+              </button>
+              <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isUserDatabaseCollapsed ? '' : 'rotate-180'}`} />
+              </div>
             </div>
           </div>
 
           {!isUserDatabaseCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-                {/* Search */}
-                <div className="relative flex-1 max-w-sm">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-slate-400" />
+              {/* Feedback messages */}
+              {userCreatedMsg && (
+                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-start gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{userCreatedMsg}</span>
+                </div>
+              )}
+              {userErrorMsg && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 flex items-start gap-2 text-xs font-semibold text-rose-800 dark:text-rose-300">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{userErrorMsg}</span>
+                </div>
+              )}
+
+              {/* Add User Collapsible Form */}
+              {showAddUserForm && (
+                <form
+                  onSubmit={handleCreateUser}
+                  autoComplete="off"
+                  data-form-type="other"
+                  className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3.5 shadow-2xs"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>Create New User Access</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUserForm(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Username */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Username / Member Name *
+                      </label>
+                      <input
+                        id="new-member-username"
+                        name="member_display_name"
+                        type="text"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        autoCapitalize="words"
+                        spellCheck={false}
+                        data-form-type="other"
+                        data-lpignore="true"
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        placeholder="e.g. John Santos"
+                        required
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400"
+                      />
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                          Password *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setNewPassword(generateRandomPassword())}
+                          className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" />
+                          <span>Generate</span>
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <input
+                          id="new-member-passphrase"
+                          name="member_secret_token"
+                          type={showNewPassword ? 'text' : 'password'}
+                          autoComplete="off"
+                          autoCorrect="off"
+                          autoCapitalize="none"
+                          spellCheck={false}
+                          data-form-type="other"
+                          data-lpignore="true"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Secret password"
+                          required
+                          className="w-full px-3 py-2 pr-8 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                        >
+                          {showNewPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* Role */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        System Role
+                      </label>
+                      <select
+                        value={newUserRole}
+                        onChange={(e) => setNewUserRole(e.target.value as 'user' | 'admin')}
+                        className="w-full px-3 py-2 text-xs rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                      >
+                        <option value="user">User / Worship Team Member</option>
+                        <option value="admin">Administrator (Full Access)</option>
+                      </select>
+                    </div>
+
+                    {/* Avatar Upload (Optional) */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                        Member Profile Photo (Optional)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        {newUserAvatar && (
+                          <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 ring-1 ring-slate-300 dark:ring-slate-700">
+                            <img src={newUserAvatar} alt="New user" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 cursor-pointer">
+                          <Camera className="w-3 h-3" />
+                          <span>{newUserAvatar ? 'Change Photo' : 'Select Photo'}</span>
+                          <input type="file" accept="image/*" onChange={handleNewUserAvatarPick} className="hidden" />
+                        </label>
+                        {newUserAvatar && (
+                          <button
+                            type="button"
+                            onClick={() => setNewUserAvatar(null)}
+                            className="p-1.5 text-rose-500 hover:text-rose-700 cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddUserForm(false)}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Save Member Access</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Search & Filter Toolbar */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
                   <input
-                    type="text"
-                    placeholder="Search by name or email..."
+                    id="user-accounts-search"
+                    name="user_accounts_query"
+                    type="search"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="sentences"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                    placeholder="Search accounts by username..."
+                    className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                   />
                   {userSearchQuery && (
                     <button
@@ -660,7 +1043,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   )}
                 </div>
 
-                {/* Filter */}
                 <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
                   <button
                     type="button"
@@ -671,7 +1053,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
                   >
-                    All ({users.length})
+                    All ({displayUsers.length})
                   </button>
                   <button
                     type="button"
@@ -682,7 +1064,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
                   >
-                    Admins ({users.filter((u) => u.role === 'admin').length})
+                    Admins ({displayUsers.filter((u) => u.role === 'admin' || u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase()).length})
                   </button>
                   <button
                     type="button"
@@ -693,48 +1075,61 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                     }`}
                   >
-                    Members ({users.filter((u) => u.role !== 'admin').length})
+                    Users ({displayUsers.filter((u) => u.role !== 'admin' && u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()).length})
                   </button>
                 </div>
+
+                {displayUsers.some(
+                  (u) =>
+                    u.role !== 'admin' &&
+                    u.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
+                ) && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllNonAdminUsers}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-900/60 text-xs font-bold transition-colors cursor-pointer shrink-0"
+                    title="Delete all user accounts except Admin"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                    <span>Delete All Users (Keep Admin Only)</span>
+                  </button>
+                )}
               </div>
 
-              {/* Members Table */}
+              {/* Interactive Credentials Sheet Table */}
               <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl overflow-hidden shadow-2xs bg-white dark:bg-slate-900">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
                       <tr>
                         <th className="p-3 w-10 text-center text-slate-400">#</th>
-                        <th className="p-3">Member</th>
+                        <th className="p-3">User / Member</th>
+                        <th className="p-3">Password</th>
                         <th className="p-3">Role</th>
-                        <th className="p-3">Status</th>
                         <th className="p-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {filteredUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="p-6 text-center text-slate-400">
-                            No team members found matching your search.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredUsers.map((u, idx) => {
-                          const isCurrent = u.id === currentUser.id;
-                          const isManaging = managingUserId === u.id;
+                      {filteredUsers.map((u, idx) => {
+                        const isCurrent = u.id === currentUser.id;
+                        const isRootAdmin = u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase();
+                        const isPasswordRevealed = revealedPasswordIds.has(u.id);
 
-                          return (
-                            <tr
-                              key={u.id}
-                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                            >
-                              <td className="p-3 text-center text-slate-400 font-mono text-[11px]">
-                                {idx + 1}
-                              </td>
+                        return (
+                          <tr
+                            key={u.id}
+                            className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                          >
+                            {/* # Index */}
+                            <td className="p-3 text-center text-slate-400 font-mono text-[11px]">
+                              {idx + 1}
+                            </td>
 
-                              <td className="p-3">
-                                <div className="flex items-center gap-2.5 min-w-[160px]">
-                                  <div className="w-8 h-8 rounded-full ring-1 ring-slate-200 dark:ring-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-[11px] overflow-hidden shrink-0">
+                            {/* User with avatar */}
+                            <td className="p-3">
+                              <div className="flex items-center gap-2.5 min-w-[150px]">
+                                <div className="relative shrink-0">
+                                  <div className="w-8 h-8 rounded-full ring-1 ring-slate-200 dark:ring-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-[11px] overflow-hidden">
                                     {u.avatar ? (
                                       <img
                                         src={u.avatar}
@@ -746,134 +1141,309 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                                       <span>{u.username.substring(0, 2).toUpperCase()}</span>
                                     )}
                                   </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-bold text-slate-900 dark:text-white truncate">
-                                        {u.name || u.username}
-                                      </span>
-                                      {isCurrent && (
-                                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
-                                          (You)
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[11px] text-slate-400 font-mono block truncate">
+                                  <label
+                                    className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center cursor-pointer opacity-80 hover:opacity-100"
+                                    title="Change photo"
+                                  >
+                                    <Camera className="w-2 h-2" />
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleAvatarChangeForUser(u.id, f);
+                                        e.target.value = '';
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-bold text-slate-900 dark:text-white truncate">
                                       {u.username}
                                     </span>
+                                    {isCurrent && (
+                                      <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                                        (You)
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
-                              </td>
+                              </div>
+                            </td>
 
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                    u.role === 'admin'
-                                      ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                                  }`}
-                                >
-                                  {u.role === 'admin' ? 'Admin' : 'Member'}
+                            {/* Password with 1-click reveal */}
+                            <td className="p-3">
+                              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700">
+                                <Key className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className="font-mono font-bold text-slate-900 dark:text-slate-100 text-[11px] min-w-[70px]">
+                                  {isPasswordRevealed ? u.passwordHash || '(none)' : '••••••••'}
                                 </span>
-                              </td>
-
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                    u.active !== false
-                                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                      : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                                  }`}
+                                <button
+                                  type="button"
+                                  onClick={() => togglePasswordReveal(u.id)}
+                                  className="p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer"
+                                  title={isPasswordRevealed ? 'Hide password' : 'Show password'}
                                 >
-                                  {u.active !== false ? 'Active' : 'Deactivated'}
-                                </span>
-                              </td>
+                                  {isPasswordRevealed ? (
+                                    <EyeOff className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Eye className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
 
-                              <td className="p-3 text-right">
-                                <div className="inline-flex items-center gap-1.5">
+                            {/* Role */}
+                            <td className="p-3">
+                              {u.role === 'admin' || isRootAdmin ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">
+                                  <Shield className="w-2.5 h-2.5" />
+                                  <span>Administrator</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                  User / Member
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Single Copy/Share Access Button + Actions */}
+                            <td className="p-3 text-right">
+                              <div className="inline-flex items-center gap-1.5 justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyUserAccess(u)}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                                  title="Copy access credentials to clipboard"
+                                >
+                                  {copiedLoginId === u.id ? (
+                                    <>
+                                      <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400">Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Share2 className="w-3.5 h-3.5" />
+                                      <span className="text-[11px]">Copy / Share</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditUser(u)}
+                                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                  title="Edit credentials"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                {!isRootAdmin && (
                                   <button
                                     type="button"
-                                    disabled={isManaging}
-                                    onClick={() => handleToggleUserRole(u)}
-                                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-                                    title={`Toggle role to ${u.role === 'admin' ? 'member' : 'admin'}`}
+                                    onClick={() => handleDeleteUser(u)}
+                                    className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
+                                    title="Delete user"
                                   >
-                                    {u.role === 'admin' ? 'Make Member' : 'Make Admin'}
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-
-                                  {!isCurrent && (
-                                    <button
-                                      type="button"
-                                      disabled={isManaging}
-                                      onClick={() => handleToggleUserActive(u)}
-                                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${
-                                        u.active !== false
-                                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 border-rose-200 dark:border-rose-900'
-                                          : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border-emerald-200 dark:border-emerald-900'
-                                      }`}
-                                      title={u.active !== false ? 'Deactivate user' : 'Activate user'}
-                                    >
-                                      {u.active !== false ? 'Deactivate' : 'Activate'}
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
+
+                {filteredUsers.length === 0 && (
+                  <div className="p-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                    No matching user accounts found. Click &quot;Add User&quot; to add member credentials.
+                  </div>
+                )}
               </div>
 
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                User accounts and passwords are encrypted with bcrypt by Supabase Auth and never stored in plaintext.
-              </p>
+              {/* Sheet Bottom Bar */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <span>
+                  Showing {displayUsers.length} {displayUsers.length === 1 ? 'member account' : 'member accounts'} synced across all devices.
+                </span>
+              </div>
             </div>
           )}
         </div>
       )}
 
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Edit Credentials for &quot;{editingUser.username}&quot;
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditUser} autoComplete="off" data-form-type="other" className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Username / Member Name
+                </label>
+                <input
+                  id="edit-member-username"
+                  name="edit_member_name"
+                  type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditPassword(generateRandomPassword())}
+                    className="text-[11px] text-sky-600 dark:text-sky-400 hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-2.5 h-2.5" />
+                    <span>Generate</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    id="edit-member-passphrase"
+                    name="edit_member_token"
+                    type={showEditPassword ? 'text' : 'password'}
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    data-form-type="other"
+                    data-lpignore="true"
+                    value={editPassword}
+                    onChange={(e) => setEditPassword(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 pr-8 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    {showEditPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {editingUser.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase() && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    System Role
+                  </label>
+                  <select
+                    value={editUserRole}
+                    onChange={(e) => setEditUserRole(e.target.value as 'user' | 'admin')}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  >
+                    <option value="user">User / Worship Team Member</option>
+                    <option value="admin">Administrator (Full Access)</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 hover:opacity-90 cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Container 4: Church Directory & Autofill Suggestions (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
           <div
             onClick={() => setIsChurchDirectoryCollapsed(!isChurchDirectoryCollapsed)}
-            className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
+            className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
                 <Users className="w-4 h-4" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Church Directory & Autofill
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Church Directory & Autofill</span>
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                     {savedNames.length} {savedNames.length === 1 ? 'Name' : 'Names'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Autofill suggestions across Presiders, Song Leaders, and Special Numbers.
+                  Saved names auto-populate across Presiders, Song Leaders, and Special Numbers.
                 </p>
               </div>
             </div>
 
-            <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isChurchDirectoryCollapsed ? '' : 'rotate-180'}`} />
+            <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+              <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
+                <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isChurchDirectoryCollapsed ? '' : 'rotate-180'}`} />
+              </div>
             </div>
           </div>
 
           {!isChurchDirectoryCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              <form onSubmit={handleAddDirectoryName} className="flex items-center gap-2 pt-2">
+              {/* Add name input form */}
+              <form onSubmit={handleAddDirectoryName} autoComplete="off" data-form-type="other" className="flex items-center gap-2">
                 <input
+                  id="directory-member-name"
+                  name="directory_person_name"
                   type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="words"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
                   value={newNameInput}
                   onChange={(e) => setNewNameInput(e.target.value)}
                   placeholder="Enter church member name (e.g. Bro. Juan Dela Cruz)..."
-                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
+                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                 />
                 <button
                   type="submit"
@@ -884,6 +1454,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               </form>
 
+              {/* Directory badges */}
               {savedNames.length > 0 ? (
                 <div className="flex flex-wrap gap-2 pt-2 max-h-56 overflow-y-auto p-1">
                   {savedNames.map((name) => (
@@ -904,8 +1475,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                  Church directory is empty. Add names above to enable autofill across all forms.
+                <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
+                  <p className="font-semibold text-slate-600 dark:text-slate-300">Church directory is ready for entries</p>
+                  <p>Type member names above and click &quot;Add Name&quot;. They will immediately appear as autofill options across all devices.</p>
                 </div>
               )}
             </div>
@@ -915,7 +1487,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {/* Container 5: Data Library & Backup Tools (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
           <div
             onClick={() => setIsDataBackupCollapsed(!isDataBackupCollapsed)}
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
@@ -925,8 +1497,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <Database className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                  Data Library & Backup Tools
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Data Library & Backup Tools</span>
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Export backups, restore from JSON files, and batch import song lyrics.
@@ -1011,7 +1583,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {cloudPushStatus && (
+                  <div
+                    className={`p-3.5 rounded-xl border flex items-start gap-2 text-xs font-semibold ${
+                      cloudPushStatus.success
+                        ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300'
+                        : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-300'
+                    }`}
+                  >
+                    {cloudPushStatus.success ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <span>{cloudPushStatus.message}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                   <button
                     type="button"
                     onClick={handleExportBackup}
@@ -1025,7 +1614,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Export All Data (JSON)
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Download full JSON backup of songs, setlists, and directory entries.
+                        Download full JSON backup of songs, setlists, and directories.
                       </span>
                     </div>
                   </button>
@@ -1040,10 +1629,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>
                     <div className="flex-1">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        {isImporting ? 'Restoring Records...' : 'Restore JSON Backup'}
+                        {isImporting ? 'Restoring & Syncing...' : 'Load / Import Backup File'}
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Upload JSON backup to restore and synchronize across all devices.
+                        Upload JSON backup to restore and sync across all mobile devices.
                       </span>
                       <input
                         type="file"
@@ -1054,78 +1643,83 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       />
                     </div>
                   </label>
-                </div>
-              </div>
 
-              {/* Developer / Migration Utilities */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 flex flex-col justify-between space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
-                      <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 flex flex-col justify-between space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
+                        <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                          AI Studio Migration Prompt (.md)
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                          Ready-to-use prompt and schema specification to give Gemini / AI Studio for a brand-new repository.
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        Migration Prompt (.md)
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Full prompt and schema specification for new environments.
-                      </span>
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleDownloadPromptMd}
+                        className="flex-1 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download .md</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyPromptText}
+                        className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-slate-750 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
+                      >
+                        {copiedPrompt ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-600 font-bold">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Copy Prompt</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowPromptModal(true)}
+                        className="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer"
+                        title="View Prompt"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleDownloadPromptMd}
-                      className="flex-1 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download .md</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCopyPromptText}
-                      className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-slate-750 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
-                    >
-                      {copiedPrompt ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-600 font-bold">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Prompt</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
 
-                <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 flex flex-col justify-between space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shrink-0">
-                      <Code2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 flex flex-col justify-between space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shrink-0">
+                        <Code2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-bold text-slate-900 dark:text-white block">
+                          Download Project Source Code (.ZIP)
+                        </span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
+                          Full codebase archive (React components, server, types, configs) for Codex bug checks or manual migration.
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        Download Codebase (.ZIP)
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Full codebase archive for local backup or offline testing.
-                      </span>
+                    <div className="flex items-center space-x-2 pt-1">
+                      <button
+                        type="button"
+                        disabled={isDownloadingZip}
+                        onClick={handleDownloadSourceZip}
+                        className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>{isDownloadingZip ? 'Preparing Zip...' : 'Download Codebase (.ZIP)'}</span>
+                      </button>
                     </div>
-                  </div>
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      disabled={isDownloadingZip}
-                      onClick={handleDownloadSourceZip}
-                      className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{isDownloadingZip ? 'Preparing Zip...' : 'Download Codebase (.ZIP)'}</span>
-                    </button>
                   </div>
                 </div>
               </div>
@@ -1134,35 +1728,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       )}
 
-      {/* Container 6: Supabase Realtime Connection & Status */}
-      {statusObj && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+      {/* Container 6: Firestore Cloud Sync & Real-time Logs */}
+      {firestoreStatus && (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-all">
           <div
             onClick={() => setIsSyncLogsCollapsed(!isSyncLogsCollapsed)}
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 shrink-0">
+              <div className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900 shrink-0">
                 <Database className="w-4 h-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Supabase Database Connection
+                    Cloud Sync Status & Server Logs
                   </h3>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    Realtime Active
-                  </span>
+                  {firestoreStatus.status === 'online' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Live Stream
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Realtime Postgres replication and authoritative cloud database.
+                  Last successful sync timestamps for all collections and cloud databases.
                 </p>
               </div>
             </div>
 
             <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isSyncLogsCollapsed ? '' : 'rotate-180'}`} />
+              <ChevronDown
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  isSyncLogsCollapsed ? '' : 'rotate-180'
+                }`}
+              />
             </div>
           </div>
 
@@ -1171,13 +1771,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                 <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Realtime listeners connected to authoritative Supabase tables.</span>
+                  <span>Real-time listeners updated automatically as data changes.</span>
                 </div>
 
-                {handleOpenStatusModal && (
+                {onOpenFirestoreStatusModal && (
                   <button
                     type="button"
-                    onClick={handleOpenStatusModal}
+                    onClick={onOpenFirestoreStatusModal}
                     className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/60 text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
                   >
                     <Radio className="w-3.5 h-3.5" />
@@ -1187,45 +1787,57 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               {/* Compact Collection Sync List */}
-              {statusObj.collectionLogs && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {Object.entries(statusObj.collectionLogs).map(([tbl, log]: [string, any]) => {
-                    const timeDisplay = log.lastSyncTimestamp
-                      ? new Date(log.lastSyncTimestamp).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                        })
-                      : 'Connected';
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {(Object.values(firestoreStatus.collectionLogs || {}) as CollectionSyncLogEntry[]).map((item) => {
+                  const hasTimestamp = Boolean(item.lastSyncTimestamp);
+                  const timeDisplay = item.lastSyncTimestamp
+                    ? new Date(item.lastSyncTimestamp).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })
+                    : 'Awaiting sync';
 
-                    return (
-                      <div
-                        key={tbl}
-                        className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2"
-                      >
-                        <div className="min-w-0">
-                          <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
-                            {log.displayName || tbl}
-                          </span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
-                            /{tbl}
-                          </span>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <div className="flex items-center justify-end gap-1 text-[11px] font-bold text-slate-800 dark:text-slate-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
-                            <span>{timeDisplay}</span>
-                          </div>
-                          <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
-                            Synced
-                          </span>
-                        </div>
+                  return (
+                    <div
+                      key={item.collection}
+                      className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white block truncate">
+                          {item.displayName}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
+                          /{item.collection} • {item.itemCount} items
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+
+                      <div className="text-right shrink-0">
+                        <div className="flex items-center justify-end gap-1 text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                          {hasTimestamp && <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />}
+                          <span>{timeDisplay}</span>
+                        </div>
+                        <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-400 dark:text-slate-500">
+                          {item.status === 'synced' ? 'Synced' : item.status}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-2 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>Database: Firestore Cloud {firebaseConfig?.projectId ? `(${firebaseConfig.projectId})` : ''}</span>
+                <a
+                  href={firestoreStatus.databaseUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  <span>Firebase Console</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
             </div>
           )}
         </div>

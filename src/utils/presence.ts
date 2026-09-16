@@ -132,10 +132,8 @@ export function getActiveOnlineUsers(currentUser: UserAccount | null, allUsers: 
         existing || {
           id: uId,
           username: info.username,
-          displayName: info.username,
+          passwordHash: '',
           role: 'user',
-          active: true,
-          revision: 1,
           avatar: info.avatar,
           createdAt: new Date().toISOString(),
         }
