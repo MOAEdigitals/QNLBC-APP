@@ -47,34 +47,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// User accounts backup endpoint for cross-device synchronization and offline resilience
-const usersBackupPath = path.join(process.cwd(), 'uploads', 'users_backup.json');
-
-app.get('/api/users-backup', (req, res) => {
-  try {
-    if (fs.existsSync(usersBackupPath)) {
-      const data = JSON.parse(fs.readFileSync(usersBackupPath, 'utf8'));
-      return res.json({ success: true, users: data.users || [] });
-    }
-    return res.json({ success: true, users: [] });
-  } catch (err: any) {
-    return res.json({ success: false, users: [], error: err.message });
-  }
-});
-
-app.post('/api/users-backup', (req, res) => {
-  try {
-    const { users } = req.body;
-    if (Array.isArray(users)) {
-      fs.writeFileSync(usersBackupPath, JSON.stringify({ users, updatedAt: new Date().toISOString() }, null, 2));
-      return res.json({ success: true, count: users.length });
-    }
-    return res.status(400).json({ success: false, error: 'Expected users array' });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 // Storage status check endpoint
 app.get('/api/storage/status', (req, res) => {
   const r2Config = getR2Config();

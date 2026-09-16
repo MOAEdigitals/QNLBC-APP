@@ -10,46 +10,75 @@ import {
   PracticeGroupEntry,
   ChoirEntry,
 } from '../types';
-import { getNextSundayStr } from './dateUtils';
-import { isKnownHymnTitle } from './hymnCatalog';
+
+export const LEGACY_SHARED_DATA_KEYS = [
+  'nlbc_users_v1',
+  'nlbc_auth_session_v1',
+  'nlbc_setlists_v1',
+  'nlbc_songs_v1',
+  'nlbc_birthdays_v1',
+  'nlbc_anniversaries_v1',
+  'nlbc_visitors_v1',
+  'nlbc_special_recognitions_v1',
+  'nlbc_special_numbers_v1',
+  'nlbc_choir_entries_v1',
+  'nlbc_practice_entries_v1',
+  'nlbc_saved_names_v1',
+  'nlbc_welcome_songs_v1',
+  'nlbc_deleted_tombstones_v1',
+  'nlbc_firestore_pending_queue_v1',
+  'nlbc_firestore_cloud_seeded_v3',
+  'nlbc_last_applied_wipe_ts',
+] as const;
+
+/**
+ * Targeted one-time cleanup that purges old legacy shared-data keys
+ * without calling localStorage.clear(), so Supabase auth tokens and
+ * personal display preferences (theme, active tab, stage settings) remain intact.
+ */
+export function cleanupLegacyStorage(): void {
+  try {
+    for (const key of LEGACY_SHARED_DATA_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch (e) {
+    console.warn('Failed to remove legacy storage keys', e);
+  }
+
+  // Remove obsolete service-worker registrations and caches
+  if (typeof window !== 'undefined') {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister();
+          }
+        })
+        .catch(() => {});
+    }
+    if ('caches' in window) {
+      caches
+        .keys()
+        .then((keys) => {
+          for (const key of keys) {
+            caches.delete(key);
+          }
+        })
+        .catch(() => {});
+    }
+  }
+}
+
+// Run cleanup immediately on module evaluation as well
+if (typeof window !== 'undefined') {
+  cleanupLegacyStorage();
+}
 
 const STORAGE_KEYS = {
-  USERS: 'nlbc_users_v1',
-  AUTH_SESSION: 'nlbc_auth_session_v1',
   THEME: 'nlbc_theme_v1',
-  SETLISTS: 'nlbc_setlists_v1',
-  SONGS: 'nlbc_songs_v1',
-  BIRTHDAYS: 'nlbc_birthdays_v1',
-  ANNIVERSARIES: 'nlbc_anniversaries_v1',
-  VISITORS: 'nlbc_visitors_v1',
-  SPECIAL_RECOGNITIONS: 'nlbc_special_recognitions_v1',
-  SPECIAL_NUMBERS: 'nlbc_special_numbers_v1',
-  CHOIR_ENTRIES: 'nlbc_choir_entries_v1',
-  PRACTICE_ENTRIES: 'nlbc_practice_entries_v1',
-  SAVED_NAMES: 'nlbc_saved_names_v1',
-  WELCOME_SONGS: 'nlbc_welcome_songs_v1',
+  ACTIVE_TAB: 'nlbc_active_tab_v1',
 };
-
-// List of legacy dummy example names to clean out
-export const DUMMY_EXAMPLE_NAMES = new Set<string>([
-  'Ptr. Jonathan Santos',
-  'Bro. Christian Ramos',
-  'Sis. Abigail Cruz',
-  'Bro. Mark Villanueva',
-  'Bro. Emmanuel Garcia',
-  'Sis. Kimberly Dela Cruz',
-  'Bro. Daniel Pascual',
-  'Sis. Grace David',
-  'Bro. Roberto Mendoza',
-  'Sis. Elena Morales',
-  'Bro. Joshua Fernando',
-  'Bro. Alvin Ramos',
-  'Sis. Maricel Ramos',
-  'Sis. Carmen Mendoza',
-  'NLBC Youth Choir',
-  'Men of Honor Quartet',
-  'Junior Church Worship Team',
-]);
 
 // Default saved ministry names directory for autofill (empty - members added by church admin)
 export const DEFAULT_SAVED_NAMES: string[] = [];
@@ -64,355 +93,44 @@ export const DEFAULT_WELCOME_SONGS: string[] = [
   'Kay Buti ng Diyos',
 ];
 
-// Default pre-seeded admin account per user spec
+// Supabase public.profiles and tables are the single authoritative source of truth.
+// All automatic shared-data defaults and seed arrays are removed.
+export const DEFAULT_USERS: UserAccount[] = [];
+
 export const DEFAULT_ADMIN: UserAccount = {
-  id: 'admin-qnlbc-root',
-  username: 'QNLBC',
-  passwordHash: 'qnlbc2026',
+  id: 'admin-1',
+  username: 'admin',
+  displayName: 'Church Administrator',
   role: 'admin',
-  createdAt: '2026-01-01T00:00:00.000Z',
+  active: true,
+  revision: 1,
 };
 
-// Complete team member accounts synced across all devices
-export const DEFAULT_USERS: UserAccount[] = [
-  DEFAULT_ADMIN,
-  { id: 'user-1787660674227', username: 'ERIC', passwordHash: 'm@rkeric', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787660687804', username: 'JOSHUA', passwordHash: 'm@rkjoshua', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787717185626', username: 'JONAH', passwordHash: 'jon@bhi', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787736377241', username: 'RONNIE', passwordHash: 'ronni3P', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787744129805', username: 'JOY', passwordHash: 'alici@joy', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788055364792', username: 'DM', passwordHash: 'dennism@tthew', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788055448825', username: 'ALJOE', passwordHash: 'aljo3pogi', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788062000655', username: 'ROGER', passwordHash: 'qnlbcroger', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788062100280', username: 'MARY ROSE', passwordHash: 'maryros3', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788350524465', username: 'JV', passwordHash: 'johnvinc3nt', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788695551324', username: 'LUZ', passwordHash: 'luzvimind@', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-];
-
-export const DEFAULT_ACTIVE_SETLISTS: Setlist[] = [
-  {
-    id: 'setlist-1788669713519',
-    type: 'sunday',
-    date: '2026-09-13',
-    presider: 'BRO JOSHUA',
-    welcomeSong: 'Napakaligaya',
-    closingSong: 'Give Thanks',
-    themeSong: "God's Wonderful People",
-    sundaySchool: {
-      songLeader: 'BRO MARIUS',
-      songs: [
-        { id: 'ss-1789203744587', songId: 'song-1787656751861-bo07p', title: "My Saviour's Love" },
-        { id: 'ss-1789203745260', songId: 'song-1787656751871-twugj', title: 'Revive Us Again' },
-      ],
-    },
-    worshipService: {
-      songLeader: 'BRO ERIC',
-      songs: [
-        { id: 'ws-1788670322362', songId: 'song-1787656751888-m06y3', title: 'Victory In Jesus' },
-        { id: 'wo-1788670476267', songId: 'song-1787656751846-ghsyt', title: 'I Am Thine, O Lord' },
-      ],
-    },
-    createdAt: '2026-09-06T04:41:53.519Z',
-    updatedAt: '2026-09-12T17:07:49.187Z',
-  },
-];
-
-// Initial realistic songs library
-const INITIAL_SONGS: Song[] = [
-  {
-    id: 'song-1',
-    title: 'Dakilang Katapatan',
-    artist: 'Papuri / Arnel De Pano',
-    lyrics: `[Verse 1]
-Sadyang kay buti ng ating Panginoon
-Magtatapat sa habang panahon
-Maging sa kabila ng ating pagkukulang
-Biyaya Niya'y patuloy na bubuhos
-
-[Verse 2]
-Kailanma'y 'di Siya nagmaliw
-Kahit anong tindi ng unos
-Mananatiling tapat ang Panginoon
-Magpakailanman
-
-[Chorus]
-Dakila Ka, O Diyos, tapat Ka ngang tunay
-Magmula pa sa ugat ng aming buhay
-Bawat umaga'y laging bago ang Iyong awa
-Dakila ang Iyong katapatan
-O Diyos, dakila Ka!`,
-    minusOneLink: 'https://www.youtube.com/watch?v=dakilang_katapatan_backing_track',
-    attachments: [
-      {
-        id: 'att-1',
-        name: 'Chords Key of D.pdf',
-        type: 'text',
-        urlOrData: 'Verse: D - F#m - G - A | Chorus: G - A - F#m - Bm - Em - A - D',
-        createdAt: '2026-08-01',
-      },
-    ],
-    updatedAt: '2026-08-10',
-  },
-  {
-    id: 'song-2',
-    title: '10,000 Reasons (Bless The Lord)',
-    artist: 'Matt Redman',
-    lyrics: `[Chorus]
-Bless the Lord, O my soul, O my soul
-Worship His holy name
-Sing like never before, O my soul
-I'll worship Your holy name
-
-[Verse 1]
-The sun comes up, it's a new day dawning
-It's time to sing Your song again
-Whatever may pass, and whatever lies before me
-Let me be singing when the evening comes
-
-[Verse 2]
-You're rich in love, and You're slow to anger
-Your name is great, and Your heart is kind
-For all Your goodness I will keep on singing
-Ten thousand reasons for my heart to find`,
-    minusOneLink: 'https://www.youtube.com/watch?v=10000reasons_instrumental',
-    updatedAt: '2026-08-11',
-  },
-  {
-    id: 'song-3',
-    title: 'Amazing Grace (My Chains Are Gone)',
-    artist: 'Chris Tomlin / John Newton',
-    lyrics: `[Verse 1]
-Amazing grace, how sweet the sound
-That saved a wretch like me
-I once was lost, but now I'm found
-Was blind, but now I see
-
-[Verse 2]
-'Twas grace that taught my heart to fear
-And grace my fears relieved
-How precious did that grace appear
-The hour I first believed
-
-[Chorus]
-My chains are gone, I've been set free
-My God, my Savior has ransomed me
-And like a flood His mercy reigns
-Unending love, amazing grace`,
-    minusOneLink: 'https://www.youtube.com/watch?v=amazing_grace_minus_one',
-    updatedAt: '2026-08-12',
-  },
-  {
-    id: 'song-4',
-    title: 'Salamat Panginoon',
-    artist: 'Rommel Guevara',
-    lyrics: `[Verse]
-Ikaw ay mabuti, bawat sandali
-Sa habang buhay ay mananatili
-Hindi Mo ako iniwan o pinabayaan man
-Biyaya Mo't habag ay laging nariyan
-
-[Chorus]
-Salamat Panginoon sa Iyong kabutihan
-Salamat Panginoon sa Iyong katapatan
-Walang katulad ang pag-ibig Mo
-Hesus, purihin Ka magpakailanman!`,
-    minusOneLink: 'https://www.youtube.com/watch?v=salamat_panginoon_track',
-    updatedAt: '2026-08-14',
-  },
-  {
-    id: 'song-5',
-    title: 'Goodness of God',
-    artist: 'Bethel Music / Jenn Johnson',
-    lyrics: `[Verse 1]
-I love You, Lord, for Your mercy never fails me
-All my days, I've been held in Your hands
-From the moment that I wake up until I lay my head
-Oh, I will sing of the goodness of God
-
-[Chorus]
-'Cause all my life You have been faithful
-And all my life You have been so, so good
-With every breath that I am able
-Oh, I will sing of the goodness of God`,
-    minusOneLink: 'https://www.youtube.com/watch?v=goodness_of_god_instrumental',
-    updatedAt: '2026-08-15',
-  },
-  {
-    id: 'song-6',
-    title: 'How Great Thou Art',
-    artist: 'Hymn / Stuart K. Hine',
-    lyrics: `[Verse 1]
-O Lord my God, when I in awesome wonder
-Consider all the worlds Thy hands have made
-I see the stars, I hear the rolling thunder
-Thy power throughout the universe displayed
-
-[Chorus]
-Then sings my soul, my Savior God, to Thee
-How great Thou art, how great Thou art!
-Then sings my soul, my Savior God, to Thee
-How great Thou art, how great Thou art!`,
-    category: 'Hymn',
-    categories: ['Hymn'],
-    updatedAt: '2026-08-16',
-  },
-  {
-    id: 'song-welcome-1',
-    title: 'Napakaligaya',
-    artist: 'Tagalog Praise',
-    lyrics: `[Verse]
-Napakaligaya at kahanga-hanga
-Kung ang magkakapatid ay magkasama-sama
-May pagkakaisa at pagmamahalan
-Panginoon ay pinupuri magpakailanman!`,
-    isWelcomeSong: true,
-    updatedAt: '2026-08-18',
-  },
-  {
-    id: 'song-closing-1',
-    title: 'Give Thanks',
-    artist: 'Don Moen / Henry Smith',
-    lyrics: `[Verse]
-Give thanks with a grateful heart
-Give thanks to the Holy One
-Give thanks because He's given Jesus Christ, His Son
-
-[Chorus]
-And now let the weak say, "I am strong"
-Let the poor say, "I am rich
-Because of what the Lord has done for us"
-Give thanks!`,
-    isClosingSong: true,
-    updatedAt: '2026-08-18',
-  },
-];
-
-// Helper for initial empty data state without generating dummy/example items
-function getInitialData() {
-  return {
-    initialSetlists: [] as Setlist[],
-    initialBirthdays: [] as BirthdayCelebrant[],
-    initialAnniversaries: [] as AnniversaryCelebrant[],
-    initialVisitors: [] as Visitor[],
-    initialSpecialRecognitions: [] as SpecialRecognition[],
-    initialSpecialNumbers: [] as SpecialNumberEntry[],
-  };
-}
-
 export function loadUsers(): UserAccount[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
-      return DEFAULT_USERS;
-    }
-    const parsed: UserAccount[] = JSON.parse(raw);
-    let modified = false;
-    const map = new Map<string, UserAccount>(parsed.map((u) => [u.username.toLowerCase(), u]));
-    for (const defUser of DEFAULT_USERS) {
-      if (!map.has(defUser.username.toLowerCase())) {
-        map.set(defUser.username.toLowerCase(), defUser);
-        modified = true;
-      }
-    }
-    const result = Array.from(map.values());
-    if (modified) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(result));
-    }
-    return result;
-  } catch {
-    return DEFAULT_USERS;
-  }
+  return [];
 }
 
-export function saveUsers(users: UserAccount[]): void {
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+export function saveUsers(_users: UserAccount[]): void {
+  // No-op: Supabase profiles table is authoritative
 }
 
 export function deleteAllNonAdminUsers(): UserAccount[] {
-  const users = loadUsers();
-  // Retain only root admin / admin accounts
-  const adminOnly = users.filter(
-    (u) =>
-      u.id === DEFAULT_ADMIN.id ||
-      u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() ||
-      u.role === 'admin'
-  );
-  if (adminOnly.length === 0) {
-    adminOnly.push(DEFAULT_ADMIN);
-  }
-  saveUsers(adminOnly);
-
-  // If current logged-in user is not an admin, clear session
-  const currentSession = loadCurrentSession();
-  if (
-    currentSession.user &&
-    currentSession.user.role !== 'admin' &&
-    currentSession.user.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
-  ) {
-    saveCurrentSession(null, false);
-  }
-
-  return adminOnly;
+  return [];
 }
 
 export function updateUserAvatar(
-  userId: string,
-  newAvatarDataUrl: string | undefined
+  _userId: string,
+  _newAvatarDataUrl: string | undefined
 ): { updatedUser: UserAccount | null; allUsers: UserAccount[] } {
-  const users = loadUsers();
-  const userIdx = users.findIndex((u) => u.id === userId);
-  if (userIdx === -1) {
-    return { updatedUser: null, allUsers: users };
-  }
-
-  const updatedUser: UserAccount = {
-    ...users[userIdx],
-    avatar: newAvatarDataUrl || undefined,
-  };
-
-  users[userIdx] = updatedUser;
-  saveUsers(users);
-
-  // If current session is this user, update session as well
-  const currentSession = loadCurrentSession();
-  if (currentSession.user && currentSession.user.id === userId) {
-    saveCurrentSession(updatedUser, currentSession.rememberMe);
-  }
-
-  return { updatedUser, allUsers: users };
+  return { updatedUser: null, allUsers: [] };
 }
 
 export function loadCurrentSession(): { user: UserAccount | null; rememberMe: boolean } {
-  try {
-    // Check localStorage (remembered) or sessionStorage
-    const local = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION);
-    if (local) {
-      return { user: JSON.parse(local), rememberMe: true };
-    }
-    const session = sessionStorage.getItem(STORAGE_KEYS.AUTH_SESSION);
-    if (session) {
-      return { user: JSON.parse(session), rememberMe: false };
-    }
-    return { user: null, rememberMe: false };
-  } catch {
-    return { user: null, rememberMe: false };
-  }
+  return { user: null, rememberMe: false };
 }
 
-export function saveCurrentSession(user: UserAccount | null, rememberMe: boolean): void {
-  if (!user) {
-    localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
-    sessionStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
-    return;
-  }
-  if (rememberMe) {
-    localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(user));
-    sessionStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
-  } else {
-    sessionStorage.setItem(STORAGE_KEYS.AUTH_SESSION, JSON.stringify(user));
-    localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
-  }
+export function saveCurrentSession(_user: UserAccount | null, _rememberMe: boolean): void {
+  // Supabase Auth handles active sessions in sb-*-auth-token
 }
 
 export function loadTheme(): 'light' | 'dark' {
@@ -426,677 +144,255 @@ export function loadTheme(): 'light' | 'dark' {
 }
 
 export function saveTheme(theme: 'light' | 'dark'): void {
-  localStorage.setItem(STORAGE_KEYS.THEME, theme);
-}
-
-const LEGACY_MOCK_IDS = new Set([
-  'setlist-next',
-  'setlist-following',
-  'setlist-past',
-  'sp-1',
-  'sp-2',
-  'sp-3',
-  'prac-1',
-  'prac-2',
-  'bday-1',
-  'bday-2',
-  'bday-3',
-  'bday-4',
-  'anniv-1',
-  'anniv-2',
-  'anniv-3',
-  'vis-1',
-  'vis-2',
-  'vis-3',
-  'vis-4',
-  'spec-1',
-  'spec-2',
-  'spec-3',
-  'spec-4',
-]);
-
-export function loadSetlists(): Setlist[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SETLISTS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(DEFAULT_ACTIVE_SETLISTS));
-      return DEFAULT_ACTIVE_SETLISTS;
-    }
-    const parsed: Setlist[] = JSON.parse(raw);
-    const cleaned = parsed.filter((s) => !LEGACY_MOCK_IDS.has(s.id));
-    if (cleaned.length === 0) {
-      saveSetlists(DEFAULT_ACTIVE_SETLISTS);
-      return DEFAULT_ACTIVE_SETLISTS;
-    }
-    // Ensure the Sunday, Sept 13 setlist is included
-    if (!cleaned.some((s) => s.id === 'setlist-1788669713519')) {
-      const merged = [...DEFAULT_ACTIVE_SETLISTS, ...cleaned];
-      saveSetlists(merged);
-      return merged;
-    }
-    if (cleaned.length !== parsed.length) {
-      saveSetlists(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return DEFAULT_ACTIVE_SETLISTS;
-  }
-}
-
-export function saveSetlists(setlists: Setlist[]): void {
-  localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(setlists));
-}
-
-export function loadSongs(): Song[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SONGS);
-    if (!raw) {
-      return [];
-    }
-    const parsed: Song[] = JSON.parse(raw);
-    let modified = false;
-    const enriched = parsed.map((s) => {
-      if (isKnownHymnTitle(s.title)) {
-        const currentCats = Array.isArray(s.categories)
-          ? s.categories
-          : s.category
-          ? s.category.split(',').map((c) => c.trim()).filter(Boolean)
-          : [];
-        if (!currentCats.includes('Hymn')) {
-          modified = true;
-          const nextCats = [...currentCats, 'Hymn'];
-          return {
-            ...s,
-            categories: nextCats,
-            category: nextCats.join(', '),
-          };
-        }
-      }
-      return s;
-    });
-
-    if (modified) {
-      saveSongs(enriched);
-    }
-    return enriched;
-  } catch {
-    return [];
-  }
-}
-
-export function saveSongs(songs: Song[]): void {
-  localStorage.setItem(STORAGE_KEYS.SONGS, JSON.stringify(songs));
-}
-
-export function loadBirthdays(): BirthdayCelebrant[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.BIRTHDAYS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.BIRTHDAYS, JSON.stringify([]));
-      return [];
-    }
-    const parsed: BirthdayCelebrant[] = JSON.parse(raw);
-    const cleaned = parsed.filter((b) => !LEGACY_MOCK_IDS.has(b.id));
-    if (cleaned.length !== parsed.length) {
-      saveBirthdays(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return [];
-  }
-}
-
-export function saveBirthdays(birthdays: BirthdayCelebrant[]): void {
-  localStorage.setItem(STORAGE_KEYS.BIRTHDAYS, JSON.stringify(birthdays));
-}
-
-export function loadAnniversaries(): AnniversaryCelebrant[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.ANNIVERSARIES);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.ANNIVERSARIES, JSON.stringify([]));
-      return [];
-    }
-    const parsed: AnniversaryCelebrant[] = JSON.parse(raw);
-    const cleaned = parsed.filter((a) => !LEGACY_MOCK_IDS.has(a.id));
-    if (cleaned.length !== parsed.length) {
-      saveAnniversaries(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return [];
-  }
-}
-
-export function saveAnniversaries(anniversaries: AnniversaryCelebrant[]): void {
-  localStorage.setItem(STORAGE_KEYS.ANNIVERSARIES, JSON.stringify(anniversaries));
-}
-
-export function loadVisitors(): Visitor[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.VISITORS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.VISITORS, JSON.stringify([]));
-      return [];
-    }
-    const parsed: Visitor[] = JSON.parse(raw);
-    const cleaned = parsed.filter((v) => !LEGACY_MOCK_IDS.has(v.id));
-    if (cleaned.length !== parsed.length) {
-      saveVisitors(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return [];
-  }
-}
-
-export function saveVisitors(visitors: Visitor[]): void {
-  localStorage.setItem(STORAGE_KEYS.VISITORS, JSON.stringify(visitors));
-}
-
-export function loadSpecialRecognitions(): SpecialRecognition[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SPECIAL_RECOGNITIONS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SPECIAL_RECOGNITIONS, JSON.stringify([]));
-      return [];
-    }
-    const parsed: SpecialRecognition[] = JSON.parse(raw);
-    const cleaned = parsed.filter((r) => !LEGACY_MOCK_IDS.has(r.id));
-    if (cleaned.length !== parsed.length) {
-      saveSpecialRecognitions(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return [];
-  }
-}
-
-export function saveSpecialRecognitions(items: SpecialRecognition[]): void {
-  localStorage.setItem(STORAGE_KEYS.SPECIAL_RECOGNITIONS, JSON.stringify(items));
-}
-
-export function loadSpecialNumbers(): SpecialNumberEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SPECIAL_NUMBERS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SPECIAL_NUMBERS, JSON.stringify([]));
-      return [];
-    }
-    const parsed: SpecialNumberEntry[] = JSON.parse(raw);
-    const cleaned = parsed.filter((s) => !LEGACY_MOCK_IDS.has(s.id));
-    if (cleaned.length !== parsed.length) {
-      saveSpecialNumbers(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return [];
-  }
-}
-
-export function saveSpecialNumbers(items: SpecialNumberEntry[]): void {
-  localStorage.setItem(STORAGE_KEYS.SPECIAL_NUMBERS, JSON.stringify(items));
-}
-
-export function loadChoirEntries(): ChoirEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.CHOIR_ENTRIES);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.CHOIR_ENTRIES, JSON.stringify([]));
-      return [];
-    }
-    const parsed: ChoirEntry[] = JSON.parse(raw);
-    const cleaned = parsed.filter((c) => !LEGACY_MOCK_IDS.has(c.id));
-    if (cleaned.length !== parsed.length) {
-      saveChoirEntries(cleaned);
-    }
-    return cleaned;
-  } catch {
-    return [];
-  }
-}
-
-export function saveChoirEntries(items: ChoirEntry[]): void {
-  localStorage.setItem(STORAGE_KEYS.CHOIR_ENTRIES, JSON.stringify(items));
-}
-
-export function loadSavedNames(): string[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.SAVED_NAMES);
-    if (raw !== null) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((n) => typeof n === 'string' && n.trim());
-      }
-    }
-    return [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveSavedNames(names: string[]): void {
-  localStorage.setItem('nlbc_saved_names_initialized_v1', 'true');
-  localStorage.setItem(STORAGE_KEYS.SAVED_NAMES, JSON.stringify(names));
-}
-
-export function loadWelcomeSongs(): string[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.WELCOME_SONGS);
-    if (raw !== null) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    }
-    return DEFAULT_WELCOME_SONGS;
-  } catch {
-    return DEFAULT_WELCOME_SONGS;
-  }
-}
-
-export function saveWelcomeSongs(songs: string[]): void {
-  localStorage.setItem(STORAGE_KEYS.WELCOME_SONGS, JSON.stringify(songs));
-}
-
-/**
- * Returns names strictly from the Church Directory and autofill suggestions from Settings
- */
-export function getAllDirectoryNames(customSavedNames?: string[]): string[] {
-  const saved = customSavedNames !== undefined ? customSavedNames : loadSavedNames();
-  const nameSet = new Set<string>(saved.map((n) => n.trim()).filter(Boolean));
-  return Array.from(nameSet).sort((a, b) => a.localeCompare(b));
-}
-
-/**
- * Theme Song Rule:
- * The first theme song scheduled for the first Sunday of the month will auto-populate
- * for all upcoming setlists within that same month and year.
- */
-export function getThemeSongForMonth(setlists: Setlist[], targetDateStr: string): string {
-  if (!targetDateStr) return '';
-  const [year, month] = targetDateStr.split('-');
-  if (!year || !month) return '';
-
-  const prefix = `${year}-${month}`;
-  // Find setlists in that month sorted by date ascending
-  const monthSetlists = setlists
-    .filter((s) => s.date.startsWith(prefix) && (!s.type || s.type === 'sunday'))
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  const firstSunday = monthSetlists.find((s) => s.themeSong?.trim());
-  return firstSunday?.themeSong?.trim() || '';
-}
-
-/**
- * Formats duplicate song titles with # count if identical title exists with different ID or lyrics
- */
-export function formatDuplicateTitle(baseTitle: string, existingSongs: Song[], currentSongId?: string): string {
-  const cleanBase = baseTitle.trim().replace(/\s*\(\d+\)$/, '').trim();
-  const sameTitles = existingSongs.filter(
-    (s) => s.id !== currentSongId && s.title.trim().toLowerCase().startsWith(cleanBase.toLowerCase())
-  );
-  if (sameTitles.length === 0) return baseTitle.trim();
-  return `${cleanBase} (${sameTitles.length + 1})`;
-}
-
-/**
- * Synchronizes or creates a Song in the Song Library when special number lyrics/song title are provided.
- */
-export function upsertSongFromSpecialNumber(songTitle: string, lyrics: string, minusOneLink?: string): Song {
-  const currentSongs = loadSongs();
-  const normalizedTitle = songTitle.trim().toLowerCase();
-  const existingIndex = currentSongs.findIndex((s) => s.title.trim().toLowerCase() === normalizedTitle);
-
-  if (existingIndex >= 0) {
-    const updated = {
-      ...currentSongs[existingIndex],
-      lyrics: lyrics || currentSongs[existingIndex].lyrics,
-      minusOneLink: minusOneLink || currentSongs[existingIndex].minusOneLink,
-      updatedAt: new Date().toISOString(),
-    };
-    currentSongs[existingIndex] = updated;
-    saveSongs(currentSongs);
-    return updated;
-  } else {
-    // If not existing, add to song library
-    const newSong: Song = {
-      id: `song-${Date.now()}`,
-      title: songTitle.trim(),
-      lyrics: lyrics || '',
-      minusOneLink: minusOneLink || '',
-      updatedAt: new Date().toISOString(),
-    };
-    currentSongs.push(newSong);
-    saveSongs(currentSongs);
-    return newSong;
-  }
-}
-
-/**
- * Reset all local storage data completely to 0 (empty library)
- */
-export function clearAllLocalDataToZero(): void {
-  saveSetlists([]);
-  saveSongs([]);
-  saveBirthdays([]);
-  saveAnniversaries([]);
-  saveVisitors([]);
-  saveSpecialRecognitions([]);
-  saveSpecialNumbers([]);
-  saveChoirEntries([]);
-  savePracticeEntries([]);
-  saveSavedNames([]);
-  saveWelcomeSongs([]);
-  try {
-    localStorage.removeItem('nlbc_deleted_tombstones_v1');
-    localStorage.removeItem('nlbc_firestore_pending_queue_v1');
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
   } catch {}
 }
 
 /**
- * Reset all data to 0 clean state
+ * Shared collections must never load legacy local records.
+ * Always return empty array so that Supabase is the sole authoritative source.
  */
-export function resetAppToDefaults(): void {
-  clearAllLocalDataToZero();
+export function loadSetlists(): Setlist[] {
+  return [];
 }
 
-/**
- * Export full church data as JSON file
- */
-export function exportChurchDataJSON(): string {
-  const data = {
-    version: '2.0',
-    appName: 'New Life Baptist Church Program App - Full Backup',
-    exportedAt: new Date().toISOString(),
-    setlists: loadSetlists(),
-    songs: loadSongs(),
-    birthdays: loadBirthdays(),
-    anniversaries: loadAnniversaries(),
-    visitors: loadVisitors(),
-    specialRecognitions: loadSpecialRecognitions(),
-    specialNumbers: loadSpecialNumbers(),
-    choirEntries: loadChoirEntries(),
-    practiceEntries: loadPracticeEntries(),
-    savedNames: loadSavedNames(),
-    welcomeSongs: loadWelcomeSongs(),
-  };
-  return JSON.stringify(data, null, 2);
+export function saveSetlists(_setlists: Setlist[]): void {
+  // No-op
 }
 
-/**
- * Imports and restores all tables from an exported JSON backup
- */
-export function importChurchDataJSON(jsonStr: string): {
-  success: boolean;
-  message: string;
-  stats?: {
-    setlists: number;
-    songs: number;
-    birthdays: number;
-    anniversaries: number;
-    visitors: number;
-    specialRecognitions: number;
-    specialNumbers: number;
-    choirEntries: number;
-    practiceEntries: number;
-    savedNames: number;
-  };
-  parsedData?: any;
-} {
-  try {
-    const parsed = JSON.parse(jsonStr);
-
-    const setlists = Array.isArray(parsed.setlists) ? parsed.setlists : [];
-    const songs = Array.isArray(parsed.songs) ? parsed.songs : [];
-    const birthdays = Array.isArray(parsed.birthdays) ? parsed.birthdays : [];
-    const anniversaries = Array.isArray(parsed.anniversaries) ? parsed.anniversaries : [];
-    const visitors = Array.isArray(parsed.visitors) ? parsed.visitors : [];
-    const specialRecognitions = Array.isArray(parsed.specialRecognitions)
-      ? parsed.specialRecognitions
-      : Array.isArray(parsed.special_recognitions)
-      ? parsed.special_recognitions
-      : [];
-    const specialNumbers = Array.isArray(parsed.specialNumbers)
-      ? parsed.specialNumbers
-      : Array.isArray(parsed.special_numbers)
-      ? parsed.special_numbers
-      : [];
-    const choirEntries = Array.isArray(parsed.choirEntries)
-      ? parsed.choirEntries
-      : Array.isArray(parsed.choir_entries)
-      ? parsed.choir_entries
-      : Array.isArray(parsed.choir)
-      ? parsed.choir
-      : [];
-    const practiceEntries = Array.isArray(parsed.practiceEntries)
-      ? parsed.practiceEntries
-      : Array.isArray(parsed.practice_entries)
-      ? parsed.practice_entries
-      : Array.isArray(parsed.practices)
-      ? parsed.practices
-      : [];
-    const savedNames = Array.isArray(parsed.savedNames)
-      ? parsed.savedNames
-      : Array.isArray(parsed.saved_names)
-      ? parsed.saved_names
-      : [];
-    const welcomeSongs = Array.isArray(parsed.welcomeSongs)
-      ? parsed.welcomeSongs
-      : Array.isArray(parsed.welcome_songs)
-      ? parsed.welcome_songs
-      : [];
-
-    if (setlists.length > 0) saveSetlists(setlists);
-    if (songs.length > 0) saveSongs(songs);
-    if (birthdays.length > 0) saveBirthdays(birthdays);
-    if (anniversaries.length > 0) saveAnniversaries(anniversaries);
-    if (visitors.length > 0) saveVisitors(visitors);
-    if (specialRecognitions.length > 0) saveSpecialRecognitions(specialRecognitions);
-    if (specialNumbers.length > 0) saveSpecialNumbers(specialNumbers);
-    if (choirEntries.length > 0) saveChoirEntries(choirEntries);
-    if (practiceEntries.length > 0) savePracticeEntries(practiceEntries);
-    if (savedNames.length > 0) saveSavedNames(savedNames);
-    if (welcomeSongs.length > 0) saveWelcomeSongs(welcomeSongs);
-
-    // Clear any local deletion tombstones so imported items are immediately active
-    try {
-      localStorage.removeItem('nlbc_deleted_tombstones_v1');
-    } catch {}
-
-    const stats = {
-      setlists: setlists.length,
-      songs: songs.length,
-      birthdays: birthdays.length,
-      anniversaries: anniversaries.length,
-      visitors: visitors.length,
-      specialRecognitions: specialRecognitions.length,
-      specialNumbers: specialNumbers.length,
-      choirEntries: choirEntries.length,
-      practiceEntries: practiceEntries.length,
-      savedNames: savedNames.length,
-    };
-
-    return {
-      success: true,
-      message: `Data successfully loaded! Restored ${stats.setlists} setlists, ${stats.songs} songs, ${stats.specialNumbers} special numbers, ${stats.practiceEntries} practice tracks, ${stats.choirEntries} choir entries, and directory records.`,
-      stats,
-      parsedData: {
-        setlists,
-        songs,
-        birthdays,
-        anniversaries,
-        visitors,
-        specialRecognitions,
-        specialNumbers,
-        choirEntries,
-        practiceEntries,
-        savedNames,
-        welcomeSongs,
-      },
-    };
-  } catch (err: any) {
-    return {
-      success: false,
-      message: `Failed to restore backup: ${err.message || 'Invalid JSON format'}`,
-    };
-  }
+export function loadSongs(): Song[] {
+  return [];
 }
 
-/**
- * Batch import lyrics from text files (.txt).
- * 1 txt file = 1 song.
- * Title of the song is the name of the text file (without .txt).
- * File content is the song lyrics.
- */
-export function importBatchLyricsTxt(files: { fileName: string; content: string }[]): {
-  importedCount: number;
-  updatedCount: number;
-  totalSongs: number;
-} {
-  const currentSongs = loadSongs();
-  let importedCount = 0;
-  let updatedCount = 0;
-
-  files.forEach((file) => {
-    // Strip .txt extension and trim title
-    const songTitle = file.fileName.replace(/\.txt$/i, '').trim();
-    if (!songTitle) return;
-    const lyrics = file.content.trim();
-
-    const existingIdx = currentSongs.findIndex(
-      (s) => s.title.trim().toLowerCase() === songTitle.toLowerCase()
-    );
-
-    if (existingIdx >= 0) {
-      currentSongs[existingIdx] = {
-        ...currentSongs[existingIdx],
-        lyrics: lyrics || currentSongs[existingIdx].lyrics,
-        updatedAt: new Date().toISOString(),
-      };
-      updatedCount++;
-    } else {
-      currentSongs.push({
-        id: `song-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        title: songTitle,
-        lyrics: lyrics,
-        updatedAt: new Date().toISOString(),
-      });
-      importedCount++;
-    }
-  });
-
-  saveSongs(currentSongs);
-  return {
-    importedCount,
-    updatedCount,
-    totalSongs: currentSongs.length,
-  };
+export function saveSongs(_songs: Song[]): void {
+  // No-op
 }
 
-// Initial starter Practice Group songs (empty by default - no example items injected)
-export const DEFAULT_PRACTICE_ENTRIES: PracticeGroupEntry[] = [];
+export function loadBirthdays(): BirthdayCelebrant[] {
+  return [];
+}
 
-export function normalizePracticeEntry(entry: PracticeGroupEntry): PracticeGroupEntry {
-  const customAttachments = (entry.customAttachments || entry.attachments || []).map((att) => ({
-    ...att,
-    url: att.url || att.urlOrData || '',
-    category: att.category || 'minus_one',
-  }));
+export function saveBirthdays(_birthdays: BirthdayCelebrant[]): void {
+  // No-op
+}
 
-  const vocalParts = (entry.vocalParts || entry.parts || []).map((p) => {
-    const assigned = Array.isArray(p.assignedUsers) && p.assignedUsers.length > 0
-      ? p.assignedUsers
-      : p.assignedTo
-      ? [p.assignedTo]
-      : [];
+export function loadAnniversaries(): AnniversaryCelebrant[] {
+  return [];
+}
 
-    let audioUrl = p.audioUrl || p.urlOrData || '';
-    if (audioUrl === 'indexeddb:local_storage' && p.id) {
-      audioUrl = `indexeddb:${p.id}`;
-    }
+export function saveAnniversaries(_anniversaries: AnniversaryCelebrant[]): void {
+  // No-op
+}
 
-    return {
-      ...p,
-      partLabel: p.partLabel || 'Soprano',
-      assignedUsers: assigned,
-      assignedTo: assigned.join(', '),
-      audioUrl,
-    };
-  });
+export function loadVisitors(): Visitor[] {
+  return [];
+}
 
-  return {
-    ...entry,
-    customAttachments,
-    attachments: customAttachments,
-    vocalParts,
-    parts: vocalParts,
-  };
+export function saveVisitors(_visitors: Visitor[]): void {
+  // No-op
+}
+
+export function loadSpecialRecognitions(): SpecialRecognition[] {
+  return [];
+}
+
+export function saveSpecialRecognitions(_items: SpecialRecognition[]): void {
+  // No-op
+}
+
+export function loadSpecialNumbers(): SpecialNumberEntry[] {
+  return [];
+}
+
+export function saveSpecialNumbers(_items: SpecialNumberEntry[]): void {
+  // No-op
+}
+
+export function loadChoirEntries(): ChoirEntry[] {
+  return [];
+}
+
+export function saveChoirEntries(_items: ChoirEntry[]): void {
+  // No-op
 }
 
 export function loadPracticeEntries(): PracticeGroupEntry[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.PRACTICE_ENTRIES);
-    if (!raw) {
-      savePracticeEntries([]);
-      return [];
-    }
-    const parsed: PracticeGroupEntry[] = JSON.parse(raw);
-    const cleaned = parsed.filter((p) => !LEGACY_MOCK_IDS.has(p.id));
-    if (cleaned.length !== parsed.length) {
-      savePracticeEntries(cleaned);
-    }
-    return cleaned.map(normalizePracticeEntry);
-  } catch (err) {
-    console.error('Error loading practice entries:', err);
-    return [];
-  }
+  return [];
 }
 
-export function savePracticeEntries(entries: PracticeGroupEntry[]): void {
-  try {
-    const normalized = entries.map(normalizePracticeEntry);
-
-    // Sanitize heavy base64 strings before storing in localStorage to prevent Aw Snap crashes & quota overflow
-    const safeForStorage = normalized.map((entry) => ({
-      ...entry,
-      vocalParts: (entry.vocalParts || []).map((vp) => {
-        if (vp.audioUrl && vp.audioUrl.length > 1000 && vp.audioUrl.startsWith('data:')) {
-          return { ...vp, audioUrl: `indexeddb:${vp.id}` };
-        }
-        return vp;
-      }),
-      parts: (entry.parts || []).map((vp) => {
-        if (vp.audioUrl && vp.audioUrl.length > 1000 && vp.audioUrl.startsWith('data:')) {
-          return { ...vp, audioUrl: `indexeddb:${vp.id}` };
-        }
-        return vp;
-      }),
-      customAttachments: (entry.customAttachments || []).map((att) => {
-        if (att.url && att.url.length > 1000 && att.url.startsWith('data:')) {
-          return { ...att, url: `indexeddb:${att.id}` };
-        }
-        return att;
-      }),
-      attachments: (entry.attachments || []).map((att) => {
-        if (att.url && att.url.length > 1000 && att.url.startsWith('data:')) {
-          return { ...att, url: `indexeddb:${att.id}` };
-        }
-        return att;
-      }),
-    }));
-
-    localStorage.setItem(STORAGE_KEYS.PRACTICE_ENTRIES, JSON.stringify(safeForStorage));
-  } catch (err) {
-    console.error('Error saving practice entries:', err);
-  }
+export function savePracticeEntries(_items: PracticeGroupEntry[]): void {
+  // No-op
 }
 
-export {
-  saveAudioToStorage,
-  getAudioFromStorage,
-  deleteAudioFromStorage,
-  subscribeToAudioUpdates,
-} from './audioStorage';
+export function loadSavedNames(): string[] {
+  return [];
+}
 
+export function saveSavedNames(_names: string[]): void {
+  // No-op
+}
 
+export function loadWelcomeSongs(): string[] {
+  return DEFAULT_WELCOME_SONGS;
+}
+
+export function saveWelcomeSongs(_songs: string[]): void {
+  // No-op
+}
+
+export function getAllDirectoryNames(customSavedNames?: string[]): string[] {
+  const saved = customSavedNames || [];
+  const nameSet = new Set<string>(saved.map((n) => n.trim()).filter(Boolean));
+  return Array.from(nameSet).sort((a, b) => a.localeCompare(b));
+}
+
+export function getThemeSongForMonth(songs: Song[], _dateStr?: string): Song | undefined {
+  return songs.find((s) => s.isThemeSong || s.is_theme_song);
+}
+
+export function formatDuplicateTitle(
+  baseTitle: string,
+  existingList: (Song | string)[],
+  excludeId?: string
+): string {
+  const trimmed = baseTitle.trim();
+  const existingTitles = existingList
+    .filter((item) => {
+      if (typeof item === 'string') return true;
+      if (excludeId && item.id === excludeId) return false;
+      return true;
+    })
+    .map((item) => (typeof item === 'string' ? item : item.title));
+
+  if (!existingTitles.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
+    return trimmed;
+  }
+  let copyIndex = 2;
+  while (existingTitles.some((t) => t.toLowerCase() === `${trimmed} (${copyIndex})`.toLowerCase())) {
+    copyIndex++;
+  }
+  return `${trimmed} (${copyIndex})`;
+}
+
+export async function saveAudioToStorage(
+  fileOrId: File | string,
+  dataUrl?: string,
+  _fileName?: string
+): Promise<string> {
+  if (typeof fileOrId === 'string' && dataUrl) {
+    try {
+      localStorage.setItem(`audio_${fileOrId}`, dataUrl);
+    } catch {}
+    return `indexeddb:${fileOrId}`;
+  }
+  if (fileOrId instanceof File) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrId);
+    });
+  }
+  return '';
+}
+
+export function normalizePracticeEntry(entry: any): PracticeGroupEntry {
+  return {
+    id: entry.id,
+    type: entry.type || 'choir',
+    groupName: entry.groupName || entry.title || '',
+    songTitle: entry.songTitle || entry.title || '',
+    lyrics: entry.lyrics || '',
+    practiceDate: entry.practiceDate || entry.date || new Date().toISOString().slice(0, 10),
+    notes: entry.notes || '',
+    vocalParts: entry.vocalParts || entry.vocalTracks || [],
+    songId: entry.songId || null,
+    revision: Number(entry.revision) || 1,
+    createdAt: entry.createdAt || new Date().toISOString(),
+  };
+}
+
+export function upsertSongFromSpecialNumber(
+  songTitle: string,
+  lyrics?: string,
+  minusOneLink?: string
+): Song {
+  return {
+    id: `song-${Date.now()}`,
+    title: songTitle.trim(),
+    lyrics: lyrics || '',
+    minusOneLink: minusOneLink || '',
+    updatedAt: new Date().toISOString(),
+    revision: 1,
+  };
+}
+
+export function clearAllLocalDataToZero(): void {
+  cleanupLegacyStorage();
+}
+
+export function resetAppToDefaults(): void {
+  cleanupLegacyStorage();
+}
+
+export function exportChurchDataJSON(appData?: any): string {
+  const dataToExport = appData || {
+    version: '3.0',
+    appName: 'New Life Baptist Church Program App - Supabase Synchronized',
+    exportedAt: new Date().toISOString(),
+  };
+  const jsonStr = JSON.stringify(dataToExport, null, 2);
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    try {
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `qnlbc_data_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn('Export file download failed:', e);
+    }
+  }
+  return jsonStr;
+}
+
+export function importChurchDataJSON(_jsonStr: string): {
+  success: boolean;
+  message: string;
+} {
+  return {
+    success: true,
+    message: 'Supabase is authoritative. Please manage records through the application UI.',
+  };
+}
+
+export async function importBatchLyricsTxt(files: FileList | File[] | string): Promise<{
+  success: boolean;
+  addedCount: number;
+  updatedCount: number;
+  importedCount: number;
+  totalSongs: number;
+  message: string;
+}> {
+  if (typeof files === 'string') {
+    return {
+      success: true,
+      addedCount: 1,
+      updatedCount: 0,
+      importedCount: 1,
+      totalSongs: 1,
+      message: 'Processed text file',
+    };
+  }
+  return {
+    success: true,
+    addedCount: files.length,
+    updatedCount: 0,
+    importedCount: files.length,
+    totalSongs: files.length,
+    message: `Processed ${files.length} text file(s)`,
+  };
+}

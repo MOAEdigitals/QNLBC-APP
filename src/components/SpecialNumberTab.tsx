@@ -28,7 +28,6 @@ import {
   deleteAudioFromStorage,
 } from '../utils/audioStorage';
 import { uploadMediaToCloudStorage, syncLocalAudioToCloud } from '../services/cloudMediaStorage';
-import { isItemTombstoned } from '../firestoreSync';
 import {
   resolveMediaUrl,
   getYouTubeEmbedUrl,
@@ -1157,10 +1156,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
 
     // If song is not in the library, save it to the Songs library only if:
-    // 1. This is a brand new practice entry (not an edit of existing practice where song was deleted)
-    // 2. The song is not tombstoned as deleted
-    const isSongTombstoned = effectiveSongId ? isItemTombstoned('songs', effectiveSongId) : false;
-    if (!matchedSong && onSaveSong && !isEditingPractice && !isSongTombstoned) {
+    // This is a brand new practice entry (not an edit of existing practice where song was deleted)
+    if (!matchedSong && onSaveSong && !isEditingPractice) {
       const newSong: Song = {
         id: `song-${Date.now()}`,
         title: trimmedTitle,
