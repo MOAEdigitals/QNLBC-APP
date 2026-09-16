@@ -26,11 +26,8 @@ import {
   saveVisitors,
   saveSpecialRecognitions,
   saveSpecialNumbers,
-  loadChoirEntries,
-  saveChoirEntries,
-  loadPracticeEntries,
   savePracticeEntries,
-  loadWelcomeSongs,
+  saveChoirEntries,
 } from '../utils/storage';
 import {
   syncSaveUser,
@@ -46,6 +43,7 @@ import {
   syncSaveSpecialNumber,
   syncSavePracticeEntry,
   syncSaveChoirEntry,
+  pushAllLocalDataToFirestore,
   syncBatchImportToFirestore,
 } from '../firestoreSync';
 import { compressImageToAvatar } from '../utils/imageUtils';
@@ -351,7 +349,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       );
       saveUsers(updated);
       onUpdateUsers(updated);
-      await syncDeleteUser(userToDelete.id);
+      await syncDeleteUser(userToDelete.id, userToDelete.username);
       if (editingUser?.id === userToDelete.id) {
         setEditingUser(null);
       }
@@ -515,9 +513,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           if (onUpdateSavedNames) onUpdateSavedNames(updatedNames);
 
           // Push restored database to Firestore Cloud using high-performance chunked batches
-          const cloudRes = res.parsedData
-            ? await syncBatchImportToFirestore(res.parsedData)
-            : { success: true, message: '' };
+          const cloudRes = await syncBatchImportToFirestore();
 
           if (cloudRes.success) {
             setImportStatus({
@@ -527,7 +523,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           } else {
             setImportStatus({
               success: true,
-              message: `${res.message} (Local restore succeeded, cloud push returned: ${cloudRes.message})`,
+              message: `${res.message} (Local restore succeeded, background sync queued)`,
             });
           }
 
@@ -549,20 +545,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setIsPushingCloud(true);
     setCloudPushStatus(null);
     try {
-      const allLocal = {
-        songs: loadSongs(),
-        setlists: loadSetlists(),
-        birthdays: loadBirthdays(),
-        anniversaries: loadAnniversaries(),
-        visitors: loadVisitors(),
-        specialRecognitions: loadSpecialRecognitions(),
-        specialNumbers: loadSpecialNumbers(),
-        choirEntries: loadChoirEntries(),
-        practiceEntries: loadPracticeEntries(),
-        savedNames: loadSavedNames(),
-        welcomeSongs: loadWelcomeSongs(),
-      };
-      const res = await syncBatchImportToFirestore(allLocal);
+      const res = await pushAllLocalDataToFirestore();
       setCloudPushStatus({ success: res.success, message: res.message });
       onDataReset();
     } catch (err: any) {

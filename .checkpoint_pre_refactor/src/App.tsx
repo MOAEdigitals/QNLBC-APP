@@ -67,9 +67,15 @@ import {
   syncDeleteAllNonAdminUsers,
   syncSaveSavedNames,
   subscribeToAppSettings,
+  subscribeToPracticeAudios,
+  initializeFirestoreCloudSeed,
   subscribeToFirestoreStatus,
   getFirestoreConnectionStatus,
+  subscribeToGlobalWipe,
   FirestoreStatusInfo,
+  isItemTombstoned,
+  recordTombstone,
+  LEGACY_MOCK_IDS,
 } from './firestoreSync';
 import {
   loadSavedNames,
@@ -185,54 +191,88 @@ export default function App() {
 
   // Subscribe to real-time Firestore synchronization across all devices
   useEffect(() => {
+    // Seed cloud database on first setup if empty
+    initializeFirestoreCloudSeed();
+
     const unsubSetlists = subscribeToCollection<Setlist>('setlists', (items) => {
-      setSetlists(items);
-      saveSetlists(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('setlists', i.id));
+      setSetlists(validRemote);
+      saveSetlists(validRemote);
     });
 
     const unsubSongs = subscribeToCollection<Song>('songs', (items) => {
-      setSongs(items);
-      saveSongs(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('songs', i.id));
+      setSongs(validRemote);
+      saveSongs(validRemote);
     });
 
     const unsubBirthdays = subscribeToCollection<BirthdayCelebrant>('birthdays', (items) => {
-      setBirthdays(items);
-      saveBirthdays(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('birthdays', i.id));
+      setBirthdays(validRemote);
+      saveBirthdays(validRemote);
     });
 
     const unsubAnniv = subscribeToCollection<AnniversaryCelebrant>('anniversaries', (items) => {
-      setAnniversaries(items);
-      saveAnniversaries(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('anniversaries', i.id));
+      setAnniversaries(validRemote);
+      saveAnniversaries(validRemote);
     });
 
     const unsubVisitors = subscribeToCollection<Visitor>('visitors', (items) => {
-      setVisitors(items);
-      saveVisitors(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('visitors', i.id));
+      setVisitors(validRemote);
+      saveVisitors(validRemote);
     });
 
     const unsubRecognitions = subscribeToCollection<SpecialRecognition>('special_recognitions', (items) => {
-      setSpecialRecognitions(items);
-      saveSpecialRecognitions(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('special_recognitions', i.id));
+      setSpecialRecognitions(validRemote);
+      saveSpecialRecognitions(validRemote);
     });
 
     const unsubSpecials = subscribeToCollection<SpecialNumberEntry>('special_numbers', (items) => {
-      setSpecialNumbers(items);
-      saveSpecialNumbers(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('special_numbers', i.id));
+      setSpecialNumbers(validRemote);
+      saveSpecialNumbers(validRemote);
     });
 
     const unsubChoir = subscribeToCollection<ChoirEntry>('choir_entries', (items) => {
-      setChoirEntries(items);
-      saveChoirEntries(items);
+      const validRemote = items.filter((i) => !LEGACY_MOCK_IDS.has(i.id) && !isItemTombstoned('choir_entries', i.id));
+      setChoirEntries(validRemote);
+      saveChoirEntries(validRemote);
     });
 
     const unsubPractice = subscribeToCollection<PracticeGroupEntry>('practice_entries', (items) => {
-      const normalizedList = items.map((remoteItem) => normalizePracticeEntry(remoteItem));
-      setPracticeEntries(normalizedList);
-      savePracticeEntries(normalizedList);
+      const currentLocal = loadPracticeEntries();
+      const validRemote = items
+        .filter((remoteItem) => !LEGACY_MOCK_IDS.has(remoteItem.id) && !isItemTombstoned('practice_entries', remoteItem.id))
+        .map((remoteItem) => {
+          const localMatch = currentLocal.find((l) => l.id === remoteItem.id);
+          const normalized = normalizePracticeEntry(remoteItem);
+          if (!localMatch) return normalized;
+
+          // Preserve local vocal parts audio URLs if remote has placeholder or if local is active
+          const mergedVocalParts = (normalized.vocalParts || []).map((vp) => {
+            const localPart = (localMatch.vocalParts || localMatch.parts || []).find((lp) => lp.id === vp.id);
+            if (localPart && localPart.audioUrl && !vp.audioUrl) {
+              return { ...vp, audioUrl: localPart.audioUrl };
+            }
+            return vp;
+          });
+
+          return {
+            ...normalized,
+            vocalParts: mergedVocalParts,
+            parts: mergedVocalParts,
+          };
+        });
+
+      setPracticeEntries(validRemote);
+      savePracticeEntries(validRemote);
     });
 
     const unsubUsers = subscribeToCollection<UserAccount>('users', (items) => {
-      const validUsers = [...items];
+      const validUsers = items.filter((u) => !isItemTombstoned('users', u.id));
       if (!validUsers.some((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase())) {
         validUsers.unshift(DEFAULT_ADMIN);
       }
@@ -269,11 +309,83 @@ export default function App() {
       },
       (remoteSongs) => {
         saveWelcomeSongs(remoteSongs);
+      },
+      () => {
+        // When a remote deletion tombstone is received from another device, filter active state immediately
+        setPracticeEntries((prev) => {
+          const filtered = prev.filter((p) => !isItemTombstoned('practice_entries', p.id));
+          if (filtered.length !== prev.length) savePracticeEntries(filtered);
+          return filtered;
+        });
+        setSetlists((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('setlists', s.id));
+          if (filtered.length !== prev.length) saveSetlists(filtered);
+          return filtered;
+        });
+        setSongs((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('songs', s.id));
+          if (filtered.length !== prev.length) saveSongs(filtered);
+          return filtered;
+        });
+        setSpecialNumbers((prev) => {
+          const filtered = prev.filter((s) => !isItemTombstoned('special_numbers', s.id));
+          if (filtered.length !== prev.length) saveSpecialNumbers(filtered);
+          return filtered;
+        });
+        setChoirEntries((prev) => {
+          const filtered = prev.filter((c) => !isItemTombstoned('choir_entries', c.id));
+          if (filtered.length !== prev.length) saveChoirEntries(filtered);
+          return filtered;
+        });
+        setBirthdays((prev) => {
+          const filtered = prev.filter((b) => !isItemTombstoned('birthdays', b.id));
+          if (filtered.length !== prev.length) saveBirthdays(filtered);
+          return filtered;
+        });
+        setAnniversaries((prev) => {
+          const filtered = prev.filter((a) => !isItemTombstoned('anniversaries', a.id));
+          if (filtered.length !== prev.length) saveAnniversaries(filtered);
+          return filtered;
+        });
+        setVisitors((prev) => {
+          const filtered = prev.filter((v) => !isItemTombstoned('visitors', v.id));
+          if (filtered.length !== prev.length) saveVisitors(filtered);
+          return filtered;
+        });
+        setSpecialRecognitions((prev) => {
+          const filtered = prev.filter((r) => !isItemTombstoned('special_recognitions', r.id));
+          if (filtered.length !== prev.length) saveSpecialRecognitions(filtered);
+          return filtered;
+        });
       }
     );
 
+    // Auto-sync audio files & recordings from cloud in real time
+    const unsubPracticeAudios = subscribeToPracticeAudios((audioId, dataUrl) => {
+      saveAudioToStorage(audioId, dataUrl);
+    });
+
     const unsubFirestoreStatus = subscribeToFirestoreStatus((statusInfo) => {
       setFirestoreStatus(statusInfo);
+    });
+
+    // Listen for global cloud wipe events to reset all devices to 0
+    const unsubGlobalWipe = subscribeToGlobalWipe((wipeTs) => {
+      const lastApplied = Number(localStorage.getItem('nlbc_last_applied_wipe_ts') || '0');
+      if (wipeTs > lastApplied) {
+        localStorage.setItem('nlbc_last_applied_wipe_ts', String(wipeTs));
+        clearAllLocalDataToZero();
+        setSetlists([]);
+        setSongs([]);
+        setBirthdays([]);
+        setAnniversaries([]);
+        setVisitors([]);
+        setSpecialRecognitions([]);
+        setSpecialNumbers([]);
+        setChoirEntries([]);
+        setPracticeEntries([]);
+        setSavedNames([]);
+      }
     });
 
     return () => {
@@ -288,7 +400,9 @@ export default function App() {
       unsubPractice();
       unsubUsers();
       unsubAppSettings();
+      unsubPracticeAudios();
       unsubFirestoreStatus();
+      unsubGlobalWipe();
     };
   }, []);
 
@@ -589,6 +703,14 @@ export default function App() {
       return updated;
     });
     syncSaveSong(newOrUpdated);
+    // Mirror to server backup so other devices get songs even during Firestore quota cooldown
+    try {
+      fetch('/api/song-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ song: newOrUpdated }),
+      }).catch(() => {});
+    } catch {}
   }, []);
 
   const handleBatchSaveSongs = useCallback((updatedSongs: Song[]) => {
@@ -618,10 +740,19 @@ export default function App() {
   // Special Number Operations
   const handleSaveSpecialNumber = (entry: SpecialNumberEntry) => {
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
-      entry.songId = syncedSong.id;
-      setSongs(loadSongs());
-      syncSaveSong(syncedSong);
+      const currentSongs = loadSongs();
+      const existing = currentSongs.find(
+        (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const isTombstoned = (entry.songId && isItemTombstoned('songs', entry.songId)) ||
+        (existing && isItemTombstoned('songs', existing.id));
+
+      if (!isTombstoned) {
+        const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
+        entry.songId = syncedSong.id;
+        setSongs(loadSongs());
+        syncSaveSong(syncedSong);
+      }
     }
 
     const idx = specialNumbers.findIndex((s) => s.id === entry.id);
@@ -635,22 +766,46 @@ export default function App() {
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
     syncSaveSpecialNumber(entry);
+    try {
+      fetch('/api/special-numbers-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialNumbers: updated }),
+      }).catch(() => {});
+    } catch {}
   };
 
   const handleDeleteSpecialNumber = (id: string) => {
+    recordTombstone('special_numbers', id);
     const updated = specialNumbers.filter((s) => s.id !== id);
     setSpecialNumbers(updated);
     saveSpecialNumbers(updated);
     syncDeleteSpecialNumber(id);
+    try {
+      fetch('/api/special-numbers-backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ specialNumbers: updated }),
+      }).catch(() => {});
+    } catch {}
   };
 
   // Choir Operations
   const handleSaveChoirEntry = (entry: ChoirEntry) => {
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
-      entry.songId = syncedSong.id;
-      setSongs(loadSongs());
-      syncSaveSong(syncedSong);
+      const currentSongs = loadSongs();
+      const existing = currentSongs.find(
+        (s) => s.title.toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const isTombstoned = (entry.songId && isItemTombstoned('songs', entry.songId)) ||
+        (existing && isItemTombstoned('songs', existing.id));
+
+      if (!isTombstoned) {
+        const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
+        entry.songId = syncedSong.id;
+        setSongs(loadSongs());
+        syncSaveSong(syncedSong);
+      }
     }
 
     const idx = choirEntries.findIndex((c) => c.id === entry.id);
@@ -667,6 +822,7 @@ export default function App() {
   };
 
   const handleDeleteChoirEntry = (id: string) => {
+    recordTombstone('choir_entries', id);
     const updated = choirEntries.filter((c) => c.id !== id);
     setChoirEntries(updated);
     saveChoirEntries(updated);
@@ -686,6 +842,12 @@ export default function App() {
     setPracticeEntries(updated);
     savePracticeEntries(updated);
     syncSavePracticeEntry(entry);
+    // Mirror to server practice-entries endpoint so other devices get the update even if Firestore is in quota cooldown
+    fetch('/api/practice-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: updated }),
+    }).catch(() => {});
   };
 
   const handleDeletePracticeEntry = (id: string) => {
@@ -693,6 +855,11 @@ export default function App() {
     setPracticeEntries(updated);
     savePracticeEntries(updated);
     syncDeletePracticeEntry(id);
+    fetch('/api/practice-entries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entries: updated }),
+    }).catch(() => {});
   };
 
   // Recognitions Operations

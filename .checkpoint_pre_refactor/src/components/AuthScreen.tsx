@@ -18,8 +18,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sync users from Firestore in real-time so credentials created on other devices are immediately recognized
+  // Sync users from Firestore and server backup in real-time so credentials created on other devices are immediately recognized
   useEffect(() => {
+    // 1. Fetch from server backup first (quota-proof)
+    fetch('/api/users-backup')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res && res.success && Array.isArray(res.users) && res.users.length > 0) {
+          const cloudUsers: UserAccount[] = res.users;
+          if (!cloudUsers.some((u) => u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() || u.username.toLowerCase() === 'admin')) {
+            cloudUsers.unshift(DEFAULT_ADMIN);
+          }
+          saveUsers(cloudUsers);
+        }
+      })
+      .catch(() => {});
+
+    // 2. Listen to Firestore
     try {
       const unsub = onSnapshot(
         collection(db, 'users'),
@@ -80,7 +95,26 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
           u.passwordHash === cleanPass
       );
 
-      // 2. If not found locally, fetch directly from authoritative Firestore User Database
+      // 2. If not found locally, check server backup
+      if (!match) {
+        try {
+          const srvRes = await fetch('/api/users-backup').then((r) => r.json()).catch(() => null);
+          if (srvRes && srvRes.success && Array.isArray(srvRes.users)) {
+            const serverUsers: UserAccount[] = srvRes.users;
+            match = serverUsers.find(
+              (u) =>
+                u.username.toLowerCase() === cleanUser.toLowerCase() &&
+                u.passwordHash === cleanPass
+            );
+            if (match) {
+              const updated = [...allUsers.filter((u) => u.id !== match!.id), match];
+              saveUsers(updated);
+            }
+          }
+        } catch {}
+      }
+
+      // 3. If still not found, fetch from Firestore User Database
       if (!match) {
         try {
           const usersSnap = await getDocs(collection(db, 'users'));

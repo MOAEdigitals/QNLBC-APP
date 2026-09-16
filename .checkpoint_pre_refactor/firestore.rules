@@ -1,0 +1,76 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- CHURCH DATA COLLECTIONS ---
+    match /songs/{songId} {
+      allow read, write: if true;
+    }
+
+    match /setlists/{setlistId} {
+      allow read, write: if true;
+    }
+
+    match /special_numbers/{id} {
+      allow read, write: if true;
+    }
+
+    match /practice_entries/{id} {
+      allow read, write: if true;
+    }
+
+    match /choir_entries/{id} {
+      allow read, write: if true;
+    }
+
+    match /birthdays/{id} {
+      allow read, write: if true;
+    }
+
+    match /anniversaries/{id} {
+      allow read, write: if true;
+    }
+
+    match /visitors/{id} {
+      allow read, write: if true;
+    }
+
+    match /special_recognitions/{id} {
+      allow read, write: if true;
+    }
+
+    match /saved_names/{id} {
+      allow read, write: if true;
+    }
+
+    match /welcome_songs/{id} {
+      allow read, write: if true;
+    }
+
+    match /practice_audios/{document=**} {
+      allow read, write: if true;
+    }
+
+    match /practice_audio_chunks/{chunkId} {
+      allow read, write: if true;
+    }
+
+    match /app_settings/{id} {
+      allow read, write: if true;
+    }
+
+    match /users/{userId} {
+      allow read, write: if true;
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Deny access to any unspecified root path
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

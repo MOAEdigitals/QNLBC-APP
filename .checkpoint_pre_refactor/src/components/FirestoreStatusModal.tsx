@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import {
   FirestoreStatusInfo,
   CollectionSyncLogEntry,
+  reconcileAllLocalDataToCloud,
+  flushPendingSyncQueue,
 } from '../firestoreSync';
 import {
   Database,
@@ -102,7 +104,9 @@ export const FirestoreStatusModal: React.FC<FirestoreStatusModalProps> = ({
     setIsSyncingNow(true);
     setSyncFeedback(null);
     try {
-      setSyncFeedback('Live real-time Firestore listeners are active and synchronized.');
+      await flushPendingSyncQueue();
+      await reconcileAllLocalDataToCloud();
+      setSyncFeedback('All collections and queued changes checked with server.');
       setTimeout(() => setSyncFeedback(null), 3500);
     } catch (err: any) {
       setSyncFeedback('Sync check completed: ' + (err.message || 'Offline mode active'));
@@ -266,7 +270,7 @@ export const FirestoreStatusModal: React.FC<FirestoreStatusModalProps> = ({
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5">
-                        <span className="truncate">Snapshot listener active</span>
+                        <span className="truncate">{item.lastAction || 'Snapshot listener active'}</span>
                       </div>
                     </div>
                   </div>
