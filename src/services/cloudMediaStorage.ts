@@ -199,20 +199,152 @@ export async function uploadMediaToCloudStorage(
   try {
     return await performUpload(blob, fileName, cleanId);
   } catch (firstErr) {
-    console.warn('[Cloud Upload] First attempt failed, retrying once...', firstErr);
+    console.warn('[Cloud Upload] Endpoint attempt failed, checking backend availability...', firstErr);
     try {
       return await performUpload(blob, fileName, cleanId);
     } catch (retryErr: any) {
-      console.warn('[Cloud Upload] Retry failed, falling back to local IndexedDB ID:', retryErr);
-      return {
-        url: `indexeddb:${cleanId}`,
-        fileName,
-        size: blob.size,
-        isCloudUrl: false,
-        error: retryErr?.message || String(retryErr),
-      };
+      console.warn('[Cloud Upload] Backend upload endpoint unavailable (e.g. static GitHub Pages). Uploading to Universal Firestore Cloud Media Storage...', retryErr);
+      
+      // Fallback: Direct Firestore Cloud Media Storage (guarantees cross-device playability without a backend server)
+      try {
+        const firestoreResult = await uploadToFirestoreCloudMedia(fileOrData, cleanId, fileName, onProgress);
+        return firestoreResult;
+      } catch (firestoreErr: any) {
+        console.error('[Cloud Upload] Universal Firestore Cloud Storage error:', firestoreErr);
+        return {
+          url: `indexeddb:${cleanId}`,
+          fileName,
+          size: blob.size,
+          isCloudUrl: false,
+          error: firestoreErr?.message || String(firestoreErr),
+        };
+      }
     }
   }
+}
+
+/**
+ * Upload audio directly to Firestore Cloud Media Storage in ~400KB chunks
+ * Guarantees cross-device & cross-browser playback even on static hosting like GitHub Pages!
+ * Verifies the stored object and shared reference before returning cloud-ready.
+ */
+export async function uploadToFirestoreCloudMedia(
+  fileOrData: File | Blob | string,
+  fileId: string,
+  originalFileName: string,
+  onProgress?: (percent: number) => void
+): Promise<MediaUploadResult> {
+  const cleanId = fileId.replace(/^indexeddb:/, '').replace(/^firestore:media:/, '');
+  const fileName = originalFileName || `audio_${cleanId}.mp3`;
+
+  // 1. Convert to base64
+  let base64 = '';
+  let mimeType = 'audio/mpeg';
+
+  if (typeof fileOrData === 'string' && fileOrData.startsWith('data:')) {
+    const parts = fileOrData.split(',');
+    mimeType = parts[0]?.match(/:(.*?);/)?.[1] || 'audio/mpeg';
+    base64 = (parts[1] || '').replace(/\s+/g, '');
+  } else {
+    let blob: Blob;
+    if (typeof fileOrData === 'string') {
+      blob = await dataUrlToBlob(fileOrData);
+    } else {
+      blob = fileOrData;
+    }
+    mimeType = blob.type || 'audio/mpeg';
+    base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const res = reader.result as string;
+        const b64 = res ? (res.split(',')[1] || '').replace(/\s+/g, '') : '';
+        resolve(b64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  if (!base64) {
+    throw new Error('No audio data available for cloud storage');
+  }
+
+  // Preserve in local IndexedDB for the uploading device
+  const fullDataUrl = `data:${mimeType};base64,${base64}`;
+  saveAudioToStorage(cleanId, fullDataUrl, fileName).catch((err) => {
+    console.warn('Preserving local recording in IndexedDB:', err);
+  });
+
+  const fileSize = Math.round((base64.length * 3) / 4);
+
+  // Safe chunk size for Firestore document limit (< 1MB)
+  // 400KB base64 chunk (~300KB raw audio)
+  const CHUNK_SIZE = 400000;
+  const chunkCount = Math.ceil(base64.length / CHUNK_SIZE);
+
+  if (onProgress) onProgress(15);
+
+  const { db } = await import('../firebase');
+  const { doc, setDoc, getDoc } = await import('firebase/firestore');
+
+  // Write all chunk documents
+  for (let i = 0; i < chunkCount; i++) {
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, base64.length);
+    const chunkData = base64.slice(start, end);
+
+    const chunkRef = doc(db, 'practice_audio_chunks', `${cleanId}_chunk_${i}`);
+    await setDoc(chunkRef, {
+      trackId: cleanId,
+      index: i,
+      data: chunkData,
+      updatedAt: new Date().toISOString(),
+    });
+
+    if (onProgress) {
+      const pct = Math.min(90, Math.round(15 + ((i + 1) / chunkCount) * 75));
+      onProgress(pct);
+    }
+  }
+
+  // Write top-level metadata document
+  const metaRef = doc(db, 'practice_audios', cleanId);
+  await setDoc(metaRef, {
+    id: cleanId,
+    fileName,
+    mimeType,
+    size: fileSize,
+    chunkCount,
+    isCloudReady: true,
+    provider: 'firestore-cloud-storage',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  // Verify the stored object and shared reference before marking cloud-ready
+  const verifySnap = await getDoc(metaRef);
+  if (!verifySnap.exists() || !verifySnap.data()?.isCloudReady) {
+    throw new Error('Cloud verification failed: Stored media document could not be verified in Firestore');
+  }
+
+  // Verify the first chunk can be retrieved
+  const verifyChunk = await getDoc(doc(db, 'practice_audio_chunks', `${cleanId}_chunk_0`));
+  if (!verifyChunk.exists()) {
+    throw new Error('Cloud verification failed: First chunk could not be read back from Firestore');
+  }
+
+  if (onProgress) onProgress(100);
+
+  const cloudUrl = `firestore:media:${cleanId}`;
+  console.log(`[Universal Cloud Storage] Verified stored object and shared reference: ${fileName} (${fileSize} bytes) -> ${cloudUrl}`);
+
+  return {
+    url: cloudUrl,
+    fileName,
+    size: fileSize,
+    isCloudUrl: true,
+    provider: 'firestore-cloud-storage',
+  };
 }
 
 /**

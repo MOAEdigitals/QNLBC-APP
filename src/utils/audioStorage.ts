@@ -193,10 +193,109 @@ export async function getAudioFromStorage(
       }
     }
   } catch {
-    // Return null if not found locally; cloud audio URLs (e.g. Cloudflare R2) are resolved directly
+    // Continue to cloud fallback
+  }
+
+  // 4. Cross-browser cloud retrieval: If not found locally in IndexedDB, fetch from Firestore Cloud Media!
+  for (const testId of allIds) {
+    try {
+      const cloudAudio = await fetchAudioFromFirestoreCloud(testId);
+      if (cloudAudio) {
+        audioMemCache.set(testId, cloudAudio);
+        return cloudAudio;
+      }
+    } catch (err) {
+      console.warn(`[Audio Storage] Firestore cloud retrieval error for ${testId}:`, err);
+    }
   }
 
   return null;
+}
+
+/**
+ * Fetch audio from Firestore Cloud Media (enables instant playback on Ecosia/secondary devices)
+ * Caches retrieved audio locally into IndexedDB for zero-latency future playback.
+ */
+export async function fetchAudioFromFirestoreCloud(trackId: string): Promise<string | null> {
+  if (!trackId) return null;
+  const cleanId = trackId
+    .trim()
+    .replace(/^indexeddb:/, '')
+    .replace(/^firestore:media:/, '');
+
+  try {
+    const { db } = await import('../firebase');
+    const { doc, getDoc } = await import('firebase/firestore');
+
+    const metaRef = doc(db, 'practice_audios', cleanId);
+    const metaSnap = await getDoc(metaRef);
+    if (!metaSnap.exists()) {
+      return null;
+    }
+
+    const meta = metaSnap.data();
+    const chunkCount = meta?.chunkCount || 0;
+    const mimeType = meta?.mimeType || 'audio/mpeg';
+
+    if (chunkCount <= 0) {
+      return null;
+    }
+
+    const chunks: string[] = [];
+    for (let i = 0; i < chunkCount; i++) {
+      const chunkRef = doc(db, 'practice_audio_chunks', `${cleanId}_chunk_${i}`);
+      const chunkSnap = await getDoc(chunkRef);
+      if (!chunkSnap.exists() || !chunkSnap.data()?.data) {
+        console.warn(`[Firestore Cloud Media] Missing chunk ${i} of ${chunkCount} for track ${cleanId}`);
+        return null;
+      }
+      chunks.push(chunkSnap.data()!.data);
+    }
+
+    const fullBase64 = chunks.join('');
+    const dataUrl = `data:${mimeType};base64,${fullBase64}`;
+
+    // Cache locally into IndexedDB on this device so next time it loads instantly offline
+    saveAudioToStorage(cleanId, dataUrl, meta?.fileName).catch((err) => {
+      console.warn('Failed to cache retrieved cloud audio into IndexedDB:', err);
+    });
+
+    console.log(`[Firestore Cloud Media] Successfully loaded & cached track ${cleanId} (${chunks.length} chunks)`);
+    return dataUrl;
+  } catch (err) {
+    console.warn(`[Firestore Cloud Media] Error fetching cloud audio for ${cleanId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Verify whether a media track exists in Cloud Storage (Firestore or R2)
+ */
+export async function isCloudMediaReady(mediaUrlOrId: string): Promise<boolean> {
+  if (!mediaUrlOrId) return false;
+  const trimmed = mediaUrlOrId.trim();
+
+  // If Cloudflare R2 or direct HTTP(S) URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const res = await fetch(trimmed, { method: 'HEAD' });
+      return res.ok;
+    } catch {
+      // If HEAD fails due to CORS, check if it's an R2 domain
+      return trimmed.includes('r2.dev') || trimmed.includes('cloudfront.net');
+    }
+  }
+
+  // If Firestore Cloud Media reference
+  const cleanId = trimmed.replace(/^indexeddb:/, '').replace(/^firestore:media:/, '');
+  try {
+    const { db } = await import('../firebase');
+    const { doc, getDoc } = await import('firebase/firestore');
+    const metaSnap = await getDoc(doc(db, 'practice_audios', cleanId));
+    return metaSnap.exists() && Boolean(metaSnap.data()?.isCloudReady);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -204,7 +303,7 @@ export async function getAudioFromStorage(
  */
 export async function deleteAudioFromStorage(id: string): Promise<void> {
   if (!id) return;
-  const cleanId = id.replace(/^indexeddb:/, '');
+  const cleanId = id.replace(/^indexeddb:/, '').replace(/^firestore:media:/, '');
   audioMemCache.delete(cleanId);
 
   // Delete from IndexedDB
@@ -219,6 +318,23 @@ export async function deleteAudioFromStorage(id: string): Promise<void> {
     });
   } catch {
     // ignore
+  }
+
+  // Also clean up from Firestore cloud if exists
+  try {
+    const { db } = await import('../firebase');
+    const { doc, deleteDoc, getDoc } = await import('firebase/firestore');
+    const metaRef = doc(db, 'practice_audios', cleanId);
+    const metaSnap = await getDoc(metaRef);
+    if (metaSnap.exists()) {
+      const count = metaSnap.data()?.chunkCount || 0;
+      for (let i = 0; i < count; i++) {
+        deleteDoc(doc(db, 'practice_audio_chunks', `${cleanId}_chunk_${i}`)).catch(() => {});
+      }
+      await deleteDoc(metaRef);
+    }
+  } catch {
+    // ignore cloud deletion errors
   }
 }
 

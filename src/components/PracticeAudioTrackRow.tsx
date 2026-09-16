@@ -123,24 +123,24 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       }
 
       const raw = audioUrl.trim();
-      if (raw.startsWith('indexeddb:')) {
-        const targetId = raw.replace(/^indexeddb:/, '');
+      if (raw.startsWith('indexeddb:') || raw.startsWith('firestore:media:')) {
+        const targetId = raw.replace(/^indexeddb:/, '').replace(/^firestore:media:/, '');
         const stored = await getAudioFromStorage(targetId, id);
         if (!isCancelled) {
           if (stored) {
             setResolvedAudioSrc(stored);
             setAudioError(null);
 
-            // If we have the audio in IndexedDB on THIS device (e.g. phone),
-            // auto-upload it to Cloudflare R2 so all other devices (laptop!) get it!
-            if (onAudioUrlUpdated && !isUploadingCloud) {
+            // If we have the audio in IndexedDB on THIS device (e.g. phone) AND it was only marked as local indexeddb:,
+            // auto-upload it to Universal Cloud Media Storage so all other devices (laptop, Ecosia!) get it!
+            if (raw.startsWith('indexeddb:') && onAudioUrlUpdated && !isUploadingCloud) {
               syncLocalAudioToCloud(targetId, performerName, id).then((cloudUrl) => {
                 if (cloudUrl && !isCancelled) {
                   console.log(`[Auto-Sync] Cloud-synced local track ${targetId} -> ${cloudUrl}`);
                   onAudioUrlUpdated(cloudUrl);
                 }
               }).catch((err) => {
-                console.warn('[Auto-Sync] Background sync to Cloudflare R2 deferred:', err);
+                console.warn('[Auto-Sync] Background sync to Cloud deferred:', err);
               });
             }
           } else {
@@ -371,7 +371,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const handleRetrySync = async () => {
     setIsCheckingSync(true);
     const raw = (audioUrl || '').trim();
-    const targetId = raw.replace(/^indexeddb:/, '');
+    const targetId = raw.replace(/^indexeddb:/, '').replace(/^firestore:media:/, '');
 
     try {
       const stored = await getAudioFromStorage(targetId, id);
@@ -380,7 +380,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         setAudioError(null);
         if (onAudioUrlUpdated) {
           setIsUploadingCloud(true);
-          const cloudUrl = await syncLocalAudioToCloud(targetId, performerName);
+          const cloudUrl = await syncLocalAudioToCloud(targetId, performerName, id);
           setIsUploadingCloud(false);
           if (cloudUrl) {
             onAudioUrlUpdated(cloudUrl);
@@ -518,6 +518,12 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
   const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
   const hasAudioSource = Boolean(resolvedAudioSrc || (audioUrl && audioUrl.trim()));
+  const isCloudSynced = Boolean(
+    audioUrl &&
+      (audioUrl.startsWith('http://') ||
+        audioUrl.startsWith('https://') ||
+        audioUrl.startsWith('firestore:media:'))
+  );
 
   return (
     <div
@@ -556,6 +562,15 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
               <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate tracking-tight">
                 {performerName}
               </h5>
+              {isCloudSynced && (
+                <span
+                  title="Stored in Cloud & Ready for all authorized users"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800 shrink-0"
+                >
+                  <Cloud className="w-2.5 h-2.5" />
+                  <span>Cloud-Ready</span>
+                </span>
+              )}
               {isWebUrl && (
                 <span
                   title="Web link"

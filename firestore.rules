@@ -47,7 +47,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    match /practice_audios/{id} {
+    match /practice_audios/{document=**} {
+      allow read, write: if true;
+    }
+
+    match /practice_audio_chunks/{chunkId} {
       allow read, write: if true;
     }
 
