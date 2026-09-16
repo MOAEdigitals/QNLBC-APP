@@ -251,8 +251,20 @@ export function getThemeSongForMonth(songs: Song[], _dateStr?: string): Song | u
   return songs.find((s) => s.isThemeSong || s.is_theme_song);
 }
 
-export function formatDuplicateTitle(baseTitle: string, existingTitles: string[]): string {
+export function formatDuplicateTitle(
+  baseTitle: string,
+  existingList: (Song | string)[],
+  excludeId?: string
+): string {
   const trimmed = baseTitle.trim();
+  const existingTitles = existingList
+    .filter((item) => {
+      if (typeof item === 'string') return true;
+      if (excludeId && item.id === excludeId) return false;
+      return true;
+    })
+    .map((item) => (typeof item === 'string' ? item : item.title));
+
   if (!existingTitles.some((t) => t.toLowerCase() === trimmed.toLowerCase())) {
     return trimmed;
   }
@@ -263,13 +275,26 @@ export function formatDuplicateTitle(baseTitle: string, existingTitles: string[]
   return `${trimmed} (${copyIndex})`;
 }
 
-export async function saveAudioToStorage(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+export async function saveAudioToStorage(
+  fileOrId: File | string,
+  dataUrl?: string,
+  _fileName?: string
+): Promise<string> {
+  if (typeof fileOrId === 'string' && dataUrl) {
+    try {
+      localStorage.setItem(`audio_${fileOrId}`, dataUrl);
+    } catch {}
+    return `indexeddb:${fileOrId}`;
+  }
+  if (fileOrId instanceof File) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(fileOrId);
+    });
+  }
+  return '';
 }
 
 export function normalizePracticeEntry(entry: any): PracticeGroupEntry {
