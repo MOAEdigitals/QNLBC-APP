@@ -131,24 +131,38 @@ export async function fetchAllProfiles(): Promise<UserAccount[]> {
 
 export async function updateUserProfile(
   targetUserId: string,
-  updates: { displayName?: string; avatarUrl?: string | null; role?: 'admin' | 'user'; active?: boolean },
-  expectedRevision: number
+  updates: {
+    displayName?: string;
+    display_name?: string;
+    avatarUrl?: string | null;
+    avatar_url?: string | null;
+    avatar?: string | null;
+    role?: 'admin' | 'user';
+    active?: boolean;
+  },
+  expectedRevision?: number
 ): Promise<UserAccount> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
   const payload: Record<string, any> = {};
   if (updates.displayName !== undefined) payload.display_name = updates.displayName;
+  if (updates.display_name !== undefined) payload.display_name = updates.display_name;
   if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
+  if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
+  if (updates.avatar !== undefined) payload.avatar_url = updates.avatar;
   if (updates.role !== undefined) payload.role = updates.role;
   if (updates.active !== undefined) payload.active = updates.active;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('profiles')
     .update(payload)
-    .eq('id', targetUserId)
-    .eq('revision', expectedRevision)
-    .select()
-    .single();
+    .eq('id', targetUserId);
+
+  if (typeof expectedRevision === 'number') {
+    query = query.eq('revision', expectedRevision);
+  }
+
+  const { data, error } = await query.select().single();
 
   if (error || !data) {
     throw new ConcurrencyConflictError(
@@ -170,6 +184,22 @@ export async function updateUserProfile(
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
+}
+
+export async function setProfileRole(userId: string, role: 'admin' | 'user'): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+export async function toggleProfileActive(userId: string, active: boolean): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  const { error } = await supabase.from('profiles').update({ active }).eq('id', userId);
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 // -------------------------------------------------------------
@@ -1276,6 +1306,24 @@ export async function saveAppSettings(key: string, value: any): Promise<void> {
   if (error) {
     console.warn(`Failed to save app_settings key=${key}:`, error);
   }
+}
+
+export async function fetchMinistrySavedNames(): Promise<string[]> {
+  return fetchAppSettings<string[]>('ministry_saved_names', []);
+}
+
+export async function saveMinistrySavedNames(names: string[]): Promise<void> {
+  return saveAppSettings('ministry_saved_names', names);
+}
+
+export function getDatabaseConnectionStatus(): DatabaseStatusInfo {
+  return {
+    status: isSupabaseConfigured() ? 'connected' : 'disconnected',
+    provider: 'supabase',
+    projectUrl: (import.meta.env.VITE_SUPABASE_URL as string) || '',
+    tableLogs: {},
+    lastSyncTime: Date.now(),
+  };
 }
 
 // -------------------------------------------------------------

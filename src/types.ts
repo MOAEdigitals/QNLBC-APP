@@ -3,14 +3,16 @@ export type UserRole = 'admin' | 'user';
 export interface UserAccount {
   id: string;
   username: string;
-  displayName: string;
+  name?: string;
+  displayName?: string;
   display_name?: string;
   role: UserRole;
   active: boolean;
   avatar?: string;
   avatarUrl?: string;
   avatar_url?: string | null;
-  revision: number;
+  passwordHash?: string;
+  revision?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -50,7 +52,7 @@ export interface Song {
   isStarred?: boolean;
   is_starred?: boolean;
   starred?: boolean;
-  revision: number;
+  revision?: number;
   createdAt?: string;
   created_at?: string;
   updatedAt: string;
@@ -110,8 +112,8 @@ export interface Setlist {
   };
   generalNotes?: string;
   general_notes?: string;
-  revision: number;
-  createdAt: string;
+  revision?: number;
+  createdAt?: string;
   created_at?: string;
   updatedAt: string;
   updated_at?: string;
@@ -127,7 +129,7 @@ export interface BirthdayCelebrant {
   ministryOrGroup?: string;
   ministry_or_group?: string;
   notes?: string;
-  revision: number;
+  revision?: number;
 }
 
 export type AnniversaryType = 'Wedding' | 'Church' | 'Ministry' | 'Other';
@@ -141,7 +143,7 @@ export interface AnniversaryCelebrant {
   yearsCount?: number;
   years_count?: number;
   notes?: string;
-  revision: number;
+  revision?: number;
 }
 
 export type VisitorTier = '1st timer' | '2nd timer' | '3rd timer' | 'Regular attender';
@@ -156,7 +158,7 @@ export interface Visitor {
   contactNumber?: string;
   contact_number?: string;
   notes?: string;
-  revision: number;
+  revision?: number;
 }
 
 export type SpecialRecognitionType =
@@ -177,7 +179,7 @@ export interface SpecialRecognition {
   date: string; // YYYY-MM-DD
   recognition_date?: string;
   description?: string;
-  revision: number;
+  revision?: number;
 }
 
 export interface SpecialNumberEntry {
@@ -195,12 +197,13 @@ export interface SpecialNumberEntry {
   lyricsSnapshot?: string | null;
   lyrics_snapshot?: string | null;
   sourceSongRevision?: number | null;
+  source_song_revision?: number | null;
   minusOneLink?: string;
   minus_one_link?: string;
   notes?: string;
   lyrics?: string;
   status?: 'scheduled' | 'practicing' | 'ready' | 'completed' | 'cancelled';
-  revision: number;
+  revision?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -219,13 +222,14 @@ export interface ChoirEntry {
   lyricsSnapshot?: string | null;
   lyrics_snapshot?: string | null;
   sourceSongRevision?: number | null;
+  source_song_revision?: number | null;
   lyrics?: string;
   notes?: string;
   choirGroup?: string;
   choir_group?: string;
   isDone?: boolean;
   is_done?: boolean;
-  revision: number;
+  revision?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -264,6 +268,7 @@ export interface PracticePartTrack {
 
 export interface PracticeGroupEntry {
   id: string;
+  type?: string;
   groupName: string;
   group_name?: string;
   targetDate?: string;
@@ -285,6 +290,7 @@ export interface PracticeGroupEntry {
   lyricsSnapshot?: string | null;
   lyrics_snapshot?: string | null;
   sourceSongRevision?: number | null;
+  source_song_revision?: number | null;
   notes?: string;
   attachments?: SongAttachment[];
   customAttachments?: SongAttachment[];
@@ -292,28 +298,33 @@ export interface PracticeGroupEntry {
   vocalParts?: PracticePartTrack[];
   isDone?: boolean;
   is_done?: boolean;
-  revision: number;
+  revision?: number;
   createdAt: string;
   updatedAt?: string;
 }
 
-export type SupabaseConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
+export type SupabaseConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error' | 'online' | 'offline' | 'quota-exceeded';
 
 export interface TableSyncStatus {
-  table: string;
-  displayName: string;
-  itemCount: number;
-  lastEventTime: number | null;
-  status: 'synced' | 'syncing' | 'error';
+  table?: string;
+  name?: string;
+  displayName?: string;
+  itemCount?: number;
+  lastEventTime?: number | null;
+  lastSyncTime?: number | null;
+  lastSyncTimestamp?: number | null;
+  status: 'synced' | 'syncing' | 'error' | 'connected' | string;
+  error?: string | null;
 }
 
 export interface DatabaseStatusInfo {
   status: SupabaseConnectionStatus;
-  provider: 'supabase';
-  projectUrl: string;
-  tableLogs: Record<string, TableSyncStatus>;
-  lastSyncTime: number | null;
+  provider: 'supabase' | 'firestore';
+  projectUrl?: string;
+  databaseUrl?: string;
+  tableLogs?: Record<string, TableSyncStatus>;
+  collectionLogs?: Record<string, any>;
+  lastSyncTime?: number | null;
   errorMessage?: string;
+  quotaResetMessage?: string;
 }
-
-

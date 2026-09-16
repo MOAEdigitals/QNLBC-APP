@@ -6,19 +6,34 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-    <title>Quezon New Life Baptist Church</title>
-    <meta name="description" content="Song scheduling, practice session stems, and music ministry management." />
-    <meta property="og:title" content="Song Schedule & Music Library" />
-    <meta property="og:description" content="Song scheduling, practice session stems, and music ministry management." />
+    <title>New Life Baptist Church Program</title>
+    <meta name="description" content="Church program setlists, recognitions, special number scheduling, and song library for New Life Baptist Church (Quezon, Nueva Ecija)." />
+    <meta property="og:title" content="New Life Baptist Church Program" />
+    <meta property="og:description" content="Church program setlists, recognitions, special number scheduling, and song library for New Life Baptist Church (Quezon, Nueva Ecija)." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <script>
       (function () {
         try {
+          // Clear any obsolete service workers and caches from old versions
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (registrations) {
+              for (var i = 0; i < registrations.length; i++) {
+                registrations[i].unregister();
+              }
+            });
+          }
+          if ('caches' in window) {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (key) {
+                caches.delete(key);
+              });
+            });
+          }
+
           var ua = navigator.userAgent || navigator.vendor || (window.opera ? window.opera.toString() : '');
           var isFBorMessenger = /FBAN|FBAV|FB_IAB|Messenger|Instagram|Line/i.test(ua);
           var isAndroid = /Android/i.test(ua);
-          var isIOS = /iPhone|iPad|iPod/i.test(ua);
 
           if (isFBorMessenger) {
             var currentUrl = window.location.href;
@@ -30,7 +45,7 @@
             }
           }
         } catch (e) {
-          console.warn('Browser redirect check failed', e);
+          console.warn('Browser initialization check failed', e);
         }
       })();
     </script>

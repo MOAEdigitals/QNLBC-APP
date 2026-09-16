@@ -89,7 +89,9 @@ export const FirestoreStatusModal: React.FC<DatabaseStatusModalProps> = ({
   const status = statusInfo?.status || 'connected';
   const isOnline = status === 'connected' || status === 'online';
   const isConnecting = status === 'connecting';
-  const tables: TableSyncStatus[] = statusInfo?.tables || [];
+  const tables: TableSyncStatus[] =
+    statusInfo?.tables ||
+    (statusInfo?.tableLogs ? Object.values(statusInfo.tableLogs) : []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
