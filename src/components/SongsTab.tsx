@@ -3,6 +3,7 @@ import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
 import { uploadMediaToCloudStorage } from '../services/cloudMediaStorage';
+import { generateUUID, isUUID } from '../services/supabaseData';
 import {
   Music,
   Plus,
@@ -549,7 +550,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   const handleStartCreateSong = () => {
     setEditingSong({
-      id: `song-${Date.now()}`,
+      id: generateUUID(),
       title: '',
       artist: '',
       lyrics: '',
@@ -656,7 +657,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     const wasAlreadySelected = selectedSongId === editingSong.id;
 
     const finalSong: Song = {
-      id: editingSong.id || `song-${Date.now()}`,
+      id: editingSong.id && isUUID(editingSong.id) ? editingSong.id : generateUUID(),
       title: formattedTitle,
       artist: showArtistInput && editingSong.artist?.trim() ? editingSong.artist.trim() : undefined,
       lyrics: editingSong.lyrics || '',
@@ -705,7 +706,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       detectedType = 'image';
     }
 
-    const attId = `att-${Date.now()}`;
+    const attId = generateUUID();
     setIsUploadingCloudMedia(true);
     setUploadProgress(10);
     setUploadStatusText(`Uploading "${file.name}" to Universal Cloud Media Storage...`);
@@ -757,7 +758,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       (attachmentType === 'link' ? 'Web Track Link' : attachmentFileName || 'Audio/Video Track');
 
     let finalUrl = attachmentLinkOrData.trim();
-    const attId = `att-${Date.now()}`;
+    const attId = generateUUID();
     if (finalUrl.startsWith('data:')) {
       try {
         const res = await uploadMediaToCloudStorage(finalUrl, attId, finalName);

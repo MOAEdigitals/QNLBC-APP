@@ -28,6 +28,7 @@ import {
   deleteAudioFromStorage,
 } from '../utils/audioStorage';
 import { uploadMediaToCloudStorage, syncLocalAudioToCloud } from '../services/cloudMediaStorage';
+import { generateUUID, isUUID } from '../services/supabaseData';
 import {
   resolveMediaUrl,
   getYouTubeEmbedUrl,
@@ -469,7 +470,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       ? 'video'
       : 'file';
 
-    const fileId = `att-${Date.now()}`;
+    const fileId = generateUUID();
     setIsUploadingCloudMedia(true);
     setUploadProgress(10);
     setUploadStatusText(`Uploading "${file.name}" to Universal Cloud Media Storage...`);
@@ -1124,7 +1125,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
 
     const entryToSave: SpecialNumberEntry = {
-      id: editingSchedule.id || `sp-${Date.now()}`,
+      id: editingSchedule.id && isUUID(editingSchedule.id) ? editingSchedule.id : generateUUID(),
       performerName: editingSchedule.performerName.trim(),
       scheduledDate: editingSchedule.scheduledDate || getNextSundayStr(),
       songTitle: finalSongTitle,
@@ -1159,7 +1160,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     // This is a brand new practice entry (not an edit of existing practice where song was deleted)
     if (!matchedSong && onSaveSong && !isEditingPractice) {
       const newSong: Song = {
-        id: `song-${Date.now()}`,
+        id: generateUUID(),
         title: trimmedTitle,
         artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : undefined,
         lyrics: editingPractice.lyrics || '',
@@ -1186,7 +1187,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
 
     const entryToSave: PracticeGroupEntry = {
-      id: editingPractice.id || `prac-${Date.now()}`,
+      id: editingPractice.id && isUUID(editingPractice.id) ? editingPractice.id : generateUUID(),
       groupName: editingPractice.groupName.trim(),
       songTitle: trimmedTitle,
       songId: effectiveSongId,
@@ -1283,7 +1284,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     if (!matchedSong && lyrics && onSaveSong) {
       const newSong: Song = {
-        id: `song-${Date.now()}`,
+        id: generateUUID(),
         title: trimmedTitle,
         artist: artist || undefined,
         lyrics: lyrics,
@@ -1309,7 +1310,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
 
     const entryToSave: ChoirEntry = {
-      id: editingChoir.id || `choir-${Date.now()}`,
+      id: editingChoir.id && isUUID(editingChoir.id) ? editingChoir.id : generateUUID(),
       date,
       songTitle: trimmedTitle,
       artist: artist || undefined,
@@ -1367,7 +1368,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
     if (!existing && onSaveSong) {
       const newSong: Song = {
-        id: `song-${Date.now()}`,
+        id: generateUUID(),
         title: entry.songTitle.trim(),
         artist: entry.artist,
         lyrics: entry.lyrics || '',
@@ -1420,9 +1421,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       (trackFileName ? trackFileName.replace(/\.[^/.]+$/, '') : (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Track'));
 
     const attId =
-      editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id
+      editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id && isUUID(trackModalGroup.customAttachments[editingTrackIndex].id)
         ? trackModalGroup.customAttachments[editingTrackIndex].id
-        : `att-${Date.now()}`;
+        : generateUUID();
 
     let finalUrl = trackUrlOrData.trim();
     if (finalUrl) {
@@ -1845,9 +1846,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const currentList = [...(liveGroup.vocalParts && liveGroup.vocalParts.length > 0 ? liveGroup.vocalParts : (liveGroup.parts || []))];
 
     const partId =
-      editingVocalPartIndex !== null && currentList[editingVocalPartIndex]?.id
+      editingVocalPartIndex !== null && currentList[editingVocalPartIndex]?.id && isUUID(currentList[editingVocalPartIndex].id)
         ? currentList[editingVocalPartIndex].id
-        : `part-${Date.now()}`;
+        : generateUUID();
 
     if (finalAudioUrl) {
       if (finalAudioUrl.startsWith('data:')) {
@@ -1944,7 +1945,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           <button
             onClick={() => {
               setEditingSchedule({
-                id: `sp-${Date.now()}`,
+                id: generateUUID(),
                 performerName: '',
                 scheduledDate: getNextSundayStr(),
                 songTitle: '',
@@ -1966,7 +1967,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               setNewSongArtist('');
               setShowSongArtistInput(false);
               setEditingPractice({
-                id: `prac-${Date.now()}`,
+                id: generateUUID(),
                 groupName: '',
                 songTitle: '',
                 assignedEvent: 'Sunday Service',
@@ -1989,7 +1990,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               setNewChoirArtist('');
               setShowChoirArtistInput(false);
               setEditingChoir({
-                id: `choir-${Date.now()}`,
+                id: generateUUID(),
                 choirGroup: 'Church Choir',
                 songTitle: '',
                 date: getNextSundayStr(),
@@ -2099,7 +2100,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       key={dateStr}
                       onClick={() => {
                         setEditingSchedule({
-                          id: `sp-${Date.now()}`,
+                          id: generateUUID(),
                           performerName: '',
                           scheduledDate: dateStr,
                           songTitle: '',
@@ -2136,7 +2137,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <button
                 onClick={() => {
                   setEditingSchedule({
-                    id: `sp-${Date.now()}`,
+                    id: generateUUID(),
                     performerName: '',
                     scheduledDate: vacantEvents[0].date,
                     songTitle: '',
@@ -3162,7 +3163,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     setNewChoirArtist('');
                     setShowChoirArtistInput(false);
                     setEditingChoir({
-                      id: `choir-${Date.now()}`,
+                      id: generateUUID(),
                       choirGroup: 'Church Choir',
                       songTitle: '',
                       date: getNextSundayStr(),

@@ -24,6 +24,12 @@ export class ConcurrencyConflictError extends Error {
   }
 }
 
+// Helper to check for standard valid UUID
+export function isUUID(str?: string | null): boolean {
+  if (!str || typeof str !== 'string') return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str.trim());
+}
+
 // Helper to generate standard UUID v4
 export function generateUUID(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -315,12 +321,14 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     metadata: {},
   };
 
-  if (isNew || !song.id) {
-    const newId = song.id && song.id.includes('-') && song.id.length === 36 ? song.id : generateUUID();
+  const hasValidUUID = isUUID(song.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: song.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('songs')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create song');
@@ -333,7 +341,7 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     .update(payload)
     .eq('id', song.id)
     .eq('revision', expectedRev)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {
@@ -469,26 +477,28 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
 
   let savedRow: any;
   let targetSetlistId: string;
+  const hasValidUUID = isUUID(setlist.id);
 
-  if (isNew || !setlist.id) {
-    targetSetlistId = setlist.id && setlist.id.length === 36 ? setlist.id : generateUUID();
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: setlist.id, ...setlistPayload } : { ...setlistPayload };
     const { data, error } = await supabase
       .from('setlists')
-      .insert({ id: targetSetlistId, ...setlistPayload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create setlist');
     savedRow = data;
+    targetSetlistId = data.id;
   } else {
-    targetSetlistId = setlist.id;
+    targetSetlistId = setlist.id!;
     const expectedRev = setlist.revision || 1;
     const { data, error } = await supabase
       .from('setlists')
       .update(setlistPayload)
-      .eq('id', setlist.id)
+      .eq('id', targetSetlistId)
       .eq('revision', expectedRev)
-      .select()
+      .select('*')
       .single();
 
     if (error || !data) {
@@ -520,14 +530,15 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
 
     for (let pos = 0; pos < items.length; pos++) {
       const item = items[pos];
-      const itemId = item.id && item.id.length === 36 ? item.id : generateUUID();
-      keptIds.add(itemId);
+      const hasItemUUID = isUUID(item.id);
+      const rawSongId = (item.songId || item.song_id)?.trim();
+      const validSongId = isUUID(rawSongId) ? rawSongId : null;
 
       const itemPayload = {
         setlist_id: targetSetlistId,
         section,
         position: pos,
-        song_id: (item.songId || item.song_id)?.trim() || null,
+        song_id: validSongId,
         song_title: item.title?.trim() || 'Untitled',
         key_note: (item.keyNote || item.key_note)?.trim() || null,
         notes: item.notes?.trim() || null,
@@ -536,17 +547,24 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
         source_song_revision: item.sourceSongRevision || item.source_song_revision || null,
       };
 
-      const matchExisting = existingItems?.find((e) => e.id === itemId);
+      const matchExisting = hasItemUUID ? existingItems?.find((e) => e.id === item.id) : null;
       if (matchExisting) {
+        keptIds.add(matchExisting.id);
         await supabase
           .from('setlist_items')
           .update(itemPayload)
-          .eq('id', itemId)
+          .eq('id', matchExisting.id)
           .eq('revision', matchExisting.revision);
       } else {
-        await supabase
+        const itemInsertPayload = hasItemUUID ? { id: item.id, ...itemPayload } : { ...itemPayload };
+        const { data: savedItem, error: itemErr } = await supabase
           .from('setlist_items')
-          .insert({ id: itemId, ...itemPayload });
+          .insert(itemInsertPayload)
+          .select('*')
+          .single();
+        if (!itemErr && savedItem) {
+          keptIds.add(savedItem.id);
+        }
       }
     }
 
@@ -621,10 +639,13 @@ export async function saveSpecialNumber(
 ): Promise<SpecialNumberEntry> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
+  const rawSongId = (entry.songId || entry.song_id)?.trim();
+  const validSongId = isUUID(rawSongId) ? rawSongId : null;
+
   const payload = {
     performer_name: (entry.performerName || entry.performer_name)?.trim() || 'Performer',
     scheduled_date: entry.scheduledDate || entry.scheduled_date || new Date().toISOString().slice(0, 10),
-    song_id: (entry.songId || entry.song_id)?.trim() || null,
+    song_id: validSongId,
     song_title: (entry.songTitle || entry.song_title)?.trim() || null,
     lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
     lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
@@ -634,12 +655,14 @@ export async function saveSpecialNumber(
     status: entry.status || 'scheduled',
   };
 
-  if (isNew || !entry.id) {
-    const newId = entry.id && entry.id.length === 36 ? entry.id : generateUUID();
+  const hasValidUUID = isUUID(entry.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: entry.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('special_numbers')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create special number');
@@ -652,7 +675,7 @@ export async function saveSpecialNumber(
     .update(payload)
     .eq('id', entry.id)
     .eq('revision', expectedRev)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {
@@ -714,10 +737,13 @@ export async function fetchChoirEntries(): Promise<ChoirEntry[]> {
 export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false): Promise<ChoirEntry> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
+  const rawSongId = (entry.songId || entry.song_id)?.trim();
+  const validSongId = isUUID(rawSongId) ? rawSongId : null;
+
   const payload = {
     choir_group: (entry.choirGroup || entry.choir_group)?.trim() || 'Church Choir',
     service_date: entry.date || entry.service_date || new Date().toISOString().slice(0, 10),
-    song_id: (entry.songId || entry.song_id)?.trim() || null,
+    song_id: validSongId,
     song_title: (entry.songTitle || entry.song_title)?.trim() || 'Untitled',
     lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
     lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
@@ -726,12 +752,14 @@ export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false):
     is_done: Boolean(entry.isDone ?? entry.is_done),
   };
 
-  if (isNew || !entry.id) {
-    const newId = entry.id && entry.id.length === 36 ? entry.id : generateUUID();
+  const hasValidUUID = isUUID(entry.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: entry.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('choir_entries')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create choir entry');
@@ -744,7 +772,7 @@ export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false):
     .update(payload)
     .eq('id', entry.id)
     .eq('revision', expectedRev)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {
@@ -845,13 +873,16 @@ export async function savePracticeEntry(
 ): Promise<PracticeGroupEntry> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
+  const rawSongId = (entry.songId || entry.song_id)?.trim();
+  const validSongId = isUUID(rawSongId) ? rawSongId : null;
+
   const payload = {
     group_name: (entry.groupName || entry.group_name)?.trim() || 'Worship Team',
     target_date: entry.targetDate || entry.target_date || null,
     practice_date: entry.practiceDate || entry.practice_date || null,
     practice_time: (entry.practiceTime || entry.practice_time)?.trim() || null,
     assigned_event: (entry.assignedEvent || entry.assigned_event)?.trim() || null,
-    song_id: (entry.songId || entry.song_id)?.trim() || null,
+    song_id: validSongId,
     song_title: (entry.songTitle || entry.song_title)?.trim() || 'Untitled',
     lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
     lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
@@ -861,25 +892,27 @@ export async function savePracticeEntry(
   };
 
   let targetPracticeId: string;
+  const hasValidUUID = isUUID(entry.id);
 
-  if (isNew || !entry.id) {
-    targetPracticeId = entry.id && entry.id.length === 36 ? entry.id : generateUUID();
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: entry.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('practice_entries')
-      .insert({ id: targetPracticeId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create practice entry');
+    if (error || !data) throw error || new Error('Failed to create practice entry: ' + (error?.message || ''));
+    targetPracticeId = data.id;
   } else {
-    targetPracticeId = entry.id;
+    targetPracticeId = entry.id!;
     const expectedRev = entry.revision || 1;
     const { data, error } = await supabase
       .from('practice_entries')
       .update(payload)
-      .eq('id', entry.id)
+      .eq('id', targetPracticeId)
       .eq('revision', expectedRev)
-      .select()
+      .select('*')
       .single();
 
     if (error || !data) {
@@ -901,8 +934,7 @@ export async function savePracticeEntry(
 
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
-    const partId = p.id && p.id.length === 36 ? p.id : generateUUID();
-    keptPartIds.add(partId);
+    const hasPartUUID = isUUID(p.id);
 
     const partPayload = {
       practice_id: targetPracticeId,
@@ -913,17 +945,24 @@ export async function savePracticeEntry(
       position: i,
     };
 
-    const matchPart = existingParts?.find((ep) => ep.id === partId);
+    const matchPart = hasPartUUID ? existingParts?.find((ep) => ep.id === p.id) : null;
     if (matchPart) {
+      keptPartIds.add(matchPart.id);
       await supabase
         .from('vocal_parts')
         .update(partPayload)
-        .eq('id', partId)
+        .eq('id', matchPart.id)
         .eq('revision', matchPart.revision);
     } else {
-      await supabase
+      const partInsertPayload = hasPartUUID ? { id: p.id, ...partPayload } : { ...partPayload };
+      const { data: savedPart, error: partErr } = await supabase
         .from('vocal_parts')
-        .insert({ id: partId, ...partPayload });
+        .insert(partInsertPayload)
+        .select('*')
+        .single();
+      if (!partErr && savedPart) {
+        keptPartIds.add(savedPart.id);
+      }
     }
   }
 
@@ -981,12 +1020,14 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
     notes: item.notes?.trim() || null,
   };
 
-  if (isNew || !item.id) {
-    const newId = item.id && item.id.length === 36 ? item.id : generateUUID();
+  const hasValidUUID = isUUID(item.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('birthdays')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create birthday');
@@ -1005,7 +1046,7 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
     .update(payload)
     .eq('id', item.id)
     .eq('revision', item.revision || 1)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {
@@ -1063,12 +1104,14 @@ export async function saveAnniversary(
     notes: item.notes?.trim() || null,
   };
 
-  if (isNew || !item.id) {
-    const newId = item.id && item.id.length === 36 ? item.id : generateUUID();
+  const hasValidUUID = isUUID(item.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('anniversaries')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create anniversary');
@@ -1088,7 +1131,7 @@ export async function saveAnniversary(
     .update(payload)
     .eq('id', item.id)
     .eq('revision', item.revision || 1)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {
@@ -1146,12 +1189,14 @@ export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promis
     notes: item.notes?.trim() || null,
   };
 
-  if (isNew || !item.id) {
-    const newId = item.id && item.id.length === 36 ? item.id : generateUUID();
+  const hasValidUUID = isUUID(item.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('visitors')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create visitor');
@@ -1172,7 +1217,7 @@ export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promis
     .update(payload)
     .eq('id', item.id)
     .eq('revision', item.revision || 1)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {
@@ -1233,12 +1278,14 @@ export async function saveSpecialRecognition(
     description: item.description?.trim() || null,
   };
 
-  if (isNew || !item.id) {
-    const newId = item.id && item.id.length === 36 ? item.id : generateUUID();
+  const hasValidUUID = isUUID(item.id);
+
+  if (isNew || !hasValidUUID) {
+    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('recognitions')
-      .insert({ id: newId, ...payload })
-      .select()
+      .insert(insertPayload)
+      .select('*')
       .single();
 
     if (error || !data) throw error || new Error('Failed to create recognition');
@@ -1258,7 +1305,7 @@ export async function saveSpecialRecognition(
     .update(payload)
     .eq('id', item.id)
     .eq('revision', item.revision || 1)
-    .select()
+    .select('*')
     .single();
 
   if (error || !data) {

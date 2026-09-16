@@ -49,6 +49,8 @@ import {
   fetchCurrentUserProfile,
   subscribeSupabaseRealtime,
   getDatabaseConnectionStatus,
+  generateUUID,
+  isUUID,
 } from './services/supabaseData';
 import {
   cleanupLegacyStorage,
@@ -794,7 +796,7 @@ export default function App() {
   const handleAddSongToNewSetlist = (song: Song) => {
     const nextSunday = getNextSundayStr();
     const newSetlist: Setlist = {
-      id: `setlist-${Date.now()}`,
+      id: generateUUID(),
       type: 'sunday',
       date: nextSunday,
       presider: 'TBA',
@@ -803,16 +805,16 @@ export default function App() {
       sundaySchool: {
         songLeader: 'TBA',
         songs: [
-          { id: `ss-1`, title: 'Opening Song' },
-          { id: `ss-2`, title: 'Response Song' },
+          { id: generateUUID(), title: 'Opening Song' },
+          { id: generateUUID(), title: 'Response Song' },
         ],
       },
       worshipService: {
         songLeader: 'TBA',
         songs: [
-          { id: `ws-1`, songId: song.id, title: song.title },
-          { id: `ws-2`, title: 'Song 2' },
-          { id: `ws-3`, title: 'Song 3' },
+          { id: generateUUID(), songId: isUUID(song.id) ? song.id : undefined, title: song.title },
+          { id: generateUUID(), title: 'Song 2' },
+          { id: generateUUID(), title: 'Song 3' },
         ],
       },
       createdAt: new Date().toISOString(),
@@ -834,8 +836,8 @@ export default function App() {
 
     const currentPart = targetSetlist[part] || { songLeader: '', songs: [] };
     const newItem: SetlistSongItem = {
-      id: `${part.substring(0, 2)}-${Date.now()}`,
-      songId: song.id,
+      id: generateUUID(),
+      songId: isUUID(song.id) ? song.id : undefined,
       title: song.title,
     };
 

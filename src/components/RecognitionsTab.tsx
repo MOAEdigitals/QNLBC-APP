@@ -16,6 +16,7 @@ import {
   getTodayStr,
   parseDate,
 } from '../utils/dateUtils';
+import { generateUUID } from '../services/supabaseData';
 import {
   Cake,
   Heart,
@@ -212,7 +213,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     e.preventDefault();
     if (!bdayForm.name.trim()) return;
     onSaveBirthday({
-      id: `bday-${Date.now()}`,
+      id: generateUUID(),
       name: bdayForm.name.trim(),
       birthDate: bdayForm.birthDate,
       ministryOrGroup: bdayForm.ministryOrGroup.trim() || undefined,
@@ -226,7 +227,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     e.preventDefault();
     if (!annivForm.title.trim()) return;
     onSaveAnniversary({
-      id: `anniv-${Date.now()}`,
+      id: generateUUID(),
       title: annivForm.title.trim(),
       anniversaryDate: annivForm.anniversaryDate,
       type: annivForm.type,
@@ -241,7 +242,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     e.preventDefault();
     if (!visitorForm.name.trim()) return;
     onSaveVisitor({
-      id: `vis-${Date.now()}`,
+      id: generateUUID(),
       name: visitorForm.name.trim(),
       barangay: visitorForm.barangay.trim() || 'Quezon, Nueva Ecija',
       tier: visitorForm.tier,
@@ -256,7 +257,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     e.preventDefault();
     if (!specialForm.name.trim()) return;
     onSaveSpecialRecognition({
-      id: `spec-${Date.now()}`,
+      id: generateUUID(),
       name: specialForm.name.trim(),
       recognitionType: specialForm.recognitionType,
       customType: specialForm.customType.trim() || undefined,

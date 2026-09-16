@@ -319,7 +319,7 @@ export function upsertSongFromSpecialNumber(
   minusOneLink?: string
 ): Song {
   return {
-    id: `song-${Date.now()}`,
+    id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-4000-8000-000000000000',
     title: songTitle.trim(),
     lyrics: lyrics || '',
     minusOneLink: minusOneLink || '',

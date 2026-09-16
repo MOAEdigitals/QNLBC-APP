@@ -13,6 +13,7 @@ import {
   getAllDirectoryNames,
   getThemeSongForMonth,
 } from '../utils/storage';
+import { generateUUID, isUUID } from '../services/supabaseData';
 import { AutofillInput } from './AutofillInput';
 import {
   Calendar,
@@ -474,7 +475,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     const monthTheme = getThemeSongForMonth(setlists, nextSun);
 
     const initialData: Partial<Setlist> = {
-      id: `setlist-${Date.now()}`,
+      id: generateUUID(),
       type: 'sunday',
       date: nextSun,
       presider: '',
@@ -484,16 +485,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       sundaySchool: {
         songLeader: '',
         songs: [
-          { id: `ss-1`, title: '' },
-          { id: `ss-2`, title: '' },
+          { id: generateUUID(), title: '' },
+          { id: generateUUID(), title: '' },
         ],
         notes: '',
       },
       worshipService: {
         songLeader: '',
         songs: [
-          { id: `ws-1`, title: '' },
-          { id: `ws-2`, title: '' },
+          { id: generateUUID(), title: '' },
+          { id: generateUUID(), title: '' },
         ],
         notes: '',
       },
@@ -519,15 +520,15 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
     if (type === 'prayer_meeting') {
       initialData = {
-        id: `setlist-${Date.now()}`,
+        id: generateUUID(),
         type: 'prayer_meeting',
         title: 'Midweek Prayer Meeting',
         date: nextSun,
         program: {
           songLeader: '',
           songs: [
-            { id: `pm-1`, title: '' },
-            { id: `pm-2`, title: '' },
+            { id: generateUUID(), title: '' },
+            { id: generateUUID(), title: '' },
           ],
           notes: '',
         },
@@ -537,7 +538,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       };
     } else if (type === 'fellowship') {
       initialData = {
-        id: `setlist-${Date.now()}`,
+        id: generateUUID(),
         type: 'fellowship',
         title: 'Youth Fellowship',
         date: nextSun,
@@ -547,8 +548,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         program: {
           songLeader: '',
           songs: [
-            { id: `fel-1`, title: '' },
-            { id: `fel-2`, title: '' },
+            { id: generateUUID(), title: '' },
+            { id: generateUUID(), title: '' },
           ],
           notes: '',
         },
@@ -558,7 +559,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       };
     } else {
       initialData = {
-        id: `setlist-${Date.now()}`,
+        id: generateUUID(),
         type: 'event',
         title: '',
         date: nextSun,
@@ -568,9 +569,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         program: {
           songLeader: '',
           songs: [
-            { id: `ev-1`, title: '' },
-            { id: `ev-2`, title: '' },
-            { id: `ev-3`, title: '' },
+            { id: generateUUID(), title: '' },
+            { id: generateUUID(), title: '' },
+            { id: generateUUID(), title: '' },
           ],
           notes: '',
         },
@@ -647,9 +648,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             (item) => item.title.trim().toLowerCase() === trimmedTitle.toLowerCase()
           );
           return {
-            id: s.id || `song-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            id: s.id && isUUID(s.id) ? s.id : generateUUID(),
             title: matchedSong ? matchedSong.title : trimmedTitle,
-            songId: matchedSong ? matchedSong.id : undefined,
+            songId: matchedSong && isUUID(matchedSong.id) ? matchedSong.id : undefined,
             keyNote: s.keyNote,
             notes: s.notes,
           };
@@ -657,7 +658,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     };
 
     const finalSetlist: Setlist = {
-      id: editingSetlist.id || `setlist-${Date.now()}`,
+      id: editingSetlist.id && isUUID(editingSetlist.id) ? editingSetlist.id : generateUUID(),
       type: setlistType,
       title: editingSetlist.title?.trim() || undefined,
       date: editingSetlist.date,
@@ -1626,7 +1627,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 ...editingSetlist,
                                 sundaySchool: {
                                   ...editingSetlist.sundaySchool!,
-                                  songs: [...curr, { id: `ss-${Date.now()}`, title: '' }],
+                                  songs: [...curr, { id: generateUUID(), title: '' }],
                                 },
                               });
                             }}
@@ -1721,7 +1722,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 ...editingSetlist,
                                 worshipService: {
                                   ...editingSetlist.worshipService!,
-                                  songs: [...curr, { id: `ws-${Date.now()}`, title: '' }],
+                                  songs: [...curr, { id: generateUUID(), title: '' }],
                                 },
                               });
                             }}
@@ -1818,7 +1819,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             ...editingSetlist,
                             program: {
                               ...editingSetlist.program!,
-                              songs: [...curr, { id: `prog-${Date.now()}`, title: '' }],
+                              songs: [...curr, { id: generateUUID(), title: '' }],
                             },
                           });
                         }}
