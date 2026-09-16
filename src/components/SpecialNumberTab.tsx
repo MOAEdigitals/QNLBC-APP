@@ -93,7 +93,7 @@ interface SpecialNumberTabProps {
   savedNames?: string[];
   onSaveSpecialNumber: (entry: SpecialNumberEntry) => void;
   onDeleteSpecialNumber: (id: string) => void;
-  onSavePracticeEntry?: (entry: PracticeGroupEntry) => void;
+  onSavePracticeEntry?: (entry: Partial<PracticeGroupEntry>, isNew?: boolean) => Promise<PracticeGroupEntry | void> | void;
   onDeletePracticeEntry?: (id: string) => void;
   onSaveChoirEntry?: (entry: ChoirEntry) => void;
   onDeleteChoirEntry?: (id: string) => void;
@@ -1186,25 +1186,41 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }
     }
 
-    const entryToSave: PracticeGroupEntry = {
-      id: editingPractice.id && isUUID(editingPractice.id) ? editingPractice.id : generateUUID(),
+    const isNew = !editingPractice.id || !practiceEntries.some((p) => p.id === editingPractice.id);
+
+    const entryToSave: Partial<PracticeGroupEntry> = {
+      ...(isNew ? {} : { id: editingPractice.id }),
       groupName: editingPractice.groupName.trim(),
       songTitle: trimmedTitle,
       songId: effectiveSongId,
       assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
+      practiceDate: editingPractice.practiceDate || undefined,
+      practiceTime: editingPractice.practiceTime || undefined,
+      targetDate: editingPractice.targetDate || undefined,
       lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
+      lyricsMode: editingPractice.lyricsMode || 'live',
+      lyricsSnapshot: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || null,
       notes: editingPractice.notes?.trim() || '',
       customAttachments: editingPractice.customAttachments || [],
       vocalParts: editingPractice.vocalParts || [],
-      createdAt: editingPractice.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      isDone: editingPractice.isDone || false,
     };
 
     if (onSavePracticeEntry) {
-      onSavePracticeEntry(entryToSave);
+      Promise.resolve(onSavePracticeEntry(entryToSave, isNew))
+        .then((saved) => {
+          if (saved && (saved as any).id) {
+            setSelectedPracticeId((saved as any).id);
+          }
+        })
+        .catch((err) => {
+          console.error('Save practice error:', err);
+        });
     }
-    // Automatically select and expand the newly created practice session container
-    setSelectedPracticeId(entryToSave.id);
+
+    if (editingPractice.id) {
+      setSelectedPracticeId(editingPractice.id);
+    }
     setIsEditingPractice(false);
     setEditingPractice(null);
     setNewSongArtist('');
@@ -1967,15 +1983,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               setNewSongArtist('');
               setShowSongArtistInput(false);
               setEditingPractice({
-                id: generateUUID(),
                 groupName: '',
                 songTitle: '',
                 assignedEvent: 'Sunday Service',
+                practiceDate: '',
+                practiceTime: '',
                 lyrics: '',
                 notes: '',
                 customAttachments: [],
                 vocalParts: [],
-                createdAt: new Date().toISOString(),
               });
               setIsEditingPractice(true);
             }}

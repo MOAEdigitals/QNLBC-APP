@@ -29,8 +29,11 @@ import {
   saveChoirEntry as supabaseSaveChoirEntry,
   deleteChoirEntry as supabaseDeleteChoirEntry,
   fetchPracticeEntries,
+  createPracticeEntry as supabaseCreatePracticeEntry,
+  updatePracticeEntry as supabaseUpdatePracticeEntry,
   savePracticeEntry as supabaseSavePracticeEntry,
   deletePracticeEntry as supabaseDeletePracticeEntry,
+  formatSupabaseError,
   fetchBirthdays,
   saveBirthday as supabaseSaveBirthday,
   deleteBirthday as supabaseDeleteBirthday,
@@ -614,25 +617,45 @@ export default function App() {
   };
 
   // Practice Group Operations
-  const handleSavePracticeEntry = async (entry: PracticeGroupEntry) => {
-    setPracticeEntries((prev) => {
-      const idx = prev.findIndex((p) => p.id === entry.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = entry;
-        return next;
-      }
-      return [entry, ...prev];
-    });
+  const handleSavePracticeEntry = async (
+    entry: Partial<PracticeGroupEntry>,
+    isNew?: boolean
+  ): Promise<PracticeGroupEntry> => {
+    const isActuallyNew = Boolean(
+      isNew || !entry.id || !practiceEntries.some((p) => p.id === entry.id)
+    );
 
-    try {
-      const saved = await supabaseSavePracticeEntry(entry);
-      setPracticeEntries((prev) => prev.map((p) => (p.id === entry.id ? saved : p)));
-    } catch (err: any) {
-      console.error('Failed to save practice entry:', err);
-      const fresh = await fetchPracticeEntries().catch(() => []);
-      setPracticeEntries(fresh);
-      alert('Unable to save practice: ' + (err.message || 'Database error'));
+    if (isActuallyNew) {
+      try {
+        const saved = await supabaseCreatePracticeEntry(entry);
+        setPracticeEntries((prev) => [saved, ...prev.filter((p) => p.id !== saved.id)]);
+        return saved;
+      } catch (err: any) {
+        console.error('Failed to create practice entry:', formatSupabaseError(err), err);
+        const fresh = await fetchPracticeEntries().catch(() => []);
+        setPracticeEntries(fresh);
+        alert('Unable to save practice: ' + (err.message || 'Database error'));
+        throw err;
+      }
+    } else {
+      try {
+        const saved = await supabaseUpdatePracticeEntry(entry.id!, entry);
+        setPracticeEntries((prev) => prev.map((p) => (p.id === entry.id ? saved : p)));
+        return saved;
+      } catch (err: any) {
+        console.error('Failed to update practice entry:', formatSupabaseError(err), err);
+        if (err.code === 'PGRST116' || err.message?.includes('no longer exists')) {
+          setPracticeEntries((prev) => prev.filter((p) => p.id !== entry.id));
+          const fresh = await fetchPracticeEntries().catch(() => []);
+          setPracticeEntries(fresh);
+          alert('Practice no longer exists or could not be accessed.');
+          throw err;
+        }
+        const fresh = await fetchPracticeEntries().catch(() => []);
+        setPracticeEntries(fresh);
+        alert('Unable to save practice: ' + (err.message || 'Database error'));
+        throw err;
+      }
     }
   };
 
@@ -642,9 +665,10 @@ export default function App() {
     try {
       await supabaseDeletePracticeEntry(id, target?.revision || 1);
     } catch (err: any) {
-      console.error('Failed to delete practice entry:', err);
+      console.error('Failed to delete practice entry:', formatSupabaseError(err), err);
       const fresh = await fetchPracticeEntries().catch(() => []);
       setPracticeEntries(fresh);
+      alert('Unable to delete practice: ' + (err.message || 'Database error'));
     }
   };
 

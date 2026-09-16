@@ -791,6 +791,51 @@ export async function deleteChoirEntry(id: string, expectedRevision: number): Pr
 // -------------------------------------------------------------
 // PRACTICE ENTRIES & VOCAL PARTS DATA ACCESS
 // -------------------------------------------------------------
+export function formatSupabaseError(error: any): string {
+  if (!error) return 'Unknown database error';
+  const parts: string[] = [];
+  if (error.message) parts.push(`message: ${error.message}`);
+  if (error.code) parts.push(`code: ${error.code}`);
+  if (error.details) parts.push(`details: ${error.details}`);
+  if (error.hint) parts.push(`hint: ${error.hint}`);
+  return parts.length > 0 ? parts.join(' | ') : String(error);
+}
+
+function mapPracticeRowToEntry(row: any, parts: PracticePartTrack[] = []): PracticeGroupEntry {
+  return {
+    id: row.id,
+    groupName: row.group_name,
+    group_name: row.group_name,
+    targetDate: row.target_date || undefined,
+    target_date: row.target_date || undefined,
+    practiceDate: row.practice_date || undefined,
+    practice_date: row.practice_date || undefined,
+    practiceTime: row.practice_time || undefined,
+    practice_time: row.practice_time || undefined,
+    assignedEvent: row.assigned_event || undefined,
+    assigned_event: row.assigned_event || undefined,
+    songId: row.song_id || undefined,
+    song_id: row.song_id || undefined,
+    songTitle: row.song_title,
+    song_title: row.song_title,
+    lyrics: row.lyrics_snapshot || '',
+    lyricsMode: row.lyrics_mode as LyricsMode,
+    lyrics_mode: row.lyrics_mode as LyricsMode,
+    lyricsSnapshot: row.lyrics_snapshot || null,
+    lyrics_snapshot: row.lyrics_snapshot || null,
+    sourceSongRevision: row.source_song_revision ? Number(row.source_song_revision) : null,
+    source_song_revision: row.source_song_revision ? Number(row.source_song_revision) : null,
+    notes: row.notes || undefined,
+    parts,
+    vocalParts: parts,
+    isDone: Boolean(row.is_done),
+    is_done: Boolean(row.is_done),
+    revision: Number(row.revision) || 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
 export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
   if (!isSupabaseConfigured()) return [];
 
@@ -800,7 +845,10 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
     .is('deleted_at', null)
     .order('practice_date', { ascending: false });
 
-  if (practiceErr) throw practiceErr;
+  if (practiceErr) {
+    console.error('Error fetching practice entries from Supabase:', formatSupabaseError(practiceErr), practiceErr);
+    throw practiceErr;
+  }
   if (!practices || practices.length === 0) return [];
 
   const practiceIds = practices.map((p) => p.id);
@@ -811,7 +859,9 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
     .is('deleted_at', null)
     .order('position', { ascending: true });
 
-  if (partsErr) throw partsErr;
+  if (partsErr) {
+    console.warn('Error fetching vocal parts for practice entries:', formatSupabaseError(partsErr));
+  }
 
   const partsByPracticeId = new Map<string, PracticePartTrack[]>();
   for (const part of vocalParts || []) {
@@ -832,51 +882,15 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
 
   return practices.map((row) => {
     const parts = partsByPracticeId.get(row.id) || [];
-    return {
-      id: row.id,
-      groupName: row.group_name,
-      group_name: row.group_name,
-      targetDate: row.target_date || undefined,
-      target_date: row.target_date || undefined,
-      practiceDate: row.practice_date || undefined,
-      practice_date: row.practice_date || undefined,
-      practiceTime: row.practice_time || undefined,
-      practice_time: row.practice_time || undefined,
-      assignedEvent: row.assigned_event || undefined,
-      assigned_event: row.assigned_event || undefined,
-      songId: row.song_id || undefined,
-      song_id: row.song_id || undefined,
-      songTitle: row.song_title,
-      song_title: row.song_title,
-      lyrics: row.lyrics_snapshot || '',
-      lyricsMode: row.lyrics_mode as LyricsMode,
-      lyrics_mode: row.lyrics_mode as LyricsMode,
-      lyricsSnapshot: row.lyrics_snapshot || null,
-      lyrics_snapshot: row.lyrics_snapshot || null,
-      sourceSongRevision: row.source_song_revision ? Number(row.source_song_revision) : null,
-      source_song_revision: row.source_song_revision ? Number(row.source_song_revision) : null,
-      notes: row.notes || undefined,
-      parts,
-      vocalParts: parts,
-      isDone: Boolean(row.is_done),
-      is_done: Boolean(row.is_done),
-      revision: Number(row.revision) || 1,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at || new Date().toISOString(),
-    };
+    return mapPracticeRowToEntry(row, parts);
   });
 }
 
-export async function savePracticeEntry(
-  entry: Partial<PracticeGroupEntry>,
-  isNew = false
-): Promise<PracticeGroupEntry> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
-
+function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
   const rawSongId = (entry.songId || entry.song_id)?.trim();
-  const validSongId = isUUID(rawSongId) ? rawSongId : null;
+  const validSongId = rawSongId && isUUID(rawSongId) ? rawSongId : null;
 
-  const payload = {
+  return {
     group_name: (entry.groupName || entry.group_name)?.trim() || 'Worship Team',
     target_date: entry.targetDate || entry.target_date || null,
     practice_date: entry.practiceDate || entry.practice_date || null,
@@ -886,49 +900,30 @@ export async function savePracticeEntry(
     song_title: (entry.songTitle || entry.song_title)?.trim() || 'Untitled',
     lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
     lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
-    source_song_revision: entry.sourceSongRevision || entry.source_song_revision || null,
+    source_song_revision:
+      entry.sourceSongRevision !== undefined && entry.sourceSongRevision !== null
+        ? Number(entry.sourceSongRevision)
+        : entry.source_song_revision !== undefined && entry.source_song_revision !== null
+        ? Number(entry.source_song_revision)
+        : null,
     notes: entry.notes?.trim() || null,
-    is_done: Boolean(entry.isDone ?? entry.is_done),
+    is_done: Boolean(entry.isDone ?? entry.is_done ?? false),
   };
+}
 
-  let targetPracticeId: string;
-  const hasValidUUID = isUUID(entry.id);
-
-  if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: entry.id, ...payload } : { ...payload };
-    const { data, error } = await supabase
-      .from('practice_entries')
-      .insert(insertPayload)
-      .select('*')
-      .single();
-
-    if (error || !data) throw error || new Error('Failed to create practice entry: ' + (error?.message || ''));
-    targetPracticeId = data.id;
-  } else {
-    targetPracticeId = entry.id!;
-    const expectedRev = entry.revision || 1;
-    const { data, error } = await supabase
-      .from('practice_entries')
-      .update(payload)
-      .eq('id', targetPracticeId)
-      .eq('revision', expectedRev)
-      .select('*')
-      .single();
-
-    if (error || !data) {
-      throw new ConcurrencyConflictError(
-        error?.message || 'Practice entry update conflict: modified by another user.'
-      );
-    }
-  }
-
-  // Sync vocal parts
-  const parts = entry.parts || entry.vocalParts || [];
-  const { data: existingParts } = await supabase
+async function syncPracticeVocalParts(
+  practiceId: string,
+  parts: PracticePartTrack[]
+): Promise<void> {
+  const { data: existingParts, error: fetchPartsErr } = await supabase
     .from('vocal_parts')
     .select('id, revision')
-    .eq('practice_id', targetPracticeId)
+    .eq('practice_id', practiceId)
     .is('deleted_at', null);
+
+  if (fetchPartsErr) {
+    console.warn('Failed to fetch existing vocal parts:', formatSupabaseError(fetchPartsErr));
+  }
 
   const keptPartIds = new Set<string>();
 
@@ -937,7 +932,7 @@ export async function savePracticeEntry(
     const hasPartUUID = isUUID(p.id);
 
     const partPayload = {
-      practice_id: targetPracticeId,
+      practice_id: practiceId,
       label: p.partLabel || 'Custom',
       custom_label: (p.customLabel || p.custom_label)?.trim() || null,
       name: p.name?.trim() || null,
@@ -948,11 +943,13 @@ export async function savePracticeEntry(
     const matchPart = hasPartUUID ? existingParts?.find((ep) => ep.id === p.id) : null;
     if (matchPart) {
       keptPartIds.add(matchPart.id);
-      await supabase
+      const { error: updErr } = await supabase
         .from('vocal_parts')
         .update(partPayload)
-        .eq('id', matchPart.id)
-        .eq('revision', matchPart.revision);
+        .eq('id', matchPart.id);
+      if (updErr) {
+        console.warn('Failed to update vocal part:', formatSupabaseError(updErr));
+      }
     } else {
       const partInsertPayload = hasPartUUID ? { id: p.id, ...partPayload } : { ...partPayload };
       const { data: savedPart, error: partErr } = await supabase
@@ -962,6 +959,8 @@ export async function savePracticeEntry(
         .single();
       if (!partErr && savedPart) {
         keptPartIds.add(savedPart.id);
+      } else if (partErr) {
+        console.warn('Failed to insert vocal part:', formatSupabaseError(partErr));
       }
     }
   }
@@ -969,20 +968,136 @@ export async function savePracticeEntry(
   for (const ep of existingParts || []) {
     if (!keptPartIds.has(ep.id)) {
       try {
-        await executeSoftDelete('vocal_parts', ep.id, Number(ep.revision));
+        await executeSoftDelete('vocal_parts', ep.id, Number(ep.revision) || 1);
       } catch {
-        // ignore
+        await supabase
+          .from('vocal_parts')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', ep.id);
       }
     }
   }
-
-  const all = await fetchPracticeEntries();
-  const refreshed = all.find((p) => p.id === targetPracticeId);
-  return refreshed || (entry as PracticeGroupEntry);
 }
 
-export async function deletePracticeEntry(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('practice_entries', id, expectedRevision);
+export async function createPracticeEntry(
+  entry: Partial<PracticeGroupEntry>
+): Promise<PracticeGroupEntry> {
+  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+
+  const validPayload = buildPracticePayload(entry);
+
+  const { data, error } = await supabase
+    .from('practice_entries')
+    .insert(validPayload)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Supabase insert error on practice_entries:', formatSupabaseError(error), {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error('No data returned from practice insert.');
+  }
+
+  const newPracticeId = data.id;
+
+  // Sync vocal parts if provided
+  const parts = entry.parts || entry.vocalParts || [];
+  if (parts.length > 0) {
+    await syncPracticeVocalParts(newPracticeId, parts);
+  }
+
+  const all = await fetchPracticeEntries();
+  const refreshed = all.find((p) => p.id === newPracticeId);
+  return refreshed || mapPracticeRowToEntry(data, parts);
+}
+
+export async function updatePracticeEntry(
+  practiceId: string,
+  entry: Partial<PracticeGroupEntry>
+): Promise<PracticeGroupEntry> {
+  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  if (!practiceId || !isUUID(practiceId)) {
+    throw new Error('Invalid practice ID for update: ' + practiceId);
+  }
+
+  const validPayload = buildPracticePayload(entry);
+
+  const { data, error } = await supabase
+    .from('practice_entries')
+    .update(validPayload)
+    .eq('id', practiceId)
+    .select('*')
+    .single();
+
+  if (error) {
+    console.error('Supabase update error on practice_entries:', formatSupabaseError(error), {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    if (error.code === 'PGRST116') {
+      const notFoundErr = new Error('Practice no longer exists or could not be accessed.');
+      (notFoundErr as any).code = 'PGRST116';
+      (notFoundErr as any).details = error.details;
+      (notFoundErr as any).hint = error.hint;
+      throw notFoundErr;
+    }
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error('Practice no longer exists or could not be accessed.');
+  }
+
+  // Sync vocal parts if provided
+  const parts = entry.parts || entry.vocalParts || [];
+  await syncPracticeVocalParts(practiceId, parts);
+
+  const all = await fetchPracticeEntries();
+  const refreshed = all.find((p) => p.id === practiceId);
+  return refreshed || mapPracticeRowToEntry(data, parts);
+}
+
+export async function savePracticeEntry(
+  entry: Partial<PracticeGroupEntry>,
+  isNew = false
+): Promise<PracticeGroupEntry> {
+  if (isNew || !entry.id || !isUUID(entry.id)) {
+    return createPracticeEntry(entry);
+  }
+  return updatePracticeEntry(entry.id, entry);
+}
+
+export async function deletePracticeEntry(id: string, expectedRevision?: number): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  try {
+    if (expectedRevision !== undefined && expectedRevision > 0) {
+      await executeSoftDelete('practice_entries', id, expectedRevision);
+      return;
+    }
+  } catch (rpcErr) {
+    console.warn('RPC soft delete fallback to direct soft delete for practice_entries:', rpcErr);
+  }
+
+  const { error } = await supabase
+    .from('practice_entries')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) {
+    const errorDetails = formatSupabaseError(error);
+    console.error('Failed to delete practice entry:', errorDetails, error);
+    throw error;
+  }
 }
 
 // -------------------------------------------------------------
