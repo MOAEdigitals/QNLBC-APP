@@ -3,11 +3,19 @@ export type UserRole = 'admin' | 'user';
 export interface UserAccount {
   id: string;
   username: string;
-  passwordHash: string; // Plain/stored for internal church auth
+  displayName: string;
+  display_name?: string;
   role: UserRole;
-  avatar?: string; // Base64 compressed image data URL for profile picture
-  createdAt: string;
+  active: boolean;
+  avatar?: string;
+  avatarUrl?: string;
+  avatar_url?: string | null;
+  revision: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
+
+export type UserProfile = UserAccount;
 
 export type AttachmentCategory = 'plus_one' | 'minus_one';
 
@@ -30,22 +38,44 @@ export interface Song {
   categories?: string[];
   lyrics: string;
   minusOneLink?: string;
+  minus_one_link?: string;
   attachments?: SongAttachment[];
   isWelcomeSong?: boolean;
+  is_welcome_song?: boolean;
   isClosingSong?: boolean;
+  is_closing_song?: boolean;
   isThemeSong?: boolean;
+  is_theme_song?: boolean;
   isSpecialNumber?: boolean;
   isStarred?: boolean;
+  is_starred?: boolean;
   starred?: boolean;
+  revision: number;
+  createdAt?: string;
+  created_at?: string;
   updatedAt: string;
+  updated_at?: string;
+  deletedAt?: string | null;
+  deleted_at?: string | null;
 }
+
+export type LyricsMode = 'live' | 'snapshot' | 'custom';
 
 export interface SetlistSongItem {
   id: string;
   songId?: string; // Reference to Song library if linked
+  song_id?: string;
   title: string;
   keyNote?: string; // Optional legacy or key note
-  notes?: string; // Stanza notes, style, etc. (empty by default)
+  key_note?: string;
+  notes?: string; // Stanza notes, style, etc.
+  lyricsMode?: LyricsMode;
+  lyrics_mode?: LyricsMode;
+  lyricsSnapshot?: string | null;
+  lyrics_snapshot?: string | null;
+  sourceSongRevision?: number | null;
+  source_song_revision?: number | null;
+  revision?: number;
 }
 
 export type SetlistType = 'sunday' | 'prayer_meeting' | 'fellowship' | 'event';
@@ -53,49 +83,65 @@ export type SetlistType = 'sunday' | 'prayer_meeting' | 'fellowship' | 'event';
 export interface Setlist {
   id: string;
   type?: SetlistType; // 'sunday' | 'prayer_meeting' | 'fellowship' | 'event'
-  title?: string; // Custom title for Fellowship (e.g. "Youth Fellowship") or Event (e.g. "Mission Conference")
+  title?: string; // Custom title
   date: string; // YYYY-MM-DD
-  presider?: string; // Optional for prayer meeting
-  welcomeSong?: string; // Welcome song (e.g. "Napakaligaya")
-  closingSong?: string; // Closing song (e.g. "Give Thanks")
-  themeSong?: string; // Theme song
+  service_date?: string;
+  presider?: string;
+  welcomeSong?: string;
+  welcome_song?: string;
+  closingSong?: string;
+  closing_song?: string;
+  themeSong?: string;
+  theme_song?: string;
   sundaySchool?: {
     songLeader: string;
-    songs: SetlistSongItem[]; // 2-3 songs
+    songs: SetlistSongItem[];
     notes?: string;
   };
   worshipService?: {
     songLeader: string;
-    songs: SetlistSongItem[]; // 2-4 songs
+    songs: SetlistSongItem[];
     notes?: string;
   };
   program?: {
     songLeader: string;
-    songs: SetlistSongItem[]; // 1-2 for prayer meeting, 2-3 for fellowship, 3-4 for event
+    songs: SetlistSongItem[];
     notes?: string;
   };
   generalNotes?: string;
+  general_notes?: string;
+  revision: number;
   createdAt: string;
+  created_at?: string;
   updatedAt: string;
+  updated_at?: string;
+  deletedAt?: string | null;
+  deleted_at?: string | null;
 }
 
 export interface BirthdayCelebrant {
   id: string;
   name: string;
   birthDate: string; // YYYY-MM-DD
+  birth_date?: string;
   ministryOrGroup?: string;
+  ministry_or_group?: string;
   notes?: string;
+  revision: number;
 }
 
 export type AnniversaryType = 'Wedding' | 'Church' | 'Ministry' | 'Other';
 
 export interface AnniversaryCelebrant {
   id: string;
-  title: string; // e.g. "Bro. Mark & Sis. Grace" or "Youth Ministry"
+  title: string;
   anniversaryDate: string; // YYYY-MM-DD
+  anniversary_date?: string;
   type: AnniversaryType;
   yearsCount?: number;
+  years_count?: number;
   notes?: string;
+  revision: number;
 }
 
 export type VisitorTier = '1st timer' | '2nd timer' | '3rd timer' | 'Regular attender';
@@ -103,11 +149,14 @@ export type VisitorTier = '1st timer' | '2nd timer' | '3rd timer' | 'Regular att
 export interface Visitor {
   id: string;
   name: string;
-  barangay: string; // Place of origin
+  barangay: string;
   tier: VisitorTier;
   dateVisited: string; // YYYY-MM-DD
+  date_visited?: string;
   contactNumber?: string;
+  contact_number?: string;
   notes?: string;
+  revision: number;
 }
 
 export type SpecialRecognitionType =
@@ -122,20 +171,36 @@ export interface SpecialRecognition {
   id: string;
   name: string;
   recognitionType: SpecialRecognitionType;
+  recognition_type?: SpecialRecognitionType;
   customType?: string;
+  custom_type?: string;
   date: string; // YYYY-MM-DD
+  recognition_date?: string;
   description?: string;
+  revision: number;
 }
 
 export interface SpecialNumberEntry {
   id: string;
   performerName: string;
+  performer_name?: string;
   scheduledDate: string; // YYYY-MM-DD
-  songTitle?: string; // Can be left empty if song is not yet decided
+  scheduled_date?: string;
+  songTitle?: string;
+  song_title?: string;
   songId?: string;
+  song_id?: string;
+  lyricsMode?: LyricsMode;
+  lyrics_mode?: LyricsMode;
+  lyricsSnapshot?: string | null;
+  lyrics_snapshot?: string | null;
+  sourceSongRevision?: number | null;
   minusOneLink?: string;
+  minus_one_link?: string;
   notes?: string;
   lyrics?: string;
+  status?: 'scheduled' | 'practicing' | 'ready' | 'completed' | 'cancelled';
+  revision: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -143,13 +208,24 @@ export interface SpecialNumberEntry {
 export interface ChoirEntry {
   id: string;
   date: string; // YYYY-MM-DD presentation/service date
+  service_date?: string;
   songTitle: string;
+  song_title?: string;
   artist?: string;
-  songId?: string; // Reference to Song library if linked
+  songId?: string;
+  song_id?: string;
+  lyricsMode?: LyricsMode;
+  lyrics_mode?: LyricsMode;
+  lyricsSnapshot?: string | null;
+  lyrics_snapshot?: string | null;
+  sourceSongRevision?: number | null;
   lyrics?: string;
   notes?: string;
-  choirGroup?: string; // e.g. "Church Choir", "Youth Choir", "Junior Choir"
+  choirGroup?: string;
+  choir_group?: string;
   isDone?: boolean;
+  is_done?: boolean;
+  revision: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -173,34 +249,71 @@ export interface PracticePartTrack {
   id: string;
   partLabel: VocalPartLabel;
   customLabel?: string;
+  custom_label?: string;
   assignedUsers?: string[];
-  assignedTo?: string; // e.g. "Sis. Grace", "Bro. John"
-  name?: string; // Track name e.g. "Alto Practice Vocal"
+  assignedTo?: string;
+  name?: string;
   type?: 'link' | 'audio' | 'video' | 'file';
   urlOrData?: string;
   audioUrl?: string;
   notes?: string;
+  position?: number;
+  revision?: number;
   createdAt?: string;
 }
 
 export interface PracticeGroupEntry {
   id: string;
-  groupName: string; // e.g. "Youth Choir", "Men's Quartet", "Praise Team Ensemble", "Sisters Trio"
-  targetDate?: string; // Optional upcoming presentation date
+  groupName: string;
+  group_name?: string;
+  targetDate?: string;
+  target_date?: string;
   practiceDate?: string;
+  practice_date?: string;
   practiceTime?: string;
+  practice_time?: string;
   assignedEvent?: string;
+  assigned_event?: string;
   songTitle: string;
+  song_title?: string;
   artist?: string;
   lyrics: string;
-  songId?: string; // reference to original song in songs library if linked
+  songId?: string;
+  song_id?: string;
+  lyricsMode?: LyricsMode;
+  lyrics_mode?: LyricsMode;
+  lyricsSnapshot?: string | null;
+  lyrics_snapshot?: string | null;
+  sourceSongRevision?: number | null;
   notes?: string;
-  attachments?: SongAttachment[]; // isolated practice plus_one / minus_one attachments
+  attachments?: SongAttachment[];
   customAttachments?: SongAttachment[];
-  parts?: PracticePartTrack[]; // vocal parts tracks (Tenor, Alto, Soprano, Bass, Baritone, etc.)
+  parts?: PracticePartTrack[];
   vocalParts?: PracticePartTrack[];
   isDone?: boolean;
+  is_done?: boolean;
+  revision: number;
   createdAt: string;
   updatedAt?: string;
 }
+
+export type SupabaseConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'error';
+
+export interface TableSyncStatus {
+  table: string;
+  displayName: string;
+  itemCount: number;
+  lastEventTime: number | null;
+  status: 'synced' | 'syncing' | 'error';
+}
+
+export interface DatabaseStatusInfo {
+  status: SupabaseConnectionStatus;
+  provider: 'supabase';
+  projectUrl: string;
+  tableLogs: Record<string, TableSyncStatus>;
+  lastSyncTime: number | null;
+  errorMessage?: string;
+}
+
 

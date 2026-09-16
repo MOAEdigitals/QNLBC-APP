@@ -64,228 +64,14 @@ export const DEFAULT_WELCOME_SONGS: string[] = [
   'Kay Buti ng Diyos',
 ];
 
-// Default pre-seeded admin account per user spec
-export const DEFAULT_ADMIN: UserAccount = {
-  id: 'admin-qnlbc-root',
-  username: 'QNLBC',
-  passwordHash: 'qnlbc2026',
-  role: 'admin',
-  createdAt: '2026-01-01T00:00:00.000Z',
-};
+// Default empty user list (Supabase public.profiles is the single source of truth)
+export const DEFAULT_USERS: UserAccount[] = [];
+export const DEFAULT_ACTIVE_SETLISTS: Setlist[] = [];
 
-// Complete team member accounts synced across all devices
-export const DEFAULT_USERS: UserAccount[] = [
-  DEFAULT_ADMIN,
-  { id: 'user-1787660674227', username: 'ERIC', passwordHash: 'm@rkeric', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787660687804', username: 'JOSHUA', passwordHash: 'm@rkjoshua', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787717185626', username: 'JONAH', passwordHash: 'jon@bhi', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787736377241', username: 'RONNIE', passwordHash: 'ronni3P', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1787744129805', username: 'JOY', passwordHash: 'alici@joy', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788055364792', username: 'DM', passwordHash: 'dennism@tthew', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788055448825', username: 'ALJOE', passwordHash: 'aljo3pogi', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788062000655', username: 'ROGER', passwordHash: 'qnlbcroger', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788062100280', username: 'MARY ROSE', passwordHash: 'maryros3', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788350524465', username: 'JV', passwordHash: 'johnvinc3nt', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-  { id: 'user-1788695551324', username: 'LUZ', passwordHash: 'luzvimind@', role: 'user', createdAt: '2026-08-20T00:00:00.000Z' },
-];
 
-export const DEFAULT_ACTIVE_SETLISTS: Setlist[] = [
-  {
-    id: 'setlist-1788669713519',
-    type: 'sunday',
-    date: '2026-09-13',
-    presider: 'BRO JOSHUA',
-    welcomeSong: 'Napakaligaya',
-    closingSong: 'Give Thanks',
-    themeSong: "God's Wonderful People",
-    sundaySchool: {
-      songLeader: 'BRO MARIUS',
-      songs: [
-        { id: 'ss-1789203744587', songId: 'song-1787656751861-bo07p', title: "My Saviour's Love" },
-        { id: 'ss-1789203745260', songId: 'song-1787656751871-twugj', title: 'Revive Us Again' },
-      ],
-    },
-    worshipService: {
-      songLeader: 'BRO ERIC',
-      songs: [
-        { id: 'ws-1788670322362', songId: 'song-1787656751888-m06y3', title: 'Victory In Jesus' },
-        { id: 'wo-1788670476267', songId: 'song-1787656751846-ghsyt', title: 'I Am Thine, O Lord' },
-      ],
-    },
-    createdAt: '2026-09-06T04:41:53.519Z',
-    updatedAt: '2026-09-12T17:07:49.187Z',
-  },
-];
+// Initial realistic songs library (Supabase songs table is authoritative)
+const INITIAL_SONGS: Song[] = [];
 
-// Initial realistic songs library
-const INITIAL_SONGS: Song[] = [
-  {
-    id: 'song-1',
-    title: 'Dakilang Katapatan',
-    artist: 'Papuri / Arnel De Pano',
-    lyrics: `[Verse 1]
-Sadyang kay buti ng ating Panginoon
-Magtatapat sa habang panahon
-Maging sa kabila ng ating pagkukulang
-Biyaya Niya'y patuloy na bubuhos
-
-[Verse 2]
-Kailanma'y 'di Siya nagmaliw
-Kahit anong tindi ng unos
-Mananatiling tapat ang Panginoon
-Magpakailanman
-
-[Chorus]
-Dakila Ka, O Diyos, tapat Ka ngang tunay
-Magmula pa sa ugat ng aming buhay
-Bawat umaga'y laging bago ang Iyong awa
-Dakila ang Iyong katapatan
-O Diyos, dakila Ka!`,
-    minusOneLink: 'https://www.youtube.com/watch?v=dakilang_katapatan_backing_track',
-    attachments: [
-      {
-        id: 'att-1',
-        name: 'Chords Key of D.pdf',
-        type: 'text',
-        urlOrData: 'Verse: D - F#m - G - A | Chorus: G - A - F#m - Bm - Em - A - D',
-        createdAt: '2026-08-01',
-      },
-    ],
-    updatedAt: '2026-08-10',
-  },
-  {
-    id: 'song-2',
-    title: '10,000 Reasons (Bless The Lord)',
-    artist: 'Matt Redman',
-    lyrics: `[Chorus]
-Bless the Lord, O my soul, O my soul
-Worship His holy name
-Sing like never before, O my soul
-I'll worship Your holy name
-
-[Verse 1]
-The sun comes up, it's a new day dawning
-It's time to sing Your song again
-Whatever may pass, and whatever lies before me
-Let me be singing when the evening comes
-
-[Verse 2]
-You're rich in love, and You're slow to anger
-Your name is great, and Your heart is kind
-For all Your goodness I will keep on singing
-Ten thousand reasons for my heart to find`,
-    minusOneLink: 'https://www.youtube.com/watch?v=10000reasons_instrumental',
-    updatedAt: '2026-08-11',
-  },
-  {
-    id: 'song-3',
-    title: 'Amazing Grace (My Chains Are Gone)',
-    artist: 'Chris Tomlin / John Newton',
-    lyrics: `[Verse 1]
-Amazing grace, how sweet the sound
-That saved a wretch like me
-I once was lost, but now I'm found
-Was blind, but now I see
-
-[Verse 2]
-'Twas grace that taught my heart to fear
-And grace my fears relieved
-How precious did that grace appear
-The hour I first believed
-
-[Chorus]
-My chains are gone, I've been set free
-My God, my Savior has ransomed me
-And like a flood His mercy reigns
-Unending love, amazing grace`,
-    minusOneLink: 'https://www.youtube.com/watch?v=amazing_grace_minus_one',
-    updatedAt: '2026-08-12',
-  },
-  {
-    id: 'song-4',
-    title: 'Salamat Panginoon',
-    artist: 'Rommel Guevara',
-    lyrics: `[Verse]
-Ikaw ay mabuti, bawat sandali
-Sa habang buhay ay mananatili
-Hindi Mo ako iniwan o pinabayaan man
-Biyaya Mo't habag ay laging nariyan
-
-[Chorus]
-Salamat Panginoon sa Iyong kabutihan
-Salamat Panginoon sa Iyong katapatan
-Walang katulad ang pag-ibig Mo
-Hesus, purihin Ka magpakailanman!`,
-    minusOneLink: 'https://www.youtube.com/watch?v=salamat_panginoon_track',
-    updatedAt: '2026-08-14',
-  },
-  {
-    id: 'song-5',
-    title: 'Goodness of God',
-    artist: 'Bethel Music / Jenn Johnson',
-    lyrics: `[Verse 1]
-I love You, Lord, for Your mercy never fails me
-All my days, I've been held in Your hands
-From the moment that I wake up until I lay my head
-Oh, I will sing of the goodness of God
-
-[Chorus]
-'Cause all my life You have been faithful
-And all my life You have been so, so good
-With every breath that I am able
-Oh, I will sing of the goodness of God`,
-    minusOneLink: 'https://www.youtube.com/watch?v=goodness_of_god_instrumental',
-    updatedAt: '2026-08-15',
-  },
-  {
-    id: 'song-6',
-    title: 'How Great Thou Art',
-    artist: 'Hymn / Stuart K. Hine',
-    lyrics: `[Verse 1]
-O Lord my God, when I in awesome wonder
-Consider all the worlds Thy hands have made
-I see the stars, I hear the rolling thunder
-Thy power throughout the universe displayed
-
-[Chorus]
-Then sings my soul, my Savior God, to Thee
-How great Thou art, how great Thou art!
-Then sings my soul, my Savior God, to Thee
-How great Thou art, how great Thou art!`,
-    category: 'Hymn',
-    categories: ['Hymn'],
-    updatedAt: '2026-08-16',
-  },
-  {
-    id: 'song-welcome-1',
-    title: 'Napakaligaya',
-    artist: 'Tagalog Praise',
-    lyrics: `[Verse]
-Napakaligaya at kahanga-hanga
-Kung ang magkakapatid ay magkasama-sama
-May pagkakaisa at pagmamahalan
-Panginoon ay pinupuri magpakailanman!`,
-    isWelcomeSong: true,
-    updatedAt: '2026-08-18',
-  },
-  {
-    id: 'song-closing-1',
-    title: 'Give Thanks',
-    artist: 'Don Moen / Henry Smith',
-    lyrics: `[Verse]
-Give thanks with a grateful heart
-Give thanks to the Holy One
-Give thanks because He's given Jesus Christ, His Son
-
-[Chorus]
-And now let the weak say, "I am strong"
-Let the poor say, "I am rich
-Because of what the Lord has done for us"
-Give thanks!`,
-    isClosingSong: true,
-    updatedAt: '2026-08-18',
-  },
-];
 
 // Helper for initial empty data state without generating dummy/example items
 function getInitialData() {
@@ -302,26 +88,11 @@ function getInitialData() {
 export function loadUsers(): UserAccount[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.USERS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(DEFAULT_USERS));
-      return DEFAULT_USERS;
-    }
+    if (!raw) return [];
     const parsed: UserAccount[] = JSON.parse(raw);
-    let modified = false;
-    const map = new Map<string, UserAccount>(parsed.map((u) => [u.username.toLowerCase(), u]));
-    for (const defUser of DEFAULT_USERS) {
-      if (!map.has(defUser.username.toLowerCase())) {
-        map.set(defUser.username.toLowerCase(), defUser);
-        modified = true;
-      }
-    }
-    const result = Array.from(map.values());
-    if (modified) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(result));
-    }
-    return result;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return DEFAULT_USERS;
+    return [];
   }
 }
 
@@ -331,30 +102,17 @@ export function saveUsers(users: UserAccount[]): void {
 
 export function deleteAllNonAdminUsers(): UserAccount[] {
   const users = loadUsers();
-  // Retain only root admin / admin accounts
-  const adminOnly = users.filter(
-    (u) =>
-      u.id === DEFAULT_ADMIN.id ||
-      u.username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() ||
-      u.role === 'admin'
-  );
-  if (adminOnly.length === 0) {
-    adminOnly.push(DEFAULT_ADMIN);
-  }
+  const adminOnly = users.filter((u) => u.role === 'admin');
   saveUsers(adminOnly);
 
-  // If current logged-in user is not an admin, clear session
   const currentSession = loadCurrentSession();
-  if (
-    currentSession.user &&
-    currentSession.user.role !== 'admin' &&
-    currentSession.user.username.toLowerCase() !== DEFAULT_ADMIN.username.toLowerCase()
-  ) {
+  if (currentSession.user && currentSession.user.role !== 'admin') {
     saveCurrentSession(null, false);
   }
 
   return adminOnly;
 }
+
 
 export function updateUserAvatar(
   userId: string,
@@ -458,30 +216,14 @@ const LEGACY_MOCK_IDS = new Set([
 export function loadSetlists(): Setlist[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SETLISTS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(DEFAULT_ACTIVE_SETLISTS));
-      return DEFAULT_ACTIVE_SETLISTS;
-    }
+    if (!raw) return [];
     const parsed: Setlist[] = JSON.parse(raw);
-    const cleaned = parsed.filter((s) => !LEGACY_MOCK_IDS.has(s.id));
-    if (cleaned.length === 0) {
-      saveSetlists(DEFAULT_ACTIVE_SETLISTS);
-      return DEFAULT_ACTIVE_SETLISTS;
-    }
-    // Ensure the Sunday, Sept 13 setlist is included
-    if (!cleaned.some((s) => s.id === 'setlist-1788669713519')) {
-      const merged = [...DEFAULT_ACTIVE_SETLISTS, ...cleaned];
-      saveSetlists(merged);
-      return merged;
-    }
-    if (cleaned.length !== parsed.length) {
-      saveSetlists(cleaned);
-    }
-    return cleaned;
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return DEFAULT_ACTIVE_SETLISTS;
+    return [];
   }
 }
+
 
 export function saveSetlists(setlists: Setlist[]): void {
   localStorage.setItem(STORAGE_KEYS.SETLISTS, JSON.stringify(setlists));
