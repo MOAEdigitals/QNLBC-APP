@@ -886,7 +886,7 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
   });
 }
 
-function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
+export function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
   const rawSongId = (entry.songId || entry.song_id)?.trim();
   const validSongId = rawSongId && isUUID(rawSongId) ? rawSongId : null;
 
