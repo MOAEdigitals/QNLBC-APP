@@ -59,12 +59,20 @@ app.get('/api/storage/status', (req, res) => {
 });
 
 // Source code zip download endpoint for code audits and migrations
-app.get('/api/download-source-zip', (req, res) => {
-  const zipPath = path.join(process.cwd(), 'public', 'church-music-app-source.zip');
-  if (fs.existsSync(zipPath)) {
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', 'attachment; filename="church-music-app-source.zip"');
-    return res.sendFile(zipPath);
+app.get(['/api/download-source-zip', '/api/download-project-zip'], (req, res) => {
+  const candidateNames = [
+    'church-music-app-source.zip',
+    'project.zip',
+    'newlife-baptist-music-latest.zip'
+  ];
+  for (const name of candidateNames) {
+    const zipPath = path.join(process.cwd(), 'public', name);
+    if (fs.existsSync(zipPath)) {
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', 'attachment; filename="newlife-church-music-source.zip"');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+      return res.sendFile(zipPath);
+    }
   }
   return res.status(404).send('Source zip file not found');
 });

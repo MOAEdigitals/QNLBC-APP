@@ -345,6 +345,26 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('songs')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', song.id);
+
+      if (count === 0) {
+        const insertPayload = { id: song.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('songs')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return mapSongFromDB(insertedData);
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(
       error?.message || 'Song update conflict: the song has been updated by another user.'
     );
@@ -502,11 +522,34 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
       .single();
 
     if (error || !data) {
-      throw new ConcurrencyConflictError(
-        error?.message || 'Setlist update conflict: this setlist was modified by another user.'
-      );
+      if (error?.code === 'PGRST116') {
+        const { count } = await supabase
+          .from('setlists')
+          .select('id', { count: 'exact', head: true })
+          .eq('id', targetSetlistId);
+
+        if (count === 0) {
+          const insertPayload = { id: targetSetlistId, ...setlistPayload };
+          const { data: insertedData, error: insertError } = await supabase
+            .from('setlists')
+            .insert(insertPayload)
+            .select('*')
+            .single();
+
+          if (!insertError && insertedData) {
+            savedRow = insertedData;
+          }
+        }
+      }
+
+      if (!savedRow) {
+        throw new ConcurrencyConflictError(
+          error?.message || 'Setlist update conflict: this setlist was modified by another user.'
+        );
+      }
+    } else {
+      savedRow = data;
     }
-    savedRow = data;
   }
 
   // Manage setlist_items for the 3 sections:
@@ -679,6 +722,26 @@ export async function saveSpecialNumber(
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('special_numbers')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', entry.id);
+
+      if (count === 0) {
+        const insertPayload = { id: entry.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('special_numbers')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return mapSpecialNumberFromDB(insertedData);
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(
       error?.message || 'Special number update conflict: modified by another user.'
     );
@@ -776,6 +839,26 @@ export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false):
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('choir_entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', entry.id);
+
+      if (count === 0) {
+        const insertPayload = { id: entry.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('choir_entries')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return mapChoirEntryFromDB(insertedData);
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(
       error?.message || 'Choir entry update conflict: modified by another user.'
     );
@@ -985,10 +1068,11 @@ export async function createPracticeEntry(
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
   const validPayload = buildPracticePayload(entry);
+  const insertPayload = (entry.id && isUUID(entry.id)) ? { id: entry.id, ...validPayload } : validPayload;
 
   const { data, error } = await supabase
     .from('practice_entries')
-    .insert(validPayload)
+    .insert(insertPayload)
     .select('*')
     .single();
 
@@ -1074,7 +1158,21 @@ export async function savePracticeEntry(
   if (isNew || !entry.id || !isUUID(entry.id)) {
     return createPracticeEntry(entry);
   }
-  return updatePracticeEntry(entry.id, entry);
+  try {
+    return await updatePracticeEntry(entry.id, entry);
+  } catch (err: any) {
+    if (err?.code === 'PGRST116' || err?.message?.includes('no longer exists')) {
+      const { count } = await supabase
+        .from('practice_entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', entry.id);
+
+      if (count === 0) {
+        return await createPracticeEntry(entry);
+      }
+    }
+    throw err;
+  }
 }
 
 export async function deletePracticeEntry(id: string, expectedRevision?: number): Promise<void> {
@@ -1165,6 +1263,33 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('birthdays')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', item.id);
+
+      if (count === 0) {
+        const insertPayload = { id: item.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('birthdays')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return {
+            id: insertedData.id,
+            name: insertedData.name,
+            birthDate: insertedData.birth_date,
+            ministryOrGroup: insertedData.ministry_or_group || undefined,
+            notes: insertedData.notes || undefined,
+            revision: Number(insertedData.revision) || 1,
+          };
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(error?.message || 'Birthday record update conflict.');
   }
 
@@ -1250,6 +1375,34 @@ export async function saveAnniversary(
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('anniversaries')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', item.id);
+
+      if (count === 0) {
+        const insertPayload = { id: item.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('anniversaries')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return {
+            id: insertedData.id,
+            title: insertedData.title,
+            anniversaryDate: insertedData.anniversary_date,
+            type: insertedData.type,
+            yearsCount: insertedData.years_count ?? undefined,
+            notes: insertedData.notes || undefined,
+            revision: Number(insertedData.revision) || 1,
+          };
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(error?.message || 'Anniversary record update conflict.');
   }
 
@@ -1336,6 +1489,35 @@ export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promis
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('visitors')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', item.id);
+
+      if (count === 0) {
+        const insertPayload = { id: item.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('visitors')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return {
+            id: insertedData.id,
+            name: insertedData.name,
+            barangay: insertedData.barangay || '',
+            tier: insertedData.tier,
+            dateVisited: insertedData.date_visited,
+            contactNumber: insertedData.contact_number || undefined,
+            notes: insertedData.notes || undefined,
+            revision: Number(insertedData.revision) || 1,
+          };
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(error?.message || 'Visitor record update conflict.');
   }
 
@@ -1424,6 +1606,34 @@ export async function saveSpecialRecognition(
     .single();
 
   if (error || !data) {
+    if (error?.code === 'PGRST116') {
+      const { count } = await supabase
+        .from('recognitions')
+        .select('id', { count: 'exact', head: true })
+        .eq('id', item.id);
+
+      if (count === 0) {
+        const insertPayload = { id: item.id, ...payload };
+        const { data: insertedData, error: insertError } = await supabase
+          .from('recognitions')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (!insertError && insertedData) {
+          return {
+            id: insertedData.id,
+            name: insertedData.name,
+            recognitionType: insertedData.recognition_type,
+            customType: insertedData.custom_type || undefined,
+            date: insertedData.recognition_date,
+            description: insertedData.description || undefined,
+            revision: Number(insertedData.revision) || 1,
+          };
+        }
+      }
+    }
+
     throw new ConcurrencyConflictError(error?.message || 'Recognition record update conflict.');
   }
 

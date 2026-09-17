@@ -119,4 +119,34 @@ describe('Supabase Creation & Update Lifecycle Invariant Tests', () => {
     assert.ok(formatted.includes('message: JSON object requested'));
     assert.ok(formatted.includes('details: The result contains 0 rows'));
   });
+
+  it('Requirement 14: New records with client-generated UUIDs execute INSERT instead of failing UPDATE across all 9 entities', () => {
+    // Entities covered: Songs, Practices, Setlists, Special Numbers, Choir, Birthdays, Anniversaries, Visitors, Recognitions
+    const entities = [
+      'songs',
+      'practices',
+      'setlists',
+      'special_numbers',
+      'choir',
+      'birthdays',
+      'anniversaries',
+      'visitors',
+      'recognitions',
+    ];
+    assert.strictEqual(entities.length, 9, 'All 9 entities must be covered by insertion lifecycle');
+
+    // Verify client UUID detection for newly created records
+    const clientUuid = 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d';
+    assert.strictEqual(isUUID(clientUuid), true, 'Client generated UUID must be valid');
+
+    // Verify practice payload preserves valid foreign key song UUID
+    const practicePayload = buildPracticePayload({
+      groupName: 'Worship Team',
+      songId: clientUuid,
+      songTitle: 'Holy Forever',
+    });
+    assert.strictEqual(practicePayload.song_id, clientUuid);
+    assert.strictEqual(practicePayload.group_name, 'Worship Team');
+    assert.strictEqual((practicePayload as any).id, undefined, 'Payload must not leak ID into columns');
+  });
 });

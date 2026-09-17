@@ -6,5 +6,6 @@ coverage/
 *.log
 uploads/
 .checkpoint*/
+*.zip
 .env*
 !.env.example
