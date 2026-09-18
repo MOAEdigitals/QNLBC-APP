@@ -33,7 +33,10 @@ import {
   updatePracticeEntry as supabaseUpdatePracticeEntry,
   savePracticeEntry as supabaseSavePracticeEntry,
   deletePracticeEntry as supabaseDeletePracticeEntry,
+  savePracticeVocalPart as supabaseSavePracticeVocalPart,
+  savePracticeAttachment as supabaseSavePracticeAttachment,
   formatSupabaseError,
+  executeSoftDelete,
   fetchBirthdays,
   saveBirthday as supabaseSaveBirthday,
   deleteBirthday as supabaseDeleteBirthday,
@@ -299,7 +302,14 @@ export default function App() {
       },
       onProfilesChange: async () => {
         const fresh = await fetchAllProfiles().catch(() => []);
-        if (isMounted) setUsers(fresh);
+        const { data: authData } = await supabase.auth.getUser();
+        const refreshedCurrent = authData.user
+          ? await fetchCurrentUserProfile(authData.user.id).catch(() => null)
+          : null;
+        if (isMounted) {
+          setUsers(fresh);
+          if (refreshedCurrent?.active) setCurrentUser(refreshedCurrent);
+        }
       },
       onStatusChange: (status) => {
         if (isMounted) setDbStatus(status);
@@ -436,9 +446,27 @@ export default function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
+  const hasPermission = (permission: 'add' | 'edit' | 'delete' | 'upload') => {
+    if (currentUser?.role === 'admin') return true;
+    const key = {
+      add: 'canAdd',
+      edit: 'canEdit',
+      delete: 'canDelete',
+      upload: 'canUpload',
+    }[permission] as keyof NonNullable<UserAccount['permissions']>;
+    return Boolean(currentUser?.active && currentUser.permissions?.[key]);
+  };
+
+  const requirePermission = (permission: 'add' | 'edit' | 'delete' | 'upload') => {
+    if (hasPermission(permission)) return true;
+    alert(`Your account does not have ${permission.toUpperCase()} permission. Please contact an administrator.`);
+    return false;
+  };
+
   // Setlist Operations
   const handleSaveSetlist = useCallback(async (newOrUpdated: Setlist) => {
     const isNew = !setlists.some((s) => s.id === newOrUpdated.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
 
     try {
       const saved = await supabaseSaveSetlist(newOrUpdated, isNew);
@@ -454,9 +482,10 @@ export default function App() {
       setSetlists(fresh);
       alert('Unable to save setlist: ' + (err.message || 'Database error'));
     }
-  }, [setlists]);
+  }, [setlists, currentUser]);
 
   const handleDeleteSetlist = useCallback(async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = setlists.find((s) => s.id === id);
     setSetlists((prev) => prev.filter((s) => s.id !== id));
 
@@ -468,11 +497,14 @@ export default function App() {
       setSetlists(fresh);
       alert('Unable to delete setlist: ' + (err.message || 'Database error'));
     }
-  }, [setlists]);
+  }, [setlists, currentUser]);
 
   // Song Operations
   const handleSaveSong = useCallback(async (newOrUpdated: Song) => {
     const isNew = !songs.some((s) => s.id === newOrUpdated.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) {
+      throw new Error(`Your account does not have ${isNew ? 'ADD' : 'EDIT'} permission.`);
+    }
 
     try {
       const saved = await supabaseSaveSong(newOrUpdated, isNew);
@@ -489,12 +521,13 @@ export default function App() {
       alert('Unable to save song: ' + (err.message || 'Database error'));
       throw err;
     }
-  }, [songs]);
+  }, [songs, currentUser]);
 
   const handleBatchSaveSongs = useCallback(async (updatedSongs: Song[]) => {
     for (const song of updatedSongs) {
       try {
         const isNew = !songs.some((existing) => existing.id === song.id);
+        if (!requirePermission(isNew ? 'add' : 'edit')) return;
         const saved = await supabaseSaveSong(song, isNew);
         setSongs((prev) => {
           const withoutDraft = prev.filter((s) => s.id !== song.id && s.id !== saved.id);
@@ -504,9 +537,10 @@ export default function App() {
         console.error('Failed to batch save song:', song.title, err);
       }
     }
-  }, [songs]);
+  }, [songs, currentUser]);
 
   const handleDeleteSong = useCallback(async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = songs.find((s) => s.id === id);
     setSongs((prev) => prev.filter((s) => s.id !== id));
 
@@ -518,11 +552,12 @@ export default function App() {
       setSongs(fresh);
       alert('Unable to delete song: ' + (err.message || 'Database error'));
     }
-  }, [songs]);
+  }, [songs, currentUser]);
 
   // Special Number Operations
   const handleSaveSpecialNumber = async (entry: SpecialNumberEntry) => {
     const isNew = !specialNumbers.some((item) => item.id === entry.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
     let entryToSave = { ...entry };
 
     if (entry.songTitle && entry.lyrics) {
@@ -563,6 +598,7 @@ export default function App() {
   };
 
   const handleDeleteSpecialNumber = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = specialNumbers.find((s) => s.id === id);
     setSpecialNumbers((prev) => prev.filter((s) => s.id !== id));
     try {
@@ -577,6 +613,7 @@ export default function App() {
   // Choir Operations
   const handleSaveChoirEntry = async (entry: ChoirEntry) => {
     const isNew = !choirEntries.some((item) => item.id === entry.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
     let entryToSave = { ...entry };
 
     if (entry.songTitle && entry.lyrics) {
@@ -616,6 +653,7 @@ export default function App() {
   };
 
   const handleDeleteChoirEntry = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = choirEntries.find((c) => c.id === id);
     setChoirEntries((prev) => prev.filter((c) => c.id !== id));
     try {
@@ -635,6 +673,9 @@ export default function App() {
     const isActuallyNew = Boolean(
       isNew || !entry.id || !practiceEntries.some((p) => p.id === entry.id)
     );
+    if (!requirePermission(isActuallyNew ? 'add' : 'edit')) {
+      throw new Error(`Your account does not have ${isActuallyNew ? 'ADD' : 'EDIT'} permission.`);
+    }
 
     if (isActuallyNew) {
       try {
@@ -671,6 +712,7 @@ export default function App() {
   };
 
   const handleDeletePracticeEntry = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = practiceEntries.find((p) => p.id === id);
     setPracticeEntries((prev) => prev.filter((p) => p.id !== id));
     try {
@@ -683,9 +725,54 @@ export default function App() {
     }
   };
 
+  const handleSavePracticeVocalPart = async (
+    practiceId: string,
+    part: import('./types').PracticePartTrack,
+    position?: number
+  ) => {
+    if (!requirePermission('upload')) {
+      throw new Error('Your account does not have UPLOAD permission.');
+    }
+    const savedPart = await supabaseSavePracticeVocalPart(practiceId, part, position);
+    const fresh = await fetchPracticeEntries();
+    setPracticeEntries(fresh);
+    return savedPart;
+  };
+
+  const handleDeletePracticeVocalPart = async (part: import('./types').PracticePartTrack) => {
+    if (!requirePermission('delete')) return;
+    if (!part.id || !isUUID(part.id)) return;
+    await executeSoftDelete('vocal_parts', part.id, part.revision || 1);
+    const fresh = await fetchPracticeEntries();
+    setPracticeEntries(fresh);
+  };
+
+  const handleSavePracticeTrack = async (
+    practiceId: string,
+    attachment: import('./types').SongAttachment,
+    position?: number
+  ) => {
+    if (!requirePermission('upload')) {
+      throw new Error('Your account does not have UPLOAD permission.');
+    }
+    const saved = await supabaseSavePracticeAttachment(practiceId, attachment, position);
+    const fresh = await fetchPracticeEntries();
+    setPracticeEntries(fresh);
+    return saved;
+  };
+
+  const handleDeletePracticeTrack = async (attachment: import('./types').SongAttachment) => {
+    if (!requirePermission('delete')) return;
+    if (!attachment.id || !isUUID(attachment.id)) return;
+    await executeSoftDelete('attachments', attachment.id, attachment.revision || 1);
+    const fresh = await fetchPracticeEntries();
+    setPracticeEntries(fresh);
+  };
+
   // Celebrant & Recognitions Operations
   const handleSaveBirthday = async (item: BirthdayCelebrant) => {
     const isNew = !birthdays.some((existing) => existing.id === item.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
 
     try {
       const saved = await supabaseSaveBirthday(item, isNew);
@@ -703,6 +790,7 @@ export default function App() {
   };
 
   const handleDeleteBirthday = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = birthdays.find((b) => b.id === id);
     setBirthdays((prev) => prev.filter((b) => b.id !== id));
     try {
@@ -716,6 +804,7 @@ export default function App() {
 
   const handleSaveAnniversary = async (item: AnniversaryCelebrant) => {
     const isNew = !anniversaries.some((existing) => existing.id === item.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
 
     try {
       const saved = await supabaseSaveAnniversary(item, isNew);
@@ -733,6 +822,7 @@ export default function App() {
   };
 
   const handleDeleteAnniversary = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = anniversaries.find((a) => a.id === id);
     setAnniversaries((prev) => prev.filter((a) => a.id !== id));
     try {
@@ -746,6 +836,7 @@ export default function App() {
 
   const handleSaveVisitor = async (item: Visitor) => {
     const isNew = !visitors.some((existing) => existing.id === item.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
 
     try {
       const saved = await supabaseSaveVisitor(item, isNew);
@@ -763,6 +854,7 @@ export default function App() {
   };
 
   const handleDeleteVisitor = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = visitors.find((v) => v.id === id);
     setVisitors((prev) => prev.filter((v) => v.id !== id));
     try {
@@ -776,6 +868,7 @@ export default function App() {
 
   const handleSaveSpecialRecognition = async (item: SpecialRecognition) => {
     const isNew = !specialRecognitions.some((existing) => existing.id === item.id);
+    if (!requirePermission(isNew ? 'add' : 'edit')) return;
 
     try {
       const saved = await supabaseSaveSpecialRecognition(item, isNew);
@@ -793,6 +886,7 @@ export default function App() {
   };
 
   const handleDeleteSpecialRecognition = async (id: string) => {
+    if (!requirePermission('delete')) return;
     const target = specialRecognitions.find((r) => r.id === id);
     setSpecialRecognitions((prev) => prev.filter((r) => r.id !== id));
     try {
@@ -983,6 +1077,10 @@ export default function App() {
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
             onSavePracticeEntry={handleSavePracticeEntry}
+            onSavePracticeVocalPart={handleSavePracticeVocalPart}
+            onDeletePracticeVocalPart={handleDeletePracticeVocalPart}
+            onSavePracticeTrack={handleSavePracticeTrack}
+            onDeletePracticeTrack={handleDeletePracticeTrack}
             onDeletePracticeEntry={handleDeletePracticeEntry}
             onSaveChoirEntry={handleSaveChoirEntry}
             onDeleteChoirEntry={handleDeleteChoirEntry}

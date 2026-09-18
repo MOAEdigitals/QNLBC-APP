@@ -15,11 +15,18 @@
 - Added a working `npm test` command and Supabase creation-lifecycle regression tests.
 - Removed the duplicate GitHub Pages deployment workflow.
 - Corrected the production Express bundle to ESM so `import.meta.url` works.
+- Added granular per-user Add, Edit, and Delete permissions managed by administrators.
+- Active members retain Upload permission and now save vocal recordings without updating the parent practice.
+- Added ownership-scoped RLS policies for member-created vocal parts and their attachment metadata.
+
+## Required Supabase migration
+
+Run `supabase/migrations/20260918_granular_user_permissions.sql` once in the Supabase SQL Editor before deploying this frontend.
 
 ## Verification completed
 
 - `npm run lint` passes.
-- `npm test` passes: 12 tests.
+- `npm test` passes: 15 tests.
 - `npm run build` passes.
 
 ## Still requires a separate deployment task

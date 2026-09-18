@@ -1,5 +1,12 @@
 export type UserRole = 'admin' | 'user';
 
+export interface UserPermissions {
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canUpload: boolean;
+}
+
 export interface UserAccount {
   id: string;
   username: string;
@@ -8,6 +15,7 @@ export interface UserAccount {
   display_name?: string;
   role: UserRole;
   active: boolean;
+  permissions?: UserPermissions;
   avatar?: string;
   avatarUrl?: string;
   avatar_url?: string | null;
@@ -30,6 +38,7 @@ export interface SongAttachment {
   url?: string;
   uploadedAt?: string;
   createdAt?: string;
+  revision?: number;
 }
 
 export interface Song {

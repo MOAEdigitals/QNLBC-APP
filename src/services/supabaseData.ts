@@ -98,6 +98,12 @@ export async function fetchCurrentUserProfile(userId: string): Promise<UserAccou
     display_name: data.display_name || data.username,
     role: data.role as 'admin' | 'user',
     active: Boolean(data.active),
+    permissions: {
+      canAdd: data.role === 'admin' || Boolean(data.can_add),
+      canEdit: data.role === 'admin' || Boolean(data.can_edit),
+      canDelete: data.role === 'admin' || Boolean(data.can_delete),
+      canUpload: data.role === 'admin' || data.can_upload !== false,
+    },
     avatar: data.avatar_url || undefined,
     avatarUrl: data.avatar_url || undefined,
     avatar_url: data.avatar_url || null,
@@ -127,6 +133,12 @@ export async function fetchAllProfiles(): Promise<UserAccount[]> {
     display_name: d.display_name || d.username,
     role: d.role as 'admin' | 'user',
     active: Boolean(d.active),
+    permissions: {
+      canAdd: d.role === 'admin' || Boolean(d.can_add),
+      canEdit: d.role === 'admin' || Boolean(d.can_edit),
+      canDelete: d.role === 'admin' || Boolean(d.can_delete),
+      canUpload: d.role === 'admin' || d.can_upload !== false,
+    },
     avatar: d.avatar_url || undefined,
     avatarUrl: d.avatar_url || undefined,
     avatar_url: d.avatar_url || null,
@@ -146,6 +158,10 @@ export async function updateUserProfile(
     avatar?: string | null;
     role?: 'admin' | 'user';
     active?: boolean;
+    canAdd?: boolean;
+    canEdit?: boolean;
+    canDelete?: boolean;
+    canUpload?: boolean;
   },
   expectedRevision?: number
 ): Promise<UserAccount> {
@@ -159,6 +175,10 @@ export async function updateUserProfile(
   if (updates.avatar !== undefined) payload.avatar_url = updates.avatar;
   if (updates.role !== undefined) payload.role = updates.role;
   if (updates.active !== undefined) payload.active = updates.active;
+  if (updates.canAdd !== undefined) payload.can_add = updates.canAdd;
+  if (updates.canEdit !== undefined) payload.can_edit = updates.canEdit;
+  if (updates.canDelete !== undefined) payload.can_delete = updates.canDelete;
+  if (updates.canUpload !== undefined) payload.can_upload = updates.canUpload;
 
   let query = supabase
     .from('profiles')
@@ -184,6 +204,12 @@ export async function updateUserProfile(
     display_name: data.display_name || data.username,
     role: data.role as 'admin' | 'user',
     active: Boolean(data.active),
+    permissions: {
+      canAdd: data.role === 'admin' || Boolean(data.can_add),
+      canEdit: data.role === 'admin' || Boolean(data.can_edit),
+      canDelete: data.role === 'admin' || Boolean(data.can_delete),
+      canUpload: data.role === 'admin' || data.can_upload !== false,
+    },
     avatar: data.avatar_url || undefined,
     avatarUrl: data.avatar_url || undefined,
     avatar_url: data.avatar_url || null,
@@ -207,6 +233,13 @@ export async function toggleProfileActive(userId: string, active: boolean): Prom
   if (error) {
     throw new Error(error.message);
   }
+}
+
+export async function setProfilePermissions(
+  userId: string,
+  permissions: { canAdd: boolean; canEdit: boolean; canDelete: boolean; canUpload: boolean }
+): Promise<UserAccount> {
+  return updateUserProfile(userId, permissions);
 }
 
 // -------------------------------------------------------------
@@ -807,6 +840,7 @@ function mapAttachmentFromDB(row: any): SongAttachment {
     urlOrData: row.external_url || undefined,
     uploadedAt: row.created_at,
     createdAt: row.created_at,
+    revision: Number(row.revision) || 1,
   };
 }
 
@@ -1127,6 +1161,165 @@ async function syncPracticeVocalParts(
       }
     }
   }
+}
+
+/**
+ * Saves one vocal contribution without updating its parent practice. This is the
+ * member-safe path used for recorded/uploaded vocal parts; RLS restricts regular
+ * members to rows they created while administrators retain full access.
+ */
+export async function savePracticeVocalPart(
+  practiceId: string,
+  part: PracticePartTrack,
+  requestedPosition?: number
+): Promise<PracticePartTrack> {
+  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  if (!practiceId || !isUUID(practiceId)) {
+    throw new Error('Invalid practice ID for vocal part: ' + practiceId);
+  }
+
+  const { data: parent, error: parentError } = await supabase
+    .from('practice_entries')
+    .select('id')
+    .eq('id', practiceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (parentError) throw parentError;
+  if (!parent) throw new Error('Practice no longer exists or could not be accessed.');
+
+  const existingResult = isUUID(part.id)
+    ? await supabase
+        .from('vocal_parts')
+        .select('*')
+        .eq('id', part.id)
+        .eq('practice_id', practiceId)
+        .is('deleted_at', null)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (existingResult.error) throw existingResult.error;
+
+  let position = requestedPosition;
+  if (position === undefined || position < 0) {
+    const { data: positions, error: positionError } = await supabase
+      .from('vocal_parts')
+      .select('position')
+      .eq('practice_id', practiceId)
+      .is('deleted_at', null)
+      .order('position', { ascending: false })
+      .limit(1);
+    if (positionError) throw positionError;
+    position = positions?.length ? Number(positions[0].position) + 1 : 0;
+  }
+
+  const payload = {
+    practice_id: practiceId,
+    label: part.partLabel || 'Custom',
+    custom_label: (part.customLabel || part.custom_label)?.trim() || null,
+    name: part.name?.trim() || null,
+    notes: part.notes?.trim() || null,
+    position,
+  };
+
+  const { data: savedPart, error: saveError } = existingResult.data
+    ? await supabase
+        .from('vocal_parts')
+        .update(payload)
+        .eq('id', existingResult.data.id)
+        .select('*')
+        .single()
+    : await supabase.from('vocal_parts').insert(payload).select('*').single();
+
+  if (saveError || !savedPart) {
+    throw saveError || new Error('No vocal part returned after save');
+  }
+
+  const audioUrl = (part.audioUrl || part.urlOrData || '').trim();
+  await syncOwnerAttachments(
+    'vocal_part',
+    savedPart.id,
+    audioUrl
+      ? [
+          {
+            id: part.id,
+            name: part.name || `${part.partLabel || 'Vocal'} Practice Track`,
+            type: part.type || 'audio',
+            url: audioUrl,
+            urlOrData: audioUrl,
+          },
+        ]
+      : []
+  );
+
+  return {
+    ...part,
+    id: savedPart.id,
+    position: savedPart.position,
+    revision: Number(savedPart.revision) || 1,
+    createdAt: savedPart.created_at,
+  };
+}
+
+/** Save one rehearsal-track attachment without updating the parent practice. */
+export async function savePracticeAttachment(
+  practiceId: string,
+  attachment: SongAttachment,
+  requestedPosition?: number
+): Promise<SongAttachment> {
+  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  if (!practiceId || !isUUID(practiceId)) {
+    throw new Error('Invalid practice ID for attachment: ' + practiceId);
+  }
+
+  const existingResult = isUUID(attachment.id)
+    ? await supabase
+        .from('attachments')
+        .select('*')
+        .eq('id', attachment.id)
+        .eq('owner_type', 'practice')
+        .eq('owner_id', practiceId)
+        .is('deleted_at', null)
+        .maybeSingle()
+    : { data: null, error: null };
+  if (existingResult.error) throw existingResult.error;
+
+  let position = requestedPosition;
+  if (position === undefined || position < 0) {
+    const { data: positions, error: positionError } = await supabase
+      .from('attachments')
+      .select('position')
+      .eq('owner_type', 'practice')
+      .eq('owner_id', practiceId)
+      .is('deleted_at', null)
+      .order('position', { ascending: false })
+      .limit(1);
+    if (positionError) throw positionError;
+    position = positions?.length ? Number(positions[0].position) + 1 : 0;
+  }
+
+  const externalUrl = (attachment.url || attachment.urlOrData || '').trim();
+  if (!externalUrl) throw new Error('A cloud media URL is required before saving the track.');
+  const payload = {
+    owner_type: 'practice',
+    owner_id: practiceId,
+    name: attachment.name?.trim() || 'Practice Track',
+    category: attachment.category || null,
+    kind: attachment.type || 'audio',
+    media_id: null,
+    external_url: externalUrl,
+    text_content: null,
+    position,
+  };
+
+  const { data, error } = existingResult.data
+    ? await supabase
+        .from('attachments')
+        .update(payload)
+        .eq('id', existingResult.data.id)
+        .select('*')
+        .single()
+    : await supabase.from('attachments').insert(payload).select('*').single();
+  if (error || !data) throw error || new Error('No attachment returned after save');
+  return mapAttachmentFromDB(data);
 }
 
 export async function createPracticeEntry(

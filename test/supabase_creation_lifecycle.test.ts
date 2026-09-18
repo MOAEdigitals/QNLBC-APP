@@ -4,6 +4,10 @@ import { describe, it } from 'node:test';
 
 const dataLayer = readFileSync(new URL('../src/services/supabaseData.ts', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const permissionsMigration = readFileSync(
+  new URL('../supabase/migrations/20260918_granular_user_permissions.sql', import.meta.url),
+  'utf8'
+);
 
 describe('Supabase record creation lifecycle', () => {
   it('uses database-generated UUIDs for new top-level records', () => {
@@ -70,5 +74,27 @@ describe('Supabase record creation lifecycle', () => {
     assert.ok(dataLayer.includes("await syncOwnerAttachments(\n      'vocal_part'"));
     assert.ok(dataLayer.includes('customAttachments: attachments'));
     assert.ok(dataLayer.includes('audioUrl: audioAttachment?.external_url'));
+  });
+
+  it('saves member vocal contributions without updating the parent practice', () => {
+    assert.ok(dataLayer.includes('export async function savePracticeVocalPart'));
+    assert.ok(app.includes('supabaseSavePracticeVocalPart(practiceId, part, position)'));
+    const memberSave = dataLayer.slice(
+      dataLayer.indexOf('export async function savePracticeVocalPart'),
+      dataLayer.indexOf('export async function createPracticeEntry')
+    );
+    assert.equal(memberSave.includes(".from('practice_entries')\n    .update"), false);
+  });
+
+  it('enforces granular permissions in Supabase and keeps upload ownership scoped', () => {
+    assert.ok(permissionsMigration.includes('can_add boolean not null default false'));
+    assert.ok(permissionsMigration.includes('can_edit boolean not null default false'));
+    assert.ok(permissionsMigration.includes('can_delete boolean not null default false'));
+    assert.ok(permissionsMigration.includes('can_upload boolean not null default true'));
+    assert.ok(permissionsMigration.includes("public.has_permission('upload')"));
+    assert.ok(permissionsMigration.includes('created_by = (select auth.uid())'));
+    assert.ok(permissionsMigration.includes("owner_type = 'vocal_part'"));
+    assert.ok(permissionsMigration.includes("owner_type = 'practice'"));
+    assert.ok(dataLayer.includes('export async function savePracticeAttachment'));
   });
 });

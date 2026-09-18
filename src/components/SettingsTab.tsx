@@ -232,6 +232,30 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     }
   };
 
+  const handleTogglePermission = async (
+    targetUser: UserAccount,
+    key: 'canAdd' | 'canEdit' | 'canDelete'
+  ) => {
+    if (targetUser.role === 'admin') return;
+    const currentPermissions = targetUser.permissions || {
+      canAdd: false,
+      canEdit: false,
+      canDelete: false,
+      canUpload: true,
+    };
+    const nextPermissions = { ...currentPermissions, [key]: !currentPermissions[key], canUpload: true };
+
+    setManagingUserId(targetUser.id);
+    try {
+      const updatedUser = await updateUserProfile(targetUser.id, nextPermissions);
+      onUpdateUsers(users.map((u) => (u.id === targetUser.id ? updatedUser : u)));
+    } catch (err: any) {
+      alert('Failed to update permissions: ' + (err.message || 'Error'));
+    } finally {
+      setManagingUserId(null);
+    }
+  };
+
   // Export JSON Backup
   const handleExportBackup = () => {
     if (!appData) {
@@ -708,13 +732,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <th className="p-3">Member</th>
                         <th className="p-3">Role</th>
                         <th className="p-3">Status</th>
+                        <th className="p-3">Permissions</th>
                         <th className="p-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {filteredUsers.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="p-6 text-center text-slate-400">
+                          <td colSpan={6} className="p-6 text-center text-slate-400">
                             No team members found matching your search.
                           </td>
                         </tr>
@@ -786,6 +811,45 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                                 >
                                   {u.active !== false ? 'Active' : 'Deactivated'}
                                 </span>
+                              </td>
+
+                              <td className="p-3">
+                                {u.role === 'admin' ? (
+                                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300">
+                                    Full access
+                                  </span>
+                                ) : (
+                                  <div className="flex min-w-[230px] flex-wrap gap-1">
+                                    {(
+                                      [
+                                        ['canAdd', 'Add'],
+                                        ['canEdit', 'Edit'],
+                                        ['canDelete', 'Delete'],
+                                      ] as const
+                                    ).map(([key, label]) => {
+                                      const enabled = Boolean(u.permissions?.[key]);
+                                      return (
+                                        <button
+                                          key={key}
+                                          type="button"
+                                          disabled={isManaging || !u.active}
+                                          onClick={() => handleTogglePermission(u, key)}
+                                          className={`rounded-md border px-2 py-1 text-[10px] font-bold transition-colors ${
+                                            enabled
+                                              ? 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                              : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                                          } disabled:cursor-not-allowed disabled:opacity-50`}
+                                          title={`${enabled ? 'Remove' : 'Grant'} ${label} permission`}
+                                        >
+                                          {label}: {enabled ? 'On' : 'Off'}
+                                        </button>
+                                      );
+                                    })}
+                                    <span className="rounded-md border border-sky-300 bg-sky-100 px-2 py-1 text-[10px] font-bold text-sky-800 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300">
+                                      Upload: On
+                                    </span>
+                                  </div>
+                                )}
                               </td>
 
                               <td className="p-3 text-right">

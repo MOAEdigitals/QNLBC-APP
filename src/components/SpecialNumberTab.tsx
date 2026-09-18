@@ -94,6 +94,18 @@ interface SpecialNumberTabProps {
   onSaveSpecialNumber: (entry: SpecialNumberEntry) => void;
   onDeleteSpecialNumber: (id: string) => void;
   onSavePracticeEntry?: (entry: Partial<PracticeGroupEntry>, isNew?: boolean) => Promise<PracticeGroupEntry | void> | void;
+  onSavePracticeVocalPart?: (
+    practiceId: string,
+    part: PracticePartTrack,
+    position?: number
+  ) => Promise<PracticePartTrack | void> | void;
+  onDeletePracticeVocalPart?: (part: PracticePartTrack) => Promise<void> | void;
+  onSavePracticeTrack?: (
+    practiceId: string,
+    attachment: SongAttachment,
+    position?: number
+  ) => Promise<SongAttachment | void> | void;
+  onDeletePracticeTrack?: (attachment: SongAttachment) => Promise<void> | void;
   onDeletePracticeEntry?: (id: string) => void;
   onSaveChoirEntry?: (entry: ChoirEntry) => void;
   onDeleteChoirEntry?: (id: string) => void;
@@ -174,6 +186,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onSaveSpecialNumber,
   onDeleteSpecialNumber,
   onSavePracticeEntry,
+  onSavePracticeVocalPart,
+  onDeletePracticeVocalPart,
+  onSavePracticeTrack,
+  onDeletePracticeTrack,
   onDeletePracticeEntry,
   onSaveChoirEntry,
   onDeleteChoirEntry,
@@ -1495,22 +1511,25 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       currentList.push(attachmentObj);
     }
 
-    const currentVocalParts = liveGroup.vocalParts && liveGroup.vocalParts.length > 0
-      ? liveGroup.vocalParts
-      : liveGroup.parts || [];
-
-    const updatedGroup: PracticeGroupEntry = {
-      ...liveGroup,
-      customAttachments: currentList,
-      attachments: currentList,
-      vocalParts: currentVocalParts,
-      parts: currentVocalParts,
-      updatedAt: new Date().toISOString(),
-    };
-
     try {
-      if (onSavePracticeEntry) {
-        await onSavePracticeEntry(updatedGroup);
+      if (onSavePracticeTrack) {
+        await onSavePracticeTrack(
+          liveGroup.id,
+          attachmentObj,
+          editingTrackIndex !== null ? editingTrackIndex : currentList.length - 1
+        );
+      } else if (onSavePracticeEntry) {
+        const currentVocalParts = liveGroup.vocalParts && liveGroup.vocalParts.length > 0
+          ? liveGroup.vocalParts
+          : liveGroup.parts || [];
+        await onSavePracticeEntry({
+          ...liveGroup,
+          customAttachments: currentList,
+          attachments: currentList,
+          vocalParts: currentVocalParts,
+          parts: currentVocalParts,
+          updatedAt: new Date().toISOString(),
+        });
       }
       setIsAddingTrackModal(false);
       setTrackModalGroup(null);
@@ -1520,10 +1539,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  const handleDeleteTrack = (group: PracticeGroupEntry, trackIndex: number, e?: React.MouseEvent) => {
+  const handleDeleteTrack = async (group: PracticeGroupEntry, trackIndex: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const liveGroup = practiceEntries.find((p) => p.id === group.id) || group;
     const currentList = [...(liveGroup.customAttachments || liveGroup.attachments || [])];
+    const deleted = currentList[trackIndex];
+    if (deleted && onDeletePracticeTrack) {
+      await onDeletePracticeTrack(deleted);
+      return;
+    }
     const updated = currentList.filter((_, i) => i !== trackIndex);
     const currentVocalParts = liveGroup.vocalParts && liveGroup.vocalParts.length > 0
       ? liveGroup.vocalParts
@@ -1918,16 +1942,20 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       currentList.push(partObj);
     }
 
-    const updatedGroup: PracticeGroupEntry = {
-      ...liveGroup,
-      vocalParts: currentList,
-      parts: currentList,
-      updatedAt: new Date().toISOString(),
-    };
-
     try {
-      if (onSavePracticeEntry) {
-        await onSavePracticeEntry(updatedGroup);
+      if (onSavePracticeVocalPart) {
+        await onSavePracticeVocalPart(
+          liveGroup.id,
+          partObj,
+          editingVocalPartIndex !== null ? editingVocalPartIndex : currentList.length - 1
+        );
+      } else if (onSavePracticeEntry) {
+        await onSavePracticeEntry({
+          ...liveGroup,
+          vocalParts: currentList,
+          parts: currentList,
+          updatedAt: new Date().toISOString(),
+        });
       }
       handleCloseVocalPartModal();
     } catch (err) {
@@ -1939,9 +1967,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     if (e) e.stopPropagation();
     const currentList = [...(group.vocalParts && group.vocalParts.length > 0 ? group.vocalParts : (group.parts || []))];
     const deletedPart = currentList[partIndex];
-    if (deletedPart?.id) {
-      await deleteAudioFromStorage(deletedPart.id);
+    if (deletedPart && onDeletePracticeVocalPart) {
+      await onDeletePracticeVocalPart(deletedPart);
+      if (deletedPart.id) await deleteAudioFromStorage(deletedPart.id);
+      return;
     }
+    if (deletedPart?.id) await deleteAudioFromStorage(deletedPart.id);
     const updated = currentList.filter((_, i) => i !== partIndex);
     if (onSavePracticeEntry) {
       onSavePracticeEntry({ ...group, vocalParts: updated, parts: updated, updatedAt: new Date().toISOString() });
