@@ -98,7 +98,7 @@ interface SpecialNumberTabProps {
   onSaveChoirEntry?: (entry: ChoirEntry) => void;
   onDeleteChoirEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
-  onSaveSong?: (song: Song) => void;
+  onSaveSong?: (song: Song) => Promise<Song | void> | Song | void;
   collapseSignal?: number;
 }
 
@@ -1144,7 +1144,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   };
 
   // Practice Save Handler
-  const handleSavePracticeSubmit = (e: React.FormEvent) => {
+  const handleSavePracticeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingPractice || !editingPractice.groupName?.trim() || !editingPractice.songTitle?.trim()) return;
 
@@ -1166,8 +1166,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         lyrics: editingPractice.lyrics || '',
         updatedAt: new Date().toISOString(),
       };
-      onSaveSong(newSong);
-      effectiveSongId = newSong.id;
+      const savedSong = await onSaveSong(newSong);
+      effectiveSongId = savedSong?.id;
     } else if (matchedSong) {
       effectiveSongId = matchedSong.id;
       // If user provided/updated artist or lyrics, save update to the song in library
@@ -1176,7 +1176,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         (editingPractice.lyrics && editingPractice.lyrics !== matchedSong.lyrics)
       ) {
         if (onSaveSong) {
-          onSaveSong({
+          await onSaveSong({
             ...matchedSong,
             artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : matchedSong.artist,
             lyrics: editingPractice.lyrics || matchedSong.lyrics,
@@ -1206,25 +1206,21 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       isDone: editingPractice.isDone || false,
     };
 
-    if (onSavePracticeEntry) {
-      Promise.resolve(onSavePracticeEntry(entryToSave, isNew))
-        .then((saved) => {
-          if (saved && (saved as any).id) {
-            setSelectedPracticeId((saved as any).id);
-          }
-        })
-        .catch((err) => {
-          console.error('Save practice error:', err);
-        });
-    }
+    try {
+      if (onSavePracticeEntry) {
+        const saved = await onSavePracticeEntry(entryToSave, isNew);
+        if (saved?.id) {
+          setSelectedPracticeId(saved.id);
+        }
+      }
 
-    if (editingPractice.id) {
-      setSelectedPracticeId(editingPractice.id);
+      setIsEditingPractice(false);
+      setEditingPractice(null);
+      setNewSongArtist('');
+      setShowSongArtistInput(false);
+    } catch (err) {
+      console.error('Save practice error:', err);
     }
-    setIsEditingPractice(false);
-    setEditingPractice(null);
-    setNewSongArtist('');
-    setShowSongArtistInput(false);
   };
 
   // Select song from library for Practice (Title, Artist & Lyrics Autofilled)
@@ -1512,13 +1508,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry(updatedGroup);
+    try {
+      if (onSavePracticeEntry) {
+        await onSavePracticeEntry(updatedGroup);
+      }
+      setIsAddingTrackModal(false);
+      setTrackModalGroup(null);
+      setEditingTrackIndex(null);
+    } catch (err) {
+      console.error('Failed to persist rehearsal track:', err);
     }
-
-    setIsAddingTrackModal(false);
-    setTrackModalGroup(null);
-    setEditingTrackIndex(null);
   };
 
   const handleDeleteTrack = (group: PracticeGroupEntry, trackIndex: number, e?: React.MouseEvent) => {
@@ -1926,11 +1925,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry(updatedGroup);
+    try {
+      if (onSavePracticeEntry) {
+        await onSavePracticeEntry(updatedGroup);
+      }
+      handleCloseVocalPartModal();
+    } catch (err) {
+      console.error('Failed to persist vocal part:', err);
     }
-
-    handleCloseVocalPartModal();
   };
 
   const handleDeleteVocalPart = async (group: PracticeGroupEntry, partIndex: number, e?: React.MouseEvent) => {

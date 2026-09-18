@@ -439,20 +439,14 @@ export default function App() {
   // Setlist Operations
   const handleSaveSetlist = useCallback(async (newOrUpdated: Setlist) => {
     const isNew = !setlists.some((s) => s.id === newOrUpdated.id);
-    // Optimistic state update
-    setSetlists((prev) => {
-      const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = newOrUpdated;
-        return next;
-      }
-      return [newOrUpdated, ...prev];
-    });
 
     try {
       const saved = await supabaseSaveSetlist(newOrUpdated, isNew);
-      setSetlists((prev) => prev.map((s) => (s.id === newOrUpdated.id ? saved : s)));
+      setSetlists((prev) =>
+        isNew
+          ? [saved, ...prev.filter((s) => s.id !== newOrUpdated.id && s.id !== saved.id)]
+          : prev.map((s) => (s.id === newOrUpdated.id ? saved : s))
+      );
     } catch (err: any) {
       console.error('Failed to save setlist to Supabase:', err);
       // Refresh authoritative list
@@ -478,49 +472,39 @@ export default function App() {
 
   // Song Operations
   const handleSaveSong = useCallback(async (newOrUpdated: Song) => {
-    const existing = songs.find((s) => s.id === newOrUpdated.id);
-    const isNew = !existing;
-    const oldTitle = existing?.title?.trim();
-    const newTitle = newOrUpdated.title.trim();
-
-    setSongs((prev) => {
-      const idx = prev.findIndex((s) => s.id === newOrUpdated.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = newOrUpdated;
-        return next;
-      }
-      return [...prev, newOrUpdated];
-    });
+    const isNew = !songs.some((s) => s.id === newOrUpdated.id);
 
     try {
       const saved = await supabaseSaveSong(newOrUpdated, isNew);
-      setSongs((prev) => prev.map((s) => (s.id === newOrUpdated.id ? saved : s)));
+      setSongs((prev) =>
+        isNew
+          ? [...prev.filter((s) => s.id !== newOrUpdated.id && s.id !== saved.id), saved]
+          : prev.map((s) => (s.id === newOrUpdated.id ? saved : s))
+      );
+      return saved;
     } catch (err: any) {
       console.error('Failed to save song to Supabase:', err);
       const fresh = await fetchSongs().catch(() => []);
       setSongs(fresh);
       alert('Unable to save song: ' + (err.message || 'Database error'));
+      throw err;
     }
   }, [songs]);
 
   const handleBatchSaveSongs = useCallback(async (updatedSongs: Song[]) => {
-    setSongs((prev) => {
-      const map = new Map(prev.map((s) => [s.id, s]));
-      for (const s of updatedSongs) {
-        map.set(s.id, s);
-      }
-      return Array.from(map.values()) as Song[];
-    });
-
     for (const song of updatedSongs) {
       try {
-        await supabaseSaveSong(song);
+        const isNew = !songs.some((existing) => existing.id === song.id);
+        const saved = await supabaseSaveSong(song, isNew);
+        setSongs((prev) => {
+          const withoutDraft = prev.filter((s) => s.id !== song.id && s.id !== saved.id);
+          return [...withoutDraft, saved];
+        });
       } catch (err) {
         console.error('Failed to batch save song:', song.title, err);
       }
     }
-  }, []);
+  }, [songs]);
 
   const handleDeleteSong = useCallback(async (id: string) => {
     const target = songs.find((s) => s.id === id);
@@ -538,26 +522,38 @@ export default function App() {
 
   // Special Number Operations
   const handleSaveSpecialNumber = async (entry: SpecialNumberEntry) => {
-    const isNew = !specialNumbers.some((s) => s.id === entry.id);
+    const isNew = !specialNumbers.some((item) => item.id === entry.id);
+    let entryToSave = { ...entry };
+
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
-      entry.songId = syncedSong.id;
-      supabaseSaveSong(syncedSong).catch(console.error);
+      const existingSong = songs.find(
+        (song) => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase()
+      );
+      const songDraft = existingSong
+        ? {
+            ...existingSong,
+            lyrics: entry.lyrics,
+            minusOneLink: entry.minusOneLink || existingSong.minusOneLink,
+            updatedAt: new Date().toISOString(),
+          }
+        : upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
+      const savedSong = await supabaseSaveSong(songDraft, !existingSong);
+      setSongs((prev) => {
+        const withoutOld = prev.filter(
+          (song) => song.id !== songDraft.id && song.id !== savedSong.id
+        );
+        return [...withoutOld, savedSong];
+      });
+      entryToSave = { ...entryToSave, songId: savedSong.id };
     }
 
-    setSpecialNumbers((prev) => {
-      const idx = prev.findIndex((s) => s.id === entry.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = entry;
-        return next;
-      }
-      return [entry, ...prev];
-    });
-
     try {
-      const saved = await supabaseSaveSpecialNumber(entry, isNew);
-      setSpecialNumbers((prev) => prev.map((s) => (s.id === entry.id ? saved : s)));
+      const saved = await supabaseSaveSpecialNumber(entryToSave, isNew);
+      setSpecialNumbers((prev) =>
+        isNew
+          ? [saved, ...prev.filter((item) => item.id !== entry.id && item.id !== saved.id)]
+          : prev.map((item) => (item.id === entry.id ? saved : item))
+      );
     } catch (err: any) {
       console.error('Failed to save special number:', err);
       const fresh = await fetchSpecialNumbers().catch(() => []);
@@ -580,26 +576,37 @@ export default function App() {
 
   // Choir Operations
   const handleSaveChoirEntry = async (entry: ChoirEntry) => {
-    const isNew = !choirEntries.some((c) => c.id === entry.id);
+    const isNew = !choirEntries.some((item) => item.id === entry.id);
+    let entryToSave = { ...entry };
+
     if (entry.songTitle && entry.lyrics) {
-      const syncedSong = upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
-      entry.songId = syncedSong.id;
-      supabaseSaveSong(syncedSong).catch(console.error);
+      const existingSong = songs.find(
+        (song) => song.title.trim().toLowerCase() === entry.songTitle.trim().toLowerCase()
+      );
+      const songDraft = existingSong
+        ? {
+            ...existingSong,
+            lyrics: entry.lyrics,
+            updatedAt: new Date().toISOString(),
+          }
+        : upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
+      const savedSong = await supabaseSaveSong(songDraft, !existingSong);
+      setSongs((prev) => {
+        const withoutOld = prev.filter(
+          (song) => song.id !== songDraft.id && song.id !== savedSong.id
+        );
+        return [...withoutOld, savedSong];
+      });
+      entryToSave = { ...entryToSave, songId: savedSong.id };
     }
 
-    setChoirEntries((prev) => {
-      const idx = prev.findIndex((c) => c.id === entry.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = entry;
-        return next;
-      }
-      return [entry, ...prev];
-    });
-
     try {
-      const saved = await supabaseSaveChoirEntry(entry, isNew);
-      setChoirEntries((prev) => prev.map((c) => (c.id === entry.id ? saved : c)));
+      const saved = await supabaseSaveChoirEntry(entryToSave, isNew);
+      setChoirEntries((prev) =>
+        isNew
+          ? [saved, ...prev.filter((item) => item.id !== entry.id && item.id !== saved.id)]
+          : prev.map((item) => (item.id === entry.id ? saved : item))
+      );
     } catch (err: any) {
       console.error('Failed to save choir presentation:', err);
       const fresh = await fetchChoirEntries().catch(() => []);
@@ -678,20 +685,15 @@ export default function App() {
 
   // Celebrant & Recognitions Operations
   const handleSaveBirthday = async (item: BirthdayCelebrant) => {
-    const isNew = !birthdays.some((b) => b.id === item.id);
-    setBirthdays((prev) => {
-      const idx = prev.findIndex((b) => b.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [...prev, item];
-    });
+    const isNew = !birthdays.some((existing) => existing.id === item.id);
 
     try {
       const saved = await supabaseSaveBirthday(item, isNew);
-      setBirthdays((prev) => prev.map((b) => (b.id === item.id ? saved : b)));
+      setBirthdays((prev) =>
+        isNew
+          ? [...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id), saved]
+          : prev.map((existing) => (existing.id === item.id ? saved : existing))
+      );
     } catch (err: any) {
       console.error('Failed to save birthday celebrant:', err);
       const fresh = await fetchBirthdays().catch(() => []);
@@ -713,20 +715,15 @@ export default function App() {
   };
 
   const handleSaveAnniversary = async (item: AnniversaryCelebrant) => {
-    const isNew = !anniversaries.some((a) => a.id === item.id);
-    setAnniversaries((prev) => {
-      const idx = prev.findIndex((a) => a.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [...prev, item];
-    });
+    const isNew = !anniversaries.some((existing) => existing.id === item.id);
 
     try {
       const saved = await supabaseSaveAnniversary(item, isNew);
-      setAnniversaries((prev) => prev.map((a) => (a.id === item.id ? saved : a)));
+      setAnniversaries((prev) =>
+        isNew
+          ? [...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id), saved]
+          : prev.map((existing) => (existing.id === item.id ? saved : existing))
+      );
     } catch (err: any) {
       console.error('Failed to save anniversary:', err);
       const fresh = await fetchAnniversaries().catch(() => []);
@@ -748,20 +745,15 @@ export default function App() {
   };
 
   const handleSaveVisitor = async (item: Visitor) => {
-    const isNew = !visitors.some((v) => v.id === item.id);
-    setVisitors((prev) => {
-      const idx = prev.findIndex((v) => v.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [item, ...prev];
-    });
+    const isNew = !visitors.some((existing) => existing.id === item.id);
 
     try {
       const saved = await supabaseSaveVisitor(item, isNew);
-      setVisitors((prev) => prev.map((v) => (v.id === item.id ? saved : v)));
+      setVisitors((prev) =>
+        isNew
+          ? [saved, ...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id)]
+          : prev.map((existing) => (existing.id === item.id ? saved : existing))
+      );
     } catch (err: any) {
       console.error('Failed to save visitor:', err);
       const fresh = await fetchVisitors().catch(() => []);
@@ -783,20 +775,15 @@ export default function App() {
   };
 
   const handleSaveSpecialRecognition = async (item: SpecialRecognition) => {
-    const isNew = !specialRecognitions.some((r) => r.id === item.id);
-    setSpecialRecognitions((prev) => {
-      const idx = prev.findIndex((r) => r.id === item.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = item;
-        return next;
-      }
-      return [item, ...prev];
-    });
+    const isNew = !specialRecognitions.some((existing) => existing.id === item.id);
 
     try {
       const saved = await supabaseSaveSpecialRecognition(item, isNew);
-      setSpecialRecognitions((prev) => prev.map((r) => (r.id === item.id ? saved : r)));
+      setSpecialRecognitions((prev) =>
+        isNew
+          ? [saved, ...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id)]
+          : prev.map((existing) => (existing.id === item.id ? saved : existing))
+      );
     } catch (err: any) {
       console.error('Failed to save recognition:', err);
       const fresh = await fetchSpecialRecognitions().catch(() => []);

@@ -1,33 +1,29 @@
-# Authoritative Repair Notes - New Practice Session Lifecycle
+# QNLBC Codex Repair
 
-## Defect Summary
-- **Original Error**: `"Unable to save practice: Cannot coerce the result to a single JSON object"`
-- **Root Cause**: The application previously added newly initiated practices to React state with temporary client-side IDs without first performing a database `INSERT`. When saving, it attempted an `UPDATE` on a row that did not exist in `public.practice_entries`. Supabase returned 0 rows, triggering the PostgREST `PGRST116` error on `.single()`.
+## Fixed in this package
 
-## Authoritative Corrections Applied
-1. **Creation Flow Separation**:
-   - `createPracticeEntry` performs an explicit `INSERT` into `public.practice_entries` using `.insert(payload).select('*').single()`.
-   - New practices omit client-side IDs completely, allowing Supabase to generate the authoritative UUID.
-2. **Payload Sanitization**:
-   - `buildPracticePayload` enforces the exact 12 columns in `public.practice_entries`:
-     - `group_name`
-     - `target_date`
-     - `practice_date`
-     - `practice_time`
-     - `assigned_event`
-     - `song_id`
-     - `song_title`
-     - `lyrics_mode`
-     - `lyrics_snapshot`
-     - `source_song_revision`
-     - `notes`
-     - `is_done`
-   - Strips all frontend-only metadata (`vocalParts`, `customAttachments`, `tracks`, `createdAt`, `updatedAt`, `revision`, `trackCount`).
-3. **Update Flow**:
-   - `updatePracticeEntry` performs `UPDATE` matching by verified `id`.
-   - `.single()` is retained (never bypassed with `.maybeSingle()`).
-   - If an update returns 0 rows (`PGRST116`), phantom items are cleared from state, Supabase is refetched, and the user is alerted.
-4. **CI & Workflow Alignment**:
-   - Kept `.github/workflows/deploy.yml` for unified GitHub Pages deployment.
-   - Removed `.github/workflows/static.yml` to avoid dual-workflow conflicts.
-   - Standardized `npm test` with Node's native test runner (`node --import tsx --test test/*.test.ts`).
+- New Songs, Setlists, Special Numbers, Choir entries, Birthdays, Anniversaries, Visitors, and Recognitions now use `INSERT` rather than attempting to update a client-generated UUID that does not exist.
+- New parent and child records use PostgreSQL-generated UUIDs and retain the rows returned by Supabase.
+- Shared UI state is updated only after Supabase confirms the write.
+- New Practice Sessions use the repaired insert-first flow.
+- When a new Practice, Special Number, or Choir entry creates a linked Song, the Song is inserted first and its returned UUID is used as the foreign key.
+- Setlist items and vocal parts use database-generated UUIDs.
+- Rehearsal-track metadata is now written to and loaded from `public.attachments` with `owner_type = 'practice'`.
+- Vocal-part audio references are now written to and loaded from `public.attachments` with `owner_type = 'vocal_part'`.
+- Track and vocal-part editors wait for Supabase confirmation before closing.
+- Realtime attachment changes now refresh practice data across signed-in browsers.
+- Added a working `npm test` command and Supabase creation-lifecycle regression tests.
+- Removed the duplicate GitHub Pages deployment workflow.
+- Corrected the production Express bundle to ESM so `import.meta.url` works.
+
+## Verification completed
+
+- `npm run lint` passes.
+- `npm test` passes: 12 tests.
+- `npm run build` passes.
+
+## Still requires a separate deployment task
+
+GitHub Pages is static and cannot run `server.ts` or `/api/upload-media`. The attachment metadata/reference synchronization is repaired, but reliable direct Cloudflare R2 uploads still need a separately deployed API (recommended: Cloudflare Worker with an R2 binding). The current Firestore fallback remains in this package temporarily so currently working recorded audio is not removed before its replacement is deployed.
+
+Never place R2 credentials, a Supabase service-role key, or database passwords in frontend code or GitHub Pages variables.

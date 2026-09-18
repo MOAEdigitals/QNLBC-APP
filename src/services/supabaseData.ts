@@ -7,6 +7,7 @@ import {
   ChoirEntry,
   PracticeGroupEntry,
   PracticePartTrack,
+  SongAttachment,
   BirthdayCelebrant,
   AnniversaryCelebrant,
   Visitor,
@@ -324,10 +325,9 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
   const hasValidUUID = isUUID(song.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: song.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('songs')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -345,26 +345,6 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('songs')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', song.id);
-
-      if (count === 0) {
-        const insertPayload = { id: song.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('songs')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return mapSongFromDB(insertedData);
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(
       error?.message || 'Song update conflict: the song has been updated by another user.'
     );
@@ -500,10 +480,9 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
   const hasValidUUID = isUUID(setlist.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: setlist.id, ...setlistPayload } : { ...setlistPayload };
     const { data, error } = await supabase
       .from('setlists')
-      .insert(insertPayload)
+      .insert(setlistPayload)
       .select('*')
       .single();
 
@@ -522,34 +501,11 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
       .single();
 
     if (error || !data) {
-      if (error?.code === 'PGRST116') {
-        const { count } = await supabase
-          .from('setlists')
-          .select('id', { count: 'exact', head: true })
-          .eq('id', targetSetlistId);
-
-        if (count === 0) {
-          const insertPayload = { id: targetSetlistId, ...setlistPayload };
-          const { data: insertedData, error: insertError } = await supabase
-            .from('setlists')
-            .insert(insertPayload)
-            .select('*')
-            .single();
-
-          if (!insertError && insertedData) {
-            savedRow = insertedData;
-          }
-        }
-      }
-
-      if (!savedRow) {
-        throw new ConcurrencyConflictError(
-          error?.message || 'Setlist update conflict: this setlist was modified by another user.'
-        );
-      }
-    } else {
-      savedRow = data;
+      throw new ConcurrencyConflictError(
+        error?.message || 'Setlist update conflict: this setlist was modified by another user.'
+      );
     }
+    savedRow = data;
   }
 
   // Manage setlist_items for the 3 sections:
@@ -599,10 +555,9 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
           .eq('id', matchExisting.id)
           .eq('revision', matchExisting.revision);
       } else {
-        const itemInsertPayload = hasItemUUID ? { id: item.id, ...itemPayload } : { ...itemPayload };
         const { data: savedItem, error: itemErr } = await supabase
           .from('setlist_items')
-          .insert(itemInsertPayload)
+          .insert(itemPayload)
           .select('*')
           .single();
         if (!itemErr && savedItem) {
@@ -701,10 +656,9 @@ export async function saveSpecialNumber(
   const hasValidUUID = isUUID(entry.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: entry.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('special_numbers')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -722,26 +676,6 @@ export async function saveSpecialNumber(
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('special_numbers')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', entry.id);
-
-      if (count === 0) {
-        const insertPayload = { id: entry.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('special_numbers')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return mapSpecialNumberFromDB(insertedData);
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(
       error?.message || 'Special number update conflict: modified by another user.'
     );
@@ -818,10 +752,9 @@ export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false):
   const hasValidUUID = isUUID(entry.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: entry.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('choir_entries')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -839,26 +772,6 @@ export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false):
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('choir_entries')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', entry.id);
-
-      if (count === 0) {
-        const insertPayload = { id: entry.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('choir_entries')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return mapChoirEntryFromDB(insertedData);
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(
       error?.message || 'Choir entry update conflict: modified by another user.'
     );
@@ -884,7 +797,24 @@ export function formatSupabaseError(error: any): string {
   return parts.length > 0 ? parts.join(' | ') : String(error);
 }
 
-function mapPracticeRowToEntry(row: any, parts: PracticePartTrack[] = []): PracticeGroupEntry {
+function mapAttachmentFromDB(row: any): SongAttachment {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category || undefined,
+    type: row.kind,
+    url: row.external_url || undefined,
+    urlOrData: row.external_url || undefined,
+    uploadedAt: row.created_at,
+    createdAt: row.created_at,
+  };
+}
+
+function mapPracticeRowToEntry(
+  row: any,
+  parts: PracticePartTrack[] = [],
+  attachments: SongAttachment[] = []
+): PracticeGroupEntry {
   return {
     id: row.id,
     groupName: row.group_name,
@@ -911,6 +841,8 @@ function mapPracticeRowToEntry(row: any, parts: PracticePartTrack[] = []): Pract
     notes: row.notes || undefined,
     parts,
     vocalParts: parts,
+    attachments,
+    customAttachments: attachments,
     isDone: Boolean(row.is_done),
     is_done: Boolean(row.is_done),
     revision: Number(row.revision) || 1,
@@ -946,9 +878,52 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
     console.warn('Error fetching vocal parts for practice entries:', formatSupabaseError(partsErr));
   }
 
+  const partIds = (vocalParts || []).map((part) => part.id);
+  const [{ data: practiceAttachments, error: practiceAttachmentsErr }, { data: partAttachments, error: partAttachmentsErr }] =
+    await Promise.all([
+      supabase
+        .from('attachments')
+        .select('*')
+        .eq('owner_type', 'practice')
+        .in('owner_id', practiceIds)
+        .is('deleted_at', null)
+        .order('position', { ascending: true }),
+      partIds.length > 0
+        ? supabase
+            .from('attachments')
+            .select('*')
+            .eq('owner_type', 'vocal_part')
+            .in('owner_id', partIds)
+            .is('deleted_at', null)
+            .order('position', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+  if (practiceAttachmentsErr) {
+    console.warn('Error fetching practice attachments:', formatSupabaseError(practiceAttachmentsErr));
+  }
+  if (partAttachmentsErr) {
+    console.warn('Error fetching vocal-part attachments:', formatSupabaseError(partAttachmentsErr));
+  }
+
+  const practiceAttachmentsByOwner = new Map<string, SongAttachment[]>();
+  for (const attachment of practiceAttachments || []) {
+    const list = practiceAttachmentsByOwner.get(attachment.owner_id) || [];
+    list.push(mapAttachmentFromDB(attachment));
+    practiceAttachmentsByOwner.set(attachment.owner_id, list);
+  }
+
+  const audioAttachmentByPart = new Map<string, any>();
+  for (const attachment of partAttachments || []) {
+    if (!audioAttachmentByPart.has(attachment.owner_id)) {
+      audioAttachmentByPart.set(attachment.owner_id, attachment);
+    }
+  }
+
   const partsByPracticeId = new Map<string, PracticePartTrack[]>();
   for (const part of vocalParts || []) {
     const list = partsByPracticeId.get(part.practice_id) || [];
+    const audioAttachment = audioAttachmentByPart.get(part.id);
     list.push({
       id: part.id,
       partLabel: part.label,
@@ -956,6 +931,9 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
       custom_label: part.custom_label || undefined,
       name: part.name || undefined,
       notes: part.notes || undefined,
+      type: audioAttachment?.kind || undefined,
+      audioUrl: audioAttachment?.external_url || undefined,
+      urlOrData: audioAttachment?.external_url || undefined,
       position: part.position,
       revision: Number(part.revision) || 1,
       createdAt: part.created_at,
@@ -965,11 +943,12 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
 
   return practices.map((row) => {
     const parts = partsByPracticeId.get(row.id) || [];
-    return mapPracticeRowToEntry(row, parts);
+    const attachments = practiceAttachmentsByOwner.get(row.id) || [];
+    return mapPracticeRowToEntry(row, parts, attachments);
   });
 }
 
-export function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
+function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
   const rawSongId = (entry.songId || entry.song_id)?.trim();
   const validSongId = rawSongId && isUUID(rawSongId) ? rawSongId : null;
 
@@ -992,6 +971,73 @@ export function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
     notes: entry.notes?.trim() || null,
     is_done: Boolean(entry.isDone ?? entry.is_done ?? false),
   };
+}
+
+async function syncOwnerAttachments(
+  ownerType: 'practice' | 'vocal_part',
+  ownerId: string,
+  attachments: SongAttachment[]
+): Promise<void> {
+  const { data: existingRows, error: fetchError } = await supabase
+    .from('attachments')
+    .select('id, position, revision')
+    .eq('owner_type', ownerType)
+    .eq('owner_id', ownerId)
+    .is('deleted_at', null)
+    .order('position', { ascending: true });
+
+  if (fetchError) throw fetchError;
+
+  const keptIds = new Set<string>();
+  const usableAttachments = attachments.filter((attachment) =>
+    Boolean((attachment.url || attachment.urlOrData || '').trim())
+  );
+
+  for (let position = 0; position < usableAttachments.length; position++) {
+    const attachment = usableAttachments[position];
+    const externalUrl = (attachment.url || attachment.urlOrData || '').trim();
+    const match =
+      (isUUID(attachment.id)
+        ? existingRows?.find((row) => row.id === attachment.id)
+        : undefined) || existingRows?.find((row) => row.position === position);
+
+    const payload = {
+      owner_type: ownerType,
+      owner_id: ownerId,
+      name: attachment.name?.trim() || 'Audio Track',
+      category: attachment.category || null,
+      kind: attachment.type || 'audio',
+      media_id: null,
+      external_url: externalUrl,
+      text_content: null,
+      position,
+    };
+
+    if (match) {
+      const { data, error } = await supabase
+        .from('attachments')
+        .update(payload)
+        .eq('id', match.id)
+        .select('id')
+        .single();
+      if (error || !data) throw error || new Error('Failed to update attachment metadata');
+      keptIds.add(data.id);
+    } else {
+      const { data, error } = await supabase
+        .from('attachments')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (error || !data) throw error || new Error('Failed to create attachment metadata');
+      keptIds.add(data.id);
+    }
+  }
+
+  for (const existing of existingRows || []) {
+    if (!keptIds.has(existing.id)) {
+      await executeSoftDelete('attachments', existing.id, Number(existing.revision) || 1);
+    }
+  }
 }
 
 async function syncPracticeVocalParts(
@@ -1024,6 +1070,7 @@ async function syncPracticeVocalParts(
     };
 
     const matchPart = hasPartUUID ? existingParts?.find((ep) => ep.id === p.id) : null;
+    let persistedPartId: string;
     if (matchPart) {
       keptPartIds.add(matchPart.id);
       const { error: updErr } = await supabase
@@ -1031,21 +1078,41 @@ async function syncPracticeVocalParts(
         .update(partPayload)
         .eq('id', matchPart.id);
       if (updErr) {
-        console.warn('Failed to update vocal part:', formatSupabaseError(updErr));
+        throw updErr;
       }
+      persistedPartId = matchPart.id;
     } else {
-      const partInsertPayload = hasPartUUID ? { id: p.id, ...partPayload } : { ...partPayload };
       const { data: savedPart, error: partErr } = await supabase
         .from('vocal_parts')
-        .insert(partInsertPayload)
+        .insert(partPayload)
         .select('*')
         .single();
       if (!partErr && savedPart) {
         keptPartIds.add(savedPart.id);
+        persistedPartId = savedPart.id;
       } else if (partErr) {
-        console.warn('Failed to insert vocal part:', formatSupabaseError(partErr));
+        throw partErr;
+      } else {
+        throw new Error('No vocal part returned after insert');
       }
     }
+
+    const audioUrl = (p.audioUrl || p.urlOrData || '').trim();
+    await syncOwnerAttachments(
+      'vocal_part',
+      persistedPartId!,
+      audioUrl
+        ? [
+            {
+              id: p.id,
+              name: p.name || `${p.partLabel || 'Vocal'} Practice Track`,
+              type: p.type || 'audio',
+              url: audioUrl,
+              urlOrData: audioUrl,
+            },
+          ]
+        : []
+    );
   }
 
   for (const ep of existingParts || []) {
@@ -1068,11 +1135,10 @@ export async function createPracticeEntry(
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
   const validPayload = buildPracticePayload(entry);
-  const insertPayload = (entry.id && isUUID(entry.id)) ? { id: entry.id, ...validPayload } : validPayload;
 
   const { data, error } = await supabase
     .from('practice_entries')
-    .insert(insertPayload)
+    .insert(validPayload)
     .select('*')
     .single();
 
@@ -1097,6 +1163,12 @@ export async function createPracticeEntry(
   if (parts.length > 0) {
     await syncPracticeVocalParts(newPracticeId, parts);
   }
+
+  await syncOwnerAttachments(
+    'practice',
+    newPracticeId,
+    entry.customAttachments || entry.attachments || []
+  );
 
   const all = await fetchPracticeEntries();
   const refreshed = all.find((p) => p.id === newPracticeId);
@@ -1145,6 +1217,11 @@ export async function updatePracticeEntry(
   // Sync vocal parts if provided
   const parts = entry.parts || entry.vocalParts || [];
   await syncPracticeVocalParts(practiceId, parts);
+  await syncOwnerAttachments(
+    'practice',
+    practiceId,
+    entry.customAttachments || entry.attachments || []
+  );
 
   const all = await fetchPracticeEntries();
   const refreshed = all.find((p) => p.id === practiceId);
@@ -1158,21 +1235,7 @@ export async function savePracticeEntry(
   if (isNew || !entry.id || !isUUID(entry.id)) {
     return createPracticeEntry(entry);
   }
-  try {
-    return await updatePracticeEntry(entry.id, entry);
-  } catch (err: any) {
-    if (err?.code === 'PGRST116' || err?.message?.includes('no longer exists')) {
-      const { count } = await supabase
-        .from('practice_entries')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', entry.id);
-
-      if (count === 0) {
-        return await createPracticeEntry(entry);
-      }
-    }
-    throw err;
-  }
+  return updatePracticeEntry(entry.id, entry);
 }
 
 export async function deletePracticeEntry(id: string, expectedRevision?: number): Promise<void> {
@@ -1236,10 +1299,9 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
   const hasValidUUID = isUUID(item.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('birthdays')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -1263,33 +1325,6 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('birthdays')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', item.id);
-
-      if (count === 0) {
-        const insertPayload = { id: item.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('birthdays')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return {
-            id: insertedData.id,
-            name: insertedData.name,
-            birthDate: insertedData.birth_date,
-            ministryOrGroup: insertedData.ministry_or_group || undefined,
-            notes: insertedData.notes || undefined,
-            revision: Number(insertedData.revision) || 1,
-          };
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(error?.message || 'Birthday record update conflict.');
   }
 
@@ -1347,10 +1382,9 @@ export async function saveAnniversary(
   const hasValidUUID = isUUID(item.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('anniversaries')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -1375,34 +1409,6 @@ export async function saveAnniversary(
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('anniversaries')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', item.id);
-
-      if (count === 0) {
-        const insertPayload = { id: item.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('anniversaries')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return {
-            id: insertedData.id,
-            title: insertedData.title,
-            anniversaryDate: insertedData.anniversary_date,
-            type: insertedData.type,
-            yearsCount: insertedData.years_count ?? undefined,
-            notes: insertedData.notes || undefined,
-            revision: Number(insertedData.revision) || 1,
-          };
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(error?.message || 'Anniversary record update conflict.');
   }
 
@@ -1460,10 +1466,9 @@ export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promis
   const hasValidUUID = isUUID(item.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('visitors')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -1489,35 +1494,6 @@ export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promis
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('visitors')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', item.id);
-
-      if (count === 0) {
-        const insertPayload = { id: item.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('visitors')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return {
-            id: insertedData.id,
-            name: insertedData.name,
-            barangay: insertedData.barangay || '',
-            tier: insertedData.tier,
-            dateVisited: insertedData.date_visited,
-            contactNumber: insertedData.contact_number || undefined,
-            notes: insertedData.notes || undefined,
-            revision: Number(insertedData.revision) || 1,
-          };
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(error?.message || 'Visitor record update conflict.');
   }
 
@@ -1578,10 +1554,9 @@ export async function saveSpecialRecognition(
   const hasValidUUID = isUUID(item.id);
 
   if (isNew || !hasValidUUID) {
-    const insertPayload = hasValidUUID ? { id: item.id, ...payload } : { ...payload };
     const { data, error } = await supabase
       .from('recognitions')
-      .insert(insertPayload)
+      .insert(payload)
       .select('*')
       .single();
 
@@ -1606,34 +1581,6 @@ export async function saveSpecialRecognition(
     .single();
 
   if (error || !data) {
-    if (error?.code === 'PGRST116') {
-      const { count } = await supabase
-        .from('recognitions')
-        .select('id', { count: 'exact', head: true })
-        .eq('id', item.id);
-
-      if (count === 0) {
-        const insertPayload = { id: item.id, ...payload };
-        const { data: insertedData, error: insertError } = await supabase
-          .from('recognitions')
-          .insert(insertPayload)
-          .select('*')
-          .single();
-
-        if (!insertError && insertedData) {
-          return {
-            id: insertedData.id,
-            name: insertedData.name,
-            recognitionType: insertedData.recognition_type,
-            customType: insertedData.custom_type || undefined,
-            date: insertedData.recognition_date,
-            description: insertedData.description || undefined,
-            revision: Number(insertedData.revision) || 1,
-          };
-        }
-      }
-    }
-
     throw new ConcurrencyConflictError(error?.message || 'Recognition record update conflict.');
   }
 
@@ -1855,6 +1802,14 @@ export function subscribeSupabaseRealtime(callbacks: RealtimeSyncCallbacks): () 
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'vocal_parts' },
+      () => {
+        updateTableEvent('practice_entries');
+        callbacks.onPracticeChange?.();
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'attachments' },
       () => {
         updateTableEvent('practice_entries');
         callbacks.onPracticeChange?.();
