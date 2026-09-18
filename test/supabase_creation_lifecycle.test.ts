@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-const dataLayer = readFileSync(new URL('../src/services/supabaseData.ts', import.meta.url), 'utf8');
+// Keep source assertions identical across LF and Windows CRLF checkouts.
+const dataLayer = readFileSync(new URL('../src/services/supabaseData.ts', import.meta.url), 'utf8')
+  .replace(/\r\n/g, '\n');
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const permissionsMigration = readFileSync(
   new URL('../supabase/migrations/20260918_granular_user_permissions.sql', import.meta.url),
