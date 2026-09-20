@@ -147,7 +147,7 @@ interface SetlistsTabProps {
   setlists: Setlist[];
   songs: Song[];
   savedNames?: string[];
-  onSaveSetlist: (setlist: Setlist) => void;
+  onSaveSetlist: (setlist: Setlist) => Promise<boolean>;
   onDeleteSetlist: (id: string) => void;
   onOpenSongDetail: (songId: string, returnSetlistId?: string) => void;
   onSubViewChange?: (hasActiveSubView: boolean) => void;
@@ -174,6 +174,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const saveInProgressRef = useRef(false);
 
   // Scroll anchor reference for keeping tapped setlist card pinned in place on screen
   const scrollAnchorRef = useRef<{
@@ -269,7 +271,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
 
-      if (isEditing) {
+      if (isEditing && !saveInProgressRef.current) {
         setIsEditing(false);
         setEditingSetlist(null);
         setEditPromptMsg(null);
@@ -461,6 +463,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   // History state & Back navigation / swipe listener
   useEffect(() => {
     const handlePopState = () => {
+      if (saveInProgressRef.current) {
+        window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
+        return;
+      }
       // 1. If editor modal is open
       if (isEditing && editingSetlist) {
         const isDirty = JSON.stringify(editingSetlist) !== initialEditingJsonRef.current;
@@ -687,9 +693,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     });
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSetlist || !editingSetlist.date) return;
+    if (!editingSetlist || !editingSetlist.date || saveInProgressRef.current) return;
 
     const setlistType: SetlistType = editingSetlist.type || 'sunday';
 
@@ -714,6 +720,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
     const finalSetlist: Setlist = {
       id: editingSetlist.id && isUUID(editingSetlist.id) ? editingSetlist.id : generateUUID(),
+      revision: editingSetlist.revision,
       type: setlistType,
       title: editingSetlist.title?.trim() || undefined,
       date: editingSetlist.date,
@@ -756,11 +763,19 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    onSaveSetlist(finalSetlist);
-    setIsEditing(false);
-    setEditingSetlist(null);
-    setEditPromptMsg(null);
-    setSelectedSetlistId(finalSetlist.id);
+    saveInProgressRef.current = true;
+    setIsSaving(true);
+    try {
+      if (await onSaveSetlist(finalSetlist)) {
+        setIsEditing(false);
+        setEditingSetlist(null);
+        setEditPromptMsg(null);
+        setSelectedSetlistId(finalSetlist.id);
+      }
+    } finally {
+      saveInProgressRef.current = false;
+      setIsSaving(false);
+    }
   };
 
   const handleSelectSetlist = (id: string, e?: React.MouseEvent) => {
@@ -1388,6 +1403,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               </h3>
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => {
                   setIsEditing(false);
                   setEditingSetlist(null);
@@ -1916,6 +1932,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => {
                     setIsEditing(false);
                     setEditingSetlist(null);
@@ -1927,9 +1944,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 </button>
                 <button
                   type="submit"
+                  disabled={isSaving}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-white shadow-xs cursor-pointer"
                 >
-                  Save Setlist Program
+                  {isSaving ? 'Saving…' : 'Save Setlist Program'}
                 </button>
               </div>
             </form>
