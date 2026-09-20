@@ -166,7 +166,24 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   initialSelectedSetlistId,
   collapseSignal,
 }) => {
-  const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(initialSelectedSetlistId || null);
+  const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('nlbc_selected_setlist_id_v1');
+      if (saved) return saved;
+    } catch {}
+    return initialSelectedSetlistId || null;
+  });
+
+  // Persist open setlist container so returning from lyrics or external views keeps it open
+  useEffect(() => {
+    try {
+      if (selectedSetlistId) {
+        localStorage.setItem('nlbc_selected_setlist_id_v1', selectedSetlistId);
+      } else {
+        localStorage.removeItem('nlbc_selected_setlist_id_v1');
+      }
+    } catch {}
+  }, [selectedSetlistId]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
   const [showCustomTitle, setShowCustomTitle] = useState(false);
@@ -516,19 +533,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         }, 3500);
         return;
       }
-
-      // 2. If a setlist is expanded, collapse it
-      if (selectedSetlistId) {
-        setSelectedSetlistId(null);
-        return;
-      }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [isEditing, editingSetlist, selectedSetlistId]);
+  }, [isEditing, editingSetlist]);
 
   // Start creating Sunday Setlist
   const handleStartCreateSunday = () => {

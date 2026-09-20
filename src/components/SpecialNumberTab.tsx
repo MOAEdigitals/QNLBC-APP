@@ -1017,26 +1017,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   const soonestEntry = sortedEntries.find((e) => !isPastDate(e.scheduledDate));
 
-  // Compute Vacancies for Schedules
-  const calculateVacancies = () => {
-    const vacantSundays: string[] = [];
-    const baseSunday = new Date(getNextSundayStr());
-
-    for (let i = 0; i < 4; i++) {
-      const targetDate = new Date(baseSunday);
-      targetDate.setDate(targetDate.getDate() + i * 7);
-      const dateStr = targetDate.toISOString().split('T')[0];
-
-      const hasSpecial = specialNumbers.some((s) => s.scheduledDate === dateStr);
-      if (!hasSpecial) {
-        vacantSundays.push(dateStr);
-      }
-    }
-    return vacantSundays;
-  };
-
-  const vacantSundays = calculateVacancies();
-
   // Compute vacant fellowships or special events
   const vacantEvents = setlists.filter((s) => {
     if (s.type === 'sunday') return false;
@@ -2041,77 +2021,77 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         )}
       </div>
 
-      {/* Sub-Tabs: Schedules, Practice, & Choir */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+      {/* Locked 3-Column Sub-Tabs: Schedules (left), Practice (middle), Choir (right) */}
+      <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
           type="button"
           onClick={() => setActiveSubTab('schedules')}
-          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'schedules'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
           <span>Schedules</span>
           {specialNumbers.length > 0 && (
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              activeSubTab === 'schedules'
-                ? 'bg-white/20 text-white dark:bg-black/20 dark:text-slate-900'
-                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            {specialNumbers.length}
-          </span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+                activeSubTab === 'schedules'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {specialNumbers.length}
+            </span>
           )}
         </button>
 
         <button
           type="button"
           onClick={() => setActiveSubTab('practice')}
-          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'practice'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4 text-emerald-500 shrink-0" />
           <span>Practice</span>
           {practiceEntries.length > 0 && (
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              activeSubTab === 'practice'
-                ? 'bg-white/20 text-white dark:bg-black/20 dark:text-slate-900'
-                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            {practiceEntries.length}
-          </span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+                activeSubTab === 'practice'
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {practiceEntries.length}
+            </span>
           )}
         </button>
 
         <button
           type="button"
           onClick={() => setActiveSubTab('choir')}
-          className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'choir'
-              ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Music className="w-4 h-4" />
+          <Music className="w-4 h-4 text-sky-500 shrink-0" />
           <span>Choir</span>
           {choirEntries.length > 0 && (
-          <span
-            className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              activeSubTab === 'choir'
-                ? 'bg-white/20 text-white dark:bg-black/20 dark:text-slate-900'
-                : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-            }`}
-          >
-            {choirEntries.length}
-          </span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+                activeSubTab === 'choir'
+                  ? 'bg-sky-600 text-white'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              {choirEntries.length}
+            </span>
           )}
         </button>
       </div>
@@ -2122,38 +2102,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {activeSubTab === 'schedules' && (
         <div className="space-y-4">
-          {/* Vacancy Alerts */}
-          {vacantSundays.length > 0 && (
-            <details className="rounded-xl border border-slate-200 dark:border-slate-700 p-3"><summary className="cursor-pointer font-semibold">{vacantSundays.length} upcoming Sundays need a singer</summary>
-              <div>
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {vacantSundays.map((dateStr) => (
-                    <button
-                      key={dateStr}
-                      onClick={() => {
-                        setEditingSchedule({
-                          id: generateUUID(),
-                          performerName: '',
-                          scheduledDate: dateStr,
-                          songTitle: '',
-                          minusOneLink: '',
-                          notes: '',
-                          lyrics: '',
-                          createdAt: new Date().toISOString(),
-                        });
-                        setIsEditingSchedule(true);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 font-semibold hover:bg-indigo-200 flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Calendar className="w-3 h-3" />
-                      <span>{formatDateStr(dateStr, { showDayOfWeek: true })}</span>
-                      <span className="underline ml-1">Assign Now</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </details>
-          )}
 
           {/* Vacant Fellowship / Event Alerts */}
           {vacantEvents.length > 0 && (

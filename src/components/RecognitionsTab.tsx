@@ -143,12 +143,25 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   });
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [birthdaySearchQuery, setBirthdaySearchQuery] = useState('');
 
   const { mondayStr, sundayStr } = getCurrentRecognitionWindow();
 
   // Categorize Birthdays & Anniversaries (Current Window: Last Monday through This Sunday, Upcoming below)
   const { currentWindow: currentBirthdays, upcoming: upcomingBirthdays } =
     categorizeAnnualCelebrants<BirthdayCelebrant>(birthdays, (b: BirthdayCelebrant) => b.birthDate);
+
+  const filteredCurrentBirthdays = currentBirthdays.filter((b: BirthdayCelebrant) => {
+    if (!birthdaySearchQuery.trim()) return true;
+    const q = birthdaySearchQuery.toLowerCase();
+    return b.name.toLowerCase().includes(q) || (b.ministryOrGroup && b.ministryOrGroup.toLowerCase().includes(q));
+  });
+
+  const filteredUpcomingBirthdays = upcomingBirthdays.filter((b: BirthdayCelebrant) => {
+    if (!birthdaySearchQuery.trim()) return true;
+    const q = birthdaySearchQuery.toLowerCase();
+    return b.name.toLowerCase().includes(q) || (b.ministryOrGroup && b.ministryOrGroup.toLowerCase().includes(q));
+  });
 
   const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
     categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
@@ -360,20 +373,33 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       {/* SUBTAB 1: BIRTHDAYS */}
       {subTab === 'birthdays' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Birthday Celebrants</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Current recognition window (Last Mon {formatShortDate(mondayStr)} – This Sun {formatShortDate(sundayStr)})
-              </p>
-            </div>
-            <button
-              onClick={() => setIsAddingBirthday(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Celebrant</span>
-            </button>
+          {/* Search Bar - only element at the top */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="birthday-celebrants-search"
+              name="birthday_search"
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              value={birthdaySearchQuery}
+              onChange={(e) => setBirthdaySearchQuery(e.target.value)}
+              placeholder="Search birthday celebrant by name or ministry..."
+              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+            />
+            {birthdaySearchQuery && (
+              <button
+                type="button"
+                onClick={() => setBirthdaySearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Current Recognition Window Section */}
@@ -381,20 +407,22 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             <div className="flex items-center justify-between px-1">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                This Week's Celebrants ({currentBirthdays.length})
+                This Week's Celebrants ({filteredCurrentBirthdays.length})
               </span>
               <span className="text-[11px] text-slate-400">
                 Mon {formatShortDate(mondayStr)} – Sun {formatShortDate(sundayStr)}
               </span>
             </div>
 
-            {currentBirthdays.length === 0 ? (
+            {filteredCurrentBirthdays.length === 0 ? (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
-                No birthday celebrants for this week's recognition window.
+                {birthdaySearchQuery
+                  ? `No celebrants matching "${birthdaySearchQuery}" for this week.`
+                  : "No birthday celebrants for this week's recognition window."}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {currentBirthdays.map((item) => (
+                {filteredCurrentBirthdays.map((item) => (
                   <div
                     key={item.id}
                     className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex items-start justify-between"
@@ -436,16 +464,18 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           {/* Upcoming Weeks Section */}
           <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-800">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block px-1">
-              Upcoming Celebrants ({upcomingBirthdays.length})
+              Upcoming Celebrants ({filteredUpcomingBirthdays.length})
             </span>
 
-            {upcomingBirthdays.length === 0 ? (
+            {filteredUpcomingBirthdays.length === 0 ? (
               <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
-                No upcoming birthdays recorded.
+                {birthdaySearchQuery
+                  ? `No upcoming celebrants matching "${birthdaySearchQuery}".`
+                  : 'No upcoming birthdays recorded.'}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {upcomingBirthdays.map((item) => (
+                {filteredUpcomingBirthdays.map((item) => (
                   <div
                     key={item.id}
                     className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"

@@ -192,7 +192,7 @@ export function getPersonColor(rawName?: string | null): PersonColor {
     return COLOR_PALETTE.green;
   }
   if (clean === 'eric' || clean.includes('eric')) {
-    return COLOR_PALETTE.violet;
+    return COLOR_PALETTE.fuchsia;
   }
   if (clean === 'ronnie' || clean.includes('ronnie')) {
     return COLOR_PALETTE.amber;

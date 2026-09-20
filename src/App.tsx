@@ -914,6 +914,12 @@ export default function App() {
   // Cross-Navigation Helpers
   const handleOpenSongDetail = (songId: string, returnSetlistId?: string) => {
     returnSetlistIdRef.current = returnSetlistId || null;
+    if (returnSetlistId) {
+      setInitialSelectedSetlistId(returnSetlistId);
+      try {
+        localStorage.setItem('nlbc_selected_setlist_id_v1', returnSetlistId);
+      } catch {}
+    }
     setSelectedSongIdForTab(songId);
     setSongNavigationTrigger({ songId, timestamp: Date.now() });
     handleNavigateTab('songs');
