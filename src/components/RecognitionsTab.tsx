@@ -67,16 +67,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   collapseSignal,
 }) => {
   const lastProcessedSignalRef = React.useRef<number | undefined>(collapseSignal);
-  const [subTab, setSubTab] = useState<RecognitionsSubTab>(() => {
-    try {
-      const saved = localStorage.getItem('nlbc_recognitions_subtab_v1');
-      const valid: RecognitionsSubTab[] = ['birthdays', 'anniversaries', 'visitors', 'special'];
-      if (saved && valid.includes(saved as RecognitionsSubTab)) {
-        return saved as RecognitionsSubTab;
-      }
-    } catch {}
-    return 'birthdays';
-  });
+  const [subTab, setSubTab] = useState<RecognitionsSubTab>('birthdays');
 
   useEffect(() => {
     try {
@@ -269,36 +260,57 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   };
 
   return (
-    <div className="ui-revamp ui-screen recognitions-screen space-y-6">
-      <h2 className="text-xl font-bold">Recognitions</h2>
-      {/* Sub-navigation Tabs */}
-      <div className="recognition-tabs flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+    <div className="ui-revamp ui-screen recognitions-screen space-y-5">
+      {/* Full-width Add Button at the very top of the recognition tab */}
+      <button
+        type="button"
+        onClick={() => {
+          if (subTab === 'birthdays') setIsAddingBirthday(true);
+          else if (subTab === 'anniversaries') setIsAddingAnniversary(true);
+          else if (subTab === 'visitors') setIsAddingVisitor(true);
+          else if (subTab === 'special') setIsAddingSpecial(true);
+        }}
+        className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer"
+      >
+        <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" />
+        <span>
+          {subTab === 'birthdays' && 'Add Celebrant'}
+          {subTab === 'anniversaries' && 'Add Anniversary'}
+          {subTab === 'visitors' && 'Add Visitor'}
+          {subTab === 'special' && 'Add Recognition'}
+        </span>
+      </button>
+
+      {/* Sub-navigation Tabs: Special, Anniversaries, Visitors on top; Birthdays full-width at bottom */}
+      <div className="recognition-tabs grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
-          onClick={() => setSubTab('birthdays')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-            subTab === 'birthdays'
+          type="button"
+          onClick={() => setSubTab('special')}
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            subTab === 'special'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Cake className="w-4 h-4" />
-          <span>Birthdays</span>
-          {currentBirthdays.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {currentBirthdays.length}
+          <Award className="w-4 h-4 text-sky-500" />
+          <span>Special</span>
+          {specialRecognitions.length > 0 && (
+            <span className="w-4 h-4 rounded-full bg-sky-600 text-white text-[10px] flex items-center justify-center font-bold">
+              {specialRecognitions.length}
             </span>
           )}
         </button>
 
         <button
+          type="button"
           onClick={() => setSubTab('anniversaries')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             subTab === 'anniversaries'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Heart className="w-4 h-4" />
+          <Heart className="w-4 h-4 text-rose-500" />
           <span>Anniversaries</span>
           {currentAnniversaries.length > 0 && (
             <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
@@ -308,27 +320,40 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         </button>
 
         <button
+          type="button"
           onClick={() => setSubTab('visitors')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             subTab === 'visitors'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-4 h-4 text-emerald-500" />
           <span>Visitors</span>
+          {filteredVisitors.length > 0 && (
+            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">
+              {filteredVisitors.length}
+            </span>
+          )}
         </button>
 
+        {/* Birthdays spanning the full width at the bottom */}
         <button
-          onClick={() => setSubTab('special')}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-            subTab === 'special'
+          type="button"
+          onClick={() => setSubTab('birthdays')}
+          className={`col-span-3 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            subTab === 'birthdays'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Award className="w-4 h-4" />
-          <span>Special</span>
+          <Cake className="w-4 h-4 text-indigo-500" />
+          <span>Birthdays</span>
+          {currentBirthdays.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
+              {currentBirthdays.length} this week
+            </span>
+          )}
         </button>
       </div>
 

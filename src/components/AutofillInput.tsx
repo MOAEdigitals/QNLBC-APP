@@ -496,14 +496,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               hasMovedRef.current = false;
             }, 250);
           }}
-          className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-0 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
+          className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {/* Header indicator showing match count */}
-          <div className="sticky top-0 z-10 px-3.5 py-1.5 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-700/80 text-[11px] font-semibold text-slate-500 dark:text-slate-400 select-none">
-            <span>{displayedItems.length} {displayedItems.length === 1 ? 'song' : 'songs'}</span>
-          </div>
-
           {displayedItems.map((item, idx) => {
             const isSelected =
               idx === highlightedIndex ||
