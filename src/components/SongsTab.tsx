@@ -75,7 +75,7 @@ export function getSongCategories(song: Song): SongCategory[] {
 interface SongsTabProps {
   songs: Song[];
   setlists: Setlist[];
-  onSaveSong: (song: Song) => void;
+  onSaveSong: (song: Song) => Promise<Song>;
   onBatchSaveSongs?: (songs: Song[]) => void;
   onDeleteSong: (id: string) => void;
   onAddSongToNewSetlist: (song: Song) => void;
@@ -107,6 +107,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   >('all');
   const [isEditing, setIsEditing] = useState(false);
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
+  const [isSavingSong, setIsSavingSong] = useState(false);
+  const savingSongRef = useRef(false);
   const [showArtistInput, setShowArtistInput] = useState(false);
   const [isLyricsExpandedInEditor, setIsLyricsExpandedInEditor] = useState(false);
 
@@ -309,7 +311,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
 
-if (isEditing) {
+if (isEditing && !savingSongRef.current) {
         setIsEditing(false);
         setEditingSong(null);
         return;
@@ -341,7 +343,7 @@ if (isEditing) {
   // Back swipe / popstate listener to collapse container
   useEffect(() => {
     const handlePopState = () => {
-if (isEditing) {
+if (isEditing && !savingSongRef.current) {
         setIsEditing(false);
         setEditingSong(null);
         return;
@@ -600,9 +602,9 @@ if (isEditing) {
     onSaveSong(updated);
   };
 
-  const handleSaveSongForm = (e: React.FormEvent) => {
+  const handleSaveSongForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSong || !editingSong.title?.trim()) return;
+    if (!editingSong || !editingSong.title?.trim() || savingSongRef.current) return;
 
     const formattedTitle = formatDuplicateTitle(editingSong.title.trim(), songs, editingSong.id);
 
@@ -611,6 +613,7 @@ if (isEditing) {
 
     const finalSong: Song = {
       id: editingSong.id && isUUID(editingSong.id) ? editingSong.id : generateUUID(),
+      revision: editingSong.revision,
       title: formattedTitle,
       artist: showArtistInput && editingSong.artist?.trim() ? editingSong.artist.trim() : undefined,
       lyrics: editingSong.lyrics || '',
@@ -626,7 +629,17 @@ if (isEditing) {
       updatedAt: new Date().toISOString(),
     };
 
-    onSaveSong(finalSong);
+    savingSongRef.current = true;
+    setIsSavingSong(true);
+    try {
+      await onSaveSong(finalSong);
+    } catch {
+      // The parent reports the database error. Keep the draft open for correction or retry.
+      return;
+    } finally {
+      savingSongRef.current = false;
+      setIsSavingSong(false);
+    }
     setIsEditing(false);
     // Newly created songs start collapsed. Existing songs preserve their previous open/collapsed state.
     if (isExistingSong && wasAlreadySelected) {
@@ -2002,7 +2015,7 @@ if (isEditing) {
                   {songs.some((s) => s.id === editingSong.id) ? 'Edit Song' : 'Add New Song to Library'}
                 </span>
               </h3>
-              <button onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
+              <button type="button" disabled={isSavingSong} onClick={() => setIsEditing(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2123,6 +2136,7 @@ if (isEditing) {
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
+                  disabled={isSavingSong}
                   onClick={() => setIsEditing(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
                 >
@@ -2130,9 +2144,10 @@ if (isEditing) {
                 </button>
                 <button
                   type="submit"
+                  disabled={isSavingSong}
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
-                  Save Song
+                  {isSavingSong ? 'Saving…' : 'Save Song'}
                 </button>
               </div>
             </form>
