@@ -466,7 +466,7 @@ export default function App() {
   // Setlist Operations
   const handleSaveSetlist = useCallback(async (newOrUpdated: Setlist) => {
     const isNew = !setlists.some((s) => s.id === newOrUpdated.id);
-    if (!requirePermission(isNew ? 'add' : 'edit')) return;
+    if (!requirePermission(isNew ? 'add' : 'edit')) return false;
 
     try {
       const saved = await supabaseSaveSetlist(newOrUpdated, isNew);
@@ -475,12 +475,14 @@ export default function App() {
           ? [saved, ...prev.filter((s) => s.id !== newOrUpdated.id && s.id !== saved.id)]
           : prev.map((s) => (s.id === newOrUpdated.id ? saved : s))
       );
+      return true;
     } catch (err: any) {
       console.error('Failed to save setlist to Supabase:', err);
       // Refresh authoritative list
       const fresh = await fetchSetlists().catch(() => []);
       setSetlists(fresh);
       alert('Unable to save setlist: ' + (err.message || 'Database error'));
+      return false;
     }
   }, [setlists, currentUser]);
 
