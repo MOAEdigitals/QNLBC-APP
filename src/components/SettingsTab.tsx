@@ -102,13 +102,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onOpenFirestoreStatusModal,
   appData,
 }) => {
-  // Collapsible section states
-  const [isAccountCollapsed, setIsAccountCollapsed] = useState(false);
-  const [isAppearanceCollapsed, setIsAppearanceCollapsed] = useState(false);
-  const [isUserDatabaseCollapsed, setIsUserDatabaseCollapsed] = useState(true);
-  const [isChurchDirectoryCollapsed, setIsChurchDirectoryCollapsed] = useState(true);
-  const [isDataBackupCollapsed, setIsDataBackupCollapsed] = useState(true);
-  const [isSyncLogsCollapsed, setIsSyncLogsCollapsed] = useState(true);
+  const [settingsSection, setSettingsSection] = useState<string | null>(null);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details' };
+  // Existing section content remains mounted while navigating settings.
+  const isAccountCollapsed = false;
+  const isAppearanceCollapsed = false;
+  const isUserDatabaseCollapsed = false;
+  const isChurchDirectoryCollapsed = false;
+  const isDataBackupCollapsed = false;
+  const isSyncLogsCollapsed = false;
 
   // Profile avatar feedback
   const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
@@ -424,26 +427,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   }, [users, userSearchQuery, userRoleFilter]);
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto pb-16">
-      {/* Header Banner */}
-      <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Settings className="w-5 h-5 text-slate-800 dark:text-slate-200" />
-            <span>Settings</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {isAdmin
-              ? 'Account profile, team roles, church directory autofill, and Supabase data management'
-              : 'Theme appearance and account session settings'}
-          </p>
-        </div>
-      </div>
+    <div className="ui-revamp settings-screen space-y-5 max-w-3xl mx-auto pb-8">
+      <header className="space-y-3">
+        {settingsSection && <button type="button" className="ui-back" onClick={() => { setSettingsSection(null); setSelectedMemberId(null); }}>← Settings</button>}
+        <h2 className="text-2xl font-semibold">{settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
+      </header>
+      {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
+        {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'data'] : [])].map(section => (
+          <button key={section} type="button" className="ui-settings-row" onClick={() => setSettingsSection(section)}>
+            <span>{sectionLabels[section]}</span><span aria-hidden="true">›</span>
+          </button>
+        ))}
+      </nav>}
+      {(settingsSection === 'account' || settingsSection === 'data') && statusObj && <button type="button" className="ui-secondary" onClick={() => setSettingsSection('connection')}>Connection details</button>}
 
-      {/* Container 1: Current Account Profile & Session */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+      {/* Container 1: Current Account */}
+      <div hidden={settingsSection !== 'account'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
         <div
-          onClick={() => setIsAccountCollapsed(!isAccountCollapsed)}
+
           className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
         >
           <div className="flex items-center gap-3">
@@ -452,7 +453,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <span>Account Profile & Session</span>
+                <span>Account</span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Logged in as <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUser.name || currentUser.username}</span> ({currentUser.role === 'admin' ? 'Administrator' : 'Worship Team Member'})
@@ -461,17 +462,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSignOut();
-              }}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </button>
+
             <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
               <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isAccountCollapsed ? '' : 'rotate-180'}`} />
             </div>
@@ -537,9 +528,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                   {currentUser.username}
                 </p>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-1">
-                  Connected with Supabase Cloud Authentication.
-                </p>
               </div>
             </div>
           </div>
@@ -547,9 +535,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       </div>
 
       {/* Container 2: Appearance & Theme */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+      <div hidden={settingsSection !== 'appearance'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
         <div
-          onClick={() => setIsAppearanceCollapsed(!isAppearanceCollapsed)}
+
           className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
         >
           <div className="flex items-center gap-3">
@@ -558,7 +546,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
             <div>
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                Appearance & Display
+                Appearance
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Current theme: <span className="font-semibold capitalize">{theme}</span> mode
@@ -629,11 +617,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         )}
       </div>
 
-      {/* Container 3: Church Team Members & Roles (Admin Only) */}
+      {/* Container 3: Church Members & permissions (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div hidden={settingsSection !== 'members'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
           <div
-            onClick={() => setIsUserDatabaseCollapsed(!isUserDatabaseCollapsed)}
+
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -643,7 +631,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Team Members & Roles
+                    Members & permissions
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                     {users.length} {users.length === 1 ? 'Member' : 'Members'}
@@ -662,13 +650,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {!isUserDatabaseCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              <div className={selectedMemberId ? 'hidden' : 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2'}>
                 {/* Search */}
                 <div className="relative flex-1 max-w-sm">
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-3 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search by name or email..."
+                    placeholder="Search members"
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
@@ -722,187 +710,47 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
 
-              {/* Members Table */}
-              <div className="border border-slate-200 dark:border-slate-700/80 rounded-xl overflow-hidden shadow-2xs bg-white dark:bg-slate-900">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border-b border-slate-200 dark:border-slate-700">
-                      <tr>
-                        <th className="p-3 w-10 text-center text-slate-400">#</th>
-                        <th className="p-3">Member</th>
-                        <th className="p-3">Role</th>
-                        <th className="p-3">Status</th>
-                        <th className="p-3">Permissions</th>
-                        <th className="p-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {filteredUsers.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="p-6 text-center text-slate-400">
-                            No team members found matching your search.
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredUsers.map((u, idx) => {
-                          const isCurrent = u.id === currentUser.id;
-                          const isManaging = managingUserId === u.id;
-
-                          return (
-                            <tr
-                              key={u.id}
-                              className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                            >
-                              <td className="p-3 text-center text-slate-400 font-mono text-[11px]">
-                                {idx + 1}
-                              </td>
-
-                              <td className="p-3">
-                                <div className="flex items-center gap-2.5 min-w-[160px]">
-                                  <div className="w-8 h-8 rounded-full ring-1 ring-slate-200 dark:ring-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 flex items-center justify-center font-bold text-[11px] overflow-hidden shrink-0">
-                                    {u.avatar ? (
-                                      <img
-                                        src={u.avatar}
-                                        alt={u.username}
-                                        referrerPolicy="no-referrer"
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <span>{u.username.substring(0, 2).toUpperCase()}</span>
-                                    )}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-1.5 flex-wrap">
-                                      <span className="font-bold text-slate-900 dark:text-white truncate">
-                                        {u.name || u.username}
-                                      </span>
-                                      {isCurrent && (
-                                        <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400">
-                                          (You)
-                                        </span>
-                                      )}
-                                    </div>
-                                    <span className="text-[11px] text-slate-400 font-mono block truncate">
-                                      {u.username}
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                    u.role === 'admin'
-                                      ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800'
-                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
-                                  }`}
-                                >
-                                  {u.role === 'admin' ? 'Admin' : 'Member'}
-                                </span>
-                              </td>
-
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                    u.active !== false
-                                      ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                                      : 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                                  }`}
-                                >
-                                  {u.active !== false ? 'Active' : 'Deactivated'}
-                                </span>
-                              </td>
-
-                              <td className="p-3">
-                                {u.role === 'admin' ? (
-                                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300">
-                                    Full access
-                                  </span>
-                                ) : (
-                                  <div className="flex min-w-[230px] flex-wrap gap-1">
-                                    {(
-                                      [
-                                        ['canAdd', 'Add'],
-                                        ['canEdit', 'Edit'],
-                                        ['canDelete', 'Delete'],
-                                      ] as const
-                                    ).map(([key, label]) => {
-                                      const enabled = Boolean(u.permissions?.[key]);
-                                      return (
-                                        <button
-                                          key={key}
-                                          type="button"
-                                          disabled={isManaging || !u.active}
-                                          onClick={() => handleTogglePermission(u, key)}
-                                          className={`rounded-md border px-2 py-1 text-[10px] font-bold transition-colors ${
-                                            enabled
-                                              ? 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                                              : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400'
-                                          } disabled:cursor-not-allowed disabled:opacity-50`}
-                                          title={`${enabled ? 'Remove' : 'Grant'} ${label} permission`}
-                                        >
-                                          {label}: {enabled ? 'On' : 'Off'}
-                                        </button>
-                                      );
-                                    })}
-                                    <span className="rounded-md border border-sky-300 bg-sky-100 px-2 py-1 text-[10px] font-bold text-sky-800 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300">
-                                      Upload: On
-                                    </span>
-                                  </div>
-                                )}
-                              </td>
-
-                              <td className="p-3 text-right">
-                                <div className="inline-flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    disabled={isManaging}
-                                    onClick={() => handleToggleUserRole(u)}
-                                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-                                    title={`Toggle role to ${u.role === 'admin' ? 'member' : 'admin'}`}
-                                  >
-                                    {u.role === 'admin' ? 'Make Member' : 'Make Admin'}
-                                  </button>
-
-                                  {!isCurrent && (
-                                    <button
-                                      type="button"
-                                      disabled={isManaging}
-                                      onClick={() => handleToggleUserActive(u)}
-                                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer border ${
-                                        u.active !== false
-                                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 border-rose-200 dark:border-rose-900'
-                                          : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border-emerald-200 dark:border-emerald-900'
-                                      }`}
-                                      title={u.active !== false ? 'Deactivate user' : 'Activate user'}
-                                    >
-                                      {u.active !== false ? 'Deactivate' : 'Activate'}
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+              {selectedMemberId && <button type="button" className="ui-back" onClick={() => setSelectedMemberId(null)}>← All members</button>}
+              <div className="space-y-3">
+                {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map(u => {
+                  const isCurrent = u.id === currentUser.id;
+                  const isManaging = managingUserId === u.id;
+                  return <article key={u.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+                    <div className="space-y-1 min-w-0">
+                      <h3 className="font-semibold break-words">{u.name || u.username}{isCurrent ? ' (You)' : ''}</h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'} · {u.active !== false ? 'Active' : 'Deactivated'}</p>
+                    </div>
+                    {!selectedMemberId ? <button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button> : <>
+                      {u.role === 'admin' ? <p>Administrators have full access.</p> : <div className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {([['canAdd', 'Add'], ['canEdit', 'Edit'], ['canDelete', 'Delete']] as const).map(([key, label]) => {
+                          const enabled = Boolean(u.permissions?.[key]);
+                          return <button key={key} type="button" role="switch" aria-checked={enabled} disabled={isManaging || !u.active}
+                            onClick={() => handleTogglePermission(u, key)} className="ui-settings-row">
+                            <span>{label}</span><span className={enabled ? 'ui-permission-on' : ''}>{enabled ? 'On' : 'Off'}</span>
+                          </button>;
+                        })}
+                        <div className="ui-settings-row"><span>Upload</span><span>On</span></div>
+                      </div>}
+                      {isManaging && <p role="status">Saving…</p>}
+                      <div className="flex flex-wrap gap-2 pt-3">
+                        <button type="button" disabled={isManaging} onClick={() => handleToggleUserRole(u)} className="ui-secondary">{u.role === 'admin' ? 'Make member' : 'Make admin'}</button>
+                        {!isCurrent && <button type="button" disabled={isManaging} onClick={() => handleToggleUserActive(u)} className="ui-secondary">{u.active !== false ? 'Deactivate' : 'Activate'}</button>}
+                      </div>
+                    </>}
+                  </article>;
+                })}
+                {!selectedMemberId && filteredUsers.length === 0 && <p>No members match your search.</p>}
               </div>
-
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                User accounts and passwords are encrypted with bcrypt by Supabase Auth and never stored in plaintext.
-              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Container 4: Church Directory & Autofill Suggestions (Admin Only) */}
+      {/* Container 4: Church directory Suggestions (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div hidden={settingsSection !== 'directory'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
           <div
-            onClick={() => setIsChurchDirectoryCollapsed(!isChurchDirectoryCollapsed)}
+
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -912,7 +760,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Church Directory & Autofill
+                    Church directory
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                     {savedNames.length} {savedNames.length === 1 ? 'Name' : 'Names'}
@@ -977,11 +825,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       )}
 
-      {/* Container 5: Data Library & Backup Tools (Admin Only) */}
+      {/* Container 5: Data management (Admin Only) */}
       {isAdmin && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div hidden={settingsSection !== 'data'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
           <div
-            onClick={() => setIsDataBackupCollapsed(!isDataBackupCollapsed)}
+
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -990,7 +838,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
               <div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                  Data Library & Backup Tools
+                  Data management
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Export backups, restore from JSON files, and batch import song lyrics.
@@ -1200,9 +1048,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {/* Container 6: Supabase Realtime Connection & Status */}
       {statusObj && (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div hidden={settingsSection !== 'connection'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
           <div
-            onClick={() => setIsSyncLogsCollapsed(!isSyncLogsCollapsed)}
+
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -1294,6 +1142,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           )}
         </div>
       )}
+
+      {!settingsSection && <div className="pt-6 border-t border-slate-200 dark:border-slate-800">
+        <button type="button" onClick={onSignOut} className="ui-secondary text-rose-700 dark:text-rose-300"><LogOut className="w-5 h-5" />Sign out</button>
+      </div>}
 
       {/* Migration Prompt Modal */}
       {showPromptModal && (

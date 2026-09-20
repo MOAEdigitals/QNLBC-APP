@@ -734,8 +734,19 @@ export default function App() {
       throw new Error('Your account does not have UPLOAD permission.');
     }
     const savedPart = await supabaseSavePracticeVocalPart(practiceId, part, position);
-    const fresh = await fetchPracticeEntries();
-    setPracticeEntries(fresh);
+    setPracticeEntries((entries) => entries.map((entry) => {
+      if (entry.id !== practiceId) return entry;
+      const parts = [...(entry.vocalParts?.length ? entry.vocalParts : entry.parts || [])];
+      const index = parts.findIndex((item) => item.id === savedPart.id);
+      if (index >= 0) parts[index] = savedPart;
+      else parts.push(savedPart);
+      parts.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      return { ...entry, vocalParts: parts, parts };
+    }));
+    // Persistence is complete. A refresh must never turn it into a failed save.
+    void fetchPracticeEntries().then(setPracticeEntries).catch((error) => {
+      console.warn('Vocal part saved, but practice refresh failed:', error);
+    });
     return savedPart;
   };
 
@@ -1019,7 +1030,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
       <Navbar
         currentUser={currentUser}

@@ -269,9 +269,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="ui-revamp ui-screen recognitions-screen space-y-6">
+      <h2 className="text-xl font-bold">Recognitions</h2>
       {/* Sub-navigation Tabs */}
-      <div className="flex bg-slate-200/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
+      <div className="recognition-tabs flex flex-wrap bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setSubTab('birthdays')}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
@@ -389,11 +390,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             {item.ministryOrGroup}
                           </span>
                         )}
-                        {item.notes && (
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">
-                            "{item.notes}"
-                          </p>
-                        )}
+
                       </div>
                     </div>
 
@@ -516,11 +513,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             </span>
                           )}
                         </div>
-                        {item.notes && (
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">
-                            "{item.notes}"
-                          </p>
-                        )}
+
                       </div>
                     </div>
 
@@ -647,11 +640,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       <span>•</span>
                       <span>Visited: {formatDateStr(item.dateVisited, { shortMonth: true })}</span>
                     </div>
-                    {item.notes && (
-                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">
-                        "{item.notes}"
-                      </p>
-                    )}
+
                   </div>
 
                   <button
@@ -747,7 +736,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
       {/* MODAL 1: ADD BIRTHDAY */}
       {isAddingBirthday && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -818,26 +807,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Notes / Greeting (Optional)
-                </label>
-                <textarea
-                  id="bday-notes-greeting"
-                  name="bday_notes_greeting"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="sentences"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  rows={2}
-                  value={bdayForm.notes}
-                  onChange={(e) => setBdayForm({ ...bdayForm, notes: e.target.value })}
-                  placeholder="Birthday greeting or notes..."
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                />
-              </div>
+
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
@@ -861,7 +831,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
       {/* MODAL 2: ADD ANNIVERSARY */}
       {isAddingAnniversary && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -946,26 +916,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Notes
-                </label>
-                <input
-                  id="anniv-event-notes"
-                  name="anniv_event_notes"
-                  type="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="sentences"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  value={annivForm.notes}
-                  onChange={(e) => setAnnivForm({ ...annivForm, notes: e.target.value })}
-                  placeholder="Anniversary description or notes"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                />
-              </div>
+
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
@@ -989,7 +940,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
       {/* MODAL 3: ADD VISITOR */}
       {isAddingVisitor && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1084,26 +1035,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Notes / Invited By (Optional)
-                </label>
-                <input
-                  id="visitor-additional-notes"
-                  name="visitor_additional_notes"
-                  type="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="sentences"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  value={visitorForm.notes}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, notes: e.target.value })}
-                  placeholder="Visitor notes and follow-up details"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                />
-              </div>
+
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
@@ -1127,7 +1059,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
       {/* MODAL 4: ADD SPECIAL RECOGNITION */}
       {isAddingSpecial && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">

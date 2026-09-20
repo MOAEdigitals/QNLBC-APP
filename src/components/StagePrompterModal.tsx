@@ -1,3 +1,4 @@
+import { useLyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Song } from '../types';
 import {
@@ -74,10 +75,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     return 'oled'; // Default to OLED stage black
   });
 
-  const [showChordsOrNotes, setShowChordsOrNotes] = useState<boolean>(true);
   const [isAutoScrolling, setIsAutoScrolling] = useState<boolean>(false);
   const [scrollSpeed, setScrollSpeed] = useState<number>(1); // 1 = normal, 2 = fast, 0.5 = slow
-  const [wakeLockActive, setWakeLockActive] = useState<boolean>(false);
+  const { status: screenLockStatus, retry: retryScreenLock } = useLyricsScreenAwake(isOpen);
+  const wakeLockActive = screenLockStatus === 'active';
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showSettingsBar, setShowSettingsBar] = useState<boolean>(true);
 
@@ -233,52 +234,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     } catch {}
   }, [theme]);
 
-  // Screen WakeLock (prevents phone/tablet from turning off on stage)
-  useEffect(() => {
-    if (!isOpen) {
-      setIsAutoScrolling(false);
-      return;
-    }
-
-    let wakeLockInstance: any = null;
-    let isCancelled = false;
-
-    const requestWakeLock = async () => {
-      try {
-        if ('wakeLock' in navigator) {
-          wakeLockInstance = await (navigator as any).wakeLock.request('screen');
-          if (!isCancelled) {
-            setWakeLockActive(true);
-            wakeLockInstance.addEventListener('release', () => {
-              if (!isCancelled) setWakeLockActive(false);
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('Wake Lock request error or not permitted:', err);
-        if (!isCancelled) setWakeLockActive(false);
-      }
-    };
-
-    requestWakeLock();
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isOpen) {
-        requestWakeLock();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      isCancelled = true;
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (wakeLockInstance) {
-        wakeLockInstance.release().catch(() => {});
-      }
-      setWakeLockActive(false);
-    };
-  }, [isOpen]);
+  useEffect(() => { if (!isOpen) setIsAutoScrolling(false); }, [isOpen]);
 
   // Native Fullscreen Toggle
   const toggleNativeFullscreen = async () => {
@@ -789,10 +745,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           {wakeLockActive ? (
             <span className="text-emerald-400 font-medium flex items-center gap-1">
               <Smartphone className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Screen Awake ON</span>
+              <span>Screen awake</span>
             </span>
           ) : (
-            <span className="text-[11px] hidden sm:inline">Tip: Use Arrow Keys or Space</span>
+            <button type="button" onClick={retryScreenLock} className="underline">{screenLockStatus === 'requesting' ? 'Keeping screen awake…' : 'Screen may sleep · Retry'}</button>
           )}
 
           {songList.length > 1 && currentIndex < songList.length - 1 && (

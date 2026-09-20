@@ -91,9 +91,7 @@ export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []):
       const displayTitle = resolveTitle(song.title, song.songId);
       ssLines.push(`${idx + 1}. ${displayTitle}${song.keyNote ? ` (${song.keyNote})` : ''}`);
     });
-    if (setlist.sundaySchool?.notes?.trim()) {
-      ssLines.push(`Note: ${setlist.sundaySchool.notes.trim()}`);
-    }
+
     sections.push(ssLines.join('\n'));
 
     // Worship Service Section
@@ -110,9 +108,7 @@ export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []):
       const displayTheme = resolveTitle(setlist.themeSong);
       wsLines.push(`${themeNum}. ${displayTheme} (Theme Song)`);
     }
-    if (setlist.worshipService?.notes?.trim()) {
-      wsLines.push(`Note: ${setlist.worshipService.notes.trim()}`);
-    }
+
     sections.push(wsLines.join('\n'));
   } else {
     // Non-Sunday Programs (Prayer Meeting, Fellowship, Event)
@@ -139,9 +135,7 @@ export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []):
       const displayTheme = resolveTitle(setlist.themeSong);
       progLines.push(`${themeNum}. ${displayTheme} (Theme Song)`);
     }
-    if (setlist.program?.notes?.trim()) {
-      progLines.push(`Note: ${setlist.program.notes.trim()}`);
-    }
+
     sections.push(progLines.join('\n'));
   }
 
@@ -727,17 +721,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="ui-revamp ui-screen setlists-screen space-y-6">
       {/* Top Banner & Action Buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+      <div className="ui-page-header flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Calendar className="w-5 h-5 text-slate-800 dark:text-slate-200" />
-            <span>Church Service Programs & Setlists</span>
+            <span>Setlists</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            Sunday School, Worship Service, Midweek, Fellowships, and Events
-          </p>
         </div>
 
         {/* Buttons: Event Setlist on left, Sunday Setlist on right */}
@@ -746,15 +737,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
           <div className="relative">
             <button
               onClick={() => setShowTypeSelector(!showTypeSelector)}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm font-medium transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+              className="ui-primary"
             >
               <Plus className="w-4 h-4" />
-              <span>Event Setlist</span>
+              <span>New setlist</span>
               <ChevronDown className="w-4 h-4" />
             </button>
 
             {showTypeSelector && (
               <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-60 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-30 py-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+                <button type="button" onClick={() => { setShowTypeSelector(false); handleStartCreateSunday(); }} className="w-full px-4 py-2.5 text-left">Sunday</button>
                 <button
                   type="button"
                   onClick={() => handleStartCreateOther('prayer_meeting')}
@@ -785,14 +777,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             )}
           </div>
 
-          {/* Sunday Setlist button on the right */}
-          <button
-            onClick={handleStartCreateSunday}
-            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Sunday Setlist</span>
-          </button>
+
         </div>
       </div>
 
@@ -806,7 +791,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
         {sortedSetlists.length === 0 ? (
           <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            No setlists created yet. Click "Sunday Setlist" or "Event Setlist" to start.
+            No setlists yet. Choose New setlist to start.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
@@ -827,7 +812,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       : isSoonest
                       ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
                       : isPast
-                      ? 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 opacity-65 text-slate-500'
+                      ? 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60  text-slate-500'
                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
@@ -866,7 +851,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                           {isSoonest && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                              ★ Soonest Upcoming
+                              ★ Upcoming
                             </span>
                           )}
 
@@ -923,10 +908,23 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
                     >
+
+
+                      <button
+                        type="button"
+                        onClick={() => setOpenMenuSetlistId(openMenuSetlistId === item.id ? null : item.id)}
+                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                        title="Program Options"
+                      >
+                        <span>Actions</span>
+                      </button>
+
+                      {openMenuSetlistId === item.id && (
+                        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
                       <button
                         type="button"
                         onClick={(e) => handleCopySetlist(item, e)}
-                        className={`p-1.5 rounded-lg transition-colors cursor-pointer flex items-center gap-1 ${
+                        className={`w-full px-3.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2 ${
                           copiedSetlistId === item.id
                             ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
                             : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -941,21 +939,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             </span>
                           </>
                         ) : (
-                          <Copy className="w-4 h-4" />
+                          <><Copy className="w-4 h-4" /><span>Copy setlist</span></>
                         )}
                       </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setOpenMenuSetlistId(openMenuSetlistId === item.id ? null : item.id)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                        title="Program Options"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-
-                      {openMenuSetlistId === item.id && (
-                        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
                           <button
                             type="button"
                             onClick={() => {
@@ -965,7 +951,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
                           >
                             <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Edit Program</span>
+                            <span>Edit</span>
                           </button>
 
                           <button
@@ -980,7 +966,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             className="w-full px-3.5 py-2 text-left text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete Setlist</span>
+                            <span>Delete</span>
                           </button>
                         </div>
                       )}
@@ -1110,11 +1096,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               })}
                             </div>
 
-                            {item.sundaySchool?.notes && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-0.5">
-                                Note: {item.sundaySchool.notes}
-                              </p>
-                            )}
+
                           </div>
 
                           {/* Worship Service Container (Green Outline) */}
@@ -1187,11 +1169,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               })()}
                             </div>
 
-                            {item.worshipService?.notes && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-0.5">
-                                Note: {item.worshipService.notes}
-                              </p>
-                            )}
+
                           </div>
                         </div>
                       )}
@@ -1309,11 +1287,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             })}
                           </div>
 
-                          {item.program?.notes && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400 italic pt-0.5">
-                              Note: {item.program.notes}
-                            </p>
-                          )}
+
                         </div>
                       )}
 
@@ -1329,7 +1303,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
       {/* Create / Edit Form Modal */}
       {isEditing && editingSetlist && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">

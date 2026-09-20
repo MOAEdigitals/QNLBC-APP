@@ -467,28 +467,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   };
 
   // Badge background coloring
-  const getBadgeStyle = (label: string) => {
-    const upper = label.toUpperCase();
-    if (upper.includes('SOPRANO')) {
-      return 'bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 border-pink-200 dark:border-pink-800/40';
-    }
-    if (upper.includes('ALTO')) {
-      return 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 border-purple-200 dark:border-purple-800/40';
-    }
-    if (upper.includes('TENOR')) {
-      return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/40';
-    }
-    if (upper.includes('BASS')) {
-      return 'bg-teal-100 text-teal-800 dark:bg-teal-950/60 dark:text-teal-300 border-teal-200 dark:border-teal-800/40';
-    }
-    if (upper.includes('PLUS ONE')) {
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40';
-    }
-    if (upper.includes('MINUS ONE')) {
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-200 dark:border-blue-800/40';
-    }
-    return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
-  };
+  const getBadgeStyle = (_label: string) =>
+    'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200 border-blue-100 dark:border-blue-900';
 
   // External link opener
   const handleOpenExternal = (e: React.MouseEvent) => {
@@ -544,9 +524,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       />
 
       {/* Top Row: Pill Badge + Track Title/Subtitle + Play Button + Menu */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Left Side: Badge + Track Info */}
-        <div className="flex items-center space-x-2.5 min-w-0 flex-1">
+        <div className="flex flex-col items-start gap-1 min-w-0 basis-full sm:basis-0 sm:flex-1">
           {/* Vocal / Track Category Pill Badge */}
           <span
             className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider uppercase border shrink-0 ${getBadgeStyle(
@@ -559,18 +539,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           {/* Track Title & Subtitle */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-1.5 min-w-0">
-              <h5 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-100 truncate tracking-tight">
+              <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100 break-words">
                 {performerName}
               </h5>
-              {isCloudSynced && (
-                <span
-                  title="Stored in Cloud & Ready for all authorized users"
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800 shrink-0"
-                >
-                  <Cloud className="w-2.5 h-2.5" />
-                  <span>Cloud-Ready</span>
-                </span>
-              )}
               {isWebUrl && (
                 <span
                   title="Web link"
@@ -604,8 +575,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             id={`play-btn-${id}`}
             onClick={handleTogglePlay}
             disabled={isUploadingCloud}
-            aria-label={isCurrentlyPlaying ? 'Pause Audio' : 'Play Audio'}
-            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-xs hover:scale-105 active:scale-95 ${
+            aria-label={isCurrentlyPlaying ? 'Pause audio' : hasAudioSource && !audioError ? 'Play audio' : audioError && isWebUrl ? 'Open link' : 'Record audio'}
+            className={`min-h-12 px-4 gap-2 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer shadow-xs hover:scale-105 active:scale-95 ${
               isCurrentlyPlaying
                 ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                 : hasAudioSource && !audioError
@@ -633,6 +604,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             ) : (
               <Mic className="w-3.5 h-3.5" />
             )}
+            <span className="text-sm font-semibold">{isCurrentlyPlaying ? 'Pause' : hasAudioSource && !audioError ? 'Play' : audioError && isWebUrl ? 'Open link' : 'Record'}</span>
           </button>
 
           {/* 3-Dots Dropdown Menu */}
@@ -645,9 +617,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 setIsMenuOpen(!isMenuOpen);
               }}
               aria-label="Track options"
-              className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="min-h-11 px-2 gap-1 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
-              <MoreVertical className="w-4 h-4" />
+              <MoreVertical className="w-4 h-4" /><span className="text-sm">Actions</span>
             </button>
 
             {/* Dropdown Popover */}

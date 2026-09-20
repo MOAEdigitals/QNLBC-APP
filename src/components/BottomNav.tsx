@@ -64,7 +64,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <button
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
-              className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all relative ${
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex-1 min-w-0 min-h-14 flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all relative ${
                 isActive
                   ? 'text-slate-950 dark:text-white font-semibold'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
@@ -84,7 +85,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[11px] leading-tight mt-0.5 tracking-tight truncate max-w-[70px]">
+              <span className="w-full text-xs leading-tight mt-0.5 text-center break-words">
                 {tab.label}
               </span>
             </button>

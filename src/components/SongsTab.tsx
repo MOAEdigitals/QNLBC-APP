@@ -1,3 +1,4 @@
+import { LyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
@@ -36,7 +37,6 @@ import {
   Loader2,
   Tag,
   Filter,
-  StickyNote,
   Star,
   Tv,
   Maximize2,
@@ -292,45 +292,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     onClearInitialSelectedSongId?.();
   };
 
-  // Quick Song Scratchpad / Notepad state (persists instantly to localStorage)
-  const [isNotepadOpen, setIsNotepadOpen] = useState(false);
-  const [notepadText, setNotepadText] = useState<string>(() => {
-    try {
-      return localStorage.getItem('nlbc_song_notepad_notes') || '';
-    } catch {
-      return '';
-    }
-  });
-  const [notepadCopied, setNotepadCopied] = useState(false);
-
-  const handleNotepadChange = (newText: string) => {
-    setNotepadText(newText);
-    try {
-      localStorage.setItem('nlbc_song_notepad_notes', newText);
-    } catch {}
-  };
-
-  const handleCopyNotepad = () => {
-    if (!notepadText.trim()) return;
-    navigator.clipboard.writeText(notepadText);
-    setNotepadCopied(true);
-    setTimeout(() => setNotepadCopied(false), 2000);
-  };
-
-  const handleClearNotepad = () => {
-    if (!notepadText.trim()) return;
-    if (window.confirm('Clear all notes in the scratchpad?')) {
-      handleNotepadChange('');
-    }
-  };
-
-  const notepadLineCount = useMemo(() => {
-    return notepadText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean).length;
-  }, [notepadText]);
-
   // Close 3-dot menus and category picker when clicking outside
   useEffect(() => {
     const handleGlobalClick = () => {
@@ -348,11 +309,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
 
-      if (isNotepadOpen) {
-        setIsNotepadOpen(false);
-        return;
-      }
-      if (isEditing) {
+if (isEditing) {
         setIsEditing(false);
         setEditingSong(null);
         return;
@@ -379,16 +336,12 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       // Step 2: Pressing once more after that scrolls back to the top of the song list
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal, isNotepadOpen, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
+  }, [collapseSignal, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
 
   // Back swipe / popstate listener to collapse container
   useEffect(() => {
     const handlePopState = () => {
-      if (isNotepadOpen) {
-        setIsNotepadOpen(false);
-        return;
-      }
-      if (isEditing) {
+if (isEditing) {
         setIsEditing(false);
         setEditingSong(null);
         return;
@@ -411,7 +364,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [isNotepadOpen, isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
+  }, [isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
 
   useEffect(() => {
     if (initialSelectedSongId) {
@@ -820,26 +773,17 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="ui-revamp ui-screen songs-screen space-y-5">
+      <LyricsScreenAwake active={!!selectedSongId && !isStagePrompterOpen && !isEditing} />
       {/* Top Banner */}
-      <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3">
+      <div className="ui-page-header flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Music className="w-5 h-5 text-slate-800 dark:text-slate-200" />
-            <span>Shared Song Library</span>
+            <span>Songs</span>
           </h2>
         </div>
-
-        {/* Quick Notepad Button */}
-        <button
-          type="button"
-          onClick={() => setIsNotepadOpen(true)}
-          className="p-1.5 text-slate-500 hover:text-sky-500 dark:text-slate-400 dark:hover:text-sky-400 transition-colors cursor-pointer select-none"
-          title="Song Notepad"
-          aria-label="Open Song Notepad"
-        >
-          <StickyNote className="w-5 h-5" />
-        </button>
+        <button type="button" onClick={handleStartCreateSong} className="ui-primary"><Plus className="w-4 h-4" />New song</button>
       </div>
 
       {addedNotice && (
@@ -1141,7 +1085,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                       {song.artist && <span className="opacity-30">•</span>}
                       {history.relativeTimeAgo ? (
                         <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1 text-[11px]">
-                          <Clock className="w-3 h-3 opacity-60 inline" />
+                          <Clock className="w-3 h-3  inline" />
                           <span>Last sung: {history.relativeTimeAgo}</span>
                         </span>
                       ) : (
@@ -1761,7 +1705,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
       {/* MODAL 1: ADD TO SETLIST */}
       {isAddToSetlistOpen && selectedSong && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1832,7 +1776,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
                   </div>
 
                   <p className="text-[11px] text-slate-500">
-                    Note: Cannot add songs to past setlists per church program rules.
+                    Songs cannot be added to past setlists.
                   </p>
                 </>
               )}
@@ -1860,7 +1804,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
       {/* MODAL 2: ADD ATTACHMENT / TRACKS */}
       {isAddingAttachment && selectedSong && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2049,7 +1993,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
       {/* MODAL 3: CREATE / EDIT SONG */}
       {isEditing && editingSong && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-6">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2195,116 +2139,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           </div>
         </div>
       )}
-      {/* Song Notepad Modal (Windows Notepad style - clean, instant auto-save) */}
-      {isNotepadOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-          onClick={() => setIsNotepadOpen(false)}
-        >
-          <div
-            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-sky-100 dark:bg-sky-950/80 flex items-center justify-center text-sky-600 dark:text-sky-400 shrink-0">
-                  <StickyNote className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                      Song Scratchpad
-                    </h3>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-400 flex items-center gap-1 shrink-0">
-                      <Check className="w-3 h-3 stroke-[2.5]" />
-                      <span>Autosaved</span>
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    Quickly jot song titles to add to the library later
-                  </p>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-1 shrink-0">
-                {notepadText.trim() && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleCopyNotepad}
-                      className="p-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      title={notepadCopied ? 'Copied to clipboard!' : 'Copy all notes'}
-                      aria-label="Copy all notes"
-                    >
-                      {notepadCopied ? (
-                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleClearNotepad}
-                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                      title="Clear scratchpad"
-                      aria-label="Clear scratchpad"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsNotepadOpen(false)}
-                  className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                  title="Close (saves automatically)"
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Notepad Text Area */}
-            <div className="flex-1 flex flex-col p-4 sm:p-5 overflow-hidden">
-              <textarea
-                id="song-scratchpad-input"
-                name="library_scratchpad_notes"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="sentences"
-                spellCheck={false}
-                data-form-type="other"
-                data-lpignore="true"
-                value={notepadText}
-                onChange={(e) => handleNotepadChange(e.target.value)}
-                autoFocus
-                placeholder={"Type or paste song titles here (one per line)...\n\ne.g.\nGoodness of God (Key of C)\nLiving Hope\nLord I Need You\nKing of Kings"}
-                className="w-full h-64 sm:h-80 bg-transparent text-sm sm:text-base text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 resize-none focus:outline-none leading-relaxed font-sans"
-              />
-            </div>
-
-            {/* Footer */}
-            <div className="px-4 sm:px-5 py-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 bg-slate-50/50 dark:bg-slate-900/50">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="font-medium text-slate-700 dark:text-slate-300">
-                  {notepadLineCount} {notepadLineCount === 1 ? 'title / line' : 'titles / lines'}
-                </span>
-                <span className="text-slate-300 dark:text-slate-700">•</span>
-                <span className="text-[11px] text-slate-400 hidden sm:inline">Never lose notes on close</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsNotepadOpen(false)}
-                className="px-4 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-colors cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Stage Prompter Modal for Stage Worship Leaders */}
       <StagePrompterModal
@@ -2315,16 +2150,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
         onSelectSong={(newSong) => setStagePrompterSong(newSong)}
       />
 
-      {/* Floating Action Button (FAB) - Add Song to Library */}
-      <button
-        type="button"
-        onClick={handleStartCreateSong}
-        className="fixed bottom-20 sm:bottom-8 right-5 sm:right-8 z-40 w-14 h-14 rounded-full bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl hover:shadow-2xl hover:bg-slate-800 dark:hover:bg-white flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus:ring-4 focus:ring-slate-900/20 dark:focus:ring-white/20"
-        title="Add New Song to Library"
-        aria-label="Add New Song to Library"
-      >
-        <Plus className="w-7 h-7 stroke-[2.5]" />
-      </button>
+
     </div>
   );
 };

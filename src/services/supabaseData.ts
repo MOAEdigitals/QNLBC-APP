@@ -1177,6 +1177,7 @@ export async function savePracticeVocalPart(
   if (!practiceId || !isUUID(practiceId)) {
     throw new Error('Invalid practice ID for vocal part: ' + practiceId);
   }
+  if (!isUUID(part.id)) throw new Error('A stable vocal part ID is required.');
 
   const { data: parent, error: parentError } = await supabase
     .from('practice_entries')
@@ -1227,7 +1228,9 @@ export async function savePracticeVocalPart(
         .eq('id', existingResult.data.id)
         .select('*')
         .single()
-    : await supabase.from('vocal_parts').insert(payload).select('*').single();
+    // Reuse the modal's UUID even if a previous attempt saved the row but failed
+    // while syncing attachments (or the insert response was lost).
+    : await supabase.from('vocal_parts').insert({ ...payload, id: part.id }).select('*').single();
 
   if (saveError || !savedPart) {
     throw saveError || new Error('No vocal part returned after save');
@@ -1253,6 +1256,13 @@ export async function savePracticeVocalPart(
   return {
     ...part,
     id: savedPart.id,
+    partLabel: savedPart.label,
+    customLabel: savedPart.custom_label || undefined,
+    custom_label: savedPart.custom_label || undefined,
+    name: savedPart.name || undefined,
+    notes: savedPart.notes || undefined,
+    audioUrl,
+    urlOrData: audioUrl,
     position: savedPart.position,
     revision: Number(savedPart.revision) || 1,
     createdAt: savedPart.created_at,
