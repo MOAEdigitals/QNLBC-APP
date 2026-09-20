@@ -734,9 +734,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         {/* Buttons: Event Setlist on left, Sunday Setlist on right */}
         <div className="flex flex-wrap items-center gap-2 relative">
           {/* Event Setlist dropdown */}
-          <div className="relative">
+          <div className="relative" onClick={(event) => event.stopPropagation()}>
             <button
-              onClick={() => setShowTypeSelector(!showTypeSelector)}
+              type="button"
+              onClick={() => setShowTypeSelector((isOpen) => !isOpen)}
               className="ui-primary"
             >
               <Plus className="w-4 h-4" />
