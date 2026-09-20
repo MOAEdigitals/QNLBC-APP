@@ -166,7 +166,7 @@ export const UNASSIGNED_PERSON_COLOR: PersonColor = {
  * - Brother JB: Blue
  * - Brother Marius: Violet
  * - Brother Joshua: Green
- * - Brother Eric: Violet
+ * - Brother Eric: Fuchsia
  * - Brother Ronnie: Amber
  * Any other directory person: Deterministically assigned a distinct color from the curated palette.
  */

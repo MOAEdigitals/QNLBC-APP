@@ -40,6 +40,7 @@ import {
   Star,
   Tv,
   Maximize2,
+  ArrowLeft,
 } from 'lucide-react';
 import { StagePrompterModal } from './StagePrompterModal';
 import {
@@ -84,6 +85,8 @@ interface SongsTabProps {
   songNavigationTrigger?: { songId: string; timestamp: number } | null;
   onClearInitialSelectedSongId?: () => void;
   collapseSignal?: number;
+  returnSetlistId?: string | null;
+  onBackToSetlist?: () => void;
 }
 
 export const SongsTab: React.FC<SongsTabProps> = ({
@@ -98,6 +101,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   songNavigationTrigger,
   onClearInitialSelectedSongId,
   collapseSignal,
+  returnSetlistId,
+  onBackToSetlist,
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -342,8 +347,8 @@ if (isEditing && !savingSongRef.current) {
 
   // Back swipe / popstate listener to collapse container
   useEffect(() => {
-    const handlePopState = () => {
-if (isEditing && !savingSongRef.current) {
+    const handlePopState = (e: PopStateEvent) => {
+      if (isEditing && !savingSongRef.current) {
         setIsEditing(false);
         setEditingSong(null);
         return;
@@ -354,6 +359,10 @@ if (isEditing && !savingSongRef.current) {
       }
       if (isAddToSetlistOpen) {
         setIsAddToSetlistOpen(false);
+        return;
+      }
+      // If navigating back to setlists (home tab), let App.tsx handle switching tabs
+      if (e.state?.tab === 'home' || !e.state?.tab) {
         return;
       }
       if (selectedSongId) {
@@ -1164,6 +1173,19 @@ if (isEditing && !savingSongRef.current) {
                     {/* Action Bar (With Add to Setlist, Category Icon, Font Stepper, Stage View, and 3-dot menu) */}
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                       <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                        {onBackToSetlist && returnSetlistId && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onBackToSetlist();
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                            <span>Back to Set List</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setTargetSetlistId(newestUpcomingSetlist ? newestUpcomingSetlist.id : 'NEW');

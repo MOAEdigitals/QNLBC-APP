@@ -925,6 +925,26 @@ export default function App() {
     handleNavigateTab('songs');
   };
 
+  const handleBackToSetlist = () => {
+    const targetSetlistId =
+      returnSetlistIdRef.current ||
+      initialSelectedSetlistId ||
+      (() => {
+        try {
+          return localStorage.getItem('nlbc_selected_setlist_id_v1');
+        } catch {
+          return null;
+        }
+      })();
+    if (targetSetlistId) {
+      setInitialSelectedSetlistId(targetSetlistId);
+      try {
+        localStorage.setItem('nlbc_selected_setlist_id_v1', targetSetlistId);
+      } catch {}
+    }
+    handleNavigateTab('home');
+  };
+
   const handleAddSongToNewSetlist = (song: Song) => {
     const nextSunday = getNextSundayStr();
     const newSetlist: Setlist = {
@@ -1122,6 +1142,8 @@ export default function App() {
             songNavigationTrigger={songNavigationTrigger}
             onClearInitialSelectedSongId={() => setSelectedSongIdForTab(null)}
             collapseSignal={collapseSignals.songs}
+            returnSetlistId={returnSetlistIdRef.current || initialSelectedSetlistId}
+            onBackToSetlist={handleBackToSetlist}
           />
         </div>
 

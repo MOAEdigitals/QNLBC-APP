@@ -402,23 +402,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             )}
           </div>
 
-          {/* Current Recognition Window Section */}
+          {/* Celebrants Section - Directly below search bar */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                This Week's Celebrants ({filteredCurrentBirthdays.length})
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Mon {formatShortDate(mondayStr)} – Sun {formatShortDate(sundayStr)}
-              </span>
-            </div>
-
             {filteredCurrentBirthdays.length === 0 ? (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
                 {birthdaySearchQuery
-                  ? `No celebrants matching "${birthdaySearchQuery}" for this week.`
-                  : "No birthday celebrants for this week's recognition window."}
+                  ? `No celebrants matching "${birthdaySearchQuery}".`
+                  : 'No birthday celebrants for this week.'}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -274,10 +274,20 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     };
   }, [selectedSetlistId]);
 
-  // Sync initialSelectedSetlistId prop if provided
+  // Sync initialSelectedSetlistId prop if provided and preserve expanded container
   useEffect(() => {
     if (initialSelectedSetlistId) {
       setSelectedSetlistId(initialSelectedSetlistId);
+      try {
+        localStorage.setItem('nlbc_selected_setlist_id_v1', initialSelectedSetlistId);
+      } catch {}
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`setlist-card-${initialSelectedSetlistId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [initialSelectedSetlistId]);
 
