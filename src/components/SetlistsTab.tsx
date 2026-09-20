@@ -34,6 +34,7 @@ import {
   MoreVertical,
   Copy,
   Check,
+  Search,
 } from 'lucide-react';
 
 export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []): string {
@@ -172,6 +173,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Scroll anchor reference for keeping tapped setlist card pinned in place on screen
   const scrollAnchorRef = useRef<{
@@ -366,6 +368,65 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     () => sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date),
     [setlists]
   );
+  const searchableSetlists = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return sortedSetlists;
+    return sortedSetlists.filter((setlist) => [
+      setlist.date, setlist.title, setlist.presider,
+      setlist.sundaySchool?.songLeader, setlist.worshipService?.songLeader,
+      setlist.program?.songLeader, setlist.welcomeSong, setlist.closingSong,
+      setlist.themeSong,
+      ...((setlist.sundaySchool?.songs || []).map((song) => song.title)),
+      ...((setlist.worshipService?.songs || []).map((song) => song.title)),
+      ...((setlist.program?.songs || []).map((song) => song.title)),
+    ].some((value) => value?.toLocaleLowerCase().includes(query)));
+  }, [sortedSetlists, searchQuery]);
+
+  const searchSummaries = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return [];
+    const names = new Map<string, { label: string; sundays: Set<string>; presided: number; led: number; upcoming: number }>();
+    const titles = new Map<string, { label: string; sundays: Set<string>; upcoming: number }>();
+    for (const setlist of setlists) {
+      if (setlist.type && setlist.type !== 'sunday') continue;
+      const people = [
+        { value: setlist.presider, role: 'presider' },
+        { value: setlist.sundaySchool?.songLeader, role: 'leader' },
+        { value: setlist.worshipService?.songLeader, role: 'leader' },
+      ];
+      for (const { value, role } of people) {
+        const label = value?.trim();
+        if (!label || !label.toLocaleLowerCase().includes(query)) continue;
+        const key = label.toLocaleLowerCase();
+        const entry = names.get(key) || { label, sundays: new Set<string>(), presided: 0, led: 0, upcoming: 0 };
+        if (!entry.sundays.has(setlist.id)) {
+          entry.sundays.add(setlist.id);
+          if (!isPastDate(setlist.date)) entry.upcoming++;
+        }
+        if (role === 'presider') entry.presided++;
+        else entry.led++;
+        names.set(key, entry);
+      }
+      const songTitles = [setlist.welcomeSong, setlist.closingSong, setlist.themeSong,
+        ...(setlist.sundaySchool?.songs || []).map((song) => song.title),
+        ...(setlist.worshipService?.songs || []).map((song) => song.title)];
+      for (const value of songTitles) {
+        const label = value?.trim();
+        if (!label || !label.toLocaleLowerCase().includes(query)) continue;
+        const key = label.toLocaleLowerCase();
+        const entry = titles.get(key) || { label, sundays: new Set<string>(), upcoming: 0 };
+        if (!entry.sundays.has(setlist.id)) {
+          entry.sundays.add(setlist.id);
+          if (!isPastDate(setlist.date)) entry.upcoming++;
+        }
+        titles.set(key, entry);
+      }
+    }
+    return [
+      ...[...names.values()].map((entry) => ({ label: entry.label, detail: `${entry.sundays.size} Sunday${entry.sundays.size === 1 ? '' : 's'} • ${entry.presided} presided • ${entry.led} song leader assignment${entry.led === 1 ? '' : 's'} • ${entry.upcoming} upcoming`, kind: 'Person' })),
+      ...[...titles.values()].map((entry) => ({ label: entry.label, detail: `${entry.sundays.size} Sunday${entry.sundays.size === 1 ? '' : 's'} • ${entry.upcoming} upcoming`, kind: 'Song' })),
+    ];
+  }, [setlists, searchQuery]);
   const soonestUpcoming = useMemo(
     () => sortedSetlists.find((s) => !isPastDate(s.date)),
     [sortedSetlists]
@@ -722,23 +783,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen setlists-screen space-y-6">
-      {/* Top Banner & Action Buttons */}
-      <div className="ui-page-header flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-slate-800 dark:text-slate-200" />
-            <span>Setlists</span>
-          </h2>
-        </div>
-
-        {/* Buttons: Event Setlist on left, Sunday Setlist on right */}
-        <div className="flex flex-wrap items-center gap-2 relative">
-          {/* Event Setlist dropdown */}
-          <div className="relative" onClick={(event) => event.stopPropagation()}>
+      <div className="ui-page-header space-y-3">
+          <div className="relative w-full" onClick={(event) => event.stopPropagation()}>
             <button
               type="button"
               onClick={() => setShowTypeSelector((isOpen) => !isOpen)}
-              className="ui-primary"
+              className="ui-primary w-full justify-center"
+              aria-expanded={showTypeSelector}
+              aria-label="New setlist"
             >
               <Plus className="w-4 h-4" />
               <span>New setlist</span>
@@ -746,8 +798,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             </button>
 
             {showTypeSelector && (
-              <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 w-60 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-30 py-1.5 divide-y divide-slate-100 dark:divide-slate-800">
-                <button type="button" onClick={() => { setShowTypeSelector(false); handleStartCreateSunday(); }} className="w-full px-4 py-2.5 text-left">Sunday</button>
+              <div className="absolute inset-x-0 top-full mt-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl z-30 py-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+                <button type="button" onClick={handleStartCreateSunday} className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"><Calendar className="w-4 h-4 text-blue-500 shrink-0" /><span className="font-semibold">Sunday Service</span></button>
                 <button
                   type="button"
                   onClick={() => handleStartCreateOther('prayer_meeting')}
@@ -777,26 +829,39 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               </div>
             )}
           </div>
-
-
-        </div>
+        <label className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-500 dark:text-slate-400">
+          <Search className="w-4 h-4 shrink-0" />
+          <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search names, songs, dates, or setlists" aria-label="Search setlists" className="w-full min-w-0 bg-transparent text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none" />
+        </label>
       </div>
+
+      {searchQuery.trim() && searchSummaries.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" aria-live="polite">
+          {searchSummaries.map((summary) => (
+            <div key={`${summary.kind}-${summary.label.toLocaleLowerCase()}`} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 min-w-0">
+              <div className="text-[10px] font-bold uppercase text-slate-500">{summary.kind}</div>
+              <div className="font-semibold text-sm text-slate-900 dark:text-white break-words">{summary.label}</div>
+              <div className="text-xs text-slate-600 dark:text-slate-300 mt-1">{summary.detail}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Setlists Listing with In-Place Accordion Expansion */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            All Setlists ({sortedSetlists.length})
+            {searchQuery.trim() ? `Results (${searchableSetlists.length})` : `All Setlists (${sortedSetlists.length})`}
           </span>
         </div>
 
-        {sortedSetlists.length === 0 ? (
+        {searchableSetlists.length === 0 ? (
           <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-            No setlists yet. Choose New setlist to start.
+            {searchQuery.trim() ? 'No matching setlists.' : 'No setlists yet. Choose New setlist to start.'}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-            {sortedSetlists.map((item) => {
+            {searchableSetlists.map((item) => {
               const isPast = isPastDate(item.date);
               const today = isToday(item.date);
               const isSelected = selectedSetlistId === item.id;
@@ -807,7 +872,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   key={item.id}
                   id={`setlist-card-${item.id}`}
                   onClick={(e) => handleSelectSetlist(item.id, e)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  className={`p-4 min-w-0 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
                       ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
                       : isSoonest
@@ -818,8 +883,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   }`}
                 >
                   {/* Card Header Row with Far-Right 3-Dots / Actions */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3.5 min-w-0">
+                  <div className="flex items-center justify-between min-w-0">
+                    <div className="flex items-center space-x-3.5 min-w-0 flex-1">
                       {/* Date Badge */}
                       <div
                         className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 border ${
@@ -840,7 +905,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         </span>
                       </div>
 
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4
                             className={`text-base font-black truncate ${
@@ -913,15 +978,17 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => setOpenMenuSetlistId(openMenuSetlistId === item.id ? null : item.id)}
+                        onClick={() => setOpenMenuSetlistId((openId) => openId === item.id ? null : item.id)}
                         className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                        title="Program Options"
+                        title="Setlist actions"
+                        aria-label={`Actions for ${item.title || item.date}`}
+                        aria-expanded={openMenuSetlistId === item.id}
                       >
-                        <span>Actions</span>
+                        <MoreVertical className="w-5 h-5" />
                       </button>
 
                       {openMenuSetlistId === item.id && (
-                        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                        <div className="absolute right-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
                       <button
                         type="button"
                         onClick={(e) => handleCopySetlist(item, e)}
