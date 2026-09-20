@@ -1108,6 +1108,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     const entryToSave: SpecialNumberEntry = {
       id: editingSchedule.id && isUUID(editingSchedule.id) ? editingSchedule.id : generateUUID(),
+      revision: editingSchedule.revision,
       performerName: editingSchedule.performerName.trim(),
       scheduledDate: editingSchedule.scheduledDate || getNextSundayStr(),
       songTitle: finalSongTitle,
@@ -1305,6 +1306,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     const entryToSave: ChoirEntry = {
       id: editingChoir.id && isUUID(editingChoir.id) ? editingChoir.id : generateUUID(),
+      revision: editingChoir.revision,
       date,
       songTitle: trimmedTitle,
       artist: artist || undefined,
