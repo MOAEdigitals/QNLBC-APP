@@ -293,11 +293,13 @@ export async function executeRestore(
 // SONGS DATA ACCESS
 // -------------------------------------------------------------
 export function mapSongFromDB(row: any): Song {
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
   return {
     id: row.id,
     title: row.title,
     artist: row.artist || undefined,
     lyrics: row.lyrics || '',
+    attachments: Array.isArray(metadata.attachments) ? metadata.attachments : [],
     category: row.category || undefined,
     categories: Array.isArray(row.categories) ? row.categories : [],
     minusOneLink: row.minus_one_link || undefined,
@@ -352,7 +354,9 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     is_welcome_song: Boolean(song.isWelcomeSong ?? song.is_welcome_song),
     is_closing_song: Boolean(song.isClosingSong ?? song.is_closing_song),
     is_theme_song: Boolean(song.isThemeSong ?? song.is_theme_song),
-    metadata: {},
+    metadata: {
+      attachments: Array.isArray(song.attachments) ? song.attachments : [],
+    },
   };
 
   const hasValidUUID = isUUID(song.id);

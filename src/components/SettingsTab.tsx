@@ -287,17 +287,74 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           message: 'Restoring records directly to Supabase...',
         });
 
-        // Restore songs
+        const normalize = (value: unknown) => String(value || '').trim().toLowerCase();
+        const songIdMap = new Map<string, string>();
+        const restoredSongs = [...(appData?.songs || [])];
+        const claimedExistingSongIds = new Set<string>();
+
+        // Restore songs first so legacy setlist references can be remapped to Supabase UUIDs.
         if (Array.isArray(parsed.songs)) {
-          for (const s of parsed.songs) {
-            await supabaseSaveSong(s).catch(console.error);
+          for (let index = 0; index < parsed.songs.length; index++) {
+            const sourceSong = parsed.songs[index];
+            const existingSong = (appData?.songs || []).find(
+              (song) =>
+                !claimedExistingSongIds.has(song.id) &&
+                normalize(song.title) === normalize(sourceSong.title) &&
+                normalize(song.artist) === normalize(sourceSong.artist)
+            );
+            if (existingSong) claimedExistingSongIds.add(existingSong.id);
+            const draft = existingSong
+              ? { ...existingSong, ...sourceSong, id: existingSong.id, revision: existingSong.revision }
+              : sourceSong;
+            const saved = await supabaseSaveSong(draft, !existingSong);
+            if (sourceSong.id) songIdMap.set(sourceSong.id, saved.id);
+            const currentIndex = restoredSongs.findIndex((song) => song.id === saved.id);
+            if (currentIndex >= 0) restoredSongs[currentIndex] = saved;
+            else restoredSongs.push(saved);
+            if (index % 25 === 0 || index === parsed.songs.length - 1) {
+              setImportStatus({
+                success: true,
+                message: `Restoring songs ${index + 1} of ${parsed.songs.length}...`,
+              });
+            }
           }
         }
 
         // Restore setlists
         if (Array.isArray(parsed.setlists)) {
-          for (const s of parsed.setlists) {
-            await supabaseSaveSetlist(s).catch(console.error);
+          const remapItems = (items: any[] = []) =>
+            items.map((item) => {
+              const matchedSong = restoredSongs.find(
+                (song) => normalize(song.title) === normalize(item.title)
+              );
+              return {
+                ...item,
+                songId: songIdMap.get(item.songId || item.song_id) || matchedSong?.id,
+                song_id: songIdMap.get(item.songId || item.song_id) || matchedSong?.id,
+              };
+            });
+          for (const sourceSetlist of parsed.setlists) {
+            const existingSetlist = (appData?.setlists || []).find(
+              (setlist) =>
+                setlist.date === sourceSetlist.date &&
+                (setlist.type || 'sunday') === (sourceSetlist.type || 'sunday')
+            );
+            const remappedSetlist = {
+              ...sourceSetlist,
+              ...(existingSetlist
+                ? { id: existingSetlist.id, revision: existingSetlist.revision }
+                : {}),
+              sundaySchool: sourceSetlist.sundaySchool
+                ? { ...sourceSetlist.sundaySchool, songs: remapItems(sourceSetlist.sundaySchool.songs) }
+                : undefined,
+              worshipService: sourceSetlist.worshipService
+                ? { ...sourceSetlist.worshipService, songs: remapItems(sourceSetlist.worshipService.songs) }
+                : undefined,
+              program: sourceSetlist.program
+                ? { ...sourceSetlist.program, songs: remapItems(sourceSetlist.program.songs) }
+                : undefined,
+            };
+            await supabaseSaveSetlist(remappedSetlist, !existingSetlist);
           }
         }
 

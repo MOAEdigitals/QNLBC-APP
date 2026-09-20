@@ -6,6 +6,8 @@ import { describe, it } from 'node:test';
 const dataLayer = readFileSync(new URL('../src/services/supabaseData.ts', import.meta.url), 'utf8')
   .replace(/\r\n/g, '\n');
 const app = readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
+const settings = readFileSync(new URL('../src/components/SettingsTab.tsx', import.meta.url), 'utf8')
+  .replace(/\r\n/g, '\n');
 const permissionsMigration = readFileSync(
   new URL('../supabase/migrations/20260918_granular_user_permissions.sql', import.meta.url),
   'utf8'
@@ -76,6 +78,15 @@ describe('Supabase record creation lifecycle', () => {
     assert.ok(dataLayer.includes("await syncOwnerAttachments(\n      'vocal_part'"));
     assert.ok(dataLayer.includes('customAttachments: attachments'));
     assert.ok(dataLayer.includes('audioUrl: audioAttachment?.external_url'));
+  });
+
+  it('preserves song attachments and remaps legacy setlist song IDs during restore', () => {
+    assert.ok(dataLayer.includes("attachments: Array.isArray(metadata.attachments)"));
+    assert.ok(dataLayer.includes("attachments: Array.isArray(song.attachments)"));
+    assert.ok(settings.includes('const songIdMap = new Map<string, string>()'));
+    assert.ok(settings.includes('songIdMap.set(sourceSong.id, saved.id)'));
+    assert.ok(settings.includes('songId: songIdMap.get(item.songId || item.song_id)'));
+    assert.equal(settings.includes('await supabaseSaveSong(s).catch(console.error)'), false);
   });
 
   it('saves member vocal contributions without updating the parent practice', () => {
