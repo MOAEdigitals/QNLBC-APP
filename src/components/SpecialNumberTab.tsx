@@ -188,6 +188,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(null);
   const [isEditingPractice, setIsEditingPractice] = useState(false);
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
+  const [practiceSaveError, setPracticeSaveError] = useState<string | null>(null);
+  const [isSavingPractice, setIsSavingPractice] = useState(false);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
 
   // Practice Audio Cloud Sync status & user feedback state
@@ -1109,7 +1111,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Practice Save Handler
   const handleSavePracticeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPractice || !editingPractice.groupName?.trim() || !editingPractice.songTitle?.trim()) return;
+    if (isSavingPractice) return;
+    setPracticeSaveError(null);
+    if (!editingPractice?.songTitle?.trim()) {
+      setPracticeSaveError('Enter a song title before saving the practice.');
+      return;
+    }
+    setIsSavingPractice(true);
+    try {
 
     const trimmedTitle = editingPractice.songTitle.trim();
     let effectiveSongId = editingPractice.songId;
@@ -1153,7 +1162,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     const entryToSave: Partial<PracticeGroupEntry> = {
       ...(isNew ? {} : { id: editingPractice.id }),
-      groupName: editingPractice.groupName.trim(),
+      groupName: editingPractice.groupName?.trim() || 'Worship Team',
       songTitle: trimmedTitle,
       songId: effectiveSongId,
       assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
@@ -1169,7 +1178,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       isDone: editingPractice.isDone || false,
     };
 
-    try {
       if (onSavePracticeEntry) {
         const saved = await onSavePracticeEntry(entryToSave, isNew);
         if (saved?.id) {
@@ -1183,6 +1191,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setShowSongArtistInput(false);
     } catch (err) {
       console.error('Save practice error:', err);
+      setPracticeSaveError(err instanceof Error ? err.message : 'Unable to save practice. Please try again.');
+    } finally {
+      setIsSavingPractice(false);
     }
   };
 
@@ -3284,7 +3295,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               {/* Group name/}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Group name
+                  Group name (optional)
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
@@ -3431,6 +3442,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 />
               </div>
 
+              {practiceSaveError && <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">{practiceSaveError}</p>}
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
@@ -3441,9 +3453,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
+                  disabled={isSavingPractice}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                 >
-                  Save
+                  {isSavingPractice ? 'Saving…' : 'Save'}
                 </button>
               </div>
             </form>
