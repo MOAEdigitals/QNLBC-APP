@@ -914,7 +914,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       : isSoonest
                       ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
                       : isPast
-                      ? 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60  text-slate-500'
+                      ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/70 text-slate-500 opacity-60 hover:opacity-100 grayscale hover:grayscale-0'
                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
@@ -929,7 +929,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             : isSoonest
                             ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-800 dark:border-slate-200'
                             : isPast
-                            ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500 border-slate-300 dark:border-slate-700'
+                            ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60'
                             : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                         }`}
                       >
@@ -944,8 +944,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <h4
-                            className={`text-base font-black truncate ${
-                              isPast ? 'text-slate-600 dark:text-slate-400' : 'text-slate-900 dark:text-white'
+                            className={`text-base truncate ${
+                              isPast
+                                ? 'font-bold text-slate-500 dark:text-slate-400'
+                                : 'font-black text-slate-900 dark:text-white'
                             }`}
                           >
                             {item.title || formatDateStr(item.date, { showDayOfWeek: true })}
@@ -970,7 +972,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           )}
 
                           {isPast && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-500">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300/50 dark:border-slate-700/50">
                               Past
                             </span>
                           )}
@@ -979,25 +981,25 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
                           {item.presider && (
                             <span>
-                              Presider: <span className={`font-semibold ${getPersonColor(item.presider).textBold}`}>{item.presider}</span>
+                              Presider: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider}</span>
                             </span>
                           )}
                           {item.type === 'sunday' || !item.type ? (
                             <>
                               <span>•</span>
                               <span>
-                                SS: <span className={`font-semibold ${getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
+                                SS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
                               </span>
                               <span>•</span>
                               <span>
-                                WS: <span className={`font-semibold ${getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
+                                WS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
                               </span>
                             </>
                           ) : (
                             <>
                               <span>•</span>
                               <span>
-                                Leader: <span className={`font-semibold ${getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
+                                Leader: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
                               </span>
                             </>
                           )}
