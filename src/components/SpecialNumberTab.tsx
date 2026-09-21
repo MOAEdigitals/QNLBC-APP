@@ -1944,83 +1944,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
-      {/* Top Main Card */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <Mic2 className="w-5 h-5 text-slate-800 dark:text-slate-200" />
-            <span>{activeSubTab === 'practice' ? 'Practice' : 'Song Numbers'}</span>
-          </h2>
-        </div>
-
-        {activeSubTab === 'schedules' ? (
-          <button
-            onClick={() => {
-              setEditingSchedule({
-                id: generateUUID(),
-                performerName: '',
-                scheduledDate: getNextSundayStr(),
-                songTitle: '',
-                minusOneLink: '',
-                notes: '',
-                lyrics: '',
-                createdAt: new Date().toISOString(),
-              });
-              setIsEditingSchedule(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Schedule song</span>
-          </button>
-        ) : activeSubTab === 'practice' ? (
-          <button
-            onClick={() => {
-              setNewSongArtist('');
-              setShowSongArtistInput(false);
-              setEditingPractice({
-                groupName: '',
-                songTitle: '',
-                assignedEvent: 'Sunday Service',
-                practiceDate: '',
-                practiceTime: '',
-                lyrics: '',
-                notes: '',
-                customAttachments: [],
-                vocalParts: [],
-              });
-              setIsEditingPractice(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New practice</span>
-          </button>
-        ) : (
-          <button
-            onClick={() => {
-              setNewChoirArtist('');
-              setShowChoirArtistInput(false);
-              setEditingChoir({
-                id: generateUUID(),
-                choirGroup: 'Church Choir',
-                songTitle: '',
-                date: getNextSundayStr(),
-                lyrics: '',
-                notes: '',
-                isDone: false,
-                createdAt: new Date().toISOString(),
-              });
-              setIsEditingChoir(true);
-            }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-semibold hover:bg-slate-800 dark:hover:bg-white transition-all shadow-xs shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Line Up Choir Song</span>
-          </button>
-        )}
-      </div>
-
       {/* Locked 3-Column Sub-Tabs: Schedules (left), Practice (middle), Choir (right) */}
       <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
@@ -4553,6 +4476,74 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         accept="audio/*,video/*"
         className="hidden"
       />
+
+      {/* Floating Action Button (FAB) for Song Numbers - Circular & anchored at lower-right across all sub-tabs */}
+      {!isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && (
+        <button
+          type="button"
+          onClick={() => {
+            if (activeSubTab === 'schedules') {
+              setEditingSchedule({
+                id: generateUUID(),
+                performerName: '',
+                scheduledDate: getNextSundayStr(),
+                songTitle: '',
+                minusOneLink: '',
+                notes: '',
+                lyrics: '',
+                createdAt: new Date().toISOString(),
+              });
+              setIsEditingSchedule(true);
+            } else if (activeSubTab === 'practice') {
+              setNewSongArtist('');
+              setShowSongArtistInput(false);
+              setEditingPractice({
+                groupName: '',
+                songTitle: '',
+                assignedEvent: 'Sunday Service',
+                practiceDate: '',
+                practiceTime: '',
+                lyrics: '',
+                notes: '',
+                customAttachments: [],
+                vocalParts: [],
+              });
+              setIsEditingPractice(true);
+            } else {
+              setNewChoirArtist('');
+              setShowChoirArtistInput(false);
+              setEditingChoir({
+                id: generateUUID(),
+                choirGroup: 'Church Choir',
+                songTitle: '',
+                date: getNextSundayStr(),
+                lyrics: '',
+                notes: '',
+                isDone: false,
+                createdAt: new Date().toISOString(),
+              });
+              setIsEditingChoir(true);
+            }
+          }}
+          aria-label={
+            activeSubTab === 'schedules'
+              ? 'Schedule song'
+              : activeSubTab === 'practice'
+              ? 'New practice'
+              : 'Line Up Choir Song'
+          }
+          title={
+            activeSubTab === 'schedules'
+              ? 'Schedule song'
+              : activeSubTab === 'practice'
+              ? 'New practice'
+              : 'Line Up Choir Song'
+          }
+          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
+      )}
     </div>
   );
 };
