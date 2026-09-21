@@ -795,17 +795,8 @@ if (isEditing && !savingSongRef.current) {
   };
 
   return (
-    <div className="ui-revamp ui-screen songs-screen space-y-5">
+    <div className="ui-revamp ui-screen songs-screen space-y-4 relative">
       <LyricsScreenAwake active={!!selectedSongId && !isStagePrompterOpen && !isEditing} />
-      {/* Full-width New Song button at the very top */}
-      <button
-        type="button"
-        onClick={handleStartCreateSong}
-        className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer"
-      >
-        <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" />
-        <span>New song</span>
-      </button>
 
       {addedNotice && (
         <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
@@ -814,105 +805,98 @@ if (isEditing && !savingSongRef.current) {
         </div>
       )}
 
-      {/* Category Filter Pills */}
+      {/* Category Filter Pills (Compact without counts) */}
       <div className="flex items-center gap-1.5 flex-wrap overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs pt-0.5">
         <button
           type="button"
           onClick={() => setCategoryFilter('all')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
             categoryFilter === 'all'
               ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
               : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           <span>All</span>
-          <span className="text-[10px] opacity-75">({songs.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCategoryFilter('Hymn')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
             categoryFilter === 'Hymn'
               ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-xs'
               : 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
           }`}
         >
           <span>Hymns</span>
-          <span className="text-[10px] opacity-80">({categoryCounts.Hymn})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCategoryFilter('Special')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
             categoryFilter === 'Special'
               ? 'bg-purple-600 dark:bg-purple-500 text-white shadow-xs'
               : 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-900/60 hover:bg-purple-50 dark:hover:bg-purple-950/40'
           }`}
         >
           <span>Special</span>
-          <span className="text-[10px] opacity-80">({categoryCounts.Special})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCategoryFilter('Contemporary')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
             categoryFilter === 'Contemporary'
               ? 'bg-cyan-600 dark:bg-cyan-500 text-white shadow-xs'
               : 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-900/60 hover:bg-cyan-50 dark:hover:bg-cyan-950/40'
           }`}
         >
           <span>Contemporary</span>
-          <span className="text-[10px] opacity-80">({categoryCounts.Contemporary})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCategoryFilter('Choir')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
             categoryFilter === 'Choir'
               ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-xs'
               : 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
           }`}
         >
           <span>Choir</span>
-          <span className="text-[10px] opacity-80">({categoryCounts.Choir})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCategoryFilter('Tagalog')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
             categoryFilter === 'Tagalog'
               ? 'bg-rose-600 dark:bg-rose-500 text-white shadow-xs'
               : 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40'
           }`}
         >
           <span>Tagalog</span>
-          <span className="text-[10px] opacity-80">({categoryCounts.Tagalog})</span>
         </button>
 
         {categoryCounts.uncategorized > 0 && (
           <button
             type="button"
             onClick={() => setCategoryFilter('uncategorized')}
-            className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
               categoryFilter === 'uncategorized'
                 ? 'bg-slate-700 text-white shadow-xs'
                 : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
             <span>Uncategorized</span>
-            <span className="text-[10px] opacity-75">({categoryCounts.uncategorized})</span>
           </button>
         )}
 
         <button
           type="button"
           onClick={() => setCategoryFilter('Starred')}
-          className={`px-3 py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none flex items-center gap-1.5 ${
+          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap flex items-center gap-1.5 ${
             categoryFilter === 'Starred'
               ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
               : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -920,13 +904,12 @@ if (isEditing && !savingSongRef.current) {
         >
           <Star className={`w-3.5 h-3.5 ${categoryFilter === 'Starred' ? 'fill-yellow-400 text-yellow-400' : 'fill-yellow-400 text-yellow-500'}`} />
           <span>Starred</span>
-          <span className="text-[10px] opacity-80">({categoryCounts.starred})</span>
         </button>
       </div>
 
-      {/* Song List Header with Sorted buttons (A-Z, Recent, Newest) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+      {/* Song List Header with Sorted buttons Side-by-Side */}
+      <div className="flex items-center justify-between gap-2 px-1">
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
           {categoryFilter === 'all'
             ? 'All Songs'
             : categoryFilter === 'Starred'
@@ -934,13 +917,13 @@ if (isEditing && !savingSongRef.current) {
             : `${categoryFilter} Songs`} ({filteredSongs.length})
         </span>
 
-        {/* Sorted button located on the right (3 options: A-Z, Recent, Newest) */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/60 text-xs font-semibold overflow-x-auto">
-          <span className="text-[11px] text-slate-400 font-medium pl-1.5 pr-0.5">Sort:</span>
+        {/* Compact Sort control side-by-side in one row */}
+        <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold shrink-0">
+          <span className="text-[10px] text-slate-400 font-medium pl-1 pr-0.5 hidden xs:inline">Sort:</span>
           <button
             type="button"
             onClick={() => setSortMode('alpha')}
-            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
+            className={`px-2 py-0.5 rounded-md transition-all cursor-pointer select-none whitespace-nowrap text-[11px] ${
               sortMode === 'alpha'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -951,7 +934,7 @@ if (isEditing && !savingSongRef.current) {
           <button
             type="button"
             onClick={() => setSortMode('recent')}
-            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
+            className={`px-2 py-0.5 rounded-md transition-all cursor-pointer select-none whitespace-nowrap text-[11px] ${
               sortMode === 'recent'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -963,7 +946,7 @@ if (isEditing && !savingSongRef.current) {
           <button
             type="button"
             onClick={() => setSortMode('date')}
-            className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer select-none whitespace-nowrap ${
+            className={`px-2 py-0.5 rounded-md transition-all cursor-pointer select-none whitespace-nowrap text-[11px] ${
               sortMode === 'date'
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
                 : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
@@ -2187,6 +2170,18 @@ if (isEditing && !savingSongRef.current) {
         onSelectSong={(newSong) => setStagePrompterSong(newSong)}
       />
 
+      {/* Floating Action Button (FAB) for New Song - Circular & anchored at lower-right */}
+      {!isEditing && !isStagePrompterOpen && (
+        <button
+          type="button"
+          onClick={handleStartCreateSong}
+          aria-label="New song"
+          title="Add new song"
+          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
+      )}
 
     </div>
   );
