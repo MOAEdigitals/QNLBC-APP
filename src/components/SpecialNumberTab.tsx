@@ -187,7 +187,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Practice state
   const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(null);
   const [isEditingPractice, setIsEditingPractice] = useState(false);
-  const [isSavingPractice, setIsSavingPractice] = useState(false);
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
 
@@ -1110,96 +1109,67 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Practice Save Handler
   const handleSavePracticeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingPractice || isSavingPractice) return;
+    if (!editingPractice || !editingPractice.groupName?.trim() || !editingPractice.songTitle?.trim()) return;
 
-    const trimmedTitle = (editingPractice.songTitle || '').trim();
-    if (!trimmedTitle) {
-      alert('Please enter a song title for the practice session.');
-      return;
-    }
+    const trimmedTitle = editingPractice.songTitle.trim();
+    let effectiveSongId = editingPractice.songId;
 
-    const groupName = (editingPractice.groupName || '').trim() || 'Worship Team';
+    // Check if song exists in songs library
+    const matchedSong = songs.find(
+      (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
+    );
 
-    setIsSavingPractice(true);
-
-    try {
-      let effectiveSongId = editingPractice.songId;
-
-      // Check if song exists in songs library
-      const matchedSong = songs.find(
-        (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
-      );
-
-      // If song is not in the library and lyrics were provided, save it to the Songs library
-      if (!matchedSong && onSaveSong && editingPractice.lyrics?.trim()) {
-        try {
-          const newSong: Song = {
-            id: generateUUID(),
-            title: trimmedTitle,
-            artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : undefined,
-            lyrics: editingPractice.lyrics || '',
+    // If song is not in the library, save it to the Songs library only if:
+    // This is a brand new practice entry (not an edit of existing practice where song was deleted)
+    if (!matchedSong && onSaveSong && !isEditingPractice) {
+      const newSong: Song = {
+        id: generateUUID(),
+        title: trimmedTitle,
+        artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : undefined,
+        lyrics: editingPractice.lyrics || '',
+        updatedAt: new Date().toISOString(),
+      };
+      const savedSong = await onSaveSong(newSong);
+      effectiveSongId = savedSong?.id;
+    } else if (matchedSong) {
+      effectiveSongId = matchedSong.id;
+      // If user provided/updated artist or lyrics, save update to the song in library
+      if (
+        (showSongArtistInput && newSongArtist.trim() && matchedSong.artist !== newSongArtist.trim()) ||
+        (editingPractice.lyrics && editingPractice.lyrics !== matchedSong.lyrics)
+      ) {
+        if (onSaveSong) {
+          await onSaveSong({
+            ...matchedSong,
+            artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : matchedSong.artist,
+            lyrics: editingPractice.lyrics || matchedSong.lyrics,
             updatedAt: new Date().toISOString(),
-          };
-          const res = onSaveSong(newSong);
-          if (res instanceof Promise) {
-            const savedSong = await res.catch((songErr) => {
-              console.warn('Could not auto-save new song to library:', songErr);
-              return undefined;
-            });
-            if (savedSong?.id) {
-              effectiveSongId = savedSong.id;
-            }
-          }
-        } catch (songErr) {
-          console.warn('Could not auto-save new song to library:', songErr);
-        }
-      } else if (matchedSong) {
-        effectiveSongId = matchedSong.id;
-        // If user provided/updated artist or lyrics, save update to the song in library
-        if (
-          (showSongArtistInput && newSongArtist.trim() && matchedSong.artist !== newSongArtist.trim()) ||
-          (editingPractice.lyrics && editingPractice.lyrics !== matchedSong.lyrics)
-        ) {
-          if (onSaveSong) {
-            try {
-              const res = onSaveSong({
-                ...matchedSong,
-                artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : matchedSong.artist,
-                lyrics: editingPractice.lyrics || matchedSong.lyrics,
-                updatedAt: new Date().toISOString(),
-              });
-              if (res instanceof Promise) {
-                await res.catch((songErr) => {
-                  console.warn('Could not update song in library:', songErr);
-                });
-              }
-            } catch (songErr) {
-              console.warn('Could not update song in library:', songErr);
-            }
-          }
+          });
         }
       }
+    }
 
-      const isNew = !editingPractice.id || !practiceEntries.some((p) => p.id === editingPractice.id);
+    const isNew = !editingPractice.id || !practiceEntries.some((p) => p.id === editingPractice.id);
 
-      const entryToSave: Partial<PracticeGroupEntry> = {
-        ...(isNew ? {} : { id: editingPractice.id }),
-        groupName,
-        songTitle: trimmedTitle,
-        songId: effectiveSongId,
-        assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
-        practiceDate: editingPractice.practiceDate || undefined,
-        practiceTime: editingPractice.practiceTime || undefined,
-        targetDate: editingPractice.targetDate || undefined,
-        lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
-        lyricsMode: editingPractice.lyricsMode || 'live',
-        lyricsSnapshot: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || null,
-        notes: editingPractice.notes?.trim() || '',
-        customAttachments: editingPractice.customAttachments || [],
-        vocalParts: editingPractice.vocalParts || [],
-        isDone: editingPractice.isDone || false,
-      };
+    const entryToSave: Partial<PracticeGroupEntry> = {
+      ...(isNew ? {} : { id: editingPractice.id }),
+      groupName: editingPractice.groupName.trim(),
+      songTitle: trimmedTitle,
+      songId: effectiveSongId,
+      assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
+      practiceDate: editingPractice.practiceDate || undefined,
+      practiceTime: editingPractice.practiceTime || undefined,
+      targetDate: editingPractice.targetDate || undefined,
+      lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
+      lyricsMode: editingPractice.lyricsMode || 'live',
+      lyricsSnapshot: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || null,
+      notes: editingPractice.notes?.trim() || '',
+      customAttachments: editingPractice.customAttachments || [],
+      vocalParts: editingPractice.vocalParts || [],
+      isDone: editingPractice.isDone || false,
+    };
 
+    try {
       if (onSavePracticeEntry) {
         const saved = await onSavePracticeEntry(entryToSave, isNew);
         if (saved?.id) {
@@ -1211,14 +1181,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setEditingPractice(null);
       setNewSongArtist('');
       setShowSongArtistInput(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Save practice error:', err);
-      // If error wasn't already alerted by App.tsx's handler
-      if (!err?.message?.includes('permission') && !err?.message?.includes('Database error')) {
-        alert('Unable to save practice: ' + (err?.message || 'Please check your connection or permissions.'));
-      }
-    } finally {
-      setIsSavingPractice(false);
     }
   };
 
@@ -3317,7 +3281,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             <form onSubmit={handleSavePracticeSubmit} autoComplete="off" data-form-type="other" className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* Group name */}
+              {/* Group name/}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Group name
@@ -3329,7 +3293,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     value={editingPractice.groupName || ''}
                     onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
                     suggestions={directoryNames}
-                    placeholder="Enter singer or group name (default: Worship Team)"
+                    placeholder="Enter singer or group name"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -3360,19 +3324,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               {/* Song Title (Autofill from Songs tab database) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Song title <span className="text-rose-500">*</span>
+                  Song title
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
                     id="practice-song-title"
                     name="practice_song_title"
-                    required
                     value={editingPractice.songTitle || ''}
                     onChange={(val) => handleSelectSongForPractice(val)}
                     suggestions={songTitleSuggestions}
                     songs={songs}
                     setlists={setlists}
-                    placeholder="Song title (required)"
+                    placeholder="Song title"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -3471,18 +3434,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  disabled={isSavingPractice}
                   onClick={() => setIsEditingPractice(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingPractice}
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
-                  {isSavingPractice ? 'Saving...' : 'Save'}
+                  Save
                 </button>
               </div>
             </form>
