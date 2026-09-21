@@ -17,12 +17,6 @@ export function useLyricsScreenAwake(active: boolean) {
 }
 
 export function LyricsScreenAwake({ active }: { active: boolean }) {
-  const { status, retry } = useLyricsScreenAwake(active);
-  if (!active) return null;
-  return <div role="status" className="lyrics-awake text-sm py-2">
-    {status === 'active' ? 'Screen stays awake while lyrics are open.' : status === 'requesting'
-      ? 'Keeping screen awake…'
-      : <><span>Screen-awake protection unavailable. Your device may still sleep.</span>{' '}
-        <button type="button" className="underline" onClick={retry}>Retry</button></>}
-  </div>;
+  useLyricsScreenAwake(active);
+  return null;
 }

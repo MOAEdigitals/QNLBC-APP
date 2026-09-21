@@ -2926,116 +2926,42 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {activeSubTab === 'choir' && (
         <div className="space-y-4">
-          {/* Choir Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                id="choir-search-input"
-                name="choir_search_query"
-                type="search"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="sentences"
-                spellCheck={false}
-                data-form-type="other"
-                data-lpignore="true"
-                value={choirSearchQuery}
-                onChange={(e) => setChoirSearchQuery(e.target.value)}
-                placeholder="Search choir songs"
-                className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 shadow-xs [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-              />
-              {choirSearchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setChoirSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 self-start sm:self-auto shrink-0 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+          {/* Choir Header Search */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              id="choir-search-input"
+              name="choir_search_query"
+              type="search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="sentences"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
+              value={choirSearchQuery}
+              onChange={(e) => setChoirSearchQuery(e.target.value)}
+              placeholder="Search choir songs"
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-slate-100 shadow-xs [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+            />
+            {choirSearchQuery && (
               <button
                 type="button"
-                onClick={() => setChoirFilter('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  choirFilter === 'all'
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                onClick={() => setChoirSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
               >
-                All ({choirEntries.length})
+                <X className="w-3.5 h-3.5" />
               </button>
-              <button
-                type="button"
-                onClick={() => setChoirFilter('upcoming')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  choirFilter === 'upcoming'
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                Upcoming ({choirEntries.filter((c) => !c.isDone).length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setChoirFilter('completed')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  choirFilter === 'completed'
-                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                Presented ({choirEntries.filter((c) => c.isDone).length})
-              </button>
-            </div>
+            )}
           </div>
 
           {/* Choir Songs Lineup List */}
           {filteredChoirEntries.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-8 text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-700 dark:text-slate-300">
-                <Music className="w-6 h-6" />
+            choirSearchQuery ? (
+              <div className="text-center py-6 text-xs text-slate-400 dark:text-slate-500">
+                No choir songs found matching &ldquo;{choirSearchQuery}&rdquo;.
               </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  {choirSearchQuery || choirFilter !== 'all'
-                    ? 'No matching choir songs found'
-                    : 'No choir songs lined up yet'}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  {choirSearchQuery || choirFilter !== 'all'
-                    ? 'Try adjusting your search terms or filter selection.'
-                    : 'Line up choir songs with dates and lyrics. All songs stay connected with your Songs Library.'}
-                </p>
-              </div>
-              {!choirSearchQuery && choirFilter === 'all' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewChoirArtist('');
-                    setShowChoirArtistInput(false);
-                    setEditingChoir({
-                      id: generateUUID(),
-                      choirGroup: 'Church Choir',
-                      songTitle: '',
-                      date: getNextSundayStr(),
-                      lyrics: '',
-                      notes: '',
-                      isDone: false,
-                      createdAt: new Date().toISOString(),
-                    });
-                    setIsEditingChoir(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold hover:bg-slate-800 dark:hover:bg-white transition-colors cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Line Up First Choir Song</span>
-                </button>
-              )}
-            </div>
+            ) : null
           ) : (
             <div className="space-y-3">
               {filteredChoirEntries.map((entry) => {
