@@ -1628,11 +1628,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <label className={`block text-xs font-semibold uppercase tracking-wider ${presiderColor.text}`}>
                           Presider
                         </label>
-                        {editingSetlist.presider?.trim() && (
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${presiderColor.badge}`}>
-                            {presiderColor.name}
-                          </span>
-                        )}
                       </div>
                       <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                         <AutofillInput
@@ -1736,11 +1731,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${ssLeaderColor.textBold}`}>
                             Sunday School
                           </h4>
-                          {editingSetlist.sundaySchool?.songLeader?.trim() && (
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${ssLeaderColor.badge}`}>
-                              {ssLeaderColor.name}
-                            </span>
-                          )}
                         </div>
 
                         <div>
@@ -1843,11 +1833,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${wsLeaderColor.textBold}`}>
                             Worship Service
                           </h4>
-                          {editingSetlist.worshipService?.songLeader?.trim() && (
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${wsLeaderColor.badge}`}>
-                              {wsLeaderColor.name}
-                            </span>
-                          )}
                         </div>
 
                         <div>
@@ -1952,11 +1937,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${progLeaderColor.textBold}`}>
                         Program Songs
                       </h4>
-                      {editingSetlist.program?.songLeader?.trim() && (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${progLeaderColor.badge}`}>
-                          {progLeaderColor.name}
-                        </span>
-                      )}
                     </div>
 
                     <div>

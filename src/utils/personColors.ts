@@ -168,6 +168,7 @@ export const UNASSIGNED_PERSON_COLOR: PersonColor = {
  * - Brother Joshua: Green
  * - Brother Eric: Fuchsia
  * - Brother Ronnie: Amber
+ * - Tay / Brother Roger: Indigo (distinct from Ronnie)
  * Any other directory person: Deterministically assigned a distinct color from the curated palette.
  */
 export function getPersonColor(rawName?: string | null): PersonColor {
@@ -175,10 +176,10 @@ export function getPersonColor(rawName?: string | null): PersonColor {
     return UNASSIGNED_PERSON_COLOR;
   }
 
-  // Normalize: lower case and strip title prefixes
+  // Normalize: lower case and strip title prefixes (including Filipino titles like Tay, Tatay, Nanay, Kuya, Ate)
   const clean = rawName
     .toLowerCase()
-    .replace(/^(brother|bro\.?|sister|sis\.?|pastor|ptr\.?)\s+/i, '')
+    .replace(/^(brother|bro\.?|sister|sis\.?|pastor|ptr\.?|tay|tatay|nanay|nay|kuya|ate|elder)\s+/i, '')
     .trim();
 
   // Explicit user-specified mappings
@@ -196,6 +197,9 @@ export function getPersonColor(rawName?: string | null): PersonColor {
   }
   if (clean === 'ronnie' || clean.includes('ronnie')) {
     return COLOR_PALETTE.amber;
+  }
+  if (clean === 'roger' || clean.includes('roger')) {
+    return COLOR_PALETTE.indigo;
   }
 
   // Deterministic hash across palette for all other church directory names
