@@ -5,19 +5,7 @@ import {
   X,
   Maximize2,
   Minimize2,
-  ChevronLeft,
-  ChevronRight,
-  Sun,
-  Moon,
-  Tv,
-  Play,
-  Pause,
-  RotateCcw,
-  Sparkles,
   Music,
-  ShieldCheck,
-  Smartphone,
-  ChevronDown,
   ArrowLeft,
 } from 'lucide-react';
 
@@ -25,8 +13,6 @@ interface StagePrompterModalProps {
   isOpen: boolean;
   onClose: () => void;
   song: Song | null;
-  songList?: Song[];
-  onSelectSong?: (song: Song) => void;
 }
 
 const FONT_SIZES = [
@@ -37,8 +23,6 @@ const FONT_SIZES = [
   { label: 'Jumbo', size: '46px', cssClass: 'text-[46px] leading-[1.45]' },
   { label: 'Giant', size: '58px', cssClass: 'text-[58px] leading-[1.4]' },
 ];
-
-type StageTheme = 'oled' | 'charcoal' | 'light';
 
 interface ParsedSection {
   id: string;
@@ -52,8 +36,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   isOpen,
   onClose,
   song,
-  songList = [],
-  onSelectSong,
 }) => {
   // Persistent Preferences
   const [fontSizeIndex, setFontSizeIndex] = useState<number>(() => {
@@ -67,23 +49,11 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     return 3; // Default to 'Stage' (36px)
   });
 
-  const [theme, setTheme] = useState<StageTheme>(() => {
-    try {
-      const saved = localStorage.getItem('worship_stage_theme');
-      if (saved === 'oled' || saved === 'charcoal' || saved === 'light') return saved;
-    } catch {}
-    return 'oled'; // Default to OLED stage black
-  });
-
-  const [isAutoScrolling, setIsAutoScrolling] = useState<boolean>(false);
-  const [scrollSpeed, setScrollSpeed] = useState<number>(1); // 1 = normal, 2 = fast, 0.5 = slow
-  const { status: screenLockStatus, retry: retryScreenLock } = useLyricsScreenAwake(isOpen);
-  const wakeLockActive = screenLockStatus === 'active';
+  // Keep the screen awake silently while lyrics are open.
+  useLyricsScreenAwake(isOpen);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [showSettingsBar, setShowSettingsBar] = useState<boolean>(true);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const autoScrollTimerRef = useRef<number | null>(null);
 
   // Swipe-back gesture detection & visual states
   const touchStartRef = useRef<{ x: number; y: number; time: number; isEdge: boolean; isIgnored: boolean } | null>(null);
@@ -228,14 +198,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     } catch {}
   }, [fontSizeIndex]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('worship_stage_theme', theme);
-    } catch {}
-  }, [theme]);
-
-  useEffect(() => { if (!isOpen) setIsAutoScrolling(false); }, [isOpen]);
-
   // Native Fullscreen Toggle
   const toggleNativeFullscreen = async () => {
     try {
@@ -271,93 +233,19 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [isOpen, onClose]);
 
-  // Keyboard navigation (Esc to close, Arrow keys for prev/next song)
+  // Escape closes the lyrics view. Song navigation and auto-scroll are intentionally unavailable.
   useEffect(() => {
     if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         handleExit();
-      } else if (e.key === 'ArrowRight' || e.key === 'PageDown') {
-        handleNextSong();
-      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-        handlePrevSong();
-      } else if (e.key === ' ' && (e.target as HTMLElement).tagName !== 'BUTTON') {
-        // Spacebar toggles auto-scroll
-        e.preventDefault();
-        setIsAutoScrolling((prev) => !prev);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, song, songList, handleExit]);
-
-  // Auto-scroll loop
-  useEffect(() => {
-    if (!isAutoScrolling || !isOpen) {
-      if (autoScrollTimerRef.current) {
-        cancelAnimationFrame(autoScrollTimerRef.current);
-        autoScrollTimerRef.current = null;
-      }
-      return;
-    }
-
-    let lastTime = performance.now();
-    const step = (time: number) => {
-      const delta = time - lastTime;
-      lastTime = time;
-
-      if (scrollContainerRef.current) {
-        // speed: pixels per second
-        const pixelsPerSecond = 24 * scrollSpeed;
-        const move = (pixelsPerSecond * delta) / 1000;
-        scrollContainerRef.current.scrollTop += move;
-
-        // stop if at the very bottom
-        const atBottom =
-          scrollContainerRef.current.scrollHeight -
-            scrollContainerRef.current.scrollTop -
-            scrollContainerRef.current.clientHeight <=
-          2;
-        if (atBottom) {
-          setIsAutoScrolling(false);
-          return;
-        }
-      }
-
-      autoScrollTimerRef.current = requestAnimationFrame(step);
-    };
-
-    autoScrollTimerRef.current = requestAnimationFrame(step);
-
-    return () => {
-      if (autoScrollTimerRef.current) {
-        cancelAnimationFrame(autoScrollTimerRef.current);
-        autoScrollTimerRef.current = null;
-      }
-    };
-  }, [isAutoScrolling, scrollSpeed, isOpen]);
-
-  // Current Song Index and Navigation
-  const currentIndex = useMemo(() => {
-    if (!song || songList.length === 0) return -1;
-    return songList.findIndex((s) => s.id === song.id);
-  }, [song, songList]);
-
-  const handlePrevSong = () => {
-    if (currentIndex > 0 && onSelectSong) {
-      onSelectSong(songList[currentIndex - 1]);
-      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-    }
-  };
-
-  const handleNextSong = () => {
-    if (currentIndex >= 0 && currentIndex < songList.length - 1 && onSelectSong) {
-      onSelectSong(songList[currentIndex + 1]);
-      if (scrollContainerRef.current) scrollContainerRef.current.scrollTop = 0;
-    }
-  };
+  }, [isOpen, handleExit]);
 
   // Parse lyrics into sections for direct jumping (Chorus, Verse 1, etc.)
   const parsedSections = useMemo((): ParsedSection[] => {
@@ -413,7 +301,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const jumpToSection = (sectionId: string) => {
     const el = document.getElementById(sectionId);
     if (el && scrollContainerRef.current) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.scrollIntoView({ behavior: 'auto', block: 'start' });
     }
   };
 
@@ -421,39 +309,14 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
   const currentFont = FONT_SIZES[fontSizeIndex];
 
-  // Theme Styling
+  // Follow the app's current light/dark theme.
   const themeStyles = {
-    oled: {
-      bg: 'bg-black text-white',
-      headerBg: 'bg-black/90 border-neutral-900',
-      footerBg: 'bg-black/90 border-neutral-900',
-      sectionBadge: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-      jumpPill: 'bg-neutral-900 text-neutral-300 hover:bg-sky-500 hover:text-white border-neutral-800',
-      metaText: 'text-neutral-400',
-      accent: 'text-sky-400',
-      btnSecondary: 'bg-neutral-900 hover:bg-neutral-800 text-white border-neutral-800',
-    },
-    charcoal: {
-      bg: 'bg-slate-950 text-slate-100',
-      headerBg: 'bg-slate-950/90 border-slate-800',
-      footerBg: 'bg-slate-950/90 border-slate-800',
-      sectionBadge: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-      jumpPill: 'bg-slate-900 text-slate-300 hover:bg-sky-500 hover:text-white border-slate-800',
-      metaText: 'text-slate-400',
-      accent: 'text-sky-400',
-      btnSecondary: 'bg-slate-900 hover:bg-slate-800 text-white border-slate-800',
-    },
-    light: {
-      bg: 'bg-white text-slate-900',
-      headerBg: 'bg-white/95 border-slate-200',
-      footerBg: 'bg-white/95 border-slate-200',
-      sectionBadge: 'bg-sky-100 text-sky-900 border-sky-300',
-      jumpPill: 'bg-slate-100 text-slate-700 hover:bg-sky-500 hover:text-white border-slate-200',
-      metaText: 'text-slate-500',
-      accent: 'text-sky-600',
-      btnSecondary: 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-200',
-    },
-  }[theme];
+    bg: 'bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100',
+    headerBg: 'bg-white/95 border-slate-200 dark:bg-slate-950/90 dark:border-slate-800',
+    sectionBadge: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40',
+    jumpPill: 'bg-slate-100 text-slate-700 hover:bg-sky-500 hover:text-white border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800',
+    btnSecondary: 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white dark:border-slate-800',
+  };
 
   return (
     <div
@@ -481,75 +344,19 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       <header
         className={`px-4 py-3 sm:px-6 border-b backdrop-blur-md flex items-center justify-between gap-2 shrink-0 ${themeStyles.headerBg}`}
       >
-        {/* Left: Song Title & Navigation */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          {songList.length > 1 && (
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                type="button"
-                onClick={handlePrevSong}
-                disabled={currentIndex <= 0}
-                className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center transition-opacity cursor-pointer ${
-                  themeStyles.btnSecondary
-                } ${currentIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'}`}
-                title="Previous song (Left Arrow)"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNextSong}
-                disabled={currentIndex >= songList.length - 1}
-                className={`p-2 rounded-xl border text-xs font-bold flex items-center justify-center transition-opacity cursor-pointer ${
-                  themeStyles.btnSecondary
-                } ${
-                  currentIndex >= songList.length - 1 ? 'opacity-30 cursor-not-allowed' : 'active:scale-95'
-                }`}
-                title="Next song (Right Arrow)"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-          )}
-
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-xl font-black truncate tracking-tight">{song.title}</h1>
-              {wakeLockActive && (
-                <span
-                  className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                  title="Screen will not turn off while this window is open"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Awake</span>
-                </span>
-              )}
-            </div>
-            <div className={`text-xs flex items-center gap-2 truncate ${themeStyles.metaText}`}>
-              {song.artist && <span>{song.artist}</span>}
-              {song.keyNote && (
-                <span className={`font-bold ${themeStyles.accent}`}>Key: {song.keyNote}</span>
-              )}
-              {songList.length > 1 && currentIndex >= 0 && (
-                <span className="opacity-75">
-                  ({currentIndex + 1} of {songList.length})
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Left: title only */}
+        <h1 className="min-w-0 truncate text-base font-black tracking-tight sm:text-xl">{song.title}</h1>
 
         {/* Right: Stage Sizing & Action Toolbar */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Font Resizing Stepper */}
-          <div className="flex items-center rounded-xl border border-neutral-800/60 p-0.5 bg-neutral-900/40">
+          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-900">
             <button
               type="button"
               onClick={() => setFontSizeIndex((prev) => Math.max(0, prev - 1))}
               disabled={fontSizeIndex <= 0}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-black transition-colors cursor-pointer ${
-                fontSizeIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-neutral-800 active:scale-95'
+                fontSizeIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-200 dark:hover:bg-slate-800 active:scale-95'
               }`}
               title="Decrease Font Size"
             >
@@ -565,34 +372,13 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
               className={`px-2.5 py-1.5 rounded-lg text-xs font-black transition-colors cursor-pointer ${
                 fontSizeIndex >= FONT_SIZES.length - 1
                   ? 'opacity-30 cursor-not-allowed'
-                  : 'hover:bg-neutral-800 active:scale-95'
+                  : 'hover:bg-slate-200 dark:hover:bg-slate-800 active:scale-95'
               }`}
               title="Increase Font Size"
             >
               A+
             </button>
           </div>
-
-          {/* Stage Theme Toggle */}
-          <button
-            type="button"
-            onClick={() => {
-              const next: StageTheme =
-                theme === 'oled' ? 'charcoal' : theme === 'charcoal' ? 'light' : 'oled';
-              setTheme(next);
-            }}
-            className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors ${themeStyles.btnSecondary}`}
-            title={`Stage Theme: ${theme.toUpperCase()} (Click to toggle)`}
-          >
-            {theme === 'oled' ? (
-              <Moon className="w-4 h-4 text-sky-400" />
-            ) : theme === 'charcoal' ? (
-              <Tv className="w-4 h-4 text-sky-400" />
-            ) : (
-              <Sun className="w-4 h-4 text-sky-600" />
-            )}
-            <span className="hidden md:inline capitalize">{theme}</span>
-          </button>
 
           {/* Fullscreen Toggle */}
           <button
@@ -622,7 +408,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
         <div
           className={`px-4 py-2 border-b flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0 ${themeStyles.headerBg}`}
         >
-          <span className={`text-[10px] font-bold uppercase tracking-wider shrink-0 mr-1 ${themeStyles.metaText}`}>
+          <span className="mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Jump To:
           </span>
           {parsedSections
@@ -643,11 +429,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       {/* LYRICS STAGE DISPLAY VIEWPORT */}
       <main
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-6 sm:px-12 md:px-20 lg:px-32 py-8 sm:py-12 scroll-smooth select-text"
-        onClick={() => {
-          // If auto-scrolling, tapping the text pauses it cleanly
-          if (isAutoScrolling) setIsAutoScrolling(false);
-        }}
+        className="flex-1 overflow-y-auto px-6 sm:px-12 md:px-20 lg:px-32 py-8 sm:py-12 select-text"
       >
         {!song.lyrics?.trim() ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-60">
@@ -682,87 +464,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
         )}
       </main>
 
-      {/* BOTTOM FLOATING CONTROLS (Auto-Scroll & Hands-Free Tools) */}
-      <footer
-        className={`px-4 py-3 sm:px-8 border-t backdrop-blur-md flex items-center justify-between gap-3 shrink-0 ${themeStyles.footerBg}`}
-      >
-        {/* Hands-free Auto-Scroll Bar */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsAutoScrolling(!isAutoScrolling)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
-              isAutoScrolling
-                ? 'bg-sky-500 text-white font-black animate-pulse'
-                : themeStyles.btnSecondary
-            }`}
-            title="Auto-scroll lyrics hands-free (Spacebar)"
-          >
-            {isAutoScrolling ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
-            <span>{isAutoScrolling ? 'Pause Scroll' : 'Auto-Scroll'}</span>
-          </button>
-
-          {isAutoScrolling && (
-            <div className="flex items-center gap-1 text-xs font-bold">
-              <span className={`text-[11px] hidden sm:inline ${themeStyles.metaText}`}>Speed:</span>
-              {[
-                { label: 'Slow', val: 0.6 },
-                { label: 'Normal', val: 1.0 },
-                { label: 'Fast', val: 1.8 },
-              ].map((sp) => (
-                <button
-                  key={sp.label}
-                  type="button"
-                  onClick={() => setScrollSpeed(sp.val)}
-                  className={`px-2 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${
-                    scrollSpeed === sp.val
-                      ? 'bg-sky-500 text-white border-sky-500'
-                      : themeStyles.btnSecondary
-                  }`}
-                >
-                  {sp.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              if (scrollContainerRef.current) {
-                scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-              }
-            }}
-            className={`p-2 rounded-xl border text-xs font-semibold cursor-pointer ${themeStyles.btnSecondary}`}
-            title="Scroll to Top"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Quick Tips or Next Song Indicator */}
-        <div className={`text-xs text-right truncate flex items-center gap-2 ${themeStyles.metaText}`}>
-          {wakeLockActive ? (
-            <span className="text-emerald-400 font-medium flex items-center gap-1">
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>Screen awake</span>
-            </span>
-          ) : (
-            <button type="button" onClick={retryScreenLock} className="underline">{screenLockStatus === 'requesting' ? 'Keeping screen awake…' : 'Screen may sleep · Retry'}</button>
-          )}
-
-          {songList.length > 1 && currentIndex < songList.length - 1 && (
-            <button
-              type="button"
-              onClick={handleNextSong}
-              className={`hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold border ${themeStyles.btnSecondary}`}
-            >
-              <span>Next: {songList[currentIndex + 1].title}</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-      </footer>
     </div>
   );
 };
