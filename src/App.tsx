@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserAccount,
   AppTab,
@@ -73,17 +73,28 @@ import {
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { AuthScreen } from './components/AuthScreen';
-import { SetlistsTab } from './components/SetlistsTab';
-import { RecognitionsTab } from './components/RecognitionsTab';
-import { SpecialNumberTab } from './components/SpecialNumberTab';
-import { SongsTab } from './components/SongsTab';
-import { SettingsTab } from './components/SettingsTab';
 import { FirestoreStatusModal } from './components/FirestoreStatusModal';
 import { ChurchLogo } from './components/ChurchLogo';
 import { LogOut, X, AlertTriangle, CloudOff } from 'lucide-react';
 
 // Execute legacy storage purge immediately before any component lifecycle
 cleanupLegacyStorage();
+
+const SetlistsTab = lazy(() => import('./components/SetlistsTab').then((module) => ({ default: module.SetlistsTab })));
+const RecognitionsTab = lazy(() => import('./components/RecognitionsTab').then((module) => ({ default: module.RecognitionsTab })));
+const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then((module) => ({ default: module.SpecialNumberTab })));
+const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
+const SettingsTab = lazy(() => import('./components/SettingsTab').then((module) => ({ default: module.SettingsTab })));
+
+function TabLoadingSkeleton() {
+  return (
+    <div role="status" aria-label="Loading section" className="space-y-3 animate-pulse">
+      <div className="h-10 rounded-xl bg-slate-200/80 dark:bg-slate-800" />
+      <div className="h-24 rounded-2xl bg-slate-100 dark:bg-slate-900" />
+      <div className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-900" />
+    </div>
+  );
+}
 
 export default function App() {
   // 1. Auth and Loading States
@@ -153,6 +164,58 @@ export default function App() {
   const [choirEntries, setChoirEntries] = useState<ChoirEntry[]>([]);
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>([]);
   const [savedNames, setSavedNames] = useState<string[]>([]);
+  const loadedSectionsRef = useRef<Set<AppTab>>(new Set());
+  const sectionLoadPromisesRef = useRef<Partial<Record<AppTab, Promise<void>>>>({});
+
+  const loadCoreData = useCallback(async () => {
+    const [serverSetlists, serverSongs, serverSavedNames] = await Promise.all([
+      fetchSetlists().catch(() => []),
+      fetchSongs().catch(() => []),
+      fetchMinistrySavedNames().catch(() => []),
+    ]);
+    setSetlists(serverSetlists);
+    setSongs(serverSongs);
+    setSavedNames(serverSavedNames);
+    loadedSectionsRef.current.add('home');
+    loadedSectionsRef.current.add('songs');
+  }, []);
+
+  const loadTabData = useCallback((tab: AppTab): Promise<void> => {
+    if (loadedSectionsRef.current.has(tab)) return Promise.resolve();
+    const existing = sectionLoadPromisesRef.current[tab];
+    if (existing) return existing;
+
+    const request = (async () => {
+      if (tab === 'recognitions') {
+        const [bday, anniv, visitorRows, recognitionRows] = await Promise.all([
+          fetchBirthdays().catch(() => []),
+          fetchAnniversaries().catch(() => []),
+          fetchVisitors().catch(() => []),
+          fetchSpecialRecognitions().catch(() => []),
+        ]);
+        setBirthdays(bday);
+        setAnniversaries(anniv);
+        setVisitors(visitorRows);
+        setSpecialRecognitions(recognitionRows);
+      } else if (tab === 'special-numbers') {
+        const [specialRows, choirRows, practiceRows] = await Promise.all([
+          fetchSpecialNumbers().catch(() => []),
+          fetchChoirEntries().catch(() => []),
+          fetchPracticeEntries().catch(() => []),
+        ]);
+        setSpecialNumbers(specialRows);
+        setChoirEntries(choirRows);
+        setPracticeEntries(practiceRows);
+      } else if (tab === 'settings') {
+        setUsers(await fetchAllProfiles().catch(() => []));
+      }
+      loadedSectionsRef.current.add(tab);
+    })().finally(() => {
+      delete sectionLoadPromisesRef.current[tab];
+    });
+    sectionLoadPromisesRef.current[tab] = request;
+    return request;
+  }, []);
 
   // 4. Initial Authoritative Load and Session Management
   useEffect(() => {
@@ -186,45 +249,11 @@ export default function App() {
           setCurrentUser(profile);
         }
 
-        // Fetch authoritative shared records directly from Supabase
-        const [
-          serverSetlists,
-          serverSongs,
-          serverSpecialNumbers,
-          serverChoir,
-          serverPractices,
-          serverBirthdays,
-          serverAnniversaries,
-          serverVisitors,
-          serverRecognitions,
-          serverSavedNames,
-          serverProfiles,
-        ] = await Promise.all([
-          fetchSetlists().catch(() => []),
-          fetchSongs().catch(() => []),
-          fetchSpecialNumbers().catch(() => []),
-          fetchChoirEntries().catch(() => []),
-          fetchPracticeEntries().catch(() => []),
-          fetchBirthdays().catch(() => []),
-          fetchAnniversaries().catch(() => []),
-          fetchVisitors().catch(() => []),
-          fetchSpecialRecognitions().catch(() => []),
-          fetchMinistrySavedNames().catch(() => []),
-          fetchAllProfiles().catch(() => []),
-        ]);
+        // Load only the shared data required by the primary Setlists and Songs views.
+        // Secondary sections fetch their authoritative data when first opened.
+        await loadCoreData();
 
         if (isMounted) {
-          setSetlists(serverSetlists);
-          setSongs(serverSongs);
-          setSpecialNumbers(serverSpecialNumbers);
-          setChoirEntries(serverChoir);
-          setPracticeEntries(serverPractices);
-          setBirthdays(serverBirthdays);
-          setAnniversaries(serverAnniversaries);
-          setVisitors(serverVisitors);
-          setSpecialRecognitions(serverRecognitions);
-          setSavedNames(serverSavedNames);
-          setUsers(serverProfiles);
           setIsLoadingInitialData(false);
         }
       } catch (err) {
@@ -241,6 +270,8 @@ export default function App() {
     const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         if (isMounted) {
+          loadedSectionsRef.current.clear();
+          sectionLoadPromisesRef.current = {};
           setCurrentUser(null);
           setSetlists([]);
           setSongs([]);
@@ -273,34 +304,42 @@ export default function App() {
         if (isMounted) setSongs(fresh);
       },
       onSpecialNumbersChange: async () => {
+        if (!loadedSectionsRef.current.has('special-numbers')) return;
         const fresh = await fetchSpecialNumbers().catch(() => []);
         if (isMounted) setSpecialNumbers(fresh);
       },
       onChoirChange: async () => {
+        if (!loadedSectionsRef.current.has('special-numbers')) return;
         const fresh = await fetchChoirEntries().catch(() => []);
         if (isMounted) setChoirEntries(fresh);
       },
       onPracticeChange: async () => {
+        if (!loadedSectionsRef.current.has('special-numbers')) return;
         const fresh = await fetchPracticeEntries().catch(() => []);
         if (isMounted) setPracticeEntries(fresh);
       },
       onBirthdaysChange: async () => {
+        if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchBirthdays().catch(() => []);
         if (isMounted) setBirthdays(fresh);
       },
       onAnniversariesChange: async () => {
+        if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchAnniversaries().catch(() => []);
         if (isMounted) setAnniversaries(fresh);
       },
       onVisitorsChange: async () => {
+        if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchVisitors().catch(() => []);
         if (isMounted) setVisitors(fresh);
       },
       onRecognitionsChange: async () => {
+        if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchSpecialRecognitions().catch(() => []);
         if (isMounted) setSpecialRecognitions(fresh);
       },
       onProfilesChange: async () => {
+        if (!loadedSectionsRef.current.has('settings')) return;
         const fresh = await fetchAllProfiles().catch(() => []);
         const { data: authData } = await supabase.auth.getUser();
         const refreshedCurrent = authData.user
@@ -321,7 +360,12 @@ export default function App() {
       authSub.subscription.unsubscribe();
       unsubRealtime();
     };
-  }, []);
+  }, [loadCoreData]);
+
+  useEffect(() => {
+    if (!currentUser || isLoadingInitialData) return;
+    void loadTabData(currentTab);
+  }, [currentTab, currentUser, isLoadingInitialData, loadTabData]);
 
   // Reload data from Supabase
   const reloadAllData = async () => {
@@ -363,6 +407,7 @@ export default function App() {
       setSpecialRecognitions(sRecog);
       setSavedNames(sNames);
       setUsers(sUsers);
+      loadedSectionsRef.current = new Set<AppTab>(['home', 'recognitions', 'special-numbers', 'songs', 'settings']);
     } catch (e) {
       console.warn('Error refreshing data from Supabase', e);
     }
@@ -418,7 +463,9 @@ export default function App() {
   const handleSignInSuccess = async (user: UserAccount) => {
     setCurrentUser(user);
     setIsLoadingInitialData(true);
-    await reloadAllData();
+    loadedSectionsRef.current.clear();
+    sectionLoadPromisesRef.current = {};
+    await loadCoreData();
     setIsLoadingInitialData(false);
     setCurrentTab('home');
     tabHistoryRef.current = ['home'];
@@ -428,6 +475,8 @@ export default function App() {
   const handleSignOut = async () => {
     setShowLogoutConfirmModal(false);
     await supabase.auth.signOut();
+    loadedSectionsRef.current.clear();
+    sectionLoadPromisesRef.current = {};
     setCurrentUser(null);
     setSetlists([]);
     setSongs([]);
@@ -1071,7 +1120,8 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
-        <div className={currentTab === 'home' ? 'block' : 'hidden'}>
+        <Suspense fallback={<TabLoadingSkeleton />}>
+        {currentTab === 'home' && (
           <SetlistsTab
             setlists={setlists}
             songs={songs}
@@ -1085,9 +1135,9 @@ export default function App() {
             initialSelectedSetlistId={initialSelectedSetlistId}
             collapseSignal={collapseSignals.home}
           />
-        </div>
+        )}
 
-        <div className={currentTab === 'recognitions' ? 'block' : 'hidden'}>
+        {currentTab === 'recognitions' && (!loadedSectionsRef.current.has('recognitions') ? <TabLoadingSkeleton /> : (
           <RecognitionsTab
             birthdays={birthdays}
             anniversaries={anniversaries}
@@ -1103,9 +1153,9 @@ export default function App() {
             onDeleteSpecialRecognition={handleDeleteSpecialRecognition}
             collapseSignal={collapseSignals.recognitions}
           />
-        </div>
+        ))}
 
-        <div className={currentTab === 'special-numbers' ? 'block' : 'hidden'}>
+        {currentTab === 'special-numbers' && (!loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
             specialNumbers={specialNumbers}
             practiceEntries={practiceEntries}
@@ -1127,9 +1177,9 @@ export default function App() {
             onSaveSong={handleSaveSong}
             collapseSignal={collapseSignals['special-numbers']}
           />
-        </div>
+        ))}
 
-        <div className={currentTab === 'songs' ? 'block' : 'hidden'}>
+        {currentTab === 'songs' && (
           <SongsTab
             songs={songs}
             setlists={setlists}
@@ -1145,9 +1195,9 @@ export default function App() {
             returnSetlistId={returnSetlistIdRef.current || initialSelectedSetlistId}
             onBackToSetlist={handleBackToSetlist}
           />
-        </div>
+        )}
 
-        <div className={currentTab === 'settings' ? 'block' : 'hidden'}>
+        {currentTab === 'settings' && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
           <SettingsTab
             currentUser={currentUser}
             onUpdateCurrentUser={setCurrentUser}
@@ -1175,7 +1225,8 @@ export default function App() {
               welcomeSongs: loadWelcomeSongs(),
             }}
           />
-        </div>
+        ))}
+        </Suspense>
       </main>
 
       {/* Mobile-First Bottom Navigation */}

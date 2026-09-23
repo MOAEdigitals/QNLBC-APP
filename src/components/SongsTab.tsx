@@ -1,5 +1,5 @@
 import { LyricsScreenAwake } from './LyricsScreenAwake';
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
@@ -57,6 +57,7 @@ import {
 
 export const VALID_SONG_CATEGORIES = ['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'] as const;
 export type SongCategory = (typeof VALID_SONG_CATEGORIES)[number];
+const SONG_PAGE_SIZE = 80;
 
 export function getSongCategories(song: Song): SongCategory[] {
   if (Array.isArray(song.categories) && song.categories.length > 0) {
@@ -106,6 +107,8 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const [visibleResultCount, setVisibleResultCount] = useState(SONG_PAGE_SIZE);
   const [sortMode, setSortMode] = useState<'alpha' | 'recent' | 'date'>('alpha');
   const [categoryFilter, setCategoryFilter] = useState<
     'all' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized' | 'Starred'
@@ -472,7 +475,7 @@ if (isEditing && !savingSongRef.current) {
   }, [sortedSongs, categoryFilter]);
 
   const songSearchResults = useMemo(() => {
-    if (!searchQuery.trim()) {
+    if (!deferredSearchQuery.trim()) {
       return categoryFilteredSongs.map((song) => ({
         song,
         matches: true,
@@ -485,7 +488,7 @@ if (isEditing && !savingSongRef.current) {
 
     const results = categoryFilteredSongs
       .map((song) => {
-        const searchRes = searchSong(song, searchQuery);
+        const searchRes = searchSong(song, deferredSearchQuery);
         const history = getSongUsageHistoryFromMap(song.title, usageMap);
         return {
           ...searchRes,
@@ -497,7 +500,20 @@ if (isEditing && !savingSongRef.current) {
     // When actively searching, sort by search match relevance score descending
     results.sort((a, b) => b.score - a.score);
     return results;
-  }, [categoryFilteredSongs, searchQuery, usageMap]);
+  }, [categoryFilteredSongs, deferredSearchQuery, usageMap]);
+
+  useEffect(() => {
+    setVisibleResultCount(SONG_PAGE_SIZE);
+  }, [deferredSearchQuery, categoryFilter, sortMode]);
+
+  const visibleSongSearchResults = useMemo(() => {
+    const visible = songSearchResults.slice(0, visibleResultCount);
+    if (selectedSongId && !visible.some((result) => result.song.id === selectedSongId)) {
+      const selectedResult = songSearchResults.find((result) => result.song.id === selectedSongId);
+      if (selectedResult) visible.push(selectedResult);
+    }
+    return visible;
+  }, [songSearchResults, visibleResultCount, selectedSongId]);
 
   const filteredSongs = useMemo(() => songSearchResults.map((r) => r.song), [songSearchResults]);
 
@@ -994,7 +1010,7 @@ if (isEditing && !savingSongRef.current) {
         </div>
       ) : (
         <div className="space-y-3" style={{ overflowAnchor: 'none' }}>
-          {songSearchResults.map((result) => {
+          {visibleSongSearchResults.map((result) => {
             const { song, history, matchedField, lyricSnippet } = result;
             const isSelected = selectedSongId === song.id;
             const attachments = song.attachments || [];
@@ -1718,6 +1734,15 @@ if (isEditing && !savingSongRef.current) {
               </div>
             );
           })}
+          {visibleResultCount < songSearchResults.length && (
+            <button
+              type="button"
+              onClick={() => setVisibleResultCount((count) => count + SONG_PAGE_SIZE)}
+              className="w-full py-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+            >
+              Show more songs ({songSearchResults.length - visibleResultCount} remaining)
+            </button>
+          )}
         </div>
       )}
 
