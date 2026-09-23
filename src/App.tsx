@@ -1114,8 +1114,6 @@ export default function App() {
         users={users}
         currentTab={currentTab}
         onNavigateToSettings={() => handleNavigateTab('settings')}
-        databaseStatus={dbStatus}
-        onOpenFirestoreStatusModal={() => setIsStatusModalOpen(true)}
       />
 
       {/* Main Content Area */}
