@@ -1054,7 +1054,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                   {/* Compact role summary: always one line on mobile */}
                   <div
-                    className="mt-1.5 flex w-full items-center gap-2 whitespace-nowrap text-slate-500 dark:text-slate-400"
+                    className="mt-1.5 ml-14 flex items-center gap-2 whitespace-nowrap text-slate-500 dark:text-slate-400"
                     style={{ fontSize: 'clamp(9px, 2.7vw, 12px)' }}
                   >
                     <span className="min-w-0">
