@@ -2194,8 +2194,6 @@ if (isEditing && !savingSongRef.current) {
         isOpen={isStagePrompterOpen}
         onClose={() => setIsStagePrompterOpen(false)}
         song={stagePrompterSong}
-        songList={filteredSongs}
-        onSelectSong={(newSong) => setStagePrompterSong(newSong)}
       />
 
       {/* Floating Action Button (FAB) for New Song - Circular & anchored at lower-right */}
