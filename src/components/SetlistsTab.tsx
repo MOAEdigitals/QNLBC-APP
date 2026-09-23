@@ -26,7 +26,6 @@ import {
   X,
   Sparkles,
   ChevronDown,
-  ChevronUp,
   Users,
   Flame,
   AlertCircle,
@@ -908,7 +907,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   key={item.id}
                   id={`setlist-card-${item.id}`}
                   onClick={(e) => handleSelectSetlist(item.id, e)}
-                  className={`p-4 min-w-0 rounded-2xl border transition-all cursor-pointer ${
+                  className={`p-3 min-w-0 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
                       ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
                       : isSoonest
@@ -920,10 +919,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 >
                   {/* Card Header Row with Far-Right 3-Dots / Actions */}
                   <div className="flex items-center justify-between min-w-0">
-                    <div className="flex items-center space-x-3.5 min-w-0 flex-1">
+                    <div className="flex items-center space-x-3 min-w-0 flex-1">
                       {/* Date Badge */}
                       <div
-                        className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 border ${
+                        className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${
                           today
                             ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900'
                             : isSoonest
@@ -942,9 +941,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <h4
-                            className={`text-base truncate ${
+                            className={`min-w-0 truncate text-sm sm:text-base ${
                               isPast
                                 ? 'font-bold text-slate-500 dark:text-slate-400'
                                 : 'font-black text-slate-900 dark:text-white'
@@ -978,36 +977,41 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           )}
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                          {item.presider && (
-                            <span>
-                              Presider: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider}</span>
-                            </span>
-                          )}
+                        <div className="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">
                           {item.type === 'sunday' || !item.type ? (
-                            <>
-                              <span>•</span>
-                              <span>
-                                SS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
-                              </span>
-                              <span>•</span>
+                            <div className="space-y-0">
+                              <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+                                {item.presider && (
+                                  <span className="truncate">
+                                    Presider: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider}</span>
+                                  </span>
+                                )}
+                                {item.presider && <span aria-hidden="true">•</span>}
+                                <span className="truncate">
+                                  SS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
+                                </span>
+                              </div>
                               <span>
                                 WS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
                               </span>
-                            </>
+                            </div>
                           ) : (
-                            <>
-                              <span>•</span>
+                            <div className="space-y-0">
+                              {item.presider && (
+                                <span className="block truncate">
+                                  Presider: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider}</span>
+                                </span>
+                              )}
                               <span>
                                 Leader: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
                               </span>
-                            </>
+                            </div>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    {/* Far Right Copy Button, 3-dots Menu & Chevron */}
+                    {/* Far-right actions */}
                     <div
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
@@ -1076,10 +1080,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           </button>
                         </div>
                       )}
-
-                      <div className="p-1 text-slate-400">
-                        {isSelected ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      </div>
                     </div>
                   </div>
 
