@@ -1567,7 +1567,7 @@ if (isEditing && !savingSongRef.current) {
                         {plusOneList.length > 0 && (
                           <div className="space-y-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
-                              Plus One (+1) Reference Tracks & Files ({plusOneList.length})
+                              Plus One (+1)
                             </span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {plusOneList.map((att) => {
@@ -1633,7 +1633,7 @@ if (isEditing && !savingSongRef.current) {
                         {(minusOneList.length > 0 || song.minusOneLink) && (
                           <div className="space-y-2">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
-                              Minus One (-1) Instrumental Tracks ({minusOneList.length + (song.minusOneLink ? 1 : 0)})
+                              Minus One (-1)
                             </span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {song.minusOneLink && (
