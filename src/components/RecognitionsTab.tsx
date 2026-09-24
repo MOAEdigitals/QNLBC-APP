@@ -258,28 +258,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setIsAddingSpecial(false);
   };
 
+  const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial;
+
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
-      {/* Full-width Add Button at the very top of the recognition tab */}
-      <button
-        type="button"
-        onClick={() => {
-          if (subTab === 'birthdays') setIsAddingBirthday(true);
-          else if (subTab === 'anniversaries') setIsAddingAnniversary(true);
-          else if (subTab === 'visitors') setIsAddingVisitor(true);
-          else if (subTab === 'special') setIsAddingSpecial(true);
-        }}
-        className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 text-xs sm:text-sm font-bold shadow-xs flex items-center justify-center gap-2 transition-all active:scale-[0.99] cursor-pointer"
-      >
-        <Plus className="w-4 h-4 shrink-0 stroke-[2.5]" />
-        <span>
-          {subTab === 'birthdays' && 'Add Celebrant'}
-          {subTab === 'anniversaries' && 'Add Anniversary'}
-          {subTab === 'visitors' && 'Add Visitor'}
-          {subTab === 'special' && 'Add Recognition'}
-        </span>
-      </button>
-
       {/* Sub-navigation Tabs: Special, Anniversaries, Visitors on top; Birthdays full-width at bottom */}
       <div className="recognition-tabs grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
@@ -1053,6 +1035,40 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Floating Action Button (FAB) for Add Celebrant / Anniversary / Visitor / Special */}
+      {!isAnyModalOpen && (
+        <button
+          type="button"
+          onClick={() => {
+            if (subTab === 'birthdays') setIsAddingBirthday(true);
+            else if (subTab === 'anniversaries') setIsAddingAnniversary(true);
+            else if (subTab === 'visitors') setIsAddingVisitor(true);
+            else if (subTab === 'special') setIsAddingSpecial(true);
+          }}
+          aria-label={
+            subTab === 'birthdays'
+              ? 'Add Celebrant'
+              : subTab === 'anniversaries'
+              ? 'Add Anniversary'
+              : subTab === 'visitors'
+              ? 'Add Visitor'
+              : 'Add Recognition'
+          }
+          title={
+            subTab === 'birthdays'
+              ? 'Add Celebrant'
+              : subTab === 'anniversaries'
+              ? 'Add Anniversary'
+              : subTab === 'visitors'
+              ? 'Add Visitor'
+              : 'Add Recognition'
+          }
+          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
+        >
+          <Plus className="w-6 h-6 stroke-[2.5]" />
+        </button>
       )}
     </div>
   );
