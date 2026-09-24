@@ -152,6 +152,7 @@ export default function App() {
   const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
   const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
   const returnSetlistIdRef = useRef<string | null>(null);
+  const savedSetlistScrollPosRef = useRef<{ setlistId: string; scrollY: number } | null>(null);
 
   // 3. Shared Collections: MUST start strictly as empty arrays - no localStorage loaders!
   const [setlists, setSetlists] = useState<Setlist[]>([]);
@@ -423,10 +424,37 @@ export default function App() {
         }));
         return;
       }
+      const isReturningToSetlist =
+        newTab === 'home' &&
+        (Boolean(returnSetlistIdRef.current) ||
+          Boolean(savedSetlistScrollPosRef.current) ||
+          Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
+
+      const shouldInstantScroll = Boolean(options?.instantScroll || isReturningToSetlist);
+
+      if (newTab === 'home') {
+        const targetSetlistId =
+          returnSetlistIdRef.current ||
+          savedSetlistScrollPosRef.current?.setlistId ||
+          (() => {
+            try {
+              return (
+                localStorage.getItem('nlbc_selected_setlist_id_v1') ||
+                sessionStorage.getItem('nlbc_saved_setlist_id')
+              );
+            } catch {
+              return null;
+            }
+          })();
+        if (targetSetlistId) {
+          setInitialSelectedSetlistId(targetSetlistId);
+        }
+      }
+
       window.history.pushState({ tab: newTab }, '', `#${newTab}`);
       tabHistoryRef.current.push(newTab);
       setCurrentTab(newTab);
-      if (!options?.instantScroll) {
+      if (!shouldInstantScroll) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     },
@@ -442,12 +470,31 @@ export default function App() {
     const handlePopState = (event: PopStateEvent) => {
       const targetTab: AppTab = event.state?.tab || 'home';
       if (currentTab !== 'home') {
-        if (targetTab === 'home' && returnSetlistIdRef.current) {
-          setInitialSelectedSetlistId(returnSetlistIdRef.current);
-          returnSetlistIdRef.current = null;
+        const isReturningToSetlist =
+          targetTab === 'home' &&
+          (Boolean(returnSetlistIdRef.current) ||
+            Boolean(savedSetlistScrollPosRef.current) ||
+            Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
+
+        if (targetTab === 'home') {
+          const targetSetlistId =
+            returnSetlistIdRef.current ||
+            savedSetlistScrollPosRef.current?.setlistId ||
+            (() => {
+              try {
+                return localStorage.getItem('nlbc_selected_setlist_id_v1') || sessionStorage.getItem('nlbc_saved_setlist_id');
+              } catch {
+                return null;
+              }
+            })();
+          if (targetSetlistId) {
+            setInitialSelectedSetlistId(targetSetlistId);
+          }
         }
         setCurrentTab(targetTab);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (!isReturningToSetlist) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
       } else {
         if (hasActiveSubViewRef.current) return;
         setShowLogoutConfirmModal(true);
@@ -965,10 +1012,15 @@ export default function App() {
   // Cross-Navigation Helpers
   const handleOpenSongDetail = (songId: string, returnSetlistId?: string) => {
     returnSetlistIdRef.current = returnSetlistId || null;
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    savedSetlistScrollPosRef.current = returnSetlistId ? { setlistId: returnSetlistId, scrollY: currentScrollY } : null;
+
     if (returnSetlistId) {
       setInitialSelectedSetlistId(returnSetlistId);
       try {
         localStorage.setItem('nlbc_selected_setlist_id_v1', returnSetlistId);
+        sessionStorage.setItem('nlbc_saved_setlist_scroll_y', String(currentScrollY));
+        sessionStorage.setItem('nlbc_saved_setlist_id', returnSetlistId);
       } catch {}
     }
     setSelectedSongIdForTab(songId);
@@ -979,10 +1031,11 @@ export default function App() {
   const handleBackToSetlist = () => {
     const targetSetlistId =
       returnSetlistIdRef.current ||
+      savedSetlistScrollPosRef.current?.setlistId ||
       initialSelectedSetlistId ||
       (() => {
         try {
-          return localStorage.getItem('nlbc_selected_setlist_id_v1');
+          return localStorage.getItem('nlbc_selected_setlist_id_v1') || sessionStorage.getItem('nlbc_saved_setlist_id');
         } catch {
           return null;
         }
@@ -993,7 +1046,7 @@ export default function App() {
         localStorage.setItem('nlbc_selected_setlist_id_v1', targetSetlistId);
       } catch {}
     }
-    handleNavigateTab('home');
+    handleNavigateTab('home', { instantScroll: true });
   };
 
   const handleAddSongToNewSetlist = (song: Song) => {
@@ -1132,7 +1185,8 @@ export default function App() {
             onSubViewChange={(hasActive) => {
               hasActiveSubViewRef.current = hasActive;
             }}
-            initialSelectedSetlistId={initialSelectedSetlistId}
+            initialSelectedSetlistId={initialSelectedSetlistId || returnSetlistIdRef.current || savedSetlistScrollPosRef.current?.setlistId}
+            initialScrollY={savedSetlistScrollPosRef.current?.scrollY}
             collapseSignal={collapseSignals.home}
           />
         )}

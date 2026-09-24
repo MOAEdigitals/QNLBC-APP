@@ -151,6 +151,7 @@ interface SetlistsTabProps {
   onOpenSongDetail: (songId: string, returnSetlistId?: string) => void;
   onSubViewChange?: (hasActiveSubView: boolean) => void;
   initialSelectedSetlistId?: string | null;
+  initialScrollY?: number | null;
   collapseSignal?: number;
 }
 
@@ -163,15 +164,67 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   onOpenSongDetail,
   onSubViewChange,
   initialSelectedSetlistId,
+  initialScrollY,
   collapseSignal,
 }) => {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(() => {
+    if (initialSelectedSetlistId) return initialSelectedSetlistId;
     try {
-      const saved = localStorage.getItem('nlbc_selected_setlist_id_v1');
+      const saved =
+        localStorage.getItem('nlbc_selected_setlist_id_v1') ||
+        sessionStorage.getItem('nlbc_saved_setlist_id');
       if (saved) return saved;
     } catch {}
-    return initialSelectedSetlistId || null;
+    return null;
   });
+
+  const handleOpenSong = (songId: string, setlistId: string) => {
+    const currentY = window.scrollY || document.documentElement.scrollTop || 0;
+    try {
+      sessionStorage.setItem('nlbc_saved_setlist_scroll_y', String(currentY));
+      sessionStorage.setItem('nlbc_saved_setlist_id', setlistId);
+      localStorage.setItem('nlbc_selected_setlist_id_v1', setlistId);
+    } catch {}
+    onOpenSongDetail(songId, setlistId);
+  };
+
+  const restoredScrollRef = useRef(false);
+
+  // Restore scroll position instantly when returning to setlist
+  useLayoutEffect(() => {
+    let targetY = initialScrollY;
+    if (targetY == null) {
+      try {
+        const stored = sessionStorage.getItem('nlbc_saved_setlist_scroll_y');
+        if (stored != null) {
+          targetY = parseFloat(stored);
+        }
+      } catch {}
+    }
+
+    if (targetY != null && !Number.isNaN(targetY)) {
+      restoredScrollRef.current = true;
+      const applyScroll = () => {
+        try {
+          window.scrollTo({ top: targetY!, behavior: 'instant' as ScrollBehavior });
+        } catch {
+          window.scrollTo(0, targetY!);
+        }
+        const scroller = document.scrollingElement || document.documentElement || document.body;
+        if (scroller && scroller.scrollTop !== targetY) {
+          scroller.scrollTop = targetY!;
+        }
+      };
+
+      applyScroll();
+      requestAnimationFrame(() => {
+        applyScroll();
+      });
+      try {
+        sessionStorage.removeItem('nlbc_saved_setlist_scroll_y');
+      } catch {}
+    }
+  }, [initialScrollY]);
 
   // Persist open setlist container so returning from lyrics or external views keeps it open
   useEffect(() => {
@@ -280,6 +333,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       try {
         localStorage.setItem('nlbc_selected_setlist_id_v1', initialSelectedSetlistId);
       } catch {}
+
+      // If scroll position was already restored to the exact position, do not override with scrollIntoView
+      if (restoredScrollRef.current || initialScrollY != null) {
+        return;
+      }
+
       const timer = setTimeout(() => {
         const el = document.getElementById(`setlist-card-${initialSelectedSetlistId}`);
         if (el) {
@@ -288,7 +347,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [initialSelectedSetlistId]);
+  }, [initialSelectedSetlistId, initialScrollY]);
 
   const lastProcessedSignalRef = useRef<number>(0);
 
@@ -1113,7 +1172,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     );
                                     return (
                                       <div
-                                        onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                        onClick={() => (matchedSong ? handleOpenSong(matchedSong.id, item.id) : null)}
                                         className={`bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 ${
                                           matchedSong
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors'
@@ -1141,7 +1200,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     );
                                     return (
                                       <div
-                                        onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                        onClick={() => (matchedSong ? handleOpenSong(matchedSong.id, item.id) : null)}
                                         className={`bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 ${
                                           matchedSong
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors'
@@ -1181,7 +1240,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                   </h4>
                                 </div>
 
-                                <div className="space-y-1.5">
+                                 <div className="space-y-1.5">
                                   {(item.sundaySchool?.songs || []).map((song, idx) => {
                                     const matchedSong =
                                       songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
@@ -1191,7 +1250,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     return (
                                       <div
                                         key={song.id || idx}
-                                        onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                        onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
                                         className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -1235,7 +1294,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                   </h4>
                                 </div>
 
-                                <div className="space-y-1.5">
+                                 <div className="space-y-1.5">
                                   {(item.worshipService?.songs || []).map((song, idx) => {
                                     const matchedSong =
                                       songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
@@ -1245,7 +1304,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     return (
                                       <div
                                         key={song.id || idx}
-                                        onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                        onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
                                         className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -1281,7 +1340,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                                     return (
                                       <div
-                                        onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                        onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
                                         className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -1350,7 +1409,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                                 return (
                                   <div
-                                    onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                    onClick={() => (matchedSong ? handleOpenSong(matchedSong.id, item.id) : null)}
                                     className={`bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 ${
                                       matchedSong
                                         ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors'
@@ -1378,7 +1437,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 );
                                 return (
                                   <div
-                                    onClick={() => (matchedSong ? onOpenSongDetail(matchedSong.id, item.id) : null)}
+                                    onClick={() => (matchedSong ? handleOpenSong(matchedSong.id, item.id) : null)}
                                     className={`bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1.5 ${
                                       matchedSong
                                         ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors'
@@ -1416,7 +1475,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               return (
                                 <div
                                   key={song.id || idx}
-                                  onClick={() => (targetSongId ? onOpenSongDetail(targetSongId, item.id) : null)}
+                                  onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
                                   className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                     targetSongId
                                       ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
