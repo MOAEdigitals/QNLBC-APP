@@ -415,7 +415,7 @@ export default function App() {
 
   // Tab Navigation
   const handleNavigateTab = useCallback(
-    (newTab: AppTab) => {
+    (newTab: AppTab, options?: { instantScroll?: boolean }) => {
       if (newTab === currentTab) {
         setCollapseSignals((prev) => ({
           ...prev,
@@ -426,7 +426,9 @@ export default function App() {
       window.history.pushState({ tab: newTab }, '', `#${newTab}`);
       tabHistoryRef.current.push(newTab);
       setCurrentTab(newTab);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (!options?.instantScroll) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     },
     [currentTab]
   );
@@ -971,7 +973,7 @@ export default function App() {
     }
     setSelectedSongIdForTab(songId);
     setSongNavigationTrigger({ songId, timestamp: Date.now() });
-    handleNavigateTab('songs');
+    handleNavigateTab('songs', { instantScroll: true });
   };
 
   const handleBackToSetlist = () => {

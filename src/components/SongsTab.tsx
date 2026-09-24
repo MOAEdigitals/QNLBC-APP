@@ -1,5 +1,5 @@
 import { LyricsScreenAwake } from './LyricsScreenAwake';
-import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue, useCallback } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
 import { formatDuplicateTitle, saveAudioToStorage } from '../utils/storage';
@@ -377,27 +377,80 @@ if (isEditing && !savingSongRef.current) {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
 
+  // Instantly position the selected song card so its top outline/edge is right below the sticky header (no scroll transition)
+  const alignSongCardBelowHeader = useCallback((targetSongId: string) => {
+    const align = () => {
+      const cardEl =
+        (expandedItemRef.current && expandedItemRef.current.id === `song-card-${targetSongId}` ? expandedItemRef.current : null) ||
+        document.getElementById(`song-card-${targetSongId}`);
+
+      if (!cardEl) return false;
+
+      const header = document.querySelector('header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 56;
+      const cardRect = cardEl.getBoundingClientRect();
+      const currentScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+      const cardTopDoc = cardRect.top + currentScrollY;
+
+      // Position the top outline/edge with an 8px offset right below the header
+      const targetScrollY = Math.max(0, Math.round(cardTopDoc - headerHeight - 8));
+
+      const scroller = document.scrollingElement || document.documentElement || document.body;
+      try {
+        window.scrollTo({ top: targetScrollY, behavior: 'instant' as ScrollBehavior });
+      } catch {
+        window.scrollTo(0, targetScrollY);
+      }
+      if (scroller && scroller.scrollTop !== targetScrollY) {
+        scroller.scrollTop = targetScrollY;
+      }
+      return true;
+    };
+
+    if (!align()) {
+      requestAnimationFrame(() => {
+        if (!align()) {
+          requestAnimationFrame(() => {
+            align();
+          });
+        }
+      });
+    } else {
+      requestAnimationFrame(() => {
+        align();
+      });
+    }
+  }, []);
+
+  const pendingInstantSongIdRef = useRef<string | null>(initialSelectedSongId || null);
+
   useEffect(() => {
     if (initialSelectedSongId) {
       setSelectedSongId(initialSelectedSongId);
       setCategoryFilter('all');
       setSearchQuery('');
-      setTimeout(() => {
-        expandedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
+      pendingInstantSongIdRef.current = initialSelectedSongId;
+      alignSongCardBelowHeader(initialSelectedSongId);
     }
-  }, [initialSelectedSongId]);
+  }, [initialSelectedSongId, alignSongCardBelowHeader]);
 
   useEffect(() => {
     if (songNavigationTrigger?.songId) {
       setSelectedSongId(songNavigationTrigger.songId);
       setCategoryFilter('all');
       setSearchQuery('');
-      setTimeout(() => {
-        expandedItemRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
+      pendingInstantSongIdRef.current = songNavigationTrigger.songId;
+      alignSongCardBelowHeader(songNavigationTrigger.songId);
     }
-  }, [songNavigationTrigger]);
+  }, [songNavigationTrigger, alignSongCardBelowHeader]);
+
+  useLayoutEffect(() => {
+    if (pendingInstantSongIdRef.current && selectedSongId === pendingInstantSongIdRef.current) {
+      const targetSongId = pendingInstantSongIdRef.current;
+      alignSongCardBelowHeader(targetSongId);
+      pendingInstantSongIdRef.current = null;
+    }
+  }, [selectedSongId, alignSongCardBelowHeader]);
 
   const handleCopySong = (song: Song, e?: React.MouseEvent) => {
     if (e) {
