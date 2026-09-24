@@ -977,6 +977,31 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           )}
                         </div>
 
+                        {/* Compact role summary: balanced on the line directly below title */}
+                        <div
+                          className="mt-1 flex items-center gap-2 whitespace-nowrap text-slate-500 dark:text-slate-400"
+                          style={{ fontSize: 'clamp(9px, 2.7vw, 12px)' }}
+                        >
+                          <span className="min-w-0">
+                            P: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider || 'TBD'}</span>
+                          </span>
+                          <span aria-hidden="true">•</span>
+                          {item.type === 'sunday' || !item.type ? (
+                            <>
+                              <span className="min-w-0">
+                                SS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
+                              </span>
+                              <span aria-hidden="true">•</span>
+                              <span className="min-w-0">
+                                WS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
+                              </span>
+                            </>
+                          ) : (
+                            <span className="min-w-0">
+                              Leader: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -1050,32 +1075,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         </div>
                       )}
                     </div>
-                  </div>
-
-                  {/* Compact role summary: always one line on mobile */}
-                  <div
-                    className="mt-1.5 ml-14 flex items-center gap-2 whitespace-nowrap text-slate-500 dark:text-slate-400"
-                    style={{ fontSize: 'clamp(9px, 2.7vw, 12px)' }}
-                  >
-                    <span className="min-w-0">
-                      P: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider || 'TBD'}</span>
-                    </span>
-                    <span aria-hidden="true">•</span>
-                    {item.type === 'sunday' || !item.type ? (
-                      <>
-                        <span className="min-w-0">
-                          SS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
-                        </span>
-                        <span aria-hidden="true">•</span>
-                        <span className="min-w-0">
-                          WS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
-                        </span>
-                      </>
-                    ) : (
-                      <span className="min-w-0">
-                        Leader: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
-                      </span>
-                    )}
                   </div>
 
                   {/* IN-PLACE EXPANDED ACCORDION CONTENT */}
