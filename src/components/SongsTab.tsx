@@ -1183,19 +1183,6 @@ if (isEditing && !savingSongRef.current) {
 
                     <button
                       type="button"
-                      onClick={(e) => handleCopySong(song, e)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                      title="Copy Song Title and Lyrics"
-                    >
-                      {copiedSongId === song.id ? (
-                        <Check className="w-4 h-4 text-emerald-600" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
                       onClick={(e) => handleToggleStar(song, e)}
                       className={`p-2 rounded-xl transition-all cursor-pointer select-none ${
                         song.isStarred || (song as any).starred
@@ -1339,6 +1326,21 @@ if (isEditing && !savingSongRef.current) {
                           aria-label="Stage Prompter"
                         >
                           <Maximize2 className="w-4 h-4" />
+                        </button>
+
+                        {/* Copy Song Title and Lyrics - Placed next to Fullscreen Stage View */}
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopySong(song, e)}
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-400 dark:hover:border-slate-500 transition-colors shadow-2xs cursor-pointer flex items-center justify-center"
+                          title="Copy Song Title and Lyrics"
+                          aria-label="Copy Song Title and Lyrics"
+                        >
+                          {copiedSongId === song.id ? (
+                            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
                         </button>
                       </div>
 
