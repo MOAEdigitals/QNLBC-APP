@@ -167,23 +167,15 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   initialScrollY,
   collapseSignal,
 }) => {
-  const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(() => {
-    if (initialSelectedSetlistId) return initialSelectedSetlistId;
-    try {
-      const saved =
-        localStorage.getItem('nlbc_selected_setlist_id_v1') ||
-        sessionStorage.getItem('nlbc_saved_setlist_id');
-      if (saved) return saved;
-    } catch {}
-    return null;
-  });
+  const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(
+    () => initialSelectedSetlistId || null
+  );
 
   const handleOpenSong = (songId: string, setlistId: string) => {
     const currentY = window.scrollY || document.documentElement.scrollTop || 0;
     try {
       sessionStorage.setItem('nlbc_saved_setlist_scroll_y', String(currentY));
       sessionStorage.setItem('nlbc_saved_setlist_id', setlistId);
-      localStorage.setItem('nlbc_selected_setlist_id_v1', setlistId);
     } catch {}
     onOpenSongDetail(songId, setlistId);
   };
@@ -226,16 +218,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     }
   }, [initialScrollY]);
 
-  // Persist open setlist container so returning from lyrics or external views keeps it open
-  useEffect(() => {
-    try {
-      if (selectedSetlistId) {
-        localStorage.setItem('nlbc_selected_setlist_id_v1', selectedSetlistId);
-      } else {
-        localStorage.removeItem('nlbc_selected_setlist_id_v1');
-      }
-    } catch {}
-  }, [selectedSetlistId]);
   const [isEditing, setIsEditing] = useState(false);
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
   const [showCustomTitle, setShowCustomTitle] = useState(false);
@@ -330,9 +312,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   useEffect(() => {
     if (initialSelectedSetlistId) {
       setSelectedSetlistId(initialSelectedSetlistId);
-      try {
-        localStorage.setItem('nlbc_selected_setlist_id_v1', initialSelectedSetlistId);
-      } catch {}
 
       // If scroll position was already restored to the exact position, do not override with scrollIntoView
       if (restoredScrollRef.current || initialScrollY != null) {

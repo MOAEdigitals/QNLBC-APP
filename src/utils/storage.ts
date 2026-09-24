@@ -29,6 +29,7 @@ export const LEGACY_SHARED_DATA_KEYS = [
   'nlbc_firestore_pending_queue_v1',
   'nlbc_firestore_cloud_seeded_v3',
   'nlbc_last_applied_wipe_ts',
+  'nlbc_selected_setlist_id_v1',
 ] as const;
 
 /**

@@ -432,16 +432,13 @@ export default function App() {
 
       const shouldInstantScroll = Boolean(options?.instantScroll || isReturningToSetlist);
 
-      if (newTab === 'home') {
+      if (newTab === 'home' && isReturningToSetlist) {
         const targetSetlistId =
           returnSetlistIdRef.current ||
           savedSetlistScrollPosRef.current?.setlistId ||
           (() => {
             try {
-              return (
-                localStorage.getItem('nlbc_selected_setlist_id_v1') ||
-                sessionStorage.getItem('nlbc_saved_setlist_id')
-              );
+              return sessionStorage.getItem('nlbc_saved_setlist_id');
             } catch {
               return null;
             }
@@ -476,13 +473,13 @@ export default function App() {
             Boolean(savedSetlistScrollPosRef.current) ||
             Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
 
-        if (targetTab === 'home') {
+        if (targetTab === 'home' && isReturningToSetlist) {
           const targetSetlistId =
             returnSetlistIdRef.current ||
             savedSetlistScrollPosRef.current?.setlistId ||
             (() => {
               try {
-                return localStorage.getItem('nlbc_selected_setlist_id_v1') || sessionStorage.getItem('nlbc_saved_setlist_id');
+                return sessionStorage.getItem('nlbc_saved_setlist_id');
               } catch {
                 return null;
               }
@@ -510,6 +507,14 @@ export default function App() {
 
   // Auth Handlers
   const handleSignInSuccess = async (user: UserAccount) => {
+    setInitialSelectedSetlistId(null);
+    returnSetlistIdRef.current = null;
+    savedSetlistScrollPosRef.current = null;
+    try {
+      sessionStorage.removeItem('nlbc_saved_setlist_id');
+      sessionStorage.removeItem('nlbc_saved_setlist_scroll_y');
+      localStorage.removeItem('nlbc_selected_setlist_id_v1');
+    } catch {}
     setCurrentUser(user);
     setIsLoadingInitialData(true);
     loadedSectionsRef.current.clear();
@@ -523,6 +528,14 @@ export default function App() {
 
   const handleSignOut = async () => {
     setShowLogoutConfirmModal(false);
+    setInitialSelectedSetlistId(null);
+    returnSetlistIdRef.current = null;
+    savedSetlistScrollPosRef.current = null;
+    try {
+      sessionStorage.removeItem('nlbc_saved_setlist_id');
+      sessionStorage.removeItem('nlbc_saved_setlist_scroll_y');
+      localStorage.removeItem('nlbc_selected_setlist_id_v1');
+    } catch {}
     await supabase.auth.signOut();
     loadedSectionsRef.current.clear();
     sectionLoadPromisesRef.current = {};
@@ -1018,7 +1031,6 @@ export default function App() {
     if (returnSetlistId) {
       setInitialSelectedSetlistId(returnSetlistId);
       try {
-        localStorage.setItem('nlbc_selected_setlist_id_v1', returnSetlistId);
         sessionStorage.setItem('nlbc_saved_setlist_scroll_y', String(currentScrollY));
         sessionStorage.setItem('nlbc_saved_setlist_id', returnSetlistId);
       } catch {}
@@ -1035,16 +1047,13 @@ export default function App() {
       initialSelectedSetlistId ||
       (() => {
         try {
-          return localStorage.getItem('nlbc_selected_setlist_id_v1') || sessionStorage.getItem('nlbc_saved_setlist_id');
+          return sessionStorage.getItem('nlbc_saved_setlist_id');
         } catch {
           return null;
         }
       })();
     if (targetSetlistId) {
       setInitialSelectedSetlistId(targetSetlistId);
-      try {
-        localStorage.setItem('nlbc_selected_setlist_id_v1', targetSetlistId);
-      } catch {}
     }
     handleNavigateTab('home', { instantScroll: true });
   };
