@@ -494,7 +494,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     ];
   }, [setlists, searchQuery]);
   const soonestUpcoming = useMemo(
-    () => sortedSetlists.find((s) => !isPastDate(s.date)),
+    () => sortedSetlists.find((s) => !isPastDate(s.date) && !isToday(s.date)),
     [sortedSetlists]
   );
   const selectedSetlist = useMemo(
@@ -938,7 +938,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               const isPast = isPastDate(item.date);
               const today = isToday(item.date);
               const isSelected = selectedSetlistId === item.id;
-              const isSoonest = soonestUpcoming?.id === item.id;
+              const isSoonest = !today && soonestUpcoming?.id === item.id;
 
               return (
                 <div
@@ -948,7 +948,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   className={`p-3 min-w-0 rounded-2xl border transition-all cursor-pointer ${
                     isSelected
                       ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
-                      : isSoonest
+                      : (today || isSoonest)
                       ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
                       : isPast
                       ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/70 text-slate-500 opacity-60 hover:opacity-100 grayscale hover:grayscale-0'
@@ -990,7 +990,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             {item.title || formatDateStr(item.date, { showDayOfWeek: true })}
                           </h4>
 
-                          {isSoonest && (
+                          {isSoonest && !today && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
                               ★ Upcoming
                             </span>

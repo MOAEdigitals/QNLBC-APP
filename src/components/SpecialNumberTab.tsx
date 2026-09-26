@@ -1017,7 +1017,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
   });
 
-  const soonestEntry = sortedEntries.find((e) => !isPastDate(e.scheduledDate));
+  const soonestEntry = sortedEntries.find((e) => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate));
 
   // Compute vacant fellowships or special events
   const vacantEvents = setlists.filter((s) => {
@@ -2112,7 +2112,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   const isPast = isPastDate(item.scheduledDate);
                   const today = isToday(item.scheduledDate);
                   const isSelected = selectedEntryId === item.id;
-                  const isSoonest = soonestEntry?.id === item.id;
+                  const isSoonest = !today && soonestEntry?.id === item.id;
                   const matchedSong = item.songId ? songs.find((s) => s.id === item.songId) : null;
 
                   return (
@@ -2134,7 +2134,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                         isSelected
                           ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
-                          : isSoonest
+                          : (today || isSoonest)
                           ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
                           : isPast
                           ? 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60  text-slate-500'
@@ -2175,7 +2175,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 {item.performerName}
                               </h4>
 
-                              {isSoonest && (
+                              {isSoonest && !today && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
                                   ★ Upcoming
                                 </span>
