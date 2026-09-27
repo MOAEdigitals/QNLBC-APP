@@ -45,6 +45,7 @@ export interface PracticeAudioTrackRowProps {
 export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   id,
   badgeLabel,
+  badgeCategory = 'custom',
   performerName,
   subtitle,
   audioUrl,
@@ -468,7 +469,22 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
   // Badge background coloring
   const getBadgeStyle = (_label: string) =>
-    'bg-blue-50 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200 border-blue-100 dark:border-blue-900';
+    badgeCategory === 'plus_one'
+      ? 'bg-amber-400 text-amber-950 border-amber-400'
+      : badgeCategory === 'minus_one'
+      ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900 dark:border-slate-100'
+      : 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-100 border-slate-200 dark:border-slate-700';
+
+  const compactBadgeLabel = (() => {
+    const normalized = badgeLabel.trim().toLowerCase();
+    if (normalized.startsWith('soprano')) return 'S';
+    if (normalized.startsWith('alto')) return 'A';
+    if (normalized.startsWith('tenor')) return 'T';
+    if (normalized.startsWith('bass')) return 'B';
+    if (badgeCategory === 'plus_one') return '+1';
+    if (badgeCategory === 'minus_one') return '−1';
+    return badgeLabel.trim().slice(0, 2).toUpperCase();
+  })();
 
   // External link opener
   const handleOpenExternal = (e: React.MouseEvent) => {
@@ -508,7 +524,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   return (
     <div
       id={`practice-track-${id}`}
-      className={`relative px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border transition-all duration-150 shadow-2xs ${
+      className={`relative px-2.5 py-2 rounded-xl border transition-all duration-150 ${
         isCurrentlyPlaying
           ? 'bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-500/50 dark:border-emerald-600/60 ring-1 ring-emerald-500/30'
           : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
@@ -523,23 +539,24 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         onChange={handleUploadTrackDirectly}
       />
 
-      {/* Top Row: Pill Badge + Track Title/Subtitle + Play Button + Menu */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* Compact mixer row */}
+      <div className="flex items-center gap-2">
         {/* Left Side: Badge + Track Info */}
-        <div className="flex flex-col items-start gap-1 min-w-0 basis-full sm:basis-0 sm:flex-1">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {/* Vocal / Track Category Pill Badge */}
           <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold tracking-wider uppercase border shrink-0 ${getBadgeStyle(
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black uppercase border shrink-0 ${getBadgeStyle(
               badgeLabel
             )}`}
+            title={badgeLabel}
           >
-            {badgeLabel}
+            {compactBadgeLabel}
           </span>
 
           {/* Track Title & Subtitle */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-1.5 min-w-0">
-              <h5 className="text-base font-semibold text-slate-900 dark:text-slate-100 break-words">
+              <h5 className="truncate text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">
                 {performerName}
               </h5>
               {isWebUrl && (
@@ -560,7 +577,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         </div>
 
         {/* Right Side: Circular Play Button & 3-Dots Menu */}
-        <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+        <div className="flex shrink-0 items-center gap-1">
           {/* Uploading indicator */}
           {isUploadingCloud && (
             <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 rounded-lg">
@@ -576,7 +593,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             onClick={handleTogglePlay}
             disabled={isUploadingCloud}
             aria-label={isCurrentlyPlaying ? 'Pause audio' : hasAudioSource && !audioError ? 'Play audio' : audioError && isWebUrl ? 'Open link' : 'Record audio'}
-            className={`min-h-12 px-4 gap-2 rounded-xl flex items-center justify-center transition-all duration-150 cursor-pointer shadow-xs hover:scale-105 active:scale-95 ${
+            className={`h-9 w-9 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-xs active:scale-95 ${
               isCurrentlyPlaying
                 ? 'bg-emerald-600 text-white hover:bg-emerald-500'
                 : hasAudioSource && !audioError
@@ -604,7 +621,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             ) : (
               <Mic className="w-3.5 h-3.5" />
             )}
-            <span className="text-sm font-semibold">{isCurrentlyPlaying ? 'Pause' : hasAudioSource && !audioError ? 'Play' : audioError && isWebUrl ? 'Open link' : 'Record'}</span>
           </button>
 
           {/* 3-Dots Dropdown Menu */}
@@ -617,9 +633,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 setIsMenuOpen(!isMenuOpen);
               }}
               aria-label="Track options"
-              className="min-h-11 px-2 gap-1 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              className="h-9 w-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
-              <MoreVertical className="w-4 h-4" /><span className="text-sm">Actions</span>
+              <MoreVertical className="w-4 h-4" />
             </button>
 
             {/* Dropdown Popover */}
@@ -729,7 +745,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       </div>
 
       {/* Bottom Row: Compact Scrubber Line + [00:30] ................ [🔁] */}
-      <div className="mt-2 pt-0.5 space-y-1">
+      <div className="mt-1.5 ml-12 space-y-0.5">
         {/* Interactive Scrubber Track Bar */}
         <div
           ref={progressBarRef}
