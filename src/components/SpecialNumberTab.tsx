@@ -403,7 +403,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const savingVocalPartRef = useRef(false);
   const vocalPartSubmissionIdRef = useRef<string | null>(null);
   const [vocalPartSaveError, setVocalPartSaveError] = useState<string | null>(null);
-  const [vocalPartSaveNotice, setVocalPartSaveNotice] = useState('');
   const [vocalPartModalGroup, setVocalPartModalGroup] = useState<PracticeGroupEntry | null>(null);
   const [editingVocalPartIndex, setEditingVocalPartIndex] = useState<number | null>(null);
   const [vocalPartLabel, setVocalPartLabel] = useState<VocalPartLabel>('Soprano');
@@ -1768,7 +1767,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   ) => {
     if (savingVocalPartRef.current) return;
     setVocalPartSaveError(null);
-    setVocalPartSaveNotice('');
     setVocalPartModalGroup(group);
     setIsRecording(false);
     setRecordingSeconds(0);
@@ -1912,7 +1910,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }
       savingVocalPartRef.current = false;
       handleCloseVocalPartModal();
-      setVocalPartSaveNotice('Vocal part saved.');
     } catch (err) {
       console.error('Failed to persist vocal part:', err);
       setVocalPartSaveError(
@@ -3712,12 +3709,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* ADD / EDIT VOCAL PART MODAL */}
       {/* ========================================================================= */}
-      {vocalPartSaveNotice && (
-        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-emerald-700 px-5 py-3 text-sm text-white shadow-lg">
-          {vocalPartSaveNotice}
-          <button type="button" aria-label="Dismiss notification" onClick={() => setVocalPartSaveNotice('')} className="ml-4">×</button>
-        </div>
-      )}
       {isAddingVocalPartModal && vocalPartModalGroup && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
