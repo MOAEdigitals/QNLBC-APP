@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Play,
   Pause,
   MoreVertical,
   Repeat,
@@ -8,14 +7,12 @@ import {
   Trash2,
   Mic,
   Download,
-  Music,
   AlertCircle,
   ExternalLink,
   Upload,
   RefreshCw,
   Loader2,
   Cloud,
-  CheckCircle2,
 } from 'lucide-react';
 import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStorage';
 import {
@@ -47,7 +44,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   badgeLabel,
   badgeCategory = 'custom',
   performerName,
-  subtitle,
   audioUrl,
   isCurrentlyPlaying,
   onPlay,
@@ -514,20 +510,18 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
   const progressPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
   const hasAudioSource = Boolean(resolvedAudioSrc || (audioUrl && audioUrl.trim()));
-  const isCloudSynced = Boolean(
-    audioUrl &&
-      (audioUrl.startsWith('http://') ||
-        audioUrl.startsWith('https://') ||
-        audioUrl.startsWith('firestore:media:'))
-  );
+  const waveformBars = Array.from({ length: 36 }, (_, index) => {
+    const seed = `${id}:${badgeLabel}`.charCodeAt(index % `${id}:${badgeLabel}`.length);
+    return 5 + ((seed * (index + 3)) % 18);
+  });
 
   return (
     <div
       id={`practice-track-${id}`}
-      className={`relative px-2.5 py-2 rounded-xl border transition-all duration-150 ${
+      className={`relative rounded-lg px-1.5 py-1.5 transition-colors duration-150 ${
         isCurrentlyPlaying
-          ? 'bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-500/50 dark:border-emerald-600/60 ring-1 ring-emerald-500/30'
-          : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+          ? 'bg-amber-50 dark:bg-amber-950/20'
+          : 'bg-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'
       }`}
     >
       {/* Hidden file input for laptop/desktop direct MP3 upload */}
@@ -539,51 +533,56 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         onChange={handleUploadTrackDirectly}
       />
 
-      {/* Compact mixer row */}
-      <div className="flex items-center gap-2">
-        {/* Left Side: Badge + Track Info */}
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          {/* Vocal / Track Category Pill Badge */}
+      {/* One-line mixer: tap the badge to play, tap the waveform to seek. */}
+      <div className="flex min-h-10 items-center gap-2">
+        <div className="shrink-0">
           <button
             type="button"
             onClick={handleTogglePlay}
             disabled={isUploadingCloud}
             aria-label={`${isCurrentlyPlaying ? 'Pause' : 'Play'} ${badgeLabel} track`}
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black uppercase border shrink-0 ${getBadgeStyle(
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-black uppercase ${getBadgeStyle(
               badgeLabel
             )} transition-transform active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
-              isCurrentlyPlaying ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''
+              isCurrentlyPlaying ? 'ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-slate-900' : ''
             }`}
             title={`${isCurrentlyPlaying ? 'Pause' : 'Play'} ${badgeLabel}`}
           >
-            {isCurrentlyPlaying ? <Pause className="h-4 w-4 fill-current" /> : compactBadgeLabel}
+            {isCurrentlyPlaying ? <Pause className="h-3.5 w-3.5 fill-current" /> : compactBadgeLabel}
           </button>
-
-          {/* Track Title & Subtitle */}
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center space-x-1.5 min-w-0">
-              <h5 className="truncate text-xs font-bold text-slate-900 dark:text-slate-100 sm:text-sm">
-                {performerName}
-              </h5>
-              {isWebUrl && (
-                <span
-                  title="Web link"
-                  className="inline-flex items-center text-sky-500 hover:text-sky-600 shrink-0"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                </span>
-              )}
-            </div>
-            {subtitle && (
-              <p className="text-[11px] text-slate-700 dark:text-slate-300 truncate mt-0.5">
-                {subtitle}
-              </p>
-            )}
-          </div>
         </div>
 
-        {/* Right Side: sync state and track actions. The labeled badge is the play control. */}
-        <div className="flex shrink-0 items-center gap-1">
+        <div
+          ref={progressBarRef}
+          onMouseDown={handleProgressBarMouseDown}
+          onTouchStart={handleProgressBarTouchStart}
+          className="flex h-8 min-w-0 flex-1 cursor-pointer items-center gap-[2px] overflow-hidden px-0.5"
+          role="slider"
+          aria-label={`Seek ${badgeLabel} track`}
+          aria-valuenow={currentTime}
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          tabIndex={0}
+        >
+          {waveformBars.map((height, index) => (
+            <span
+              key={index}
+              aria-hidden="true"
+              className={`min-w-[2px] flex-1 rounded-full transition-colors ${
+                index / waveformBars.length <= progressPercent / 100
+                  ? 'bg-amber-500'
+                  : 'bg-slate-300 dark:bg-slate-600'
+              }`}
+              style={{ height: `${height}px` }}
+            />
+          ))}
+        </div>
+
+        <span className="w-9 shrink-0 text-right font-mono text-[9px] text-slate-400" title="Time remaining">
+          {formatTime(Math.max(0, duration - currentTime))}
+        </span>
+
+        <div className="flex shrink-0 items-center">
           {/* Uploading indicator */}
           {isUploadingCloud && (
             <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-1 rounded-lg">
@@ -673,6 +672,19 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    setIsLooping(!isLooping);
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Repeat className={`w-3.5 h-3.5 ${isLooping ? 'text-emerald-500' : 'text-slate-500'}`} />
+                  <span>{isLooping ? 'Turn Repeat Off' : 'Repeat Track'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setIsMenuOpen(false);
                     onEdit();
                   }}
@@ -713,64 +725,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         </div>
       </div>
 
-      {/* Bottom Row: Compact Scrubber Line + [00:30] ................ [🔁] */}
-      <div className="mt-1.5 ml-12 space-y-0.5">
-        {/* Interactive Scrubber Track Bar */}
-        <div
-          ref={progressBarRef}
-          onMouseDown={handleProgressBarMouseDown}
-          onTouchStart={handleProgressBarTouchStart}
-          className="relative w-full h-3 flex items-center cursor-pointer group py-0.5"
-          role="slider"
-          aria-valuenow={currentTime}
-          aria-valuemin={0}
-          aria-valuemax={duration}
-          tabIndex={0}
-        >
-          {/* Background Track Line */}
-          <div className="w-full h-1 bg-slate-900/80 dark:bg-slate-700 rounded-full relative overflow-visible">
-            {/* Played Progress Line */}
-            <div
-              className="absolute left-0 top-0 bottom-0 bg-emerald-500 rounded-full"
-              style={{ width: `${progressPercent}%` }}
-            />
-            {/* Green Circular Thumb Dot Indicator */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900 shadow-xs transition-transform group-hover:scale-125"
-              style={{ left: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Countdown Remaining Time & Repeat Loop Button */}
-        <div className="flex items-center justify-between text-[11px] font-mono text-slate-700 dark:text-slate-300 select-none">
-          {/* Remaining Countdown Time (starts at total duration, counts down to 00:00) */}
-          <span className="font-semibold tracking-wider" title="Remaining time">
-            {formatTime(Math.max(0, duration - currentTime))}
-          </span>
-
-          {/* Right Side: Loop / Repeat Icon Button */}
-          <div className="flex items-center space-x-1">
-            <button
-              type="button"
-              id={`loop-btn-${id}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsLooping(!isLooping);
-              }}
-              aria-label={isLooping ? 'Repeat loop enabled' : 'Repeat loop disabled'}
-              className={`p-0.5 rounded transition-colors cursor-pointer flex items-center justify-center ${
-                isLooping
-                  ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400'
-                  : 'text-slate-400 hover:text-slate-800 dark:hover:text-white'
-              }`}
-              title={isLooping ? 'Repeat loop: ON' : 'Repeat loop: OFF'}
-            >
-              <Repeat className={`w-3.5 h-3.5 ${isLooping ? 'stroke-[2.5]' : ''}`} />
-            </button>
-          </div>
-        </div>
-
+      <div className="ml-11">
         {/* Audio Missing on Current Device (e.g. Phone -> Laptop sync pending) */}
         {audioError === 'Saved audio recording not found on this device' ? (
           <div className="mt-1.5 p-2 rounded-lg bg-sky-500/10 border border-sky-500/25 text-slate-800 dark:text-slate-200 text-xs space-y-1.5">
