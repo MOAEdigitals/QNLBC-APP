@@ -39,6 +39,8 @@ test('track saves use a synchronous lock and a stable id so double taps and retr
   assert.match(practiceTab, /savingTrackRef\.current\) return/);
   assert.match(practiceTab, /disabled=\{isUploadingCloudMedia \|\| isSavingTrack \|\| !trackUrlOrData\.trim\(\)\}/);
   assert.match(practiceTab, /<span>\{isSavingTrack \? 'Saving…' : 'Syncing Cloud\.\.\.'\}<\/span>/);
+  assert.doesNotMatch(practiceTab, /Track saved\./);
+  assert.doesNotMatch(practiceTab, /trackSaveNotice/);
 });
 
 test('practice creation saves new songs and captures rehearsal date and time', () => {
