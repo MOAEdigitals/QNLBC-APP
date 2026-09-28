@@ -35,7 +35,6 @@ import {
   getYouTubeEmbedUrl,
 } from '../utils/mediaUtils';
 import { AutofillInput } from './AutofillInput';
-import { InlinePracticeAudioPlayer } from './InlinePracticeAudioPlayer';
 import { PracticeAudioTrackRow } from './PracticeAudioTrackRow';
 import {
   Mic2,
@@ -392,6 +391,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [trackUrlOrData, setTrackUrlOrData] = useState('');
   const [trackFileName, setTrackFileName] = useState('');
   const [trackType, setTrackType] = useState<'link' | 'audio' | 'video' | 'file'>('link');
+  const [isSavingTrack, setIsSavingTrack] = useState(false);
+  const savingTrackRef = useRef(false);
+  const trackSubmissionIdRef = useRef<string | null>(null);
+  const [trackSaveError, setTrackSaveError] = useState<string | null>(null);
+  const [trackSaveNotice, setTrackSaveNotice] = useState('');
 
   // Modal 2: Add/Edit Vocal Part Modal
   const [isAddingVocalPartModal, setIsAddingVocalPartModal] = useState(false);
@@ -545,36 +549,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }, 2500);
     } catch (err) {
       console.error('Failed to copy lyrics:', err);
-    }
-  };
-
-  // In-line Audio Player state for Vocal Parts & Audio Tracks
-  const [activeInlineTrack, setActiveInlineTrack] = useState<{
-    trackId: string;
-    url: string;
-    trackLabel?: string;
-    trackCategory: 'vocal_part' | 'attachment';
-    groupId: string;
-  } | null>(null);
-
-  const handleTogglePlayInlineAudio = (
-    trackId: string,
-    rawUrl: string,
-    trackLabel?: string,
-    trackCategory: 'vocal_part' | 'attachment' = 'vocal_part',
-    groupId: string = ''
-  ) => {
-    if (activeInlineTrack?.trackId === trackId) {
-      setActiveInlineTrack(null);
-    } else {
-      setActivePracticeMedia(null);
-      setActiveInlineTrack({
-        trackId,
-        url: rawUrl,
-        trackLabel,
-        trackCategory,
-        groupId,
-      });
     }
   };
 
@@ -1373,9 +1347,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Handlers for Add/Edit Track & Attachment Modal (Image 2 style)
   const handleOpenAddTrackModal = (group: PracticeGroupEntry, trackIndex?: number) => {
+    if (savingTrackRef.current) return;
     setTrackModalGroup(group);
+    setTrackSaveError(null);
     if (trackIndex !== undefined && group.customAttachments?.[trackIndex]) {
       const track = group.customAttachments[trackIndex];
+      trackSubmissionIdRef.current = isUUID(track.id) ? track.id : generateUUID();
       setEditingTrackIndex(trackIndex);
       setTrackCategory(track.category || 'minus_one');
       setTrackTitle(track.name || '');
@@ -1388,6 +1365,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }
       setTrackType(track.type || 'link');
     } else {
+      trackSubmissionIdRef.current = generateUUID();
       setEditingTrackIndex(null);
       setTrackCategory('minus_one');
       setTrackTitle('');
@@ -1400,16 +1378,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   const handleSaveTrackModalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackModalGroup) return;
+    if (!trackModalGroup || !trackSubmissionIdRef.current || savingTrackRef.current) return;
+    savingTrackRef.current = true;
+    setIsSavingTrack(true);
+    setTrackSaveError(null);
 
+    try {
     const finalTitle =
       trackTitle.trim() ||
       (trackFileName ? trackFileName.replace(/\.[^/.]+$/, '') : (trackCategory === 'plus_one' ? 'Plus One (+1) Vocal Track' : 'Minus One (-1) Track'));
 
-    const attId =
-      editingTrackIndex !== null && trackModalGroup.customAttachments?.[editingTrackIndex]?.id && isUUID(trackModalGroup.customAttachments[editingTrackIndex].id)
-        ? trackModalGroup.customAttachments[editingTrackIndex].id
-        : generateUUID();
+    const attId = trackSubmissionIdRef.current;
 
     let finalUrl = trackUrlOrData.trim();
     if (finalUrl) {
@@ -1465,11 +1444,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const currentList = [...(liveGroup.customAttachments || liveGroup.attachments || [])];
     if (editingTrackIndex !== null && editingTrackIndex < currentList.length) {
       currentList[editingTrackIndex] = attachmentObj;
+    } else if (currentList.some((item) => item.id === attId)) {
+      currentList[currentList.findIndex((item) => item.id === attId)] = attachmentObj;
     } else {
       currentList.push(attachmentObj);
     }
 
-    try {
       if (onSavePracticeTrack) {
         await onSavePracticeTrack(
           liveGroup.id,
@@ -1492,8 +1472,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setIsAddingTrackModal(false);
       setTrackModalGroup(null);
       setEditingTrackIndex(null);
+      trackSubmissionIdRef.current = null;
+      setTrackSaveNotice('Track saved.');
     } catch (err) {
       console.error('Failed to persist rehearsal track:', err);
+      setTrackSaveError(
+        (err as { message?: string })?.message || 'Could not save track. Please try again.'
+      );
+    } finally {
+      savingTrackRef.current = false;
+      setIsSavingTrack(false);
     }
   };
 
@@ -2838,19 +2826,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 </div>
                               )}
 
-                            {/* REHEARSAL AUDIO PLAYER (Appears directly under Rehearsal Tracks when triggered) */}
-                            {activeInlineTrack &&
-                              activeInlineTrack.groupId === group.id &&
-                              activeInlineTrack.trackCategory === 'attachment' && (
-                                <InlinePracticeAudioPlayer
-                                  trackId={activeInlineTrack.trackId}
-                                  url={activeInlineTrack.url}
-                                  trackLabel={activeInlineTrack.trackLabel}
-                                  trackCategory="attachment"
-                                  groupId={group.id}
-                                  onClose={() => setActiveInlineTrack(null)}
-                                />
-                              )}
                           </div>
 
                           {/* 1. TOP HEADER SECTION: Lyrics with Expand / Collapse Option */}
@@ -3498,6 +3473,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* ADD / EDIT TRACK OR ATTACHMENT MODAL (IMAGE 2 STYLE) */}
       {/* ========================================================================= */}
+      {trackSaveNotice && (
+        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-emerald-700 px-5 py-3 text-sm text-white shadow-lg">
+          {trackSaveNotice}
+          <button type="button" aria-label="Dismiss notification" onClick={() => setTrackSaveNotice('')} className="ml-4">×</button>
+        </div>
+      )}
       {isAddingTrackModal && trackModalGroup && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
@@ -3519,10 +3500,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                   if (savingTrackRef.current) return;
                   setIsAddingTrackModal(false);
                   setTrackModalGroup(null);
                   setEditingTrackIndex(null);
+                   trackSubmissionIdRef.current = null;
                 }}
+                 disabled={isSavingTrack}
+                 aria-label="Close track modal"
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -3531,6 +3516,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
             {/* Modal Form */}
             <form onSubmit={handleSaveTrackModalSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
+              {trackSaveError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{trackSaveError}</p>}
               {/* Attachment Category (Segmented Buttons matching Image 2) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -3692,24 +3678,26 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    if (savingTrackRef.current) return;
                     setIsAddingTrackModal(false);
                     setTrackModalGroup(null);
                     setEditingTrackIndex(null);
+                    trackSubmissionIdRef.current = null;
                   }}
-                  disabled={isUploadingCloudMedia}
+                  disabled={isUploadingCloudMedia || isSavingTrack}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isUploadingCloudMedia || !trackUrlOrData.trim()}
+                  disabled={isUploadingCloudMedia || isSavingTrack || !trackUrlOrData.trim()}
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                 >
-                  {isUploadingCloudMedia ? (
+                  {isSavingTrack || isUploadingCloudMedia ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Syncing Cloud...</span>
+                      <span>{isSavingTrack ? 'Saving…' : 'Syncing Cloud...'}</span>
                     </>
                   ) : (
                     <span>Save Attachment</span>

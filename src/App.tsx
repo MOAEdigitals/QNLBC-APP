@@ -880,8 +880,19 @@ export default function App() {
       throw new Error('Your account does not have UPLOAD permission.');
     }
     const saved = await supabaseSavePracticeAttachment(practiceId, attachment, position);
-    const fresh = await fetchPracticeEntries();
-    setPracticeEntries(fresh);
+    setPracticeEntries((entries) => entries.map((entry) => {
+      if (entry.id !== practiceId) return entry;
+      const attachments = [...(entry.customAttachments || entry.attachments || [])];
+      const index = attachments.findIndex((item) => item.id === saved.id);
+      if (index >= 0) attachments[index] = saved;
+      else attachments.push(saved);
+      attachments.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+      return { ...entry, customAttachments: attachments, attachments };
+    }));
+    // Persistence is complete. A refresh must never turn it into a failed save.
+    void fetchPracticeEntries().then(setPracticeEntries).catch((error) => {
+      console.warn('Practice track saved, but practice refresh failed:', error);
+    });
     return saved;
   };
 

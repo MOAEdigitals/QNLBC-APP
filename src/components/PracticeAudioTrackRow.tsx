@@ -544,14 +544,20 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         {/* Left Side: Badge + Track Info */}
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {/* Vocal / Track Category Pill Badge */}
-          <span
+          <button
+            type="button"
+            onClick={handleTogglePlay}
+            disabled={isUploadingCloud}
+            aria-label={`${isCurrentlyPlaying ? 'Pause' : 'Play'} ${badgeLabel} track`}
             className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-sm font-black uppercase border shrink-0 ${getBadgeStyle(
               badgeLabel
-            )}`}
-            title={badgeLabel}
+            )} transition-transform active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
+              isCurrentlyPlaying ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' : ''
+            }`}
+            title={`${isCurrentlyPlaying ? 'Pause' : 'Play'} ${badgeLabel}`}
           >
-            {compactBadgeLabel}
-          </span>
+            {isCurrentlyPlaying ? <Pause className="h-4 w-4 fill-current" /> : compactBadgeLabel}
+          </button>
 
           {/* Track Title & Subtitle */}
           <div className="min-w-0 flex-1">
@@ -576,7 +582,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           </div>
         </div>
 
-        {/* Right Side: Circular Play Button & 3-Dots Menu */}
+        {/* Right Side: sync state and track actions. The labeled badge is the play control. */}
         <div className="flex shrink-0 items-center gap-1">
           {/* Uploading indicator */}
           {isUploadingCloud && (
@@ -585,43 +591,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
               <span>{uploadProgress > 0 ? `${uploadProgress}%` : 'Syncing...'}</span>
             </div>
           )}
-
-          {/* Play / Pause Circular Button */}
-          <button
-            type="button"
-            id={`play-btn-${id}`}
-            onClick={handleTogglePlay}
-            disabled={isUploadingCloud}
-            aria-label={isCurrentlyPlaying ? 'Pause audio' : hasAudioSource && !audioError ? 'Play audio' : audioError && isWebUrl ? 'Open link' : 'Record audio'}
-            className={`h-9 w-9 rounded-full flex items-center justify-center transition-all duration-150 cursor-pointer shadow-xs active:scale-95 ${
-              isCurrentlyPlaying
-                ? 'bg-emerald-600 text-white hover:bg-emerald-500'
-                : hasAudioSource && !audioError
-                ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950 hover:bg-slate-800 dark:hover:bg-slate-100'
-                : audioError && isWebUrl
-                ? 'bg-sky-600 text-white hover:bg-sky-500'
-                : 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-rose-600 hover:text-white'
-            }`}
-            title={
-              hasAudioSource && !audioError
-                ? isCurrentlyPlaying
-                  ? 'Pause Audio'
-                  : 'Play Audio'
-                : audioError && isWebUrl
-                ? 'Open link in new tab'
-                : 'No audio recorded yet — click to record'
-            }
-          >
-            {isCurrentlyPlaying ? (
-              <Pause className="w-4 h-4 fill-current" />
-            ) : hasAudioSource && !audioError ? (
-              <Play className="w-4 h-4 fill-current ml-0.5" />
-            ) : audioError && isWebUrl ? (
-              <ExternalLink className="w-3.5 h-3.5" />
-            ) : (
-              <Mic className="w-3.5 h-3.5" />
-            )}
-          </button>
 
           {/* 3-Dots Dropdown Menu */}
           <div className="relative" ref={menuRef}>

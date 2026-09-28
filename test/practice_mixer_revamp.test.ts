@@ -15,9 +15,23 @@ test('saved practices present vocal and backing audio in one mixer', () => {
 test('audio mixer rows stay compact on mobile and expose icon controls', () => {
   assert.match(trackRow, /if \(normalized\.startsWith\('soprano'\)\) return 'S'/);
   assert.match(trackRow, /if \(normalized\.startsWith\('alto'\)\) return 'A'/);
-  assert.match(trackRow, /aria-label=\{isCurrentlyPlaying \? 'Pause audio'/);
+  assert.match(trackRow, /onClick=\{handleTogglePlay\}[\s\S]*?aria-label=\{`\$\{isCurrentlyPlaying \? 'Pause' : 'Play'\} \$\{badgeLabel\} track`\}/);
   assert.match(trackRow, /aria-label="Track options"/);
+  assert.doesNotMatch(trackRow, /id=\{`play-btn-\$\{id\}`\}/);
   assert.doesNotMatch(trackRow, />Actions<\/span>/);
+});
+
+test('practice details do not render a second expanded audio player below the mixer', () => {
+  assert.doesNotMatch(practiceTab, /InlinePracticeAudioPlayer/);
+  assert.doesNotMatch(practiceTab, /activeInlineTrack/);
+});
+
+test('track saves use a synchronous lock and a stable id so double taps and retries are idempotent', () => {
+  assert.match(practiceTab, /const savingTrackRef = useRef\(false\)/);
+  assert.match(practiceTab, /trackSubmissionIdRef\.current = generateUUID\(\)/);
+  assert.match(practiceTab, /savingTrackRef\.current\) return/);
+  assert.match(practiceTab, /disabled=\{isUploadingCloudMedia \|\| isSavingTrack \|\| !trackUrlOrData\.trim\(\)\}/);
+  assert.match(practiceTab, /<span>\{isSavingTrack \? 'Saving…' : 'Syncing Cloud\.\.\.'\}<\/span>/);
 });
 
 test('practice creation saves new songs and captures rehearsal date and time', () => {

@@ -1331,7 +1331,9 @@ export async function savePracticeAttachment(
         .eq('id', existingResult.data.id)
         .select('*')
         .single()
-    : await supabase.from('attachments').insert(payload).select('*').single();
+    // Reuse the modal's stable UUID so retrying after a lost response updates
+    // the same attachment instead of inserting a duplicate row.
+    : await supabase.from('attachments').insert({ ...payload, id: attachment.id }).select('*').single();
   if (error || !data) throw error || new Error('No attachment returned after save');
   return mapAttachmentFromDB(data);
 }

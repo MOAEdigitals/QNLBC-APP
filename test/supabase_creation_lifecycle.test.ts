@@ -99,6 +99,12 @@ describe('Supabase record creation lifecycle', () => {
     assert.equal(memberSave.includes(".from('practice_entries')\n    .update"), false);
   });
 
+  it('reuses a stable rehearsal-track UUID and treats refresh as best effort', () => {
+    assert.ok(dataLayer.includes(".insert({ ...payload, id: attachment.id })"));
+    assert.ok(app.includes("console.warn('Practice track saved, but practice refresh failed:'"));
+    assert.ok(app.includes('const index = attachments.findIndex((item) => item.id === saved.id)'));
+  });
+
   it('enforces granular permissions in Supabase and keeps upload ownership scoped', () => {
     assert.ok(permissionsMigration.includes('can_add boolean not null default false'));
     assert.ok(permissionsMigration.includes('can_edit boolean not null default false'));
