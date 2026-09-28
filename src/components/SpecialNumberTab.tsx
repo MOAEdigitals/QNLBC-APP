@@ -1030,6 +1030,20 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
   });
 
+  // Tab badges are actionable counts, not archive totals. Include today and
+  // future items only; undated, unfinished practices remain active/current.
+  const currentScheduleCount = specialNumbers.filter(
+    (entry) => !isPastDate(entry.scheduledDate)
+  ).length;
+  const currentPracticeCount = practiceEntries.filter((entry) => {
+    if (entry.isDone) return false;
+    const date = entry.practiceDate || entry.targetDate || '';
+    return !date || !isPastDate(date);
+  }).length;
+  const currentChoirCount = choirEntries.filter(
+    (entry) => !entry.isDone && !isPastDate(entry.date)
+  ).length;
+
   // Helper for YouTube embed
   const getYouTubeEmbedUrl = (url?: string) => {
     if (!url) return null;
@@ -1952,7 +1966,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         >
           <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
           <span>Schedules</span>
-          {specialNumbers.length > 0 && (
+          {currentScheduleCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
                 activeSubTab === 'schedules'
@@ -1960,7 +1974,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
               }`}
             >
-              {specialNumbers.length}
+              {currentScheduleCount}
             </span>
           )}
         </button>
@@ -1976,7 +1990,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         >
           <Users className="w-4 h-4 text-emerald-500 shrink-0" />
           <span>Practice</span>
-          {practiceEntries.length > 0 && (
+          {currentPracticeCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
                 activeSubTab === 'practice'
@@ -1984,7 +1998,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
               }`}
             >
-              {practiceEntries.length}
+              {currentPracticeCount}
             </span>
           )}
         </button>
@@ -2000,7 +2014,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         >
           <Music className="w-4 h-4 text-sky-500 shrink-0" />
           <span>Choir</span>
-          {choirEntries.length > 0 && (
+          {currentChoirCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
                 activeSubTab === 'choir'
@@ -2008,7 +2022,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
               }`}
             >
-              {choirEntries.length}
+              {currentChoirCount}
             </span>
           )}
         </button>
