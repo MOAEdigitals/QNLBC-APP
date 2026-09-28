@@ -395,7 +395,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const savingTrackRef = useRef(false);
   const trackSubmissionIdRef = useRef<string | null>(null);
   const [trackSaveError, setTrackSaveError] = useState<string | null>(null);
-  const [trackSaveNotice, setTrackSaveNotice] = useState('');
 
   // Modal 2: Add/Edit Vocal Part Modal
   const [isAddingVocalPartModal, setIsAddingVocalPartModal] = useState(false);
@@ -1486,7 +1485,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       setTrackModalGroup(null);
       setEditingTrackIndex(null);
       trackSubmissionIdRef.current = null;
-      setTrackSaveNotice('Track saved.');
     } catch (err) {
       console.error('Failed to persist rehearsal track:', err);
       setTrackSaveError(
@@ -3484,12 +3482,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* ADD / EDIT TRACK OR ATTACHMENT MODAL (IMAGE 2 STYLE) */}
       {/* ========================================================================= */}
-      {trackSaveNotice && (
-        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-xl bg-emerald-700 px-5 py-3 text-sm text-white shadow-lg">
-          {trackSaveNotice}
-          <button type="button" aria-label="Dismiss notification" onClick={() => setTrackSaveNotice('')} className="ml-4">×</button>
-        </div>
-      )}
       {isAddingTrackModal && trackModalGroup && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
