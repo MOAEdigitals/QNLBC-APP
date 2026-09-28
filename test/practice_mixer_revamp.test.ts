@@ -21,6 +21,13 @@ test('audio mixer rows stay compact on mobile and expose icon controls', () => {
   assert.doesNotMatch(trackRow, />Actions<\/span>/);
 });
 
+test('mixer uses one-line waveform rows without visible performer names or a lower player', () => {
+  assert.match(trackRow, /const waveformBars = Array\.from\(\{ length: 36 \}/);
+  assert.match(trackRow, /aria-label=\{`Seek \$\{badgeLabel\} track`\}/);
+  assert.doesNotMatch(trackRow, /\{performerName\}\s*<\/h5>/);
+  assert.doesNotMatch(trackRow, /id=\{`loop-btn-\$\{id\}`\}/);
+});
+
 test('practice details do not render a second expanded audio player below the mixer', () => {
   assert.doesNotMatch(practiceTab, /InlinePracticeAudioPlayer/);
   assert.doesNotMatch(practiceTab, /activeInlineTrack/);
