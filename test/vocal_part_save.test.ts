@@ -110,7 +110,7 @@ function modal(persist: (...args: any[]) => Promise<any>, refresh = async () => 
     saveAudioToStorage: async () => {},
     onSavePracticeEntry: undefined,
   };
-  for (const state of ['IsSavingVocalPart', 'VocalPartSaveError', 'VocalPartSaveNotice', 'VocalPartLabel',
+  for (const state of ['IsSavingVocalPart', 'VocalPartSaveError', 'VocalPartLabel',
     'VocalPartCustomLabel', 'VocalPartAssignedUsers', 'VocalPartAudioUrl', 'VocalPartFileName',
     'VocalPartAudioInputMode', 'IsAddingVocalPartModal', 'VocalPartModalGroup', 'EditingVocalPartIndex',
     'RecordingError', 'IsRecording', 'RecordingSeconds']) {
@@ -129,7 +129,7 @@ function modal(persist: (...args: any[]) => Promise<any>, refresh = async () => 
   return { context, entries: () => entries, warnings, tap: () => context.submit({ preventDefault() {} }) };
 }
 
-it('one successful tap persists once, updates local state, closes, resets and reports success despite refresh failure', async () => {
+it('one successful tap persists once, updates local state, closes and resets despite refresh failure', async () => {
   const db = database();
   const ui = modal(db.save);
   await ui.tap();
@@ -138,7 +138,6 @@ it('one successful tap persists once, updates local state, closes, resets and re
   assert.equal(ui.context.isAddingVocalPartModal, false);
   assert.equal(ui.context.cleaned, true);
   assert.equal(ui.context.vocalPartAudioUrl, '');
-  assert.equal(ui.context.vocalPartSaveNotice, 'Vocal part saved.');
   assert.equal(ui.entries()[0].vocalParts[0].id, partId);
   assert.equal(ui.entries()[0].vocalParts[0].revision, 1);
   assert.equal(ui.warnings.length, 1);
@@ -253,9 +252,10 @@ it('editing reuses the existing UUID and attachment metadata', async () => {
   assert.equal(db.rows.attachments[0].external_url, 'https://audio.example/new');
 });
 
-it('modal renders error/success feedback and disables editing and close controls while saving', () => {
-  const modalMarkup = component.slice(component.indexOf('{vocalPartSaveNotice && ('), component.indexOf('{/* CHOIR MODAL'));
-  assert.match(modalMarkup, /role="status"/);
+it('modal renders error feedback, no success popup, and disables controls while saving', () => {
+  const modalMarkup = component.slice(component.indexOf('{isAddingVocalPartModal && vocalPartModalGroup && ('), component.indexOf('{/* CHOIR MODAL'));
+  assert.doesNotMatch(component, /Vocal part saved\./);
+  assert.doesNotMatch(modalMarkup, /role="status"/);
   assert.match(modalMarkup, /role="alert"/);
   assert.match(modalMarkup, /<fieldset disabled=\{isSavingVocalPart\}/);
   assert.match(modalMarkup, /onClick=\{handleCloseVocalPartModal\}\s+disabled=\{isSavingVocalPart\}/);
