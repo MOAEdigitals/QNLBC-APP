@@ -43,10 +43,27 @@ test('track saves use a synchronous lock and a stable id so double taps and retr
   assert.doesNotMatch(practiceTab, /trackSaveNotice/);
 });
 
-test('practice creation saves new songs and captures rehearsal date and time', () => {
+test('practice creation saves new songs without exposing a separate practice date or time', () => {
   assert.match(practiceTab, /if \(!matchedSong && onSaveSong && isNew\)/);
   assert.doesNotMatch(practiceTab, /if \(!matchedSong && onSaveSong && !isEditingPractice\)/);
-  assert.match(practiceTab, /value=\{editingPractice\.practiceDate \|\| ''\}/);
-  assert.match(practiceTab, /value=\{editingPractice\.practiceTime \|\| ''\}/);
+  assert.doesNotMatch(practiceTab, /value=\{editingPractice\.practiceDate \|\| ''\}/);
+  assert.doesNotMatch(practiceTab, /value=\{editingPractice\.practiceTime \|\| ''\}/);
+  assert.doesNotMatch(practiceTab, /1\. Choose the song and practice details/);
   assert.match(practiceTab, /disabled=\{isSavingPractice\}[\s\S]*?Close practice form/);
+});
+
+test('saved practice cards open from the whole card and use icon-only header controls', () => {
+  assert.match(practiceTab, /if \(!isSelected\) setSelectedPracticeId\(group\.id\)/);
+  assert.match(practiceTab, /aria-label="Practice actions"/);
+  assert.match(practiceTab, /aria-label="Close practice"/);
+  assert.doesNotMatch(practiceTab, />Open<\/button>/);
+  assert.doesNotMatch(practiceTab, /<summary>Actions<\/summary>/);
+  assert.doesNotMatch(practiceTab, /← All practices/);
+});
+
+test('opened practice keeps lyrics expanded and hides its new-practice FAB', () => {
+  assert.doesNotMatch(practiceTab, /View lyrics/);
+  assert.doesNotMatch(practiceTab, /expandedLyricsGroupIds/);
+  assert.match(practiceTab, /max-h-none overflow-visible whitespace-pre-wrap/);
+  assert.match(practiceTab, /!\(activeSubTab === 'practice' && selectedPracticeId\)/);
 });
