@@ -2484,20 +2484,21 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       }`}
                     >
                       {/* Card Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 pr-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4
-                              className={`text-base font-black truncate ${
-                                isDone
-                                  ? 'line-through text-slate-500 dark:text-slate-400'
-                                  : 'text-slate-900 dark:text-white'
-                              }`}
-                            >
-                              {group.songTitle}
-                            </h4>
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                        <div className="min-w-0">
+                          <h4
+                            className={`line-clamp-2 break-words text-base font-black leading-tight ${
+                              isDone
+                                ? 'line-through text-slate-500 dark:text-slate-400'
+                                : 'text-slate-900 dark:text-white'
+                            }`}
+                          >
+                            {group.songTitle}
+                          </h4>
+
+                          <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                             {group.assignedEvent && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                                 {group.assignedEvent}
                               </span>
                             )}
@@ -2507,14 +2508,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 <span>Done</span>
                               </span>
                             )}
-                          </div>
-
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
                             <span className="truncate font-semibold">{group.groupName || 'Worship Team'}</span>
                             <span aria-hidden="true">•</span>
                             <span>{(group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)} audio track{((group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)) === 1 ? '' : 's'}</span>
                           </div>
-
                         </div>
 
                         <div className="flex shrink-0 items-center gap-1">
