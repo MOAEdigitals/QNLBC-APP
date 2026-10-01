@@ -8,6 +8,7 @@ const source = (path: string) =>
 const app = source('../src/App.tsx');
 const songs = source('../src/components/SongsTab.tsx');
 const indexes = source('../supabase/migrations/20260923_performance_indexes.sql');
+const cloudMedia = source('../src/services/cloudMediaStorage.ts');
 
 test('major tabs are lazy-loaded and only the active tab is mounted', () => {
   assert.match(app, /const SetlistsTab = lazy\(/);
@@ -34,4 +35,13 @@ test('database migration indexes active parent and date query paths', () => {
   assert.match(indexes, /setlist_items \(setlist_id, position\)/);
   assert.match(indexes, /attachments \(owner_type, owner_id, position\)/);
   assert.match(indexes, /practice_entries \(practice_date desc\)/);
+});
+
+test('static-hosted practice audio skips dead API retries and uploads chunks concurrently', () => {
+  assert.match(cloudMedia, /isStaticGitHubPagesDeployment\(\)/);
+  assert.match(cloudMedia, /return uploadToFirestoreCloudMedia\(fileOrData, cleanId, fileName, onProgress\)/);
+  assert.match(cloudMedia, /const MAX_CONCURRENT_WRITES = 4/);
+  assert.match(cloudMedia, /await Promise\.all\(batch\.map/);
+  assert.doesNotMatch(cloudMedia, /const verifySnap = await getDoc/);
+  assert.doesNotMatch(cloudMedia, /const verifyChunk = await getDoc/);
 });
