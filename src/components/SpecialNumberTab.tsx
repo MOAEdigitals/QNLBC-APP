@@ -669,12 +669,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         reader.onloadend = () => {
           const base64Data = reader.result as string;
           setVocalPartAudioUrl(base64Data);
-          setVocalPartFileName(
-            `Voice Recording - ${vocalPartLabel} (${new Date().toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })})`
-          );
+          setVocalPartFileName(`Voice Recording - ${vocalPartLabel}`);
         };
         reader.readAsDataURL(audioBlob);
 
@@ -721,12 +716,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         reader.onloadend = () => {
           const base64Data = (reader.result as string) || '';
           setVocalPartAudioUrl(base64Data);
-          setVocalPartFileName(
-            `Voice Recording - ${vocalPartLabel} (${new Date().toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })})`
-          );
+          setVocalPartFileName(`Voice Recording - ${vocalPartLabel}`);
           resolve(base64Data);
         };
         reader.readAsDataURL(audioBlob);
