@@ -58,6 +58,7 @@ test('saved practice cards open from the whole card and use icon-only header con
   assert.match(practiceTab, /aria-label="Practice actions"/);
   assert.doesNotMatch(practiceTab, /aria-label="Close practice"/);
   assert.match(app, /aria-label="Close saved practice"/);
+  assert.match(app, /data-practice-detail-header="true"/);
   assert.match(app, /bg-emerald-100[\s\S]*?Practice/);
   assert.match(app, /bg-blue-600[\s\S]*?<span>Close<\/span>/);
   assert.match(app, /isPracticeDetailOpen \? \(/);
