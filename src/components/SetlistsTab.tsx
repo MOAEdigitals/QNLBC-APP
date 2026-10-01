@@ -15,7 +15,7 @@ import {
 } from '../utils/storage';
 import { generateUUID, isUUID } from '../services/supabaseData';
 import { getPersonColor } from '../utils/personColors';
-import { AutofillInput } from './AutofillInput';
+import { AutofillInput, SongPickerFilter } from './AutofillInput';
 import {
   Calendar,
   Clock,
@@ -226,7 +226,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [songPickerFilter, setSongPickerFilter] = useState<SongPickerFilter>('all');
   const saveInProgressRef = useRef(false);
+
+  useEffect(() => {
+    if (!isEditing) setSongPickerFilter('all');
+  }, [isEditing]);
 
   // Scroll anchor reference for keeping tapped setlist card pinned in place on screen
   const scrollAnchorRef = useRef<{
@@ -1832,6 +1837,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               setlists={setlists}
+                              showSongCategoryFilters
+                              songFilter={songPickerFilter}
+                              onSongFilterChange={setSongPickerFilter}
                               placeholder="Song Title"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
@@ -1934,6 +1942,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               setlists={setlists}
+                              showSongCategoryFilters
+                              songFilter={songPickerFilter}
+                              onSongFilterChange={setSongPickerFilter}
                               placeholder="Song Title"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
@@ -2036,6 +2047,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             suggestions={songTitleSuggestions}
                             songs={songs}
                             setlists={setlists}
+                            showSongCategoryFilters
+                            songFilter={songPickerFilter}
+                            onSongFilterChange={setSongPickerFilter}
                             placeholder="Song Title"
                             inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                           />
