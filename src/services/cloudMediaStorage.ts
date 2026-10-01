@@ -16,6 +16,10 @@ export interface MediaUploadResult {
 const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
 const UPLOAD_ENDPOINT = `${API_BASE}/api/upload-media`;
 
+function isStaticGitHubPagesDeployment(): boolean {
+  return !API_BASE && typeof window !== 'undefined' && /\.github\.io$/i.test(window.location.hostname);
+}
+
 /**
  * Convert dataUrl to Blob safely using browser native fetch or fallback
  */
@@ -63,6 +67,12 @@ export async function uploadMediaToCloudStorage(
       size: 0,
       isCloudUrl: true,
     };
+  }
+
+  // GitHub Pages cannot serve the Express /api/upload-media route. Avoid two
+  // guaranteed failed requests and use the compatible cloud path immediately.
+  if (isStaticGitHubPagesDeployment()) {
+    return uploadToFirestoreCloudMedia(fileOrData, cleanId, fileName, onProgress);
   }
 
   // 1. Immediately cache to local IndexedDB for zero-latency playback on the current device
@@ -285,26 +295,33 @@ export async function uploadToFirestoreCloudMedia(
   if (onProgress) onProgress(15);
 
   const { db } = await import('../firebase');
-  const { doc, setDoc, getDoc } = await import('firebase/firestore');
+  const { doc, setDoc } = await import('firebase/firestore');
 
-  // Write all chunk documents
-  for (let i = 0; i < chunkCount; i++) {
-    const start = i * CHUNK_SIZE;
-    const end = Math.min(start + CHUNK_SIZE, base64.length);
-    const chunkData = base64.slice(start, end);
+  // Upload a small batch concurrently instead of waiting for every ~300KB
+  // audio chunk one-by-one. Limiting concurrency protects mobile connections.
+  const MAX_CONCURRENT_WRITES = 4;
+  let completedChunks = 0;
+  for (let batchStart = 0; batchStart < chunkCount; batchStart += MAX_CONCURRENT_WRITES) {
+    const batchEnd = Math.min(batchStart + MAX_CONCURRENT_WRITES, chunkCount);
+    const batch = Array.from({ length: batchEnd - batchStart }, (_, offset) => batchStart + offset);
 
-    const chunkRef = doc(db, 'practice_audio_chunks', `${cleanId}_chunk_${i}`);
-    await setDoc(chunkRef, {
-      trackId: cleanId,
-      index: i,
-      data: chunkData,
-      updatedAt: new Date().toISOString(),
-    });
+    await Promise.all(batch.map(async (index) => {
+      const start = index * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, base64.length);
+      const chunkRef = doc(db, 'practice_audio_chunks', `${cleanId}_chunk_${index}`);
+      await setDoc(chunkRef, {
+        trackId: cleanId,
+        index,
+        data: base64.slice(start, end),
+        updatedAt: new Date().toISOString(),
+      });
 
-    if (onProgress) {
-      const pct = Math.min(90, Math.round(15 + ((i + 1) / chunkCount) * 75));
-      onProgress(pct);
-    }
+      completedChunks += 1;
+      if (onProgress) {
+        const pct = Math.min(90, Math.round(15 + (completedChunks / chunkCount) * 75));
+        onProgress(pct);
+      }
+    }));
   }
 
   // Write top-level metadata document
@@ -321,22 +338,10 @@ export async function uploadToFirestoreCloudMedia(
     updatedAt: new Date().toISOString(),
   });
 
-  // Verify the stored object and shared reference before marking cloud-ready
-  const verifySnap = await getDoc(metaRef);
-  if (!verifySnap.exists() || !verifySnap.data()?.isCloudReady) {
-    throw new Error('Cloud verification failed: Stored media document could not be verified in Firestore');
-  }
-
-  // Verify the first chunk can be retrieved
-  const verifyChunk = await getDoc(doc(db, 'practice_audio_chunks', `${cleanId}_chunk_0`));
-  if (!verifyChunk.exists()) {
-    throw new Error('Cloud verification failed: First chunk could not be read back from Firestore');
-  }
-
   if (onProgress) onProgress(100);
 
   const cloudUrl = `firestore:media:${cleanId}`;
-  console.log(`[Universal Cloud Storage] Verified stored object and shared reference: ${fileName} (${fileSize} bytes) -> ${cloudUrl}`);
+  console.log(`[Universal Cloud Storage] Stored shared media: ${fileName} (${fileSize} bytes) -> ${cloudUrl}`);
 
   return {
     url: cloudUrl,
