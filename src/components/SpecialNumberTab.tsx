@@ -506,9 +506,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Expandable Lyrics states for modals and cards
   const [isScheduleModalLyricsExpanded, setIsScheduleModalLyricsExpanded] = useState(false);
-  const [isPracticeModalLyricsExpanded, setIsPracticeModalLyricsExpanded] = useState(false);
+  const practiceLyricsTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [expandedScheduleLyricsIds, setExpandedScheduleLyricsIds] = useState<Record<string, boolean>>({});
   const [copiedScheduleLyricsId, setCopiedScheduleLyricsId] = useState<string | null>(null);
+
+  // Keep the practice lyrics editor as one continuous field. It grows with the
+  // content, while the surrounding form provides the page scrolling.
+  useLayoutEffect(() => {
+    const textarea = practiceLyricsTextareaRef.current;
+    if (!textarea || !isEditingPractice) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${textarea.scrollHeight}px`;
+  }, [editingPractice?.lyrics, isEditingPractice]);
 
   // Native <details> menus do not close when the user taps elsewhere. Keep the
   // compact practice menus, but give them standard popover click-away behavior.
@@ -3387,34 +3396,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 )}
               </div>
 
-              {/* Lyrics editor. Expanded mode becomes a focused full-screen editor. */}
-              <div className={isPracticeModalLyricsExpanded
-                ? 'fixed inset-0 z-[80] flex flex-col bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:bg-slate-950'
-                : 'order-6'}>
-                <div className={`flex items-center justify-between ${isPracticeModalLyricsExpanded ? 'mb-3 border-b border-slate-200 pb-3 dark:border-slate-800' : 'mb-1'}`}>
+              {/* Lyrics editor grows automatically to fit its content. */}
+              <div className="order-6">
+                <div className="mb-1">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    {isPracticeModalLyricsExpanded ? 'Edit lyrics' : 'Lyrics'}
+                    Lyrics
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsPracticeModalLyricsExpanded(!isPracticeModalLyricsExpanded)}
-                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                    title={isPracticeModalLyricsExpanded ? 'Close full-screen editor' : 'Edit lyrics full screen'}
-                  >
-                    {isPracticeModalLyricsExpanded ? (
-                      <>
-                        <X className="w-3 h-3" />
-                        <span>Done</span>
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3 h-3" />
-                        <span>Expand</span>
-                      </>
-                    )}
-                  </button>
                 </div>
                 <textarea
+                  ref={practiceLyricsTextareaRef}
                   id="practice-lyrics-input"
                   name="practice_lyrics_content"
                   autoComplete="off"
@@ -3423,17 +3413,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
-                  rows={isPracticeModalLyricsExpanded ? undefined : 9}
+                  rows={9}
                   value={editingPractice.lyrics || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className={`w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white ${isPracticeModalLyricsExpanded ? 'min-h-0 flex-1 resize-none text-sm' : ''}`}
+                  className="w-full resize-none overflow-hidden rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
-                {isPracticeModalLyricsExpanded && (
-                  <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                    Changes are saved to this practice and its matching song when you save the practice.
-                  </p>
-                )}
               </div>
 
               {practiceSaveError && <p role="alert" className="order-7 text-xs text-rose-600 dark:text-rose-400">{practiceSaveError}</p>}
