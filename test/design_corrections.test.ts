@@ -5,10 +5,18 @@ import test from 'node:test';
 const special = readFileSync('src/components/SpecialNumberTab.tsx', 'utf8');
 const recognitions = readFileSync('src/components/RecognitionsTab.tsx', 'utf8');
 const styles = readFileSync('src/index.css', 'utf8');
+const setlists = readFileSync('src/components/SetlistsTab.tsx', 'utf8');
 
 test('past schedules remain gray even while expanded', () => {
   assert.match(special, /isPast\s*\? `bg-slate-100\/60[\s\S]*?opacity-60/);
   assert.match(special, /isSelected \? 'ring-2 ring-slate-400 dark:ring-slate-600'/);
+});
+
+test('past setlists remain gray across their expanded inner content', () => {
+  assert.match(setlists, /isPast\s*\n\s*\? `bg-slate-100\/70[\s\S]*?opacity-60 grayscale/);
+  assert.match(setlists, /isSelected[\s\S]*?border-slate-400 dark:border-slate-600 ring-2/);
+  assert.doesNotMatch(setlists, /hover:grayscale-0/);
+  assert.doesNotMatch(setlists, /isPast && !isSelected/);
 });
 
 test('birthday creation no longer exposes or submits ministry/group', () => {
