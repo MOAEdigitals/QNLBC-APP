@@ -550,20 +550,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  // Expandable Lyrics state per practice group
-  const [expandedLyricsGroupIds, setExpandedLyricsGroupIds] = useState<Record<string, boolean>>({});
   const [copiedLyricsGroupId, setCopiedLyricsGroupId] = useState<string | null>(null);
-
-  const toggleLyricsExpand = (groupId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setExpandedLyricsGroupIds((prev) => ({
-      ...prev,
-      [groupId]: !prev[groupId],
-    }));
-  };
 
   const handleCopyLyrics = async (groupId: string, lyrics: string, songTitle: string, e?: React.MouseEvent) => {
     if (e) {
@@ -1151,8 +1138,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       songTitle: trimmedTitle,
       songId: effectiveSongId,
       assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
-      practiceDate: editingPractice.practiceDate || undefined,
-      practiceTime: editingPractice.practiceTime || undefined,
+      // Preserve legacy scheduling metadata when editing, but new practices no
+      // longer expose or create a separate practice date/time.
+      practiceDate: isNew ? undefined : editingPractice.practiceDate || undefined,
+      practiceTime: isNew ? undefined : editingPractice.practiceTime || undefined,
       targetDate: editingPractice.targetDate || undefined,
       lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
       lyricsMode: editingPractice.lyricsMode || 'live',
@@ -2128,12 +2117,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         }
                       }}
                       className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                        isSelected
+                        isPast
+                          ? `bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 text-slate-500 opacity-60 ${
+                              isSelected ? 'ring-2 ring-slate-400 dark:ring-slate-600' : ''
+                            }`
+                          : isSelected
                           ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
                           : (today || isSoonest)
                           ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
-                          : isPast
-                          ? 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60  text-slate-500'
                           : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                       }`}
                     >
@@ -2433,9 +2424,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
           )}
 
-          {/* Practice Groups List Header */}
+          {/* Practice Groups List */}
           <div className="space-y-3 pt-1">
-            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            {!selectedPracticeId && <div className="flex flex-wrap items-center justify-between gap-2 px-1">
 
 
               {/* Cloud Media Sync Status & Manual Sync Action */}
@@ -2461,7 +2452,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   </button>
                 ) : null}
               </div>
-            </div>
+            </div>}
 
             {!selectedPracticeId && filteredPracticeEntries.length === 0 ? (
               <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
@@ -2477,9 +2468,21 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
-                      className="practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4"
+                      onClick={() => {
+                        if (!isSelected) setSelectedPracticeId(group.id);
+                      }}
+                      onKeyDown={(e) => {
+                        if (!isSelected && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          setSelectedPracticeId(group.id);
+                        }
+                      }}
+                      role={isSelected ? undefined : 'button'}
+                      tabIndex={isSelected ? undefined : 0}
+                      className={`practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4 ${
+                        isSelected ? '' : 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-600'
+                      }`}
                     >
-                      {isSelected && <button type="button" className="ui-back" onClick={() => setSelectedPracticeId(null)}>← All practices</button>}
                       {/* Card Header */}
                       <div className="flex items-center justify-between">
                         <div className="min-w-0 pr-2">
@@ -2512,16 +2515,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             <span>{(group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)} audio track{((group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)) === 1 ? '' : 's'}</span>
                           </div>
 
-                          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-                            {group.practiceDate ? formatDateStr(group.practiceDate) : group.targetDate ? formatDateStr(group.targetDate) : ''}
-                            {group.practiceTime ? ` · ${group.practiceTime}` : ''}
-                          </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 items-center">
-                          {!isSelected && <button type="button" className="ui-primary" onClick={() => setSelectedPracticeId(group.id)}>Open</button>}
-                          <details className="ui-actions">
-                            <summary>Actions</summary>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <details className="ui-actions practice-actions" onClick={(e) => e.stopPropagation()}>
+                            <summary aria-label="Practice actions" title="Practice actions">
+                              <MoreVertical className="h-5 w-5" />
+                            </summary>
                             <div className="ui-actions-menu">
                           {/* Toggle Done Button */}
                           <button
@@ -2574,6 +2574,20 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                             </div>
                           </details>
+                          {isSelected && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedPracticeId(null);
+                              }}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                              aria-label="Close practice"
+                              title="Close practice"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -2837,7 +2851,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                           </div>
 
-                          {/* 1. TOP HEADER SECTION: Lyrics with Expand / Collapse Option */}
+                          {/* Lyrics are always expanded in the opened practice. */}
                           <div className="space-y-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -2845,25 +2859,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 <span>Lyrics</span>
                               </span>
                               {group.lyrics && (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => toggleLyricsExpand(group.id, e)}
-                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                                    title={expandedLyricsGroupIds[group.id] ? 'Collapse' : 'Expand'}
-                                  >
-                                    {expandedLyricsGroupIds[group.id] ? (
-                                      <>
-                                        <ChevronUp className="w-3 h-3" />
-                                        <span>Collapse</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ChevronDown className="w-3 h-3" />
-                                        <span>View lyrics</span>
-                                      </>
-                                    )}
-                                  </button>
+                                <div className="flex items-center">
                                   <button
                                     type="button"
                                     onClick={(e) => handleCopyLyrics(group.id, group.lyrics || '', group.songTitle, e)}
@@ -2887,11 +2883,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
                             {group.lyrics ? (
                               <div
-                                className={`p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed transition-all ${
-                                  expandedLyricsGroupIds[group.id]
-                                    ? 'max-h-none overflow-visible'
-                                    : 'max-h-24 overflow-hidden'
-                                }`}
+                                className="max-h-none overflow-visible whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3.5 font-mono text-xs leading-relaxed text-slate-800 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
                               >
                                 {group.lyrics}
                               </div>
@@ -3277,10 +3269,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             <form onSubmit={handleSavePracticeSubmit} autoComplete="off" data-form-type="other" className="flex max-h-[80vh] flex-col gap-4 overflow-y-auto p-5">
-              <div className="order-[-2] rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">1. Choose the song and practice details</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">After creating the practice, add or record vocal parts and attach plus-one or minus-one tracks in the audio mixer.</p>
-              </div>
               {/* Group name */}
               <div className="order-3">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
@@ -3387,27 +3375,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <span>Add artist/origin</span>
                   </button>
                 )}
-              </div>
-
-              <div className="order-5 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Practice date</label>
-                  <input
-                    type="date"
-                    value={editingPractice.practiceDate || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, practiceDate: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Time</label>
-                  <input
-                    type="time"
-                    value={editingPractice.practiceTime || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, practiceTime: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
-                </div>
               </div>
 
               {/* Lyrics Field with Expand Toggle */}
@@ -4185,7 +4152,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       />
 
       {/* Floating Action Button (FAB) for Song Numbers - Circular & anchored at lower-right across all sub-tabs */}
-      {!isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && (
+      {!isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
         <button
           type="button"
           onClick={() => {
@@ -4208,8 +4175,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 groupName: '',
                 songTitle: '',
                 assignedEvent: 'Sunday Service',
-                practiceDate: '',
-                practiceTime: '',
                 lyrics: '',
                 notes: '',
                 customAttachments: [],
