@@ -1192,7 +1192,7 @@ export default function App() {
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
       {isPracticeDetailOpen ? (
-        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-3.5 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-6">
+        <header data-practice-detail-header="true" className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-3.5 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-6">
           <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
             <span className="rounded-xl bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
               Practice
