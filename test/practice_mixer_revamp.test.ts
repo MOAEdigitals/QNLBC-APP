@@ -74,3 +74,35 @@ test('opened practice keeps lyrics expanded and hides its new-practice FAB', () 
   assert.match(practiceTab, /max-h-none overflow-visible whitespace-pre-wrap/);
   assert.match(practiceTab, /!\(activeSubTab === 'practice' && selectedPracticeId\)/);
 });
+
+test('practice cards and details omit audio-track totals', () => {
+  assert.doesNotMatch(practiceTab, /\} audio track\{/);
+  assert.doesNotMatch(practiceTab, /audio track\{\(\(group\.vocalParts/);
+});
+
+test('practice lyrics use a full-screen editable panel and sync to the matching song', () => {
+  assert.match(practiceTab, /fixed inset-0 z-\[80\] flex flex-col/);
+  assert.match(practiceTab, /value=\{editingPractice\.lyrics \|\| ''\}/);
+  assert.match(practiceTab, /onChange=\{\(e\) => setEditingPractice\(\{ \.\.\.editingPractice, lyrics: e\.target\.value \}\)\}/);
+  assert.match(practiceTab, /\(editingPractice\.lyrics \|\| ''\) !== \(matchedSong\.lyrics \|\| ''\)/);
+  assert.match(practiceTab, /lyrics: editingPractice\.lyrics \|\| '',/);
+});
+
+test('voice and backing-track forms no longer ask for a singer or track name', () => {
+  assert.doesNotMatch(practiceTab, /placeholder="Enter member name\(s\)\.\.\."/);
+  assert.doesNotMatch(practiceTab, /id="special-track-title"/);
+  assert.doesNotMatch(practiceTab, />\s*Singer\(s\)\s*</);
+});
+
+test('practice and track menus close on outside taps', () => {
+  assert.match(practiceTab, /details\.practice-actions\[open\]/);
+  assert.match(practiceTab, /document\.addEventListener\('pointerdown', closeOpenPracticeMenus\)/);
+  assert.match(trackRow, /document\.addEventListener\('pointerdown', handleClickOutside\)/);
+});
+
+test('existing audio cannot be replaced or re-recorded from its options menu', () => {
+  assert.doesNotMatch(trackRow, /Upload \/ Replace Audio File/);
+  assert.doesNotMatch(trackRow, /Re-record Voice Take/);
+  assert.match(trackRow, /!hasAudioSource && <button/);
+  assert.match(trackRow, /onRecordNewAudio && !hasAudioSource/);
+});
