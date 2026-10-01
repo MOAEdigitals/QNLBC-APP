@@ -140,6 +140,13 @@ export default function App() {
   const tabHistoryRef = useRef<AppTab[]>([currentTab]);
   const hasActiveSubViewRef = useRef(false);
   const [collapseSignals, setCollapseSignals] = useState<Record<string, number>>({});
+  const [isPracticeDetailOpen, setIsPracticeDetailOpen] = useState(false);
+  const [practiceCloseSignal, setPracticeCloseSignal] = useState(0);
+
+  const handlePracticeDetailChange = useCallback((isOpen: boolean) => {
+    setIsPracticeDetailOpen(isOpen);
+    hasActiveSubViewRef.current = isOpen;
+  }, []);
 
   useEffect(() => {
     try {
@@ -1184,12 +1191,31 @@ export default function App() {
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
-      <Navbar
-        currentUser={currentUser}
-        users={users}
-        currentTab={currentTab}
-        onNavigateToSettings={() => handleNavigateTab('settings')}
-      />
+      {isPracticeDetailOpen ? (
+        <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-3.5 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-6">
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
+            <span className="rounded-xl bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+              Practice
+            </span>
+            <button
+              type="button"
+              onClick={() => setPracticeCloseSignal((signal) => signal + 1)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
+              aria-label="Close saved practice"
+            >
+              <X className="h-4 w-4" />
+              <span>Close</span>
+            </button>
+          </div>
+        </header>
+      ) : (
+        <Navbar
+          currentUser={currentUser}
+          users={users}
+          currentTab={currentTab}
+          onNavigateToSettings={() => handleNavigateTab('settings')}
+        />
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
@@ -1250,6 +1276,8 @@ export default function App() {
             onOpenSongDetail={handleOpenSongDetail}
             onSaveSong={handleSaveSong}
             collapseSignal={collapseSignals['special-numbers']}
+            onPracticeDetailChange={handlePracticeDetailChange}
+            practiceCloseSignal={practiceCloseSignal}
           />
         ))}
 
