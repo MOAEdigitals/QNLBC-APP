@@ -110,3 +110,8 @@ test('existing audio cannot be replaced or re-recorded from its options menu', (
   assert.match(trackRow, /!hasAudioSource && <button/);
   assert.match(trackRow, /onRecordNewAudio && !hasAudioSource/);
 });
+
+test('voice recording labels do not include a saved-at timestamp', () => {
+  assert.match(practiceTab, /setVocalPartFileName\(`Voice Recording - \$\{vocalPartLabel\}`\)/);
+  assert.doesNotMatch(practiceTab, /Voice Recording - \$\{vocalPartLabel\} \(\$\{new Date\(\)\.toLocaleTimeString/);
+});
