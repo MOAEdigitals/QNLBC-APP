@@ -75,7 +75,7 @@ import { BottomNav } from './components/BottomNav';
 import { AuthScreen } from './components/AuthScreen';
 import { FirestoreStatusModal } from './components/FirestoreStatusModal';
 import { ChurchLogo } from './components/ChurchLogo';
-import { LogOut, X, AlertTriangle, CloudOff } from 'lucide-react';
+import { LogOut, X, AlertTriangle, CloudOff, Users } from 'lucide-react';
 
 // Execute legacy storage purge immediately before any component lifecycle
 cleanupLegacyStorage();
@@ -1192,19 +1192,19 @@ export default function App() {
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
       {isPracticeDetailOpen ? (
-        <header data-practice-detail-header="true" className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-3.5 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:px-6">
-          <div className="mx-auto flex w-full max-w-4xl items-center justify-between">
-            <span className="rounded-xl bg-emerald-100 px-3 py-2 text-sm font-black text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-              Practice
-            </span>
+        <header data-practice-detail-header="true" className="sticky top-0 z-40 border-b border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="mx-auto flex w-full max-w-4xl items-center justify-between p-5">
+            <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
+              <Users className="h-4 w-4 text-slate-700 dark:text-slate-300" />
+              <span>Practice</span>
+            </h2>
             <button
               type="button"
               onClick={() => setPracticeCloseSignal((signal) => signal + 1)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
+              className="cursor-pointer p-1 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
               aria-label="Close saved practice"
             >
-              <X className="h-4 w-4" />
-              <span>Close</span>
+              <X className="h-5 w-5" />
             </button>
           </div>
         </header>
