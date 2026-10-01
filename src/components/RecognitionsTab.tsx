@@ -96,7 +96,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const [bdayForm, setBdayForm] = useState({
     name: '',
     birthDate: getTodayStr(),
-    ministryOrGroup: '',
     notes: '',
   });
 
@@ -206,10 +205,9 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       id: generateUUID(),
       name: bdayForm.name.trim(),
       birthDate: bdayForm.birthDate,
-      ministryOrGroup: bdayForm.ministryOrGroup.trim() || undefined,
       notes: bdayForm.notes.trim() || undefined,
     });
-    setBdayForm({ name: '', birthDate: getTodayStr(), ministryOrGroup: '', notes: '' });
+    setBdayForm({ name: '', birthDate: getTodayStr(), notes: '' });
     setIsAddingBirthday(false);
   };
 
@@ -627,29 +625,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Ministry / Group (Optional)
-                </label>
-                <input
-                  id="bday-ministry-group"
-                  name="bday_ministry_group"
-                  type="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="words"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  value={bdayForm.ministryOrGroup}
-                  onChange={(e) => setBdayForm({ ...bdayForm, ministryOrGroup: e.target.value })}
-                  placeholder="Enter ministry or group"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                />
-              </div>
-
-
 
               <div className="flex justify-end gap-3 pt-3">
                 <button
