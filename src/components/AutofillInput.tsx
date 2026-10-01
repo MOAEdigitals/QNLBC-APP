@@ -88,6 +88,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [isTouchSongPicker, setIsTouchSongPicker] = useState(false);
+  const [isBrowseOnly, setIsBrowseOnly] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -302,6 +304,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         // Was an intentional tap outside, not a scroll or swipe gesture
         setIsOpen(false);
         setIsFocused(false);
+        setIsBrowseOnly(true);
       }
       touchOutsideStart = null;
       isTouchMoveOutside = false;
@@ -317,6 +320,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       ) {
         setIsOpen(false);
         setIsFocused(false);
+        setIsBrowseOnly(true);
       }
     };
 
@@ -373,6 +377,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     onChange(item.title);
     onSelectSuggestion?.(item.title);
     setIsOpen(false);
+    setIsBrowseOnly(true);
     setHighlightedIndex(-1);
   };
 
@@ -479,7 +484,30 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           data-form-type="other"
           data-lpignore="true"
           required={required}
+          readOnly={showSongCategoryFilters && isTouchSongPicker && isBrowseOnly}
           value={value}
+          onPointerDown={(event) => {
+            if (!showSongCategoryFilters || event.pointerType !== 'touch') return;
+
+            setIsTouchSongPicker(true);
+            if (!isOpen) {
+              // First mobile tap browses the library without summoning the keyboard.
+              event.preventDefault();
+              inputRef.current?.blur();
+              setIsFocused(false);
+              setIsBrowseOnly(true);
+              setIsOpen(true);
+              setHighlightedIndex(-1);
+              return;
+            }
+
+            if (isBrowseOnly) {
+              // A second tap on the same field explicitly opts into typing.
+              event.preventDefault();
+              setIsBrowseOnly(false);
+              requestAnimationFrame(() => inputRef.current?.focus());
+            }
+          }}
           onChange={(e) => {
             onChange(e.target.value);
             setIsOpen(true);
@@ -538,7 +566,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               hasMovedRef.current = false;
             }, 250);
           }}
-          className="absolute z-[100] left-0 right-0 top-full mt-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
+          className="absolute z-[100] left-0 right-0 top-full mt-1.5 max-sm:top-auto max-sm:bottom-full max-sm:mt-0 max-sm:mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 max-sm:max-h-[46dvh] overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y isolate"
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {showSongCategoryFilters && (
