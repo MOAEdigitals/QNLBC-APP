@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Song, Setlist } from '../types';
 import {
   fuzzyMatchString,
@@ -88,7 +89,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [isTouchSongPicker, setIsTouchSongPicker] = useState(false);
+  const [isTouchPicker, setIsTouchPicker] = useState(false);
   const [isBrowseOnly, setIsBrowseOnly] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -484,12 +485,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           data-form-type="other"
           data-lpignore="true"
           required={required}
-          readOnly={showSongCategoryFilters && isTouchSongPicker && isBrowseOnly}
+          readOnly={isTouchPicker && isBrowseOnly}
           value={value}
           onPointerDown={(event) => {
-            if (!showSongCategoryFilters || event.pointerType !== 'touch') return;
+            if (event.pointerType !== 'touch') return;
 
-            setIsTouchSongPicker(true);
+            setIsTouchPicker(true);
             if (!isOpen) {
               // First mobile tap browses the library without summoning the keyboard.
               event.preventDefault();
@@ -498,6 +499,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               setIsBrowseOnly(true);
               setIsOpen(true);
               setHighlightedIndex(-1);
+              requestAnimationFrame(() => {
+                inputRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+              });
               return;
             }
 
@@ -528,8 +532,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       </div>
 
       {/* Suggestion Dropdown List (Scrollable on touch/mouse, high z-index) */}
-      {isOpen && (displayedItems.length > 0 || showSongCategoryFilters) && (
-        <div
+      {isOpen && (displayedItems.length > 0 || showSongCategoryFilters) && (() => {
+        const dropdown = (
+          <div
           ref={dropdownRef}
           onScroll={() => {
             lastScrollTimeRef.current = Date.now();
@@ -566,7 +571,11 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               hasMovedRef.current = false;
             }, 250);
           }}
-          className="absolute z-[100] left-0 right-0 top-full mt-1.5 max-sm:top-auto max-sm:bottom-full max-sm:mt-0 max-sm:mb-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-h-72 max-sm:max-h-[46dvh] overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y isolate"
+          className={`${
+            isTouchPicker
+              ? 'fixed z-[200] left-3 right-3 bottom-3 max-h-[58dvh]'
+              : 'absolute z-[100] left-0 right-0 top-full mt-1.5 max-h-72'
+          } bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y isolate`}
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
           {showSongCategoryFilters && (
@@ -645,8 +654,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               </div>
             );
           })}
-        </div>
-      )}
+          </div>
+        );
+
+        if (!isTouchPicker) return dropdown;
+
+        return createPortal(dropdown, document.body);
+      })()}
     </div>
   );
 };
