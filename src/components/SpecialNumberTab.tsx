@@ -190,6 +190,21 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [practiceSaveError, setPracticeSaveError] = useState<string | null>(null);
   const [isSavingPractice, setIsSavingPractice] = useState(false);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
+  const [openPracticeMenuId, setOpenPracticeMenuId] = useState<string | null>(null);
+  const practiceMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!openPracticeMenuId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (practiceMenuRef.current && !practiceMenuRef.current.contains(e.target as Node)) {
+        setOpenPracticeMenuId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openPracticeMenuId]);
 
   // Practice Audio Cloud Sync status & user feedback state
   const [isSyncingPracticeAudios, setIsSyncingPracticeAudios] = useState(false);
@@ -2477,12 +2492,34 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
-                      className="practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4"
+                      className={`practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4 transition-colors ${
+                        !isSelected ? 'hover:border-slate-300 dark:hover:border-slate-700' : ''
+                      }`}
                     >
-                      {isSelected && <button type="button" className="ui-back" onClick={() => setSelectedPracticeId(null)}>← All practices</button>}
-                      {/* Card Header */}
-                      <div className="flex items-center justify-between">
-                        <div className="min-w-0 pr-2">
+                      {isSelected && (
+                        <button
+                          type="button"
+                          className="ui-back mb-2"
+                          onClick={() => setSelectedPracticeId(null)}
+                        >
+                          ← All practices
+                        </button>
+                      )}
+                      {/* Card Header (clickable to open / toggle practice) */}
+                      <div
+                        className="flex items-start justify-between gap-3 !flex-nowrap cursor-pointer select-none"
+                        onClick={() => setSelectedPracticeId(isSelected ? null : group.id)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedPracticeId(isSelected ? null : group.id);
+                          }
+                        }}
+                        aria-expanded={isSelected}
+                      >
+                        <div className="min-w-0 flex-1 pr-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <h4
                               className={`text-base font-black truncate ${
@@ -2518,62 +2555,86 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2 items-center">
-                          {!isSelected && <button type="button" className="ui-primary" onClick={() => setSelectedPracticeId(group.id)}>Open</button>}
-                          <details className="ui-actions">
-                            <summary>Actions</summary>
-                            <div className="ui-actions-menu">
-                          {/* Toggle Done Button */}
+                        {/* Far-Right 3-Dots Menu */}
+                        <div
+                          ref={openPracticeMenuId === group.id ? practiceMenuRef : null}
+                          className="relative shrink-0 self-start"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <button
                             type="button"
-                            onClick={(e) => handleTogglePracticeDone(group, e)}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                              isDone
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-600'
-                            }`}
-                            title={isDone ? 'Mark as Not Done' : 'Mark as Done'}
-                          >
-                            <CheckCircle className="w-4 h-4" /><span>{isDone ? 'Mark incomplete' : 'Mark complete'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const matchedSong = songs.find(
-                                (s) => s.id === group.songId || s.title.toLowerCase() === group.songTitle.toLowerCase()
-                              );
-                              if (matchedSong?.artist) {
-                                setNewSongArtist(matchedSong.artist);
-                                setShowSongArtistInput(true);
-                              } else {
-                                setNewSongArtist('');
-                                setShowSongArtistInput(false);
-                              }
-                              setEditingPractice(group);
-                              setIsEditingPractice(true);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenPracticeMenuId((prev) => (prev === group.id ? null : group.id));
                             }}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                            title="Edit Practice Session"
+                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors cursor-pointer"
+                            title="Practice options"
+                            aria-label={`Options for ${group.songTitle}`}
+                            aria-expanded={openPracticeMenuId === group.id}
                           >
-                            <Edit3 className="w-4 h-4" /><span>Edit practice</span>
+                            <MoreVertical className="w-5 h-5" />
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Remove practice group "${group.groupName}"?`)) {
-                                if (onDeletePracticeEntry) onDeletePracticeEntry(group.id);
-                                if (selectedPracticeId === group.id) setSelectedPracticeId(null);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
-                            title="Delete Practice Group"
-                          >
-                            <Trash2 className="w-4 h-4" /><span>Delete practice</span>
-                          </button>
+                          {openPracticeMenuId === group.id && (
+                            <div
+                              className="absolute right-0 top-full mt-1.5 w-48 max-w-[calc(100vw-2rem)] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 px-1 z-40 space-y-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  setOpenPracticeMenuId(null);
+                                  handleTogglePracticeDone(group, e);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-xs font-semibold rounded-lg flex items-center gap-2 cursor-pointer transition-colors ${
+                                  isDone
+                                    ? 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                                    : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                }`}
+                              >
+                                <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                <span>{isDone ? 'Mark incomplete' : 'Mark complete'}</span>
+                              </button>
 
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPracticeMenuId(null);
+                                  const matchedSong = songs.find(
+                                    (s) => s.id === group.songId || s.title.toLowerCase() === group.songTitle.toLowerCase()
+                                  );
+                                  if (matchedSong?.artist) {
+                                    setNewSongArtist(matchedSong.artist);
+                                    setShowSongArtistInput(true);
+                                  } else {
+                                    setNewSongArtist('');
+                                    setShowSongArtistInput(false);
+                                  }
+                                  setEditingPractice(group);
+                                  setIsEditingPractice(true);
+                                }}
+                                className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg flex items-center gap-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
+                              >
+                                <Edit3 className="w-4 h-4 text-slate-500 shrink-0" />
+                                <span>Edit practice</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenPracticeMenuId(null);
+                                  if (confirm(`Remove practice group "${group.groupName}"?`)) {
+                                    if (onDeletePracticeEntry) onDeletePracticeEntry(group.id);
+                                    if (selectedPracticeId === group.id) setSelectedPracticeId(null);
+                                  }
+                                }}
+                                className="w-full px-3 py-2 text-left text-xs font-semibold rounded-lg flex items-center gap-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4 shrink-0" />
+                                <span>Delete practice</span>
+                              </button>
                             </div>
-                          </details>
+                          )}
                         </div>
                       </div>
 
