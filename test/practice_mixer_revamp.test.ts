@@ -80,8 +80,12 @@ test('practice cards and details omit audio-track totals', () => {
   assert.doesNotMatch(practiceTab, /audio track\{\(\(group\.vocalParts/);
 });
 
-test('practice lyrics use a full-screen editable panel and sync to the matching song', () => {
-  assert.match(practiceTab, /fixed inset-0 z-\[80\] flex flex-col/);
+test('practice lyrics auto-grow without an expand control and sync to the matching song', () => {
+  assert.match(practiceTab, /ref=\{practiceLyricsTextareaRef\}/);
+  assert.match(practiceTab, /textarea\.style\.height = `\$\{textarea\.scrollHeight\}px`/);
+  assert.match(practiceTab, /resize-none overflow-hidden/);
+  assert.doesNotMatch(practiceTab, /setIsPracticeModalLyricsExpanded/);
+  assert.doesNotMatch(practiceTab, /Edit lyrics full screen/);
   assert.match(practiceTab, /value=\{editingPractice\.lyrics \|\| ''\}/);
   assert.match(practiceTab, /onChange=\{\(e\) => setEditingPractice\(\{ \.\.\.editingPractice, lyrics: e\.target\.value \}\)\}/);
   assert.match(practiceTab, /\(editingPractice\.lyrics \|\| ''\) !== \(matchedSong\.lyrics \|\| ''\)/);
