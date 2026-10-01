@@ -2575,10 +2575,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             <span>{(group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)} audio track{((group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)) === 1 ? '' : 's'}</span>
                           </div>
 
-                          <p className={`text-sm mt-1 ${isElapsed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>
-                            {group.practiceDate ? formatDateStr(group.practiceDate) : group.targetDate ? formatDateStr(group.targetDate) : ''}
-                            {group.practiceTime ? ` · ${group.practiceTime}` : ''}
-                          </p>
+                          {(group.practiceDate || group.targetDate || group.practiceTime) ? (
+                            <p className={`text-sm mt-1 ${isElapsed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>
+                              {group.practiceDate ? formatDateStr(group.practiceDate) : group.targetDate ? formatDateStr(group.targetDate) : ''}
+                              {group.practiceTime ? ` · ${group.practiceTime}` : ''}
+                            </p>
+                          ) : null}
                         </div>
 
                         {/* Far-Right 3-Dots Menu */}
@@ -3364,10 +3366,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             <form onSubmit={handleSavePracticeSubmit} autoComplete="off" data-form-type="other" className="flex max-h-[80vh] flex-col gap-4 overflow-y-auto p-5">
-              <div className="order-[-2] rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-100">1. Choose the song and practice details</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">After creating the practice, add or record vocal parts and attach plus-one or minus-one tracks in the audio mixer.</p>
-              </div>
               {/* Group name */}
               <div className="order-3">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
@@ -3474,27 +3472,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <span>Add artist/origin</span>
                   </button>
                 )}
-              </div>
-
-              <div className="order-5 grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Practice date</label>
-                  <input
-                    type="date"
-                    value={editingPractice.practiceDate || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, practiceDate: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">Time</label>
-                  <input
-                    type="time"
-                    value={editingPractice.practiceTime || ''}
-                    onChange={(e) => setEditingPractice({ ...editingPractice, practiceTime: e.target.value })}
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-xs font-semibold text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  />
-                </div>
               </div>
 
               {/* Lyrics Field with Expand Toggle */}

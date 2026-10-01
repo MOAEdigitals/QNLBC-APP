@@ -43,11 +43,12 @@ test('track saves use a synchronous lock and a stable id so double taps and retr
   assert.doesNotMatch(practiceTab, /trackSaveNotice/);
 });
 
-test('practice creation saves new songs and captures rehearsal date and time', () => {
+test('practice creation saves new songs and omits unwanted instructions and date/time inputs', () => {
   assert.match(practiceTab, /if \(!matchedSong && onSaveSong && isNew\)/);
   assert.doesNotMatch(practiceTab, /if \(!matchedSong && onSaveSong && !isEditingPractice\)/);
-  assert.match(practiceTab, /value=\{editingPractice\.practiceDate \|\| ''\}/);
-  assert.match(practiceTab, /value=\{editingPractice\.practiceTime \|\| ''\}/);
+  assert.doesNotMatch(practiceTab, /Choose the song and practice details/);
+  assert.doesNotMatch(practiceTab, /value=\{editingPractice\.practiceDate \|\| ''\}/);
+  assert.doesNotMatch(practiceTab, /value=\{editingPractice\.practiceTime \|\| ''\}/);
   assert.match(practiceTab, /disabled=\{isSavingPractice\}[\s\S]*?Close practice form/);
 });
 
