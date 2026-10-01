@@ -507,16 +507,27 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     [setlists, selectedSetlistId]
   );
 
-  // Close popovers on outside click
+  // Capture pointer events so an expanded card's stopPropagation cannot trap its action menu open.
   useEffect(() => {
-    const handleDocumentClick = () => {
-      setOpenMenuSetlistId(null);
-      setShowTypeSelector(false);
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (!openMenuSetlistId) return;
+      const target = event.target as Element | null;
+      const actionArea = target?.closest('[data-setlist-actions]');
+      if (actionArea?.getAttribute('data-setlist-actions') !== openMenuSetlistId) {
+        setOpenMenuSetlistId(null);
+      }
     };
-    if (openMenuSetlistId || showTypeSelector) {
+
+    const handleDocumentClick = () => setShowTypeSelector(false);
+
+    if (openMenuSetlistId) {
+      document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+    }
+    if (showTypeSelector) {
       document.addEventListener('click', handleDocumentClick);
     }
     return () => {
+      document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
       document.removeEventListener('click', handleDocumentClick);
     };
   }, [openMenuSetlistId, showTypeSelector]);
@@ -1054,6 +1065,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                     {/* Far-right actions */}
                     <div
+                      data-setlist-actions={item.id}
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
                     >
