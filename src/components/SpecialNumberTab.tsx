@@ -112,6 +112,8 @@ interface SpecialNumberTabProps {
   onOpenSongDetail: (songId: string) => void;
   onSaveSong?: (song: Song) => Promise<Song | void> | Song | void;
   collapseSignal?: number;
+  onPracticeDetailChange?: (isOpen: boolean) => void;
+  practiceCloseSignal?: number;
 }
 
 const VOCAL_PART_OPTIONS: VocalPartLabel[] = [
@@ -146,6 +148,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onOpenSongDetail,
   onSaveSong,
   collapseSignal,
+  onPracticeDetailChange,
+  practiceCloseSignal,
 }) => {
   // Sub-tabs: Schedules (default), Practice, or Choir (persisted in localStorage)
   const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>(() => {
@@ -185,6 +189,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Practice state
   const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    onPracticeDetailChange?.(activeSubTab === 'practice' && Boolean(selectedPracticeId));
+  }, [activeSubTab, selectedPracticeId, onPracticeDetailChange]);
+
+  useEffect(() => () => onPracticeDetailChange?.(false), [onPracticeDetailChange]);
+
+  useEffect(() => {
+    if (practiceCloseSignal) setSelectedPracticeId(null);
+  }, [practiceCloseSignal]);
   const [isEditingPractice, setIsEditingPractice] = useState(false);
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSaveError, setPracticeSaveError] = useState<string | null>(null);
@@ -2583,20 +2597,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                             </div>
                           </details>
-                          {isSelected && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPracticeId(null);
-                              }}
-                              className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                              aria-label="Close practice"
-                              title="Close practice"
-                            >
-                              <X className="h-5 w-5" />
-                            </button>
-                          )}
                         </div>
                       </div>
 
