@@ -510,6 +510,21 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [expandedScheduleLyricsIds, setExpandedScheduleLyricsIds] = useState<Record<string, boolean>>({});
   const [copiedScheduleLyricsId, setCopiedScheduleLyricsId] = useState<string | null>(null);
 
+  // Native <details> menus do not close when the user taps elsewhere. Keep the
+  // compact practice menus, but give them standard popover click-away behavior.
+  useEffect(() => {
+    const closeOpenPracticeMenus = (event: PointerEvent) => {
+      document
+        .querySelectorAll<HTMLDetailsElement>('details.practice-actions[open]')
+        .forEach((menu) => {
+          if (!menu.contains(event.target as Node)) menu.removeAttribute('open');
+        });
+    };
+
+    document.addEventListener('pointerdown', closeOpenPracticeMenus);
+    return () => document.removeEventListener('pointerdown', closeOpenPracticeMenus);
+  }, []);
+
   const toggleScheduleLyricsExpand = (id: string, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
@@ -1119,13 +1134,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       // If user provided/updated artist or lyrics, save update to the song in library
       if (
         (showSongArtistInput && newSongArtist.trim() && matchedSong.artist !== newSongArtist.trim()) ||
-        (editingPractice.lyrics && editingPractice.lyrics !== matchedSong.lyrics)
+        ((editingPractice.lyrics || '') !== (matchedSong.lyrics || ''))
       ) {
         if (onSaveSong) {
           await onSaveSong({
             ...matchedSong,
             artist: showSongArtistInput && newSongArtist.trim() ? newSongArtist.trim() : matchedSong.artist,
-            lyrics: editingPractice.lyrics || matchedSong.lyrics,
+            lyrics: editingPractice.lyrics || '',
             updatedAt: new Date().toISOString(),
           });
         }
@@ -2509,8 +2524,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               </span>
                             )}
                             <span className="truncate font-semibold">{group.groupName || 'Worship Team'}</span>
-                            <span aria-hidden="true">•</span>
-                            <span>{(group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)} audio track{((group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)) === 1 ? '' : 's'}</span>
                           </div>
                         </div>
 
@@ -3374,22 +3387,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 )}
               </div>
 
-              {/* Lyrics Field with Expand Toggle */}
-              <div className="order-6">
-                <div className="flex items-center justify-between mb-1">
+              {/* Lyrics editor. Expanded mode becomes a focused full-screen editor. */}
+              <div className={isPracticeModalLyricsExpanded
+                ? 'fixed inset-0 z-[80] flex flex-col bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] dark:bg-slate-950'
+                : 'order-6'}>
+                <div className={`flex items-center justify-between ${isPracticeModalLyricsExpanded ? 'mb-3 border-b border-slate-200 pb-3 dark:border-slate-800' : 'mb-1'}`}>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Lyrics
+                    {isPracticeModalLyricsExpanded ? 'Edit lyrics' : 'Lyrics'}
                   </label>
                   <button
                     type="button"
                     onClick={() => setIsPracticeModalLyricsExpanded(!isPracticeModalLyricsExpanded)}
                     className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                    title={isPracticeModalLyricsExpanded ? 'Collapse' : 'Expand'}
+                    title={isPracticeModalLyricsExpanded ? 'Close full-screen editor' : 'Edit lyrics full screen'}
                   >
                     {isPracticeModalLyricsExpanded ? (
                       <>
-                        <ChevronUp className="w-3 h-3" />
-                        <span>Collapse</span>
+                        <X className="w-3 h-3" />
+                        <span>Done</span>
                       </>
                     ) : (
                       <>
@@ -3408,12 +3423,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
-                  rows={isPracticeModalLyricsExpanded ? 18 : 9}
+                  rows={isPracticeModalLyricsExpanded ? undefined : 9}
                   value={editingPractice.lyrics || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed"
+                  className={`w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white ${isPracticeModalLyricsExpanded ? 'min-h-0 flex-1 resize-none text-sm' : ''}`}
                 />
+                {isPracticeModalLyricsExpanded && (
+                  <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                    Changes are saved to this practice and its matching song when you save the practice.
+                  </p>
+                )}
               </div>
 
               {practiceSaveError && <p role="alert" className="order-7 text-xs text-rose-600 dark:text-rose-400">{practiceSaveError}</p>}
@@ -3515,32 +3535,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <span>Minus One (-1)</span>
                   </button>
                 </div>
-              </div>
-
-              {/* Attachment Title */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Attachment Title
-                </label>
-                <input
-                  id="special-track-title"
-                  name="special_track_title"
-                  type="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="sentences"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  value={trackTitle}
-                  onChange={(e) => setTrackTitle(e.target.value)}
-                  placeholder={
-                    trackCategory === 'plus_one'
-                      ? 'Vocal Reference Track Name'
-                      : 'Track Name'
-                  }
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
               </div>
 
               {/* URL or File Attachment with Paperclip Inside */}
@@ -3752,24 +3746,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     />
                   </div>
                 )}
-              </div>
-
-              {/* Singer(s) with Autofill */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Singer(s)
-                </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                  <AutofillInput
-                    id="vocal-part-assigned-users"
-                    name="vocal_part_assigned_users"
-                    value={vocalPartAssignedUsers}
-                    onChange={(val) => setVocalPartAssignedUsers(val)}
-                    suggestions={directoryNames}
-                    placeholder="Enter member name(s)..."
-                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
-                  />
-                </div>
               </div>
 
               {/* Vocal Stem Audio: Direct Voice Recording or Attach */}
