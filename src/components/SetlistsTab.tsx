@@ -946,12 +946,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   id={`setlist-card-${item.id}`}
                   onClick={(e) => handleSelectSetlist(item.id, e)}
                   className={`p-3 min-w-0 rounded-2xl border transition-all cursor-pointer ${
-                    isSelected
+                    isPast
+                      ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-500 opacity-60 grayscale ${
+                          isSelected
+                            ? 'border-slate-400 dark:border-slate-600 ring-2 ring-slate-300 dark:ring-slate-700'
+                            : 'border-slate-200/80 dark:border-slate-800/70'
+                        }`
+                    : isSelected
                       ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
                       : (today || isSoonest)
                       ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
-                      : isPast
-                      ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/70 text-slate-500 opacity-60 hover:opacity-100 grayscale hover:grayscale-0'
                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
@@ -1021,22 +1025,22 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           style={{ fontSize: 'clamp(9px, 2.7vw, 12px)' }}
                         >
                           <span className="min-w-0">
-                            P: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider || 'TBD'}</span>
+                            P: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider || 'TBD'}</span>
                           </span>
                           <span aria-hidden="true">•</span>
                           {item.type === 'sunday' || !item.type ? (
                             <>
                               <span className="min-w-0">
-                                SS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
+                                SS: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
                               </span>
                               <span aria-hidden="true">•</span>
                               <span className="min-w-0">
-                                WS: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
+                                WS: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
                               </span>
                             </>
                           ) : (
                             <span className="min-w-0">
-                              Leader: <span className={`font-semibold ${isPast && !isSelected ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
+                              Leader: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
                             </span>
                           )}
                         </div>
