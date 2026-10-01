@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const practiceTab = readFileSync('src/components/SpecialNumberTab.tsx', 'utf8');
 const trackRow = readFileSync('src/components/PracticeAudioTrackRow.tsx', 'utf8');
+const app = readFileSync('src/App.tsx', 'utf8');
 
 test('saved practices present vocal and backing audio in one mixer', () => {
   assert.match(practiceTab, /Audio mixer/);
@@ -55,7 +56,11 @@ test('practice creation saves new songs without exposing a separate practice dat
 test('saved practice cards open from the whole card and use icon-only header controls', () => {
   assert.match(practiceTab, /if \(!isSelected\) setSelectedPracticeId\(group\.id\)/);
   assert.match(practiceTab, /aria-label="Practice actions"/);
-  assert.match(practiceTab, /aria-label="Close practice"/);
+  assert.doesNotMatch(practiceTab, /aria-label="Close practice"/);
+  assert.match(app, /aria-label="Close saved practice"/);
+  assert.match(app, /bg-emerald-100[\s\S]*?Practice/);
+  assert.match(app, /bg-blue-600[\s\S]*?<span>Close<\/span>/);
+  assert.match(app, /isPracticeDetailOpen \? \(/);
   assert.doesNotMatch(practiceTab, />Open<\/button>/);
   assert.doesNotMatch(practiceTab, /<summary>Actions<\/summary>/);
   assert.doesNotMatch(practiceTab, /← All practices/);
