@@ -61,6 +61,13 @@ test('saved practice cards open from the whole card and use icon-only header con
   assert.doesNotMatch(practiceTab, /← All practices/);
 });
 
+test('practice header keeps controls fixed while long titles and badges wrap on the left', () => {
+  assert.match(practiceTab, /grid grid-cols-\[minmax\(0,1fr\)_auto\] items-center gap-3/);
+  assert.match(practiceTab, /line-clamp-2 break-words text-base font-black leading-tight/);
+  assert.match(practiceTab, /mt-2 flex flex-wrap items-center gap-x-1\.5 gap-y-1/);
+  assert.match(practiceTab, /<div className="flex shrink-0 items-center gap-1">/);
+});
+
 test('opened practice keeps lyrics expanded and hides its new-practice FAB', () => {
   assert.doesNotMatch(practiceTab, /View lyrics/);
   assert.doesNotMatch(practiceTab, /expandedLyricsGroupIds/);
