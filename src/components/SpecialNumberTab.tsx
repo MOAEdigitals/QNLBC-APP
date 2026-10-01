@@ -2124,6 +2124,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   const today = isToday(item.scheduledDate);
                   const isSelected = selectedEntryId === item.id;
                   const isSoonest = !today && soonestEntry?.id === item.id;
+                  const isDone = Boolean((item as any).isDone || item.status === 'completed');
+                  const isElapsed = Boolean(isPast || isDone);
                   const matchedSong = item.songId ? songs.find((s) => s.id === item.songId) : null;
 
                   return (
@@ -2147,8 +2149,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
                           : (today || isSoonest)
                           ? 'border-slate-400 dark:border-slate-500 ring-2 ring-slate-400/40 bg-slate-50/70 dark:bg-slate-800/40'
-                          : isPast
-                          ? 'bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60  text-slate-500'
+                          : isElapsed
+                          ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/70 text-slate-500 opacity-60 hover:opacity-100 grayscale hover:grayscale-0'
                           : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                       }`}
                     >
@@ -2162,8 +2164,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900'
                                 : isSoonest
                                 ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-800 dark:border-slate-200'
-                                : isPast
-                                ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500 border-slate-300 dark:border-slate-700'
+                                : isElapsed
+                                ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60'
                                 : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                             }`}
                           >
@@ -2180,7 +2182,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             <div className="flex flex-wrap items-center gap-2">
                               <h4
                                 className={`text-base font-black truncate ${
-                                  isPast ? 'text-slate-600 dark:text-slate-400' : 'text-slate-900 dark:text-white'
+                                  isElapsed ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'
                                 }`}
                               >
                                 {item.performerName}
@@ -2192,7 +2194,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 </span>
                               )}
 
-                              {!isPast && !isSoonest && !today && (
+                              {!isPast && !isSoonest && !today && !isDone && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                                   Upcoming
                                 </span>
@@ -2204,15 +2206,23 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 </span>
                               )}
 
-                              {isPast && (
+                              {isPast && !isDone && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-500">
                                   Past
+                                </span>
+                              )}
+
+                              {isDone && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-500">
+                                  Done
                                 </span>
                               )}
                             </div>
 
                             {/* Song title or RED 'No Song Yet' badge */}
-                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 flex items-center gap-1.5">
+                            <div className={`text-xs font-semibold mt-0.5 flex items-center gap-1.5 ${
+                              isElapsed ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-300'
+                            }`}>
                               {item.songTitle ? (
                                 <span className="italic font-medium">Song: {item.songTitle}</span>
                               ) : (
@@ -2222,7 +2232,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               )}
                             </div>
 
-                            <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            <div className={`flex items-center gap-3 text-[11px] mt-1 ${
+                              isElapsed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400'
+                            }`}>
                               <span>{formatDateStr(item.scheduledDate, { showDayOfWeek: true })}</span>
                               {item.minusOneLink && <span>• Minus-one available</span>}
                             </div>
@@ -2487,13 +2499,20 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 {(selectedPracticeId ? practiceEntries.filter((group) => group.id === selectedPracticeId) : filteredPracticeEntries).map((group) => {
                   const isSelected = selectedPracticeId === group.id;
                   const isDone = Boolean(group.isDone);
+                  const practiceDate = group.practiceDate || group.targetDate || '';
+                  const isPast = Boolean(practiceDate && isPastDate(practiceDate) && !isToday(practiceDate));
+                  const isElapsed = Boolean(isDone || isPast);
 
                   return (
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
-                      className={`practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4 transition-colors ${
-                        !isSelected ? 'hover:border-slate-300 dark:hover:border-slate-700' : ''
+                      className={`practice-card rounded-xl border p-4 transition-all ${
+                        isElapsed
+                          ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/70 text-slate-500 opacity-60 hover:opacity-100 grayscale hover:grayscale-0'
+                          : isSelected
+                          ? 'border-slate-900 dark:border-slate-100 ring-2 ring-slate-900 dark:ring-slate-100 bg-white dark:bg-slate-900 shadow-md'
+                          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-900'
                       }`}
                     >
                       {isSelected && (
@@ -2525,6 +2544,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               className={`text-base font-black truncate ${
                                 isDone
                                   ? 'line-through text-slate-500 dark:text-slate-400'
+                                  : isPast
+                                  ? 'text-slate-500 dark:text-slate-400'
                                   : 'text-slate-900 dark:text-white'
                               }`}
                             >
@@ -2541,15 +2562,20 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 <span>Done</span>
                               </span>
                             )}
+                            {isPast && !isDone && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-500">
+                                Past
+                              </span>
+                            )}
                           </div>
 
-                          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                          <div className={`mt-0.5 flex items-center gap-1.5 text-xs ${isElapsed ? 'text-slate-500 dark:text-slate-400' : 'text-slate-600 dark:text-slate-300'}`}>
                             <span className="truncate font-semibold">{group.groupName || 'Worship Team'}</span>
                             <span aria-hidden="true">•</span>
                             <span>{(group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)} audio track{((group.vocalParts?.length || group.parts?.length || 0) + (group.customAttachments?.length || 0)) === 1 ? '' : 's'}</span>
                           </div>
 
-                          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                          <p className={`text-sm mt-1 ${isElapsed ? 'text-slate-400 dark:text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>
                             {group.practiceDate ? formatDateStr(group.practiceDate) : group.targetDate ? formatDateStr(group.targetDate) : ''}
                             {group.practiceTime ? ` · ${group.practiceTime}` : ''}
                           </p>
@@ -3038,7 +3064,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     }}
                     className={`p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
                       isElapsed
-                        ? 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 opacity-60'
+                        ? 'bg-slate-100/70 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800/70 text-slate-500 opacity-60 hover:opacity-100 grayscale hover:grayscale-0'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
                     }`}
                   >
