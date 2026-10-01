@@ -52,12 +52,14 @@ test('practice creation saves new songs and omits unwanted instructions and date
   assert.match(practiceTab, /disabled=\{isSavingPractice\}[\s\S]*?Close practice form/);
 });
 
-test('practice card header is clickable to open, has no open button, and uses 3-dots menu', () => {
+test('practice card header is clickable to open, has no open button, and uses 3-dots menu with close X button on full page', () => {
   assert.doesNotMatch(practiceTab, />Open<\/button>/);
   assert.doesNotMatch(practiceTab, /<summary>Actions<\/summary>/);
+  assert.doesNotMatch(practiceTab, /← All practices/);
   assert.match(practiceTab, /onClick=\{[^{}]*?setSelectedPracticeId\(isSelected \? null : group\.id\)/);
   assert.match(practiceTab, /aria-label=\{`Options for \$\{group\.songTitle\}`\}/);
   assert.match(practiceTab, /<MoreVertical className="w-5 h-5"/);
+  assert.match(practiceTab, /aria-label="Close practice"/);
   assert.match(practiceTab, /handleTogglePracticeDone/);
   assert.match(practiceTab, /Edit practice/);
   assert.match(practiceTab, /Delete practice/);
