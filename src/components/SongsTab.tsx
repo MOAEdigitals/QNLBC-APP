@@ -41,6 +41,7 @@ import {
   Tv,
   Maximize2,
   ArrowLeft,
+  ArrowUpDown,
 } from 'lucide-react';
 import { StagePrompterModal } from './StagePrompterModal';
 import {
@@ -58,6 +59,15 @@ import {
 export const VALID_SONG_CATEGORIES = ['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'] as const;
 export type SongCategory = (typeof VALID_SONG_CATEGORIES)[number];
 const SONG_PAGE_SIZE = 80;
+type SongSortMode = 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added';
+
+const SONG_SORT_OPTIONS: Array<{ value: SongSortMode; label: string; shortLabel: string }> = [
+  { value: 'alpha-asc', label: 'Title: A–Z', shortLabel: 'A–Z' },
+  { value: 'alpha-desc', label: 'Title: Z–A', shortLabel: 'Z–A' },
+  { value: 'recently-sung', label: 'Recently Sung', shortLabel: 'Recently Sung' },
+  { value: 'least-recently-sung', label: 'Not Sung Recently', shortLabel: 'Not Sung Recently' },
+  { value: 'recently-added', label: 'Recently Added', shortLabel: 'Recently Added' },
+];
 
 export function getSongCategories(song: Song): SongCategory[] {
   if (Array.isArray(song.categories) && song.categories.length > 0) {
@@ -109,7 +119,14 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [visibleResultCount, setVisibleResultCount] = useState(SONG_PAGE_SIZE);
-  const [sortMode, setSortMode] = useState<'alpha' | 'recent' | 'date'>('alpha');
+  const [sortMode, setSortMode] = useState<SongSortMode>(() => {
+    const savedSort = localStorage.getItem('qnlbc-song-sort');
+    return SONG_SORT_OPTIONS.some((option) => option.value === savedSort)
+      ? (savedSort as SongSortMode)
+      : 'alpha-asc';
+  });
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
   const [categoryFilter, setCategoryFilter] = useState<
     'all' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized' | 'Starred'
   >('all');
@@ -467,26 +484,49 @@ if (isEditing && !savingSongRef.current) {
   // Fast O(1) cached usage map
   const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
 
-  // Sorting: strictly A-Z, Recent, or Newest (memoized)
+  useEffect(() => {
+    localStorage.setItem('qnlbc-song-sort', sortMode);
+  }, [sortMode]);
+
+  useEffect(() => {
+    if (!isSortMenuOpen) return;
+    const closeSortMenu = (event: MouseEvent) => {
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setIsSortMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', closeSortMenu);
+    return () => document.removeEventListener('mousedown', closeSortMenu);
+  }, [isSortMenuOpen]);
+
+  // Sort usage-based options by the last date a song was actually sung in a past setlist.
   const sortedSongs = useMemo(() => {
     return [...songs].sort((a, b) => {
-      if (sortMode === 'recent') {
+      if (sortMode === 'recently-sung' || sortMode === 'least-recently-sung') {
         const historyA = getSongUsageHistoryFromMap(a.title, usageMap);
         const historyB = getSongUsageHistoryFromMap(b.title, usageMap);
         const dateA = historyA.lastDate || '';
         const dateB = historyB.lastDate || '';
-        // Most recently used setlist date comes first
-        if (dateA && !dateB) return -1;
-        if (!dateA && dateB) return 1;
-        if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+
+        if (sortMode === 'recently-sung') {
+          if (dateA && !dateB) return -1;
+          if (!dateA && dateB) return 1;
+          if (dateA && dateB && dateA !== dateB) return dateB.localeCompare(dateA);
+        } else {
+          if (!dateA && dateB) return -1;
+          if (dateA && !dateB) return 1;
+          if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
+        }
         return a.title.localeCompare(b.title);
       }
-      if (sortMode === 'date') {
-        const dateA = a.updatedAt || '';
-        const dateB = b.updatedAt || '';
+      if (sortMode === 'recently-added') {
+        const dateA = a.createdAt || '';
+        const dateB = b.createdAt || '';
         return dateB.localeCompare(dateA) || a.title.localeCompare(b.title);
       }
-      return a.title.localeCompare(b.title);
+      return sortMode === 'alpha-desc'
+        ? b.title.localeCompare(a.title)
+        : a.title.localeCompare(b.title);
     });
   }, [songs, sortMode, usageMap]);
 
@@ -973,7 +1013,7 @@ if (isEditing && !savingSongRef.current) {
         </button>
       </div>
 
-      {/* Song List Header with Sorted buttons Side-by-Side */}
+      {/* Song list header with one compact sort menu */}
       <div className="flex items-center justify-between gap-2 px-1">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
           {categoryFilter === 'all'
@@ -983,44 +1023,50 @@ if (isEditing && !savingSongRef.current) {
             : `${categoryFilter} Songs`} ({filteredSongs.length})
         </span>
 
-        {/* Compact Sort control side-by-side in one row */}
-        <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold shrink-0">
-          <span className="text-[10px] text-slate-400 font-medium pl-1 pr-0.5 hidden xs:inline">Sort:</span>
+        <div ref={sortMenuRef} className="relative shrink-0">
           <button
             type="button"
-            onClick={() => setSortMode('alpha')}
-            className={`px-2 py-0.5 rounded-md transition-all cursor-pointer select-none whitespace-nowrap text-[11px] ${
-              sortMode === 'alpha'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
+            onClick={() => setIsSortMenuOpen((open) => !open)}
+            aria-haspopup="menu"
+            aria-expanded={isSortMenuOpen}
+            className="h-8 max-w-[158px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-xs font-semibold shadow-xs"
           >
-            A–Z
+            <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">
+              {deferredSearchQuery.trim()
+                ? 'Best Match'
+                : SONG_SORT_OPTIONS.find((option) => option.value === sortMode)?.shortLabel}
+            </span>
+            <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} />
           </button>
-          <button
-            type="button"
-            onClick={() => setSortMode('recent')}
-            className={`px-2 py-0.5 rounded-md transition-all cursor-pointer select-none whitespace-nowrap text-[11px] ${
-              sortMode === 'recent'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-            title="Sort by most recently sung in setlists"
-          >
-            Recent
-          </button>
-          <button
-            type="button"
-            onClick={() => setSortMode('date')}
-            className={`px-2 py-0.5 rounded-md transition-all cursor-pointer select-none whitespace-nowrap text-[11px] ${
-              sortMode === 'date'
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs font-bold'
-                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-            title="Sort by newly added/updated in library"
-          >
-            Newest
-          </button>
+
+          {isSortMenuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 shadow-xl"
+            >
+              {SONG_SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={sortMode === option.value}
+                  onClick={() => {
+                    setSortMode(option.value);
+                    setIsSortMenuOpen(false);
+                  }}
+                  className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-3 text-left text-sm transition-colors ${
+                    sortMode === option.value
+                      ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold'
+                      : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  {sortMode === option.value && <Check className="w-4 h-4 shrink-0" />}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
