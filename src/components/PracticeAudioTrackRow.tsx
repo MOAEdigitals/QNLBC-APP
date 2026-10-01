@@ -79,16 +79,16 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsMenuOpen(false);
       }
     };
     if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('pointerdown', handleClickOutside);
     }
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside);
     };
   }, [isMenuOpen]);
 
@@ -623,8 +623,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   </button>
                 )}
 
-                {/* Upload or replace audio file */}
-                <button
+                {/* Initial upload only. Existing recordings are intentionally not replaceable here. */}
+                {!hasAudioSource && <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -634,8 +634,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-2 cursor-pointer transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{hasAudioSource ? 'Upload / Replace Audio File' : 'Upload MP3 Track'}</span>
-                </button>
+                  <span>Upload Audio File</span>
+                </button>}
 
                 {/* If audio is in local IndexedDB, offer manual Cloud Sync */}
                 {isIndexedDb && resolvedAudioSrc && (
@@ -653,7 +653,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   </button>
                 )}
 
-                {onRecordNewAudio && (
+                {onRecordNewAudio && !hasAudioSource && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -664,7 +664,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                     className="w-full px-3.5 py-1.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-2 cursor-pointer transition-colors"
                   >
                     <Mic className="w-3.5 h-3.5 text-rose-500" />
-                    <span>{hasAudioSource ? 'Re-record Voice Take' : 'Record Voice Audio'}</span>
+                    <span>Record Voice Audio</span>
                   </button>
                 )}
 
