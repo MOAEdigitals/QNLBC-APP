@@ -91,6 +91,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isTouchPicker, setIsTouchPicker] = useState(false);
   const [isBrowseOnly, setIsBrowseOnly] = useState(true);
+  const [mobilePickerPosition, setMobilePickerPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +110,37 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const hasMovedRef = useRef<boolean>(false);
   const lastScrollTimeRef = useRef<number>(0);
   const scrollTimeoutRef = useRef<any>(null);
+
+  const positionMobilePicker = (ensureSpace = false) => {
+    const input = inputRef.current;
+    if (!input) return;
+
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop || 0;
+    const viewportHeight = viewport?.height || window.innerHeight;
+    const viewportBottom = viewportTop + viewportHeight;
+    const desiredHeight = Math.min(360, Math.max(240, viewportHeight * 0.48));
+    const rect = input.getBoundingClientRect();
+    const availableBelow = viewportBottom - rect.bottom - 12;
+
+    if (ensureSpace && availableBelow < desiredHeight) {
+      const formScroller = input.closest('form');
+      if (formScroller) {
+        formScroller.scrollTop += desiredHeight - availableBelow;
+        requestAnimationFrame(() => positionMobilePicker(false));
+        return;
+      }
+    }
+
+    const updatedRect = input.getBoundingClientRect();
+    const top = updatedRect.bottom + 6;
+    setMobilePickerPosition({
+      top,
+      left: Math.max(12, updatedRect.left),
+      width: Math.min(updatedRect.width, window.innerWidth - 24),
+      maxHeight: Math.max(180, viewportBottom - top - 12),
+    });
+  };
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
@@ -256,6 +293,22 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       document.dispatchEvent(new CustomEvent('qnlbc-autofill-open', { detail: instanceIdRef.current }));
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isTouchPicker) return;
+    const reposition = () => positionMobilePicker(false);
+    const repositionAfterKeyboard = () => positionMobilePicker(true);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    window.visualViewport?.addEventListener('resize', repositionAfterKeyboard);
+    window.visualViewport?.addEventListener('scroll', reposition);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+      window.visualViewport?.removeEventListener('resize', repositionAfterKeyboard);
+      window.visualViewport?.removeEventListener('scroll', reposition);
+    };
+  }, [isOpen, isTouchPicker]);
 
   // Find exact prefix match for inline autocomplete ghost text only when focused & typing
   const bestPrefixMatch = useMemo(() => {
@@ -521,8 +574,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               inputRef.current?.blur();
               setIsFocused(false);
               setIsBrowseOnly(true);
+              setMobilePickerPosition(null);
               setIsOpen(true);
               setHighlightedIndex(-1);
+              requestAnimationFrame(() => positionMobilePicker(true));
               return;
             }
 
@@ -556,6 +611,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
       {/* Suggestion Dropdown List (Scrollable on touch/mouse, high z-index) */}
       {isOpen && (displayedItems.length > 0 || showSongCategoryFilters) && (() => {
+        if (isTouchPicker && !mobilePickerPosition) return null;
         const dropdown = (
           <div
           ref={dropdownRef}
@@ -596,10 +652,18 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           }}
           className={`${
             isTouchPicker
-              ? 'fixed z-[200] left-3 right-3 bottom-3 max-h-[58dvh]'
+              ? 'fixed z-[200]'
               : 'absolute z-[100] left-0 right-0 top-full mt-1.5 max-h-72'
           } bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
-          style={{ WebkitOverflowScrolling: 'touch' }}
+          style={isTouchPicker && mobilePickerPosition
+            ? {
+                WebkitOverflowScrolling: 'touch',
+                top: mobilePickerPosition.top,
+                left: mobilePickerPosition.left,
+                width: mobilePickerPosition.width,
+                maxHeight: mobilePickerPosition.maxHeight,
+              }
+            : { WebkitOverflowScrolling: 'touch' }}
         >
           {isTouchPicker && (
             <div className="shrink-0 bg-white dark:bg-slate-900 p-3 border-b border-slate-200 dark:border-slate-800 space-y-2.5">
