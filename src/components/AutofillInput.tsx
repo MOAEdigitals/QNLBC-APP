@@ -8,7 +8,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Search, Star, X } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
@@ -94,6 +94,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchRef = useRef<HTMLInputElement>(null);
+  const instanceIdRef = useRef(`autofill-${Math.random().toString(36).slice(2, 10)}`);
+  const stableInputIdRef = useRef(id || `field-input-${Math.random().toString(36).slice(2, 9)}`);
 
   // Touch gesture and scroll tracking refs so mobile scrolling never triggers accidental selection
   const touchStartPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -104,6 +107,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
+  const activeQuery = isTouchPicker && isBrowseOnly ? '' : lowerVal;
   const cleanDefault = (defaultValue || '').trim().toLowerCase();
 
   const filteredSongs = useMemo(
@@ -162,7 +166,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     };
 
     // 1. If empty query OR matching default value
-    if (!lowerVal || (cleanDefault && lowerVal === cleanDefault)) {
+    if (!activeQuery || (cleanDefault && activeQuery === cleanDefault)) {
       if (filteredSuggestions && filteredSuggestions.length > 0) {
         return filteredSuggestions.map((s) => buildItem(s, 'none', undefined, 100));
       }
@@ -178,7 +182,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       const primarySet = new Set(filteredSuggestions.map((t) => t.toLowerCase().trim()));
 
       for (const s of filteredSongs) {
-        const searchRes = searchSong(s, lowerVal);
+        const searchRes = searchSong(s, activeQuery);
         if (searchRes.matches) {
           const isPrimary = primarySet.has(s.title.toLowerCase().trim());
           const boostedScore = searchRes.score + (isPrimary ? 15 : 0);
@@ -202,7 +206,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         : allSuggestions && allSuggestions.length > 0 ? allSuggestions : suggestions;
       for (const raw of pool) {
         if (raw && !knownTitles.has(raw.toLowerCase().trim())) {
-          const match = fuzzyMatchString(raw, lowerVal);
+          const match = fuzzyMatchString(raw, activeQuery);
           if (match.matches) {
             scoredResults.push(buildItem(raw, 'title', undefined, match.score));
           }
@@ -222,7 +226,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
     for (const title of pool) {
       if (!title) continue;
-      const match = fuzzyMatchString(title, lowerVal);
+      const match = fuzzyMatchString(title, activeQuery);
       if (match.matches) {
         const isPrimary = suggestions.includes(title);
         results.push(buildItem(title, 'title', undefined, match.score + (isPrimary ? 10 : 0)));
@@ -231,7 +235,27 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
     return results.slice(0, 30);
-  }, [isOpen, lowerVal, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap]);
+  }, [isOpen, activeQuery, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap]);
+
+  // Keep exactly one autocomplete picker open across the entire setlist editor.
+  useEffect(() => {
+    const closeWhenAnotherPickerOpens = (event: Event) => {
+      const pickerId = (event as CustomEvent<string>).detail;
+      if (pickerId !== instanceIdRef.current) {
+        setIsOpen(false);
+        setIsFocused(false);
+        setIsBrowseOnly(true);
+      }
+    };
+    document.addEventListener('qnlbc-autofill-open', closeWhenAnotherPickerOpens);
+    return () => document.removeEventListener('qnlbc-autofill-open', closeWhenAnotherPickerOpens);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.dispatchEvent(new CustomEvent('qnlbc-autofill-open', { detail: instanceIdRef.current }));
+    }
+  }, [isOpen]);
 
   // Find exact prefix match for inline autocomplete ghost text only when focused & typing
   const bestPrefixMatch = useMemo(() => {
@@ -475,7 +499,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       <div className="relative flex items-center w-full">
         <input
           ref={inputRef}
-          id={id || `field-input-${Math.random().toString(36).slice(2, 7)}`}
+          id={stableInputIdRef.current}
           name={name || "search_field_query"}
           type={type}
           autoComplete={autoComplete}
@@ -499,17 +523,16 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               setIsBrowseOnly(true);
               setIsOpen(true);
               setHighlightedIndex(-1);
-              requestAnimationFrame(() => {
-                inputRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-              });
               return;
             }
 
             if (isBrowseOnly) {
               // A second tap on the same field explicitly opts into typing.
               event.preventDefault();
+              event.currentTarget.readOnly = false;
               setIsBrowseOnly(false);
-              requestAnimationFrame(() => inputRef.current?.focus());
+              event.currentTarget.focus();
+              event.currentTarget.select();
             }
           }}
           onChange={(e) => {
@@ -575,10 +598,82 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             isTouchPicker
               ? 'fixed z-[200] left-3 right-3 bottom-3 max-h-[58dvh]'
               : 'absolute z-[100] left-0 right-0 top-full mt-1.5 max-h-72'
-          } bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-y-auto py-1 divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y isolate`}
+          } bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
           style={{ WebkitOverflowScrolling: 'touch' }}
         >
-          {showSongCategoryFilters && (
+          {isTouchPicker && (
+            <div className="shrink-0 bg-white dark:bg-slate-900 p-3 border-b border-slate-200 dark:border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-slate-900 dark:text-white">
+                  {showSongCategoryFilters ? 'Choose a song' : (placeholder || 'Choose an option')}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Close picker"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsFocused(false);
+                    setIsBrowseOnly(true);
+                  }}
+                  className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                <input
+                  ref={mobileSearchRef}
+                  type="search"
+                  value={value}
+                  readOnly={isBrowseOnly}
+                  placeholder="Tap again to search"
+                  onPointerDown={(event) => {
+                    if (!isBrowseOnly) return;
+                    event.preventDefault();
+                    event.currentTarget.readOnly = false;
+                    setIsBrowseOnly(false);
+                    event.currentTarget.focus();
+                    event.currentTarget.select();
+                  }}
+                  onChange={(event) => {
+                    onChange(event.target.value);
+                    setHighlightedIndex(-1);
+                  }}
+                  onKeyDown={handleKeyDown}
+                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {showSongCategoryFilters && (
+                <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
+                  {SONG_PICKER_FILTERS.map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      onClick={() => {
+                        onSongFilterChange?.(filter.value);
+                        setHighlightedIndex(-1);
+                      }}
+                      className={`shrink-0 h-7 px-2.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold ${
+                        songFilter === filter.value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {filter.value === 'starred' && (
+                        <Star className={`w-3 h-3 ${songFilter === 'starred' ? 'fill-white' : 'fill-yellow-400 text-yellow-500'}`} />
+                      )}
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {showSongCategoryFilters && !isTouchPicker && (
             <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 px-2 py-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
                 {SONG_PICKER_FILTERS.map((filter) => (
@@ -608,9 +703,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          {displayedItems.length === 0 && showSongCategoryFilters && (
+          <div className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
+          {displayedItems.length === 0 && (
             <div className="px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
-              No songs found in this category.
+              {showSongCategoryFilters ? 'No songs found in this category.' : 'No matching options found.'}
             </div>
           )}
 
@@ -654,6 +750,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               </div>
             );
           })}
+          </div>
           </div>
         );
 
