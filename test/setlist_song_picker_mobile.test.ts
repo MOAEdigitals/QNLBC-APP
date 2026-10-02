@@ -12,9 +12,11 @@ test('all mobile autocomplete fields browse before enabling the keyboard', () =>
   assert.doesNotMatch(source, /if \(!showSongCategoryFilters \|\| event\.pointerType !== 'touch'\)/);
 });
 
-test('mobile suggestions use a fixed portal panel clear of form controls', () => {
+test('mobile suggestions use one fixed contained portal panel', () => {
   assert.match(source, /createPortal/);
   assert.match(source, /fixed z-\[200\] left-3 right-3 bottom-3 max-h-\[58dvh\]/);
-  assert.match(source, /scrollIntoView\(\{ block: 'start', behavior: 'smooth' \}\)/);
-  assert.match(source, /sticky top-0 z-10 bg-white/);
+  assert.match(source, /qnlbc-autofill-open/);
+  assert.match(source, /Choose a song/);
+  assert.match(source, /min-h-0 overflow-y-auto divide-y/);
+  assert.doesNotMatch(source, /scrollIntoView/);
 });
