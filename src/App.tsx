@@ -912,9 +912,9 @@ export default function App() {
   };
 
   // Celebrant & Recognitions Operations
-  const handleSaveBirthday = async (item: BirthdayCelebrant) => {
+  const handleSaveBirthday = async (item: BirthdayCelebrant): Promise<boolean> => {
     const isNew = !birthdays.some((existing) => existing.id === item.id);
-    if (!requirePermission(isNew ? 'add' : 'edit')) return;
+    if (!requirePermission(isNew ? 'add' : 'edit')) return false;
 
     try {
       const saved = await supabaseSaveBirthday(item, isNew);
@@ -923,11 +923,13 @@ export default function App() {
           ? [...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id), saved]
           : prev.map((existing) => (existing.id === item.id ? saved : existing))
       );
+      return true;
     } catch (err: any) {
       console.error('Failed to save birthday celebrant:', err);
       const fresh = await fetchBirthdays().catch(() => []);
       setBirthdays(fresh);
       alert('Unable to save celebrant: ' + (err.message || 'Database error'));
+      return false;
     }
   };
 
