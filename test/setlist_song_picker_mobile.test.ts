@@ -23,3 +23,9 @@ test('mobile suggestions use one fixed contained portal panel', () => {
   assert.match(source, /min-h-0 overflow-y-auto divide-y/);
   assert.doesNotMatch(source, /scrollIntoView/);
 });
+
+test('mobile picker reuses the original field instead of rendering a second search bar', () => {
+  assert.doesNotMatch(source, /mobileSearchRef/);
+  assert.doesNotMatch(source, /Tap again to search/);
+  assert.doesNotMatch(source, /<Search className=/);
+});
