@@ -8,7 +8,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Search, Star, X } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
@@ -100,7 +100,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const mobileSearchRef = useRef<HTMLInputElement>(null);
   const instanceIdRef = useRef(`autofill-${Math.random().toString(36).slice(2, 10)}`);
   const stableInputIdRef = useRef(id || `field-input-${Math.random().toString(36).slice(2, 9)}`);
 
@@ -683,31 +682,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 >
                   <X className="w-4 h-4" />
                 </button>
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                <input
-                  ref={mobileSearchRef}
-                  type="search"
-                  value={value}
-                  readOnly={isBrowseOnly}
-                  placeholder="Tap again to search"
-                  onPointerDown={(event) => {
-                    if (!isBrowseOnly) return;
-                    event.preventDefault();
-                    event.currentTarget.readOnly = false;
-                    setIsBrowseOnly(false);
-                    event.currentTarget.focus();
-                    event.currentTarget.select();
-                  }}
-                  onChange={(event) => {
-                    onChange(event.target.value);
-                    setHighlightedIndex(-1);
-                  }}
-                  onKeyDown={handleKeyDown}
-                  className="w-full h-10 pl-9 pr-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                />
               </div>
 
               {showSongCategoryFilters && (
