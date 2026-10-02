@@ -14,7 +14,10 @@ test('all mobile autocomplete fields browse before enabling the keyboard', () =>
 
 test('mobile suggestions use one fixed contained portal panel', () => {
   assert.match(source, /createPortal/);
-  assert.match(source, /fixed z-\[200\] left-3 right-3 bottom-3 max-h-\[58dvh\]/);
+  assert.match(source, /fixed z-\[200\]/);
+  assert.match(source, /top: mobilePickerPosition\.top/);
+  assert.match(source, /left: mobilePickerPosition\.left/);
+  assert.match(source, /formScroller\.scrollTop \+= desiredHeight - availableBelow/);
   assert.match(source, /qnlbc-autofill-open/);
   assert.match(source, /Choose a song/);
   assert.match(source, /min-h-0 overflow-y-auto divide-y/);
