@@ -40,7 +40,7 @@ interface RecognitionsTabProps {
   anniversaries: AnniversaryCelebrant[];
   visitors: Visitor[];
   specialRecognitions: SpecialRecognition[];
-  onSaveBirthday: (item: BirthdayCelebrant) => void;
+  onSaveBirthday: (item: BirthdayCelebrant) => Promise<boolean>;
   onDeleteBirthday: (id: string) => void;
   onSaveAnniversary: (item: AnniversaryCelebrant) => void;
   onDeleteAnniversary: (id: string) => void;
@@ -142,17 +142,20 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   });
 
   const [birthdaySearchQuery, setBirthdaySearchQuery] = useState('');
+  const [isSavingBirthday, setIsSavingBirthday] = useState(false);
+  const [birthdaySaveError, setBirthdaySaveError] = useState('');
 
   const { mondayStr, sundayStr } = getCurrentRecognitionWindow();
 
   // Categorize Birthdays & Anniversaries (Current Window: Last Monday through This Sunday, Upcoming below)
-  const { currentWindow: currentBirthdays } =
+  const { currentWindow: currentBirthdays, upcoming: upcomingBirthdays } =
     categorizeAnnualCelebrants<BirthdayCelebrant>(birthdays, (b: BirthdayCelebrant) => b.birthDate);
 
-  const filteredCurrentBirthdays = currentBirthdays.filter((b: BirthdayCelebrant) => {
+  const visibleBirthdays = [...currentBirthdays, ...upcomingBirthdays];
+  const filteredBirthdays = visibleBirthdays.filter((b: BirthdayCelebrant) => {
     if (!birthdaySearchQuery.trim()) return true;
     const q = birthdaySearchQuery.toLowerCase();
-    return b.name.toLowerCase().includes(q) || (b.ministryOrGroup && b.ministryOrGroup.toLowerCase().includes(q));
+    return b.name.toLowerCase().includes(q);
   });
 
   const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
@@ -198,17 +201,29 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     }
   };
 
-  const handleAddBirthday = (e: React.FormEvent) => {
+  const handleAddBirthday = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bdayForm.name.trim()) return;
-    onSaveBirthday({
-      id: generateUUID(),
-      name: bdayForm.name.trim(),
-      birthDate: bdayForm.birthDate,
-      notes: bdayForm.notes.trim() || undefined,
-    });
-    setBdayForm({ name: '', birthDate: getTodayStr(), notes: '' });
-    setIsAddingBirthday(false);
+    if (!bdayForm.name.trim() || !bdayForm.birthDate || isSavingBirthday) return;
+    setIsSavingBirthday(true);
+    setBirthdaySaveError('');
+    try {
+      const saved = await onSaveBirthday({
+        id: generateUUID(),
+        name: bdayForm.name.trim(),
+        birthDate: bdayForm.birthDate,
+        notes: bdayForm.notes.trim() || undefined,
+      });
+      if (!saved) {
+        setBirthdaySaveError('Birthday could not be saved. Please check your access and try again.');
+        return;
+      }
+      setBdayForm({ name: '', birthDate: getTodayStr(), notes: '' });
+      setIsAddingBirthday(false);
+    } catch (error) {
+      setBirthdaySaveError(error instanceof Error ? error.message : 'Birthday could not be saved. Please try again.');
+    } finally {
+      setIsSavingBirthday(false);
+    }
   };
 
   const handleAddAnniversary = (e: React.FormEvent) => {
@@ -354,7 +369,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               data-lpignore="true"
               value={birthdaySearchQuery}
               onChange={(e) => setBirthdaySearchQuery(e.target.value)}
-              placeholder="Search birthday celebrant by name or ministry..."
+              placeholder="Search birthday celebrant by name..."
               className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
             />
             {birthdaySearchQuery && (
@@ -370,15 +385,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
           {/* Celebrants Section - Directly below search bar */}
           <div className="space-y-3">
-            {filteredCurrentBirthdays.length === 0 ? (
+            {filteredBirthdays.length === 0 ? (
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
                 {birthdaySearchQuery
                   ? `No celebrants matching "${birthdaySearchQuery}".`
-                  : 'No birthday celebrants for this week.'}
+                  : 'No birthday celebrants recorded.'}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {filteredCurrentBirthdays.map((item) => (
+                {filteredBirthdays.map((item) => (
                   <div
                     key={item.id}
                     className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex items-start justify-between"
@@ -589,6 +604,11 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             </div>
 
             <form onSubmit={handleAddBirthday} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
+              {birthdaySaveError && (
+                <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
+                  {birthdaySaveError}
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Full Name *
@@ -629,16 +649,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
-                  onClick={() => setIsAddingBirthday(false)}
+                  onClick={() => {
+                    setBirthdaySaveError('');
+                    setIsAddingBirthday(false);
+                  }}
+                  disabled={isSavingBirthday}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold"
+                  disabled={isSavingBirthday}
+                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Save Celebrant
+                  {isSavingBirthday ? 'Saving...' : 'Save Celebrant'}
                 </button>
               </div>
             </form>
