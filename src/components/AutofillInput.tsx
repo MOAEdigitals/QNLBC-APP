@@ -615,11 +615,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
             if (isBrowseOnly) {
               // A second completed stationary tap explicitly opts into typing.
-              event.currentTarget.readOnly = false;
+              const input = inputRef.current;
+              if (!input) return;
+              input.readOnly = false;
               setIsBrowseOnly(false);
               requestAnimationFrame(() => {
-                event.currentTarget.focus();
-                event.currentTarget.select();
+                input.focus();
+                input.select();
               });
             }
           }}
