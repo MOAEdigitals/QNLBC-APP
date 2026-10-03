@@ -1980,7 +1980,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
       {/* Keep every subtab visible on mobile, in one icon row on phones. */}
-      <div role="group" aria-label="Schedules sections" className="grid grid-cols-5 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      <div role="group" aria-label="Schedules sections" className="grid grid-cols-5 sm:grid-cols-[minmax(max-content,1.4fr)_repeat(4,minmax(max-content,1fr))] gap-1.5 overflow-x-auto bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
           type="button"
           onClick={() => setActiveSubTab('schedules')}
@@ -1994,7 +1994,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           }`}
         >
           <Mic2 className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" />
-          <span className="hidden sm:inline">Song Numbers</span>
+          <span className="hidden sm:inline whitespace-nowrap">Song Numbers</span>
           {currentScheduleCount > 0 && (
             <span
               className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -2021,7 +2021,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           }`}
         >
           <Play className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
-          <span className="hidden sm:inline">Practice</span>
+          <span className="hidden sm:inline whitespace-nowrap">Practice</span>
           {currentPracticeCount > 0 && (
             <span
               className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -2048,7 +2048,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           }`}
         >
           <Users className="w-5 h-5 sm:w-4 sm:h-4 text-sky-500 shrink-0" />
-          <span className="hidden sm:inline">Choir</span>
+          <span className="hidden sm:inline whitespace-nowrap">Choir</span>
           {currentChoirCount > 0 && (
             <span
               className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -2080,7 +2080,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             ) : (
               <Calendar className="w-5 h-5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
             )}
-            <span className="hidden sm:inline">{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
+            <span className="hidden sm:inline whitespace-nowrap">{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
           </button>
         ))}
       </div>
