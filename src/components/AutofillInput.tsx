@@ -702,8 +702,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               }
             : { WebkitOverflowScrolling: 'touch' }}
         >
-          {isTouchPicker && (
-            <div className={`relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 ${showSongCategoryFilters ? 'p-2 pr-11' : 'h-10'}`}>
+          {isTouchPicker && showSongCategoryFilters && (
+            <div className="relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2 pr-11">
               <button
                 type="button"
                 aria-label="Close picker"
@@ -717,30 +717,28 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 <X className="w-4 h-4" />
               </button>
 
-              {showSongCategoryFilters && (
-                <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
-                  {SONG_PICKER_FILTERS.map((filter) => (
-                    <button
-                      key={filter.value}
-                      type="button"
-                      onClick={() => {
-                        onSongFilterChange?.(filter.value);
-                        setHighlightedIndex(-1);
-                      }}
-                      className={`shrink-0 h-7 px-2.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold ${
-                        songFilter === filter.value
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
-                    >
-                      {filter.value === 'starred' && (
-                        <Star className={`w-3 h-3 ${songFilter === 'starred' ? 'fill-white' : 'fill-yellow-400 text-yellow-500'}`} />
-                      )}
-                      {filter.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
+                {SONG_PICKER_FILTERS.map((filter) => (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => {
+                      onSongFilterChange?.(filter.value);
+                      setHighlightedIndex(-1);
+                    }}
+                    className={`shrink-0 h-7 px-2.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold ${
+                      songFilter === filter.value
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    {filter.value === 'starred' && (
+                      <Star className={`w-3 h-3 ${songFilter === 'starred' ? 'fill-white' : 'fill-yellow-400 text-yellow-500'}`} />
+                    )}
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
