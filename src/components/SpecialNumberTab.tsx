@@ -1969,23 +1969,25 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
-      {/* Keep every subtab visible on mobile, with two rows on narrow screens. */}
-      <div role="group" aria-label="Schedules sections" className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      {/* Keep every subtab visible on mobile, in one icon row on phones. */}
+      <div role="group" aria-label="Schedules sections" className="grid grid-cols-5 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
           type="button"
           onClick={() => setActiveSubTab('schedules')}
           aria-pressed={activeSubTab === 'schedules'}
-          className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          aria-label="Song Numbers"
+          title="Song Numbers"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'schedules'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Mic2 className="hidden sm:block w-4 h-4 text-indigo-500 shrink-0" />
-          <span>Song Numbers</span>
+          <Mic2 className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" />
+          <span className="hidden sm:inline">Song Numbers</span>
           {currentScheduleCount > 0 && (
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+              className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
                 activeSubTab === 'schedules'
                   ? 'bg-indigo-600 text-white'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -2000,17 +2002,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           type="button"
           onClick={() => setActiveSubTab('practice')}
           aria-pressed={activeSubTab === 'practice'}
-          className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          aria-label="Practice"
+          title="Practice"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'practice'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Users className="hidden sm:block w-4 h-4 text-emerald-500 shrink-0" />
-          <span>Practice</span>
+          <Play className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
+          <span className="hidden sm:inline">Practice</span>
           {currentPracticeCount > 0 && (
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+              className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
                 activeSubTab === 'practice'
                   ? 'bg-emerald-600 text-white'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -2025,17 +2029,19 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           type="button"
           onClick={() => setActiveSubTab('choir')}
           aria-pressed={activeSubTab === 'choir'}
-          className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          aria-label="Choir"
+          title="Choir"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'choir'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Music className="hidden sm:block w-4 h-4 text-sky-500 shrink-0" />
-          <span>Choir</span>
+          <Users className="w-5 h-5 sm:w-4 sm:h-4 text-sky-500 shrink-0" />
+          <span className="hidden sm:inline">Choir</span>
           {currentChoirCount > 0 && (
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
+              className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
                 activeSubTab === 'choir'
                   ? 'bg-sky-600 text-white'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
@@ -2051,21 +2057,29 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             type="button"
             onClick={() => setActiveSubTab(tab)}
             aria-pressed={activeSubTab === tab}
-            className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            aria-label={tab === 'outlines' ? 'Outlines' : 'Activities'}
+            title={tab === 'outlines' ? 'Outlines' : 'Activities'}
+            className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
               activeSubTab === tab
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             {tab === 'outlines' ? (
-              <FileText className="hidden sm:block w-4 h-4 text-violet-500 shrink-0" />
+              <FileText className="w-5 h-5 sm:w-4 sm:h-4 text-violet-500 shrink-0" />
             ) : (
-              <Calendar className="hidden sm:block w-4 h-4 text-amber-500 shrink-0" />
+              <Calendar className="w-5 h-5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
             )}
-            <span>{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
+            <span className="hidden sm:inline">{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
           </button>
         ))}
       </div>
+
+      {!(activeSubTab === 'practice' && selectedPracticeId) && (
+        <h2 className="sm:hidden text-sm font-semibold text-slate-900 dark:text-white">
+          {{ schedules: 'Song Numbers', practice: 'Practice', choir: 'Choir', outlines: 'Outlines', activities: 'Activities' }[activeSubTab]}
+        </h2>
+      )}
 
       {(activeSubTab === 'outlines' || activeSubTab === 'activities') && (
         <section aria-label={activeSubTab === 'outlines' ? 'Outlines' : 'Activities'} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-10 text-center">
