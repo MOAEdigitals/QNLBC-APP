@@ -12,6 +12,14 @@ test('all mobile autocomplete fields browse before enabling the keyboard', () =>
   assert.doesNotMatch(source, /if \(!showSongCategoryFilters \|\| event\.pointerType !== 'touch'\)/);
 });
 
+test('second tap focuses a stable input reference so typing and keyboard work', () => {
+  assert.match(source, /const input = inputRef\.current/);
+  assert.match(source, /input\.readOnly = false/);
+  assert.match(source, /input\.focus\(\)/);
+  assert.match(source, /input\.select\(\)/);
+  assert.doesNotMatch(source, /requestAnimationFrame\(\(\) => \{\s*event\.currentTarget\.focus/);
+});
+
 test('touching an edit field during a scroll does not open its picker', () => {
   assert.match(source, /onPointerMove=/);
   assert.match(source, /touch\.moved/);
