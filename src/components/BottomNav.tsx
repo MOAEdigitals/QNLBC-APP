@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppTab } from '../types';
-import { CalendarDays, Award, Mic2, Music, Settings } from 'lucide-react';
+import { CalendarDays, Award, Music, Settings } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: AppTab;
@@ -96,9 +96,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     },
     {
       id: 'special-numbers' as AppTab,
-      label: 'Song Numbers',
-      sublabel: 'Schedule & Practice',
-      icon: Mic2,
+      label: 'Schedules',
+      sublabel: 'Songs, Outlines & Activities',
+      icon: CalendarDays,
       badge: upcomingSpecialCount,
     },
     {

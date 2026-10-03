@@ -151,11 +151,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onPracticeDetailChange,
   practiceCloseSignal,
 }) => {
-  // Sub-tabs: Schedules (default), Practice, or Choir (persisted in localStorage)
+  // Schedules subtabs: Song Numbers (default), Practice, Choir, Outlines, Activities.
+  // Keep the existing schedules key so saved selections and song data stay compatible.
   const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>(() => {
     try {
       const saved = localStorage.getItem('nlbc_special_numbers_subtab_v1');
-      if (saved === 'schedules' || saved === 'practice' || saved === 'choir') {
+      if (saved === 'schedules' || saved === 'practice' || saved === 'choir' || saved === 'outlines' || saved === 'activities') {
         return saved as SpecialNumbersSubTab;
       }
     } catch {}
@@ -1968,19 +1969,20 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
-      {/* Locked 3-Column Sub-Tabs: Schedules (left), Practice (middle), Choir (right) */}
-      <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      {/* Keep every subtab visible on mobile, with two rows on narrow screens. */}
+      <div role="group" aria-label="Schedules sections" className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
           type="button"
           onClick={() => setActiveSubTab('schedules')}
+          aria-pressed={activeSubTab === 'schedules'}
           className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'schedules'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Calendar className="w-4 h-4 text-indigo-500 shrink-0" />
-          <span>Schedules</span>
+          <Mic2 className="hidden sm:block w-4 h-4 text-indigo-500 shrink-0" />
+          <span>Song Numbers</span>
           {currentScheduleCount > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -1997,13 +1999,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         <button
           type="button"
           onClick={() => setActiveSubTab('practice')}
+          aria-pressed={activeSubTab === 'practice'}
           className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'practice'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4 text-emerald-500 shrink-0" />
+          <Users className="hidden sm:block w-4 h-4 text-emerald-500 shrink-0" />
           <span>Practice</span>
           {currentPracticeCount > 0 && (
             <span
@@ -2021,13 +2024,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         <button
           type="button"
           onClick={() => setActiveSubTab('choir')}
+          aria-pressed={activeSubTab === 'choir'}
           className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             activeSubTab === 'choir'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Music className="w-4 h-4 text-sky-500 shrink-0" />
+          <Music className="hidden sm:block w-4 h-4 text-sky-500 shrink-0" />
           <span>Choir</span>
           {currentChoirCount > 0 && (
             <span
@@ -2041,10 +2045,46 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </span>
           )}
         </button>
+        {(['outlines', 'activities'] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setActiveSubTab(tab)}
+            aria-pressed={activeSubTab === tab}
+            className={`flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              activeSubTab === tab
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            {tab === 'outlines' ? (
+              <FileText className="hidden sm:block w-4 h-4 text-violet-500 shrink-0" />
+            ) : (
+              <Calendar className="hidden sm:block w-4 h-4 text-amber-500 shrink-0" />
+            )}
+            <span>{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
+          </button>
+        ))}
       </div>
 
+      {(activeSubTab === 'outlines' || activeSubTab === 'activities') && (
+        <section aria-label={activeSubTab === 'outlines' ? 'Outlines' : 'Activities'} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-10 text-center">
+          {activeSubTab === 'outlines' ? (
+            <FileText className="w-8 h-8 mx-auto mb-3 text-violet-500" />
+          ) : (
+            <Calendar className="w-8 h-8 mx-auto mb-3 text-amber-500" />
+          )}
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            {activeSubTab === 'outlines' ? 'Sermon Outlines' : 'Church Activities'}
+          </h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            {activeSubTab === 'outlines' ? 'Outline sharing is coming soon.' : 'The yearly activities calendar is coming soon.'}
+          </p>
+        </section>
+      )}
+
       {/* ========================================================================= */}
-      <LyricsScreenAwake active={activeSubTab === 'practice' ? !!selectedPracticeId : activeSubTab === 'choir' ? !!selectedChoirId : !!selectedEntryId} />
+      <LyricsScreenAwake active={activeSubTab === 'practice' ? !!selectedPracticeId : activeSubTab === 'choir' ? !!selectedChoirId : activeSubTab === 'schedules' ? !!selectedEntryId : false} />
       {/* SCHEDULES SUB-TAB */}
       {/* ========================================================================= */}
       {activeSubTab === 'schedules' && (
@@ -4100,7 +4140,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       />
 
       {/* Floating Action Button (FAB) for Song Numbers - Circular & anchored at lower-right across all sub-tabs */}
-      {!isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
+      {activeSubTab !== 'outlines' && activeSubTab !== 'activities' && !isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
         <button
           type="button"
           onClick={() => {

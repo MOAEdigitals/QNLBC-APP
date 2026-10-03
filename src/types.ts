@@ -245,7 +245,7 @@ export interface ChoirEntry {
 
 export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'settings';
 export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
-export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir';
+export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir' | 'outlines' | 'activities';
 
 export type VocalPartLabel =
   | 'Soprano'
