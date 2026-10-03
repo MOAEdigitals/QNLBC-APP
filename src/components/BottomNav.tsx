@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { AppTab } from '../types';
 import { CalendarDays, Award, Music, Settings } from 'lucide-react';
 
@@ -15,70 +15,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   celebrantCount = 0,
   upcomingSpecialCount = 0,
 }) => {
-  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
-
-  useEffect(() => {
-    const handleFocusIn = (e: FocusEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        setIsKeyboardOpen(true);
-      }
-    };
-
-    const handleFocusOut = () => {
-      setTimeout(() => {
-        const active = document.activeElement as HTMLElement | null;
-        if (
-          !active ||
-          (active.tagName !== 'INPUT' &&
-            active.tagName !== 'TEXTAREA' &&
-            !active.isContentEditable)
-        ) {
-          setIsKeyboardOpen(false);
-        }
-      }, 50);
-    };
-
-    const handleViewportResize = () => {
-      if (window.visualViewport) {
-        const isHeightShrunk =
-          window.visualViewport.height < window.innerHeight * 0.75;
-        if (isHeightShrunk) {
-          setIsKeyboardOpen(true);
-        } else {
-          const active = document.activeElement as HTMLElement | null;
-          if (
-            !active ||
-            (active.tagName !== 'INPUT' &&
-              active.tagName !== 'TEXTAREA' &&
-              !active.isContentEditable)
-          ) {
-            setIsKeyboardOpen(false);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('focusin', handleFocusIn);
-    window.addEventListener('focusout', handleFocusOut);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleViewportResize);
-    }
-
-    return () => {
-      window.removeEventListener('focusin', handleFocusIn);
-      window.removeEventListener('focusout', handleFocusOut);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleViewportResize);
-      }
-    };
-  }, []);
-
   const tabs = [
     {
       id: 'home' as AppTab,
@@ -119,11 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <nav
-      className={`fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom)] no-print transition-all duration-200 ease-out ${
-        isKeyboardOpen
-          ? 'translate-y-full opacity-0 pointer-events-none'
-          : 'translate-y-0 opacity-100'
-      }`}
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-[env(safe-area-inset-bottom)] no-print"
     >
       <div className="max-w-4xl mx-auto flex items-center justify-around px-2 py-1.5">
         {tabs.map((tab) => {
