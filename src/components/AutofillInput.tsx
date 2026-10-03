@@ -703,24 +703,19 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             : { WebkitOverflowScrolling: 'touch' }}
         >
           {isTouchPicker && (
-            <div className="shrink-0 bg-white dark:bg-slate-900 p-3 border-b border-slate-200 dark:border-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-bold text-slate-900 dark:text-white">
-                  {showSongCategoryFilters ? 'Choose a song' : (placeholder || 'Choose an option')}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Close picker"
-                  onClick={() => {
-                    setIsOpen(false);
-                    setIsFocused(false);
-                    setIsBrowseOnly(true);
-                  }}
-                  className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+            <div className={`relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 ${showSongCategoryFilters ? 'p-2 pr-11' : 'h-10'}`}>
+              <button
+                type="button"
+                aria-label="Close picker"
+                onClick={() => {
+                  setIsOpen(false);
+                  setIsFocused(false);
+                  setIsBrowseOnly(true);
+                }}
+                className="absolute right-2 top-1.5 z-10 p-1.5 rounded-lg text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
 
               {showSongCategoryFilters && (
                 <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
