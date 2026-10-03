@@ -100,6 +100,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputTouchStartRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const ignoreTouchClickRef = useRef(false);
   const instanceIdRef = useRef(`autofill-${Math.random().toString(36).slice(2, 10)}`);
   const stableInputIdRef = useRef(id || `field-input-${Math.random().toString(36).slice(2, 9)}`);
 
@@ -565,12 +567,43 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           value={value}
           onPointerDown={(event) => {
             if (event.pointerType !== 'touch') return;
-
+            event.preventDefault();
             setIsTouchPicker(true);
+            inputRef.current?.blur();
+            inputTouchStartRef.current = {
+              x: event.clientX,
+              y: event.clientY,
+              moved: false,
+            };
+          }}
+          onPointerMove={(event) => {
+            if (event.pointerType !== 'touch' || !inputTouchStartRef.current) return;
+            const start = inputTouchStartRef.current;
+            if (Math.abs(event.clientX - start.x) > 8 || Math.abs(event.clientY - start.y) > 8) {
+              start.moved = true;
+            }
+          }}
+          onPointerCancel={(event) => {
+            if (event.pointerType !== 'touch') return;
+            inputTouchStartRef.current = null;
+            ignoreTouchClickRef.current = true;
+            window.setTimeout(() => {
+              ignoreTouchClickRef.current = false;
+            }, 0);
+          }}
+          onPointerUp={(event) => {
+            if (event.pointerType !== 'touch') return;
+            event.preventDefault();
+            ignoreTouchClickRef.current = true;
+            window.setTimeout(() => {
+              ignoreTouchClickRef.current = false;
+            }, 0);
+            const touch = inputTouchStartRef.current;
+            inputTouchStartRef.current = null;
+            if (!touch || touch.moved) return;
+
             if (!isOpen) {
-              // First mobile tap browses the library without summoning the keyboard.
-              event.preventDefault();
-              inputRef.current?.blur();
+              // A completed stationary tap browses; touching the field while scrolling does nothing.
               setIsFocused(false);
               setIsBrowseOnly(true);
               setMobilePickerPosition(null);
@@ -581,12 +614,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             }
 
             if (isBrowseOnly) {
-              // A second tap on the same field explicitly opts into typing.
-              event.preventDefault();
+              // A second completed stationary tap explicitly opts into typing.
               event.currentTarget.readOnly = false;
               setIsBrowseOnly(false);
-              event.currentTarget.focus();
-              event.currentTarget.select();
+              requestAnimationFrame(() => {
+                event.currentTarget.focus();
+                event.currentTarget.select();
+              });
             }
           }}
           onChange={(e) => {
@@ -599,6 +633,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             setIsOpen(true);
           }}
           onClick={() => {
+            if (ignoreTouchClickRef.current) {
+              ignoreTouchClickRef.current = false;
+              return;
+            }
             setIsFocused(true);
             setIsOpen(true);
           }}
