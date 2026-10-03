@@ -31,6 +31,8 @@ import {
   Sparkles,
   Trash2,
   Copy,
+  MoreVertical,
+  Pencil,
   X,
   Search,
   CheckCircle2,
@@ -99,6 +101,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
+      setBirthdayMenuId(null);
       setIsAddingBirthday(false);
       setIsAddingAnniversary(false);
       setIsAddingVisitor(false);
@@ -154,6 +157,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     date: getTodayStr(),
     description: '',
   });
+
+  const [birthdayMenuId, setBirthdayMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!birthdayMenuId) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setBirthdayMenuId(null); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [birthdayMenuId]);
 
   const [birthdaySearchQuery, setBirthdaySearchQuery] = useState('');
   const [isSavingBirthday, setIsSavingBirthday] = useState(false);
@@ -295,8 +306,9 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setIsAddingSpecial(false);
   };
 
-  useBackLayer(isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial, () => {
+  useBackLayer(isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial || !!birthdayMenuId, () => {
     if (isSavingBirthday) return;
+    setBirthdayMenuId(null);
     setIsAddingBirthday(false); setIsAddingAnniversary(false); setIsAddingVisitor(false); setIsAddingSpecial(false);
   });
   useBackLayer(subTab !== 'birthdays', () => setSubTab('birthdays'));
@@ -471,18 +483,41 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            aria-label={`Copy ${item.name} birthday`}
-                            title="Copy birthday"
-                            onClick={async () => {
-                              try { await navigator.clipboard.writeText(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`); }
-                              catch { window.alert('Unable to copy. Please try again.'); }
-                            }}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
-                          >
-                            <Copy className="w-4 h-4" />
-                          </button>
+                          <div className="relative shrink-0">
+                            <button
+                              type="button"
+                              aria-label={`Actions for ${item.name}`}
+                              aria-haspopup="menu"
+                              aria-expanded={birthdayMenuId === item.id}
+                              onClick={() => setBirthdayMenuId(birthdayMenuId === item.id ? null : item.id)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            {birthdayMenuId === item.id && (
+                              <>
+                                <button type="button" aria-label="Close birthday actions" className="fixed inset-0 z-40 cursor-default" onClick={() => setBirthdayMenuId(null)} />
+                                <div role="menu" aria-label={`${item.name} birthday actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
+                                  <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => {
+                                    setBirthdayMenuId(null);
+                                    try { await navigator.clipboard.writeText(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`); }
+                                    catch { window.alert('Unable to copy. Please try again.'); }
+                                  }}><Copy className="w-4 h-4" />Copy</button>
+                                  <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => {
+                                    setBirthdayMenuId(null);
+                                    setEditingBirthday(item);
+                                    setBdayForm({ name: item.name, birthDate: `2000-${item.birthDate.slice(5)}`, notes: item.notes || '' });
+                                    setBirthdaySaveError('');
+                                    setIsAddingBirthday(true);
+                                  }}><Pencil className="w-4 h-4" />Edit</button>
+                                  <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => {
+                                    setBirthdayMenuId(null);
+                                    onDeleteBirthday(item.id);
+                                  }}><Trash2 className="w-4 h-4" />Delete</button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
