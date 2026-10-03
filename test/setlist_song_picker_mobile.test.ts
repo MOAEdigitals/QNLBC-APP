@@ -42,3 +42,10 @@ test('mobile picker removes redundant field instruction headers', () => {
   assert.doesNotMatch(source, /\{placeholder \|\|/);
   assert.match(source, /aria-label="Close picker"/);
 });
+
+test('name pickers have no empty header while song pickers retain categories', () => {
+  assert.match(source, /isTouchPicker && showSongCategoryFilters &&/);
+  assert.doesNotMatch(source, /showSongCategoryFilters \? 'p-2 pr-11' : 'h-10'/);
+  assert.match(source, /SONG_PICKER_FILTERS\.map/);
+  assert.match(source, /handleTouchEndOutside/);
+});
