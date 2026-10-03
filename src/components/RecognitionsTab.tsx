@@ -27,6 +27,7 @@ import {
   MapPin,
   Sparkles,
   Trash2,
+  Pencil,
   X,
   Search,
   CheckCircle2,
@@ -77,6 +78,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   // Modal States
   const [isAddingBirthday, setIsAddingBirthday] = useState(false);
+  const [editingBirthday, setEditingBirthday] = useState<BirthdayCelebrant | null>(null);
   const [isAddingAnniversary, setIsAddingAnniversary] = useState(false);
   const [isAddingVisitor, setIsAddingVisitor] = useState(false);
   const [isAddingSpecial, setIsAddingSpecial] = useState(false);
@@ -216,7 +218,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setBirthdaySaveError('');
     try {
       const saved = await onSaveBirthday({
-        id: generateUUID(),
+        ...editingBirthday,
+        id: editingBirthday?.id || generateUUID(),
         name: bdayForm.name.trim(),
         birthDate: bdayForm.birthDate,
         notes: bdayForm.notes.trim() || undefined,
@@ -225,6 +228,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         setBirthdaySaveError('Birthday could not be saved. Please check your access and try again.');
         return;
       }
+      setEditingBirthday(null);
       setBdayForm({ name: '', birthDate: getTodayStr(), notes: '' });
       setIsAddingBirthday(false);
     } catch (error) {
@@ -284,7 +288,28 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
       {/* One icon row on mobile; labeled tabs on larger screens */}
-      <div className="recognition-tabs grid grid-cols-4 sm:grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      <div className="recognition-tabs grid grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+        {/* Birthdays */}
+        <button
+          type="button"
+          aria-label="Birthdays"
+          title="Birthdays"
+          onClick={() => setSubTab('birthdays')}
+          className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+            subTab === 'birthdays'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Cake className="w-4 h-4 text-indigo-500" />
+          <span className="hidden sm:inline">Birthdays</span>
+          {currentBirthdays.length > 0 && (
+            <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
+              {currentBirthdays.length}<span className="hidden sm:inline ml-1">this week</span>
+            </span>
+          )}
+        </button>
+
         <button
           type="button"
           aria-label="Special"
@@ -345,26 +370,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           )}
         </button>
 
-        {/* Birthdays */}
-        <button
-          type="button"
-          aria-label="Birthdays"
-          title="Birthdays"
-          onClick={() => setSubTab('birthdays')}
-          className={`sm:col-span-3 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-            subTab === 'birthdays'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Cake className="w-4 h-4 text-indigo-500" />
-          <span className="hidden sm:inline">Birthdays</span>
-          {currentBirthdays.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {currentBirthdays.length}<span className="hidden sm:inline ml-1">this week</span>
-            </span>
-          )}
-        </button>
       </div>
 
       {/* SUBTAB 1: BIRTHDAYS */}
@@ -428,7 +433,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                         >
                           <div className="flex items-start space-x-3">
                             <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                              <Cake className="w-5 h-5" />
+                              {Number(item.birthDate.split('-')[2])}
                             </div>
                             <div>
                               <h4 className="text-sm font-bold text-slate-900 dark:text-white">
@@ -447,12 +452,18 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           </div>
 
                           <button
+                            type="button"
+                            aria-label={`Edit ${item.name}`}
+                            title="Edit birthday"
                             onClick={() => {
-                              if (confirm(`Remove ${item.name}?`)) onDeleteBirthday(item.id);
+                              setEditingBirthday(item);
+                              setBdayForm({ name: item.name, birthDate: item.birthDate, notes: item.notes || '' });
+                              setBirthdaySaveError('');
+                              setIsAddingBirthday(true);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Pencil className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -627,7 +638,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Cake className="w-4 h-4 text-indigo-500" />
-                <span>Add Birthday Celebrant</span>
+                <span>{editingBirthday ? 'Edit Birthday Celebrant' : 'Add Birthday Celebrant'}</span>
               </h3>
               <button onClick={() => setIsAddingBirthday(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
@@ -1073,7 +1084,12 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         <button
           type="button"
           onClick={() => {
-            if (subTab === 'birthdays') setIsAddingBirthday(true);
+            if (subTab === 'birthdays') {
+              setEditingBirthday(null);
+              setBdayForm({ name: '', birthDate: getTodayStr(), notes: '' });
+              setBirthdaySaveError('');
+              setIsAddingBirthday(true);
+            }
             else if (subTab === 'anniversaries') setIsAddingAnniversary(true);
             else if (subTab === 'visitors') setIsAddingVisitor(true);
             else if (subTab === 'special') setIsAddingSpecial(true);

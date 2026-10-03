@@ -32,7 +32,7 @@ test('RecognitionsTab replaces top full-width add button with floating + action 
   // Ensure it triggers the active subTab modal
   assert.match(
     recognitions,
-    /if \(subTab === 'birthdays'\) setIsAddingBirthday\(true\)/,
+    /if \(subTab === 'birthdays'\) \{[^}]*setEditingBirthday\(null\);[\s\S]*?setIsAddingBirthday\(true\)/,
     'FAB must trigger Add Celebrant for birthdays'
   );
   assert.match(
