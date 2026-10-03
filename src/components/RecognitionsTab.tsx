@@ -1,3 +1,4 @@
+import { monthList } from './MonthSeparators';
 import React, { useState, useEffect } from 'react';
 import {
   RecognitionsSubTab,
@@ -491,7 +492,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[...currentAnniversaries, ...upcomingAnniversaries].map((item) => (
+                {monthList([...currentAnniversaries, ...upcomingAnniversaries], item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
                   <div
                     key={item.id}
                     className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
@@ -535,7 +536,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2.5">
-              {visitors.map((item) => (
+              {monthList(visitors, item => item.dateVisited, ['visitor', 'visitors']).render((item) => (
                 <div
                   key={item.id}
                   className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs"
@@ -590,7 +591,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {items.map((item) => (
+                    {monthList(items, item => item.date, ['recognition', 'recognitions']).render((item) => (
                       <div
                         key={item.id}
                         className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between"

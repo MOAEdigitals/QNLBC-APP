@@ -1,3 +1,4 @@
+import { monthList } from './MonthSeparators';
 import { ChoirMedia } from './ChoirMedia';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
@@ -2177,7 +2178,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-                {filteredScheduleEntries.map((item) => {
+                {monthList(filteredScheduleEntries, item => item.scheduledDate, ['song number', 'song numbers']).render((item) => {
                   const isPast = isPastDate(item.scheduledDate);
                   const today = isToday(item.scheduledDate);
                   const isSelected = selectedEntryId === item.id;
@@ -2544,7 +2545,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-                {(selectedPracticeId ? practiceEntries.filter((group) => group.id === selectedPracticeId) : filteredPracticeEntries).map((group) => {
+                {monthList(selectedPracticeId ? practiceEntries.filter((group) => group.id === selectedPracticeId) : filteredPracticeEntries, group => group.practiceDate || group.targetDate, ['practice', 'practices'], { hidden: !!selectedPracticeId }).render((group) => {
                   const isSelected = selectedPracticeId === group.id;
                   const isDone = Boolean(group.isDone);
 
@@ -3014,7 +3015,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             ) : null
           ) : (
             <div className="space-y-2.5">
-              {filteredChoirEntries.map((entry) => {
+              {monthList(filteredChoirEntries, entry => entry.date, ['choir song', 'choir songs']).render((entry) => {
                 const isPast = isPastDate(entry.date) && !isToday(entry.date);
                 const isElapsed = Boolean(entry.isDone || isPast);
                 const hasLyrics = Boolean(entry.lyrics?.trim());

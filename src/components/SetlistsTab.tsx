@@ -1,3 +1,4 @@
+import { monthList } from './MonthSeparators';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
@@ -950,7 +951,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-            {searchableSetlists.map((item) => {
+            {monthList(searchableSetlists, item => item.date, ['setlist', 'setlists']).render((item) => {
               const isPast = isPastDate(item.date);
               const today = isToday(item.date);
               const isSelected = selectedSetlistId === item.id;

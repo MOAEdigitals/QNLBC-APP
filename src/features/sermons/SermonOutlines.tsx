@@ -1,3 +1,4 @@
+import { monthList } from '../../components/MonthSeparators';
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Check, Trash2 } from 'lucide-react';
 import type { UserAccount } from '../../types';
@@ -189,7 +190,7 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
     {canAdd && !fullScreen && <button type="button" disabled={!ready} aria-label="Add outline" title="Add outline" className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2 disabled:opacity-40" onClick={startNew}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
     {loading && !ready && <p role="status" className="text-sm text-slate-500">Loading outlines…</p>}
     {ready && visible.length === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}
-    <div className="space-y-2.5">{visible.map(row => {
+    <div className="space-y-2.5">{monthList(visible, row => row.service_date, ['outline', 'outlines']).render(row => {
       const past = row.service_date < today || !!row.is_done;
       return <button key={row.id} type="button" onClick={() => openSermon(row)} className={`w-full text-left p-3 min-w-0 rounded-2xl border transition-all cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-500 opacity-60 grayscale border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
         <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${past ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}><span className="text-[10px] font-bold uppercase tracking-wider leading-none">{formatDateStr(row.service_date, { shortMonth: true }).split(' ')[0]}</span><span className="text-base font-black leading-none mt-0.5">{row.service_date.split('-')[2]}</span></div>
