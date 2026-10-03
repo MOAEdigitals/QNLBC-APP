@@ -31,3 +31,13 @@ export async function saveSermon(input: SermonInput, authorId: string, existing?
   if (!data) throw new Error('This sermon changed on another device. Your text is still here. Close the editor and refresh before editing again.');
   return data as SermonOutline;
 }
+
+export async function deleteSermon(existing: SermonOutline): Promise<void> {
+  const { data, error } = await supabase.from('sermon_outlines').delete()
+    .eq('id', existing.id).eq('revision', existing.revision).select('id').maybeSingle();
+  if (error) {
+    if (error.code === '42501') throw new Error('Deleting outlines needs the sermon delete setup SQL and delete permission.');
+    throw readableError(error);
+  }
+  if (!data) throw new Error('This sermon changed or you do not have delete permission. Reopen the outline before trying again.');
+}
