@@ -43,5 +43,5 @@ test('birthday edit saves the existing ID, revision and metadata instead of inse
   assert.equal(saved.revision, existing.revision);
   assert.equal(saved.ministryOrGroup, 'Choir');
   assert.equal(saved.name, 'New name');
-  assert.equal(saved.birthDate, '1990-10-16');
+  assert.equal(saved.birthDate, '2000-10-16');
 });

@@ -28,7 +28,7 @@ import {
   MapPin,
   Sparkles,
   Trash2,
-  Pencil,
+  Copy,
   X,
   Search,
   CheckCircle2,
@@ -222,7 +222,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         ...editingBirthday,
         id: editingBirthday?.id || generateUUID(),
         name: bdayForm.name.trim(),
-        birthDate: bdayForm.birthDate,
+        birthDate: `2000-${bdayForm.birthDate.slice(5)}`,
         notes: bdayForm.notes.trim() || undefined,
       });
       if (!saved) {
@@ -441,7 +441,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                                 {item.name}
                               </h4>
                               <div className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold mt-0.5">
-                                {formatDateStr(item.birthDate, { showDayOfWeek: true })}
+                                {parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
                               </div>
                               {item.ministryOrGroup && (
                                 <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 font-medium">
@@ -454,17 +454,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
                           <button
                             type="button"
-                            aria-label={`Edit ${item.name}`}
-                            title="Edit birthday"
-                            onClick={() => {
-                              setEditingBirthday(item);
-                              setBdayForm({ name: item.name, birthDate: item.birthDate, notes: item.notes || '' });
-                              setBirthdaySaveError('');
-                              setIsAddingBirthday(true);
+                            aria-label={`Copy ${item.name} birthday`}
+                            title="Copy birthday"
+                            onClick={async () => {
+                              try { await navigator.clipboard.writeText(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`); }
+                              catch { window.alert('Unable to copy. Please try again.'); }
                             }}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 cursor-pointer"
                           >
-                            <Pencil className="w-4 h-4" />
+                            <Copy className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -676,17 +674,20 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Birthdate (Calendar Picker) *
+                  Birthday (Month and Day) *
                 </label>
-                <input
-                  id="bday-birth-date"
-                  name="bday_birth_date"
-                  type="date"
-                  required
-                  value={bdayForm.birthDate}
-                  onChange={(e) => setBdayForm({ ...bdayForm, birthDate: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                />
+                <div className="grid grid-cols-2 gap-3">
+                  <select aria-label="Birthday month" required value={bdayForm.birthDate.slice(5,7)} onChange={e => {
+                    const month = e.target.value;
+                    const day = Math.min(Number(bdayForm.birthDate.slice(8)), new Date(2000, Number(month), 0).getDate());
+                    setBdayForm({ ...bdayForm, birthDate: `2000-${month}-${String(day).padStart(2, '0')}` });
+                  }} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
+                    {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{new Date(2000,i,1).toLocaleDateString('en-US',{month:'long'})}</option>)}
+                  </select>
+                  <select aria-label="Birthday day" required value={bdayForm.birthDate.slice(8)} onChange={e => setBdayForm({ ...bdayForm, birthDate: `2000-${bdayForm.birthDate.slice(5,7)}-${e.target.value}` })} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
+                    {Array.from({ length: new Date(2000, Number(bdayForm.birthDate.slice(5,7)), 0).getDate() }, (_, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{i+1}</option>)}
+                  </select>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-3">
