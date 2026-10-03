@@ -39,3 +39,19 @@ test('an attachment-only sermon can save without outline text', () => {
   assert.equal(sermonPayload(input).outline, '');
   assert.equal(sermonPayload(input).attachments?.length, 1);
 });
+
+const { bibleReferences, outlineLineStyle } = await import('../src/features/sermons/autoFormat.ts');
+test('formatter detects title, headings and points while leaving explanations regular', () => {
+  assert.equal(outlineLineStyle("The Refiner's Fire", true, false), 'title');
+  assert.equal(outlineLineStyle('Introduction: When God Puts the Heart in the Fire', false, false), 'point');
+  assert.equal(outlineLineStyle('1. The fire reveals what is really in the heart.', false, false), 'point');
+  assert.equal(outlineLineStyle('God uses trials to reveal what is within us.', false, false), null);
+  assert.equal(outlineLineStyle('Conclusion:', false, false), 'point');
+  assert.equal(outlineLineStyle('Proverbs 17:3', true, false), null);
+  assert.equal(outlineLineStyle('Psalm 139:23–24', false, true), null);
+});
+test('formatter finds multiple Bible references and preserves offsets, prefixes and ranges', () => {
+  const text = '\tJob 23:10; 1 Peter 1:6–7 and Hebrews 12:10–11  ';
+  assert.deepEqual(bibleReferences(text).map(r => text.slice(r.from, r.to)), ['Job 23:10', '1 Peter 1:6–7', 'Hebrews 12:10–11']);
+  assert.deepEqual(bibleReferences('Meet at 12:30; point 1.'), []);
+});

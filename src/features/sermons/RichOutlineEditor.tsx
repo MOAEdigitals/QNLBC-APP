@@ -3,7 +3,9 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyleKit } from '@tiptap/extension-text-style';
-import { Bold, Italic, List, ListOrdered, Undo2, Redo2 } from 'lucide-react';
+import { Bold, Italic, List, ListOrdered, Undo2, Redo2, WandSparkles } from 'lucide-react';
+import { closeHistory } from '@tiptap/pm/history';
+import { bibleReferences, outlineLineStyle } from './autoFormat';
 import { plainTextHtml, sanitizeOutline } from './formatting';
 
 const ParagraphStyle = Extension.create({
@@ -47,6 +49,46 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
     onUpdate: ({ editor }) => onChange(sanitizeOutline(editor.getHTML()), editor.getText({ blockSeparator: '\n' })),
   });
   useEffect(() => { editor?.setEditable(!disabled); }, [disabled, editor]);
+  function formatOutline() {
+    if (!editor || disabled) return;
+    const { state, view } = editor;
+    const transaction = closeHistory(state.tr);
+    const bold = state.schema.marks.bold;
+    const textStyle = state.schema.marks.textStyle;
+    let first = true;
+    function styleRange(from: number, to: number, attrs: Record<string, string>) {
+      state.doc.nodesBetween(from, to, (node, position) => {
+        if (!node.isText) return;
+        const previous = node.marks.find(mark => mark.type === textStyle)?.attrs || {};
+        transaction.addMark(Math.max(from, position), Math.min(to, position + node.nodeSize), textStyle.create({ ...previous, ...attrs }));
+      });
+    }
+    state.doc.descendants((node, position) => {
+      if (!node.isTextblock || node.type.name === 'codeBlock') return;
+      const resolved = state.doc.resolve(position);
+      const inList = Array.from({ length: resolved.depth }, (_, i) => resolved.node(i + 1).type.name).includes('listItem');
+      const lines = node.textBetween(0, node.content.size, '\n', '\n').split('\n');
+      let offset = position + 1;
+      lines.forEach((line, index) => {
+        const trimmed = line.trim();
+        const from = offset, to = offset + line.length;
+        if (trimmed) {
+          const kind = outlineLineStyle(line, first, inList && index === 0);
+          if (kind) transaction.addMark(from, to, bold.create());
+          if (kind === 'title') styleRange(from, to, { fontSize: '1.4em' });
+          bibleReferences(line).forEach(reference => {
+            const start = from + reference.from, end = from + reference.to;
+            transaction.addMark(start, end, bold.create());
+            styleRange(start, end, { color: '#197aa3' });
+          });
+          first = false;
+        }
+        offset = to + 1;
+      });
+    });
+    if (transaction.docChanged) view.dispatch(transaction);
+    editor.commands.focus();
+  }
   const commands = [
     { label: 'Bold', icon: Bold, active: editor?.isActive('bold'), run: () => editor?.chain().focus().toggleBold().run() },
     { label: 'Italic', icon: Italic, active: editor?.isActive('italic'), run: () => editor?.chain().focus().toggleItalic().run() },
@@ -57,6 +99,7 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
   ];
   return <div className="rounded-xl border border-slate-300 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-900">
     <div className="flex flex-wrap gap-1 p-2 border-b border-slate-200 dark:border-slate-700">{commands.map(command => <button key={command.label} type="button" title={command.label} aria-label={command.label} aria-pressed={command.active} disabled={disabled} onClick={command.run} className={`w-10 h-10 rounded-lg flex items-center justify-center disabled:opacity-40 ${command.active ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}><command.icon className="w-4 h-4" /></button>)}</div>
+    <div className="px-2 pb-2"><button type="button" disabled={disabled || !editor} onClick={formatOutline} className="min-h-10 px-3 rounded-lg inline-flex items-center gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 disabled:opacity-40"><WandSparkles className="w-4 h-4" />Format outline</button></div>
     <EditorContent editor={editor} />
   </div>;
 }
