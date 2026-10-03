@@ -158,6 +158,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     return b.name.toLowerCase().includes(q);
   });
 
+  const birthdayMonths = new Map<number, BirthdayCelebrant[]>();
+  for (const item of filteredBirthdays) {
+    const month = parseDate(item.birthDate).getMonth();
+    const group = birthdayMonths.get(month) || [];
+    group.push(item);
+    birthdayMonths.set(month, group);
+  }
+
   const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
     categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
 
@@ -275,10 +283,12 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
-      {/* Sub-navigation Tabs: Special, Anniversaries, Visitors on top; Birthdays full-width at bottom */}
-      <div className="recognition-tabs grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      {/* One icon row on mobile; labeled tabs on larger screens */}
+      <div className="recognition-tabs grid grid-cols-4 sm:grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
           type="button"
+          aria-label="Special"
+          title="Special"
           onClick={() => setSubTab('special')}
           className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             subTab === 'special'
@@ -287,7 +297,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           }`}
         >
           <Award className="w-4 h-4 text-sky-500" />
-          <span>Special</span>
+          <span className="hidden sm:inline">Special</span>
           {specialRecognitions.length > 0 && (
             <span className="w-4 h-4 rounded-full bg-sky-600 text-white text-[10px] flex items-center justify-center font-bold">
               {specialRecognitions.length}
@@ -297,6 +307,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
         <button
           type="button"
+          aria-label="Anniversaries"
+          title="Anniversaries"
           onClick={() => setSubTab('anniversaries')}
           className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             subTab === 'anniversaries'
@@ -305,7 +317,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           }`}
         >
           <Heart className="w-4 h-4 text-rose-500" />
-          <span>Anniversaries</span>
+          <span className="hidden sm:inline">Anniversaries</span>
           {currentAnniversaries.length > 0 && (
             <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
               {currentAnniversaries.length}
@@ -315,6 +327,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
         <button
           type="button"
+          aria-label="Visitors"
+          title="Visitors"
           onClick={() => setSubTab('visitors')}
           className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
             subTab === 'visitors'
@@ -323,7 +337,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           }`}
         >
           <Users className="w-4 h-4 text-emerald-500" />
-          <span>Visitors</span>
+          <span className="hidden sm:inline">Visitors</span>
           {visitors.length > 0 && (
             <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">
               {visitors.length}
@@ -331,21 +345,23 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           )}
         </button>
 
-        {/* Birthdays spanning the full width at the bottom */}
+        {/* Birthdays */}
         <button
           type="button"
+          aria-label="Birthdays"
+          title="Birthdays"
           onClick={() => setSubTab('birthdays')}
-          className={`col-span-3 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`sm:col-span-3 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             subTab === 'birthdays'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Cake className="w-4 h-4 text-indigo-500" />
-          <span>Birthdays</span>
+          <span className="hidden sm:inline">Birthdays</span>
           {currentBirthdays.length > 0 && (
             <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {currentBirthdays.length} this week
+              {currentBirthdays.length}<span className="hidden sm:inline ml-1">this week</span>
             </span>
           )}
         </button>
@@ -392,41 +408,56 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   : 'No birthday celebrants recorded.'}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {filteredBirthdays.map((item) => (
-                  <div
-                    key={item.id}
-                    className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex items-start justify-between"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
-                        <Cake className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                          {item.name}
-                        </h4>
-                        <div className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold mt-0.5">
-                          {formatDateStr(item.birthDate, { showDayOfWeek: true })}
-                        </div>
-                        {item.ministryOrGroup && (
-                          <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 font-medium">
-                            {item.ministryOrGroup}
-                          </span>
-                        )}
-
-                      </div>
+              <div className="space-y-6">
+                {Array.from(birthdayMonths, ([month, items]) => (
+                  <section key={month} aria-labelledby={`birthday-month-${month}`} className="space-y-3">
+                    <div className="flex items-center gap-3 px-1">
+                      <h3 id={`birthday-month-${month}`} className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
+                        {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
+                      </h3>
+                      <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+                      <span className="shrink-0 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                        {items.length} {items.length === 1 ? 'birthday' : 'birthdays'}
+                      </span>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {items.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex items-start justify-between"
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                              <Cake className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                                {item.name}
+                              </h4>
+                              <div className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold mt-0.5">
+                                {formatDateStr(item.birthDate, { showDayOfWeek: true })}
+                              </div>
+                              {item.ministryOrGroup && (
+                                <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 font-medium">
+                                  {item.ministryOrGroup}
+                                </span>
+                              )}
 
-                    <button
-                      onClick={() => {
-                        if (confirm(`Remove ${item.name}?`)) onDeleteBirthday(item.id);
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (confirm(`Remove ${item.name}?`)) onDeleteBirthday(item.id);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
             )}

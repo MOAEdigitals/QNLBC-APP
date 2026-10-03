@@ -8,7 +8,7 @@ const app = fs.readFileSync('src/App.tsx', 'utf8');
 test('birthday list includes current and upcoming annual birthdays', () => {
   assert.match(recognitions, /currentWindow: currentBirthdays, upcoming: upcomingBirthdays/);
   assert.match(recognitions, /visibleBirthdays = \[\.\.\.currentBirthdays, \.\.\.upcomingBirthdays\]/);
-  assert.match(recognitions, /filteredBirthdays\.map/);
+  assert.match(recognitions, /for \(const item of filteredBirthdays\)/);
 });
 
 test('birthday modal waits for persistence and remains open on failure', () => {

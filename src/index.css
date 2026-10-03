@@ -41,7 +41,10 @@
 .ui-screen > div[class*="rounded-2xl"] { border-width: 1px; }
 .ui-screen .lyrics-awake { color: var(--ui-accent); }
 .setlists-screen [id^="setlist-card-"] { border-radius: .75rem; box-shadow: none; }
-.recognition-tabs button { min-width: 8.5rem; }
+.recognition-tabs button { min-width: 0; }
+@media (min-width: 640px) {
+  .recognition-tabs button { min-width: 8.5rem; }
+}
 .songs-screen > .ui-page-header h2 { margin: 0; }
 .ui-revamp button[class~="bg-slate-900"], .ui-primary {
   background: #1d4ed8; color: #fff; border: 1px solid #1d4ed8;
