@@ -96,10 +96,10 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
     { label: 'Numbered list', icon: ListOrdered, active: editor?.isActive('orderedList'), run: () => editor?.chain().focus().toggleOrderedList().run() },
     { label: 'Undo', icon: Undo2, run: () => editor?.chain().focus().undo().run() },
     { label: 'Redo', icon: Redo2, run: () => editor?.chain().focus().redo().run() },
+    { label: 'Format outline', icon: WandSparkles, run: formatOutline },
   ];
   return <div className="rounded-xl border border-slate-300 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-900">
-    <div className="flex flex-wrap gap-1 p-2 border-b border-slate-200 dark:border-slate-700">{commands.map(command => <button key={command.label} type="button" title={command.label} aria-label={command.label} aria-pressed={command.active} disabled={disabled} onClick={command.run} className={`w-10 h-10 rounded-lg flex items-center justify-center disabled:opacity-40 ${command.active ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}><command.icon className="w-4 h-4" /></button>)}</div>
-    <div className="px-2 pb-2"><button type="button" disabled={disabled || !editor} onClick={formatOutline} className="min-h-10 px-3 rounded-lg inline-flex items-center gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950 disabled:opacity-40"><WandSparkles className="w-4 h-4" />Format outline</button></div>
+    <div className="flex gap-0.5 sm:gap-1 p-2 border-b border-slate-200 dark:border-slate-700">{commands.map(command => <button key={command.label} type="button" title={command.label} aria-label={command.label} aria-pressed={command.active} disabled={disabled || !editor} onClick={command.run} className={`w-9 sm:w-10 h-10 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40 ${command.active ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}><command.icon className="w-4 h-4" /></button>)}</div>
     <EditorContent editor={editor} />
   </div>;
 }
