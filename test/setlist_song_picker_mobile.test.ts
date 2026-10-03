@@ -6,10 +6,23 @@ const source = fs.readFileSync('src/components/AutofillInput.tsx', 'utf8');
 
 test('all mobile autocomplete fields browse before enabling the keyboard', () => {
   assert.match(source, /event\.pointerType !== 'touch'/);
-  assert.match(source, /First mobile tap browses the library without summoning the keyboard/);
-  assert.match(source, /A second tap on the same field explicitly opts into typing/);
+  assert.match(source, /completed stationary tap browses/);
+  assert.match(source, /second completed stationary tap explicitly opts into typing/);
   assert.match(source, /readOnly=\{isTouchPicker && isBrowseOnly\}/);
   assert.doesNotMatch(source, /if \(!showSongCategoryFilters \|\| event\.pointerType !== 'touch'\)/);
+});
+
+test('touching an edit field during a scroll does not open its picker', () => {
+  assert.match(source, /onPointerMove=/);
+  assert.match(source, /touch\.moved/);
+  assert.match(source, /if \(!touch \|\| touch\.moved\) return/);
+  assert.match(source, /onPointerCancel=/);
+  assert.match(source, /ignoreTouchClickRef/);
+});
+
+test('mobile picker does not render a duplicate search field', () => {
+  assert.doesNotMatch(source, /mobileSearchRef/);
+  assert.doesNotMatch(source, /Tap again to search/);
 });
 
 test('mobile suggestions use one fixed contained portal panel', () => {
@@ -22,10 +35,4 @@ test('mobile suggestions use one fixed contained portal panel', () => {
   assert.match(source, /Choose a song/);
   assert.match(source, /min-h-0 overflow-y-auto divide-y/);
   assert.doesNotMatch(source, /scrollIntoView/);
-});
-
-test('mobile picker reuses the original field instead of rendering a second search bar', () => {
-  assert.doesNotMatch(source, /mobileSearchRef/);
-  assert.doesNotMatch(source, /Tap again to search/);
-  assert.doesNotMatch(source, /<Search className=/);
 });
