@@ -32,7 +32,13 @@ test('mobile suggestions use one fixed contained portal panel', () => {
   assert.match(source, /left: mobilePickerPosition\.left/);
   assert.match(source, /formScroller\.scrollTop \+= desiredHeight - availableBelow/);
   assert.match(source, /qnlbc-autofill-open/);
-  assert.match(source, /Choose a song/);
   assert.match(source, /min-h-0 overflow-y-auto divide-y/);
   assert.doesNotMatch(source, /scrollIntoView/);
+});
+
+test('mobile picker removes redundant field instruction headers', () => {
+  assert.doesNotMatch(source, /Choose a song/);
+  assert.doesNotMatch(source, /Choose an option/);
+  assert.doesNotMatch(source, /\{placeholder \|\|/);
+  assert.match(source, /aria-label="Close picker"/);
 });
