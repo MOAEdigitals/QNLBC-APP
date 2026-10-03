@@ -731,6 +731,7 @@ export async function deleteSpecialNumber(id: string, expectedRevision: number):
 export function mapChoirEntryFromDB(row: any): ChoirEntry {
   return {
     id: row.id,
+    mediaAttachments: row.media_attachments || [],
     date: row.service_date,
     service_date: row.service_date,
     choirGroup: row.choir_group,
@@ -775,6 +776,7 @@ export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false):
   const validSongId = isUUID(rawSongId) ? rawSongId : null;
 
   const payload = {
+    media_attachments: entry.mediaAttachments || [],
     choir_group: (entry.choirGroup || entry.choir_group)?.trim() || 'Church Choir',
     service_date: entry.date || entry.service_date || new Date().toISOString().slice(0, 10),
     song_id: validSongId,

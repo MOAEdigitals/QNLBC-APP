@@ -218,7 +218,12 @@ export interface SpecialNumberEntry {
   updatedAt?: string;
 }
 
+export interface ChoirMediaAttachment {
+  id: string; part: string; title: string; url: string; kind: 'audio' | 'video';
+}
+
 export interface ChoirEntry {
+  mediaAttachments?: ChoirMediaAttachment[];
   id: string;
   date: string; // YYYY-MM-DD presentation/service date
   service_date?: string;

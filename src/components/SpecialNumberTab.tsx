@@ -1,3 +1,4 @@
+import { ChoirMedia } from './ChoirMedia';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
@@ -111,6 +112,7 @@ interface SpecialNumberTabProps {
   ) => Promise<SongAttachment | void> | void;
   onDeletePracticeTrack?: (attachment: SongAttachment) => Promise<void> | void;
   onDeletePracticeEntry?: (id: string) => void;
+  onSaveChoirMedia?: (entry: ChoirEntry) => Promise<void>;
   onSaveChoirEntry?: (entry: ChoirEntry) => void;
   onDeleteChoirEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
@@ -148,6 +150,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onSavePracticeTrack,
   onDeletePracticeTrack,
   onDeletePracticeEntry,
+  onSaveChoirMedia,
   onSaveChoirEntry,
   onDeleteChoirEntry,
   onOpenSongDetail,
@@ -1306,6 +1309,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     const entryToSave: ChoirEntry = {
       id: editingChoir.id && isUUID(editingChoir.id) ? editingChoir.id : generateUUID(),
       revision: editingChoir.revision,
+      mediaAttachments: editingChoir.mediaAttachments || [],
       date,
       songTitle: trimmedTitle,
       artist: artist || undefined,
@@ -3122,6 +3126,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             <span>Delete</span>
                           </button>
                         </div>
+                        <ChoirMedia entry={entry} currentUser={currentUser} onSave={onSaveChoirMedia} />
                       </div>
                     )}
                   </div>

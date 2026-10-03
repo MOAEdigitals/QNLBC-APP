@@ -1274,6 +1274,11 @@ export default function App() {
             onSavePracticeTrack={handleSavePracticeTrack}
             onDeletePracticeTrack={handleDeletePracticeTrack}
             onDeletePracticeEntry={handleDeletePracticeEntry}
+            onSaveChoirMedia={async (entry) => {
+              if (!requirePermission('edit')) throw new Error('You need edit permission to change choir attachments.');
+              const saved = await supabaseSaveChoirEntry(entry, false);
+              setChoirEntries(previous => previous.map(item => item.id === saved.id ? saved : item));
+            }}
             onSaveChoirEntry={handleSaveChoirEntry}
             onDeleteChoirEntry={handleDeleteChoirEntry}
             onOpenSongDetail={handleOpenSongDetail}
