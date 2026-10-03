@@ -1,3 +1,4 @@
+import { CardActions } from './CardActions';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { ChoirMedia } from './ChoirMedia';
@@ -2264,40 +2265,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           </div>
                         </div>
 
-                        {/* Far Right Action Buttons */}
-                        <div
-                          className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingSchedule(item);
-                              setIsEditingSchedule(true);
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                            title="Edit Special Number"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`Remove special song number for ${item.performerName}?`)) {
-                                onDeleteSpecialNumber(item.id);
-                                if (selectedEntryId === item.id) setSelectedEntryId(null);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer"
-                            title="Delete Special Number"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-
-                          <div className="p-1 text-slate-400">
-                            {isSelected ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </div>
+                        <div className="flex items-center shrink-0 ml-2">
+                          <CardActions label="Song number" onEdit={() => { setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={() => {
+                            if (confirm(`Remove special song number for ${item.performerName}?`)) {
+                              onDeleteSpecialNumber(item.id);
+                              if (selectedEntryId === item.id) setSelectedEntryId(null);
+                            }
+                          }} />
+                          <div className="p-1 text-slate-400">{isSelected ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</div>
                         </div>
                       </div>
 
@@ -3055,6 +3030,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
                       </div>
 
+                      <CardActions label="Choir" onEdit={() => { setEditingChoir(entry); setIsEditingChoir(true); }} onDelete={() => handleDeleteChoir(entry.id)} />
                       <ChevronDown
                         className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
                           isLyricsExpanded ? 'rotate-180 text-slate-600 dark:text-slate-200' : ''
@@ -3076,31 +3052,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           <p className="text-xs text-slate-400 italic py-1">No lyrics attached yet.</p>
                         )}
 
-                        <div className="flex items-center justify-end gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingChoir(entry);
-                              setIsEditingChoir(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors"
-                          >
-                            <Pencil className="w-3.5 h-3.5" />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteChoir(entry.id);
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete</span>
-                          </button>
-                        </div>
                         <ChoirMedia entry={entry} currentUser={currentUser} onSave={onSaveChoirMedia} />
                       </div>
                     )}

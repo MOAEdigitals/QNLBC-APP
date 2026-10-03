@@ -1,3 +1,4 @@
+import { CardActions } from '../../components/CardActions';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { monthList } from '../../components/MonthSeparators';
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
@@ -155,16 +156,16 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
     } catch (e) { setCopyMessage(e instanceof Error ? e.message : 'Unable to update this sermon.'); }
     finally { saveLock.current = false; setSaving(false); }
   }
-  async function removeSelected() {
-    if (!selected || !canDelete(selected) || saveLock.current) return;
-    if (!window.confirm(`Delete “${selected.title}”? This cannot be undone.`)) return;
+  async function removeSelected(row = selected) {
+    if (!row || !canDelete(row) || saveLock.current) return;
+    if (!window.confirm(`Delete “${row.title}”? This cannot be undone.`)) return;
     saveLock.current = true; setSaving(true); setCopyMessage('');
     try {
-      await deleteSermon(selected);
-      setRows(previous => previous.filter(row => row.id !== selected.id));
-      closeReader();
-      void removeUnusedSermonFiles((selected.attachments || []).map(item => item.path));
-    } catch (e) { setCopyMessage(e instanceof Error ? e.message : 'Unable to delete this sermon.'); }
+      await deleteSermon(row);
+      setRows(previous => previous.filter(item => item.id !== row.id));
+      if (selectedId === row.id) closeReader();
+      void removeUnusedSermonFiles((row.attachments || []).map(item => item.path));
+    } catch (e) { const message = e instanceof Error ? e.message : 'Unable to delete this sermon.'; setError(message); setCopyMessage(message); }
     finally { saveLock.current = false; setSaving(false); }
   }
   async function copy() {
@@ -195,11 +196,14 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
     {ready && visible.length === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}
     <div className="space-y-2.5">{monthList(visible, row => row.service_date, ['outline', 'outlines']).render(row => {
       const past = row.service_date < today || !!row.is_done;
-      return <button key={row.id} type="button" onClick={() => openSermon(row)} className={`w-full text-left p-3 min-w-0 rounded-2xl border transition-all cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-500 opacity-60 grayscale border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
+      return <div key={row.id} className={`w-full text-left p-3 min-w-0 rounded-2xl border transition-all cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-500 opacity-60 grayscale border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
+        <button type="button" onClick={() => openSermon(row)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
         <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${past ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}><span className="text-[10px] font-bold uppercase tracking-wider leading-none">{formatDateStr(row.service_date, { shortMonth: true }).split(' ')[0]}</span><span className="text-base font-black leading-none mt-0.5">{row.service_date.split('-')[2]}</span></div>
         <div className="flex-1 min-w-0"><div className="flex min-w-0 items-center gap-1.5"><h3 className={`min-w-0 truncate text-sm sm:text-base ${past ? 'font-bold text-slate-500 dark:text-slate-400' : 'font-black text-slate-900 dark:text-white'}`}>{row.title}</h3>{row.status === 'draft' && <span className="text-[10px] font-semibold shrink-0 text-amber-600">Draft</span>}</div><div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><span className="min-w-0 truncate font-semibold">{row.preacher}</span><span aria-hidden="true">·</span><span className="shrink-0">{formatDateStr(row.service_date, { shortMonth: true })}</span>{row.is_done && <span className="shrink-0">· Done</span>}</div></div>
         {!!row.attachments?.length && <span className="flex items-center gap-1 text-xs text-slate-400 shrink-0" aria-label={`${row.attachments.length} attachments`}><Paperclip className="w-3 h-3" />{row.attachments.length}</span>}
-      </button>;
+        </button>
+        <CardActions label="Outline" disabled={saving} onEdit={canEdit(row) ? () => startEdit(row) : undefined} onDelete={canDelete(row) ? () => void removeSelected(row) : undefined} />
+      </div>;
     })}</div>
     {selected && !editor && <div ref={surface} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="sermon-reader-title" className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 outline-none" onKeyDown={screenKeys}>
       <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 sm:px-5 pt-[env(safe-area-inset-top)]">
