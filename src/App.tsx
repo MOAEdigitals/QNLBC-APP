@@ -1259,6 +1259,7 @@ export default function App() {
 
         {currentTab === 'special-numbers' && (!loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
+            currentUser={currentUser}
             specialNumbers={specialNumbers}
             practiceEntries={practiceEntries}
             choirEntries={choirEntries}
