@@ -1,3 +1,4 @@
+import { useBackLayer } from '../../hooks/useBackLayer';
 import { monthList } from '../../components/MonthSeparators';
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Check, Trash2 } from 'lucide-react';
@@ -175,6 +176,8 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
       setCopyMessage('Copied.');
     } catch { setCopyMessage('Copy unavailable. Select the outline text and copy it.'); }
   }
+  useBackLayer(!!editor, closeEditor);
+  useBackLayer(!!selected, () => { if (!saveLock.current) closeReader(); });
   function screenKeys(event: React.KeyboardEvent) {
     if (event.key === 'Escape') { event.stopPropagation(); if (editor) closeEditor(); else if (!saveLock.current) closeReader(); }
     if (event.key === 'Tab') {

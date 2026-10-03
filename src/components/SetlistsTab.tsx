@@ -3,6 +3,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 're
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
   formatDateStr,
+  parseDate,
   isPastDate,
   isToday,
   getNextSundayStr,
@@ -548,6 +549,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
         return;
       }
+      if (!isEditing && selectedSetlistId) {
+        setSelectedSetlistId(null);
+        return;
+      }
       // 1. If editor modal is open
       if (isEditing && editingSetlist) {
         const isDirty = JSON.stringify(editingSetlist) !== initialEditingJsonRef.current;
@@ -603,7 +608,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [isEditing, editingSetlist]);
+  }, [isEditing, editingSetlist, selectedSetlistId]);
 
   // Start creating Sunday Setlist
   const handleStartCreateSunday = () => {
@@ -992,10 +997,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         }`}
                       >
                         <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                          {formatDateStr(item.date, { shortMonth: true }).split(' ')[0]}
+                          {parseDate(item.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                         </span>
                         <span className="text-base font-black leading-none mt-0.5">
-                          {item.date.split('-')[2]}
+                          {Number(item.date.split('-')[2])}
                         </span>
                       </div>
 

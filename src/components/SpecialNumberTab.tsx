@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { ChoirMedia } from './ChoirMedia';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
@@ -162,21 +163,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 }) => {
   // Schedules subtabs: Song Numbers (default), Practice, Choir, Outlines, Activities.
   // Keep the existing schedules key so saved selections and song data stay compatible.
-  const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>(() => {
-    try {
-      const saved = localStorage.getItem('nlbc_special_numbers_subtab_v1');
-      if (saved === 'schedules' || saved === 'practice' || saved === 'choir' || saved === 'outlines' || saved === 'activities') {
-        return saved as SpecialNumbersSubTab;
-      }
-    } catch {}
-    return 'schedules';
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('nlbc_special_numbers_subtab_v1', activeSubTab);
-    } catch {}
-  }, [activeSubTab]);
+  const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>('schedules');
 
   // Choir state
   const [selectedChoirId, setSelectedChoirId] = useState<string | null>(null);
@@ -950,31 +937,18 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     isAddingVocalPartModal,
   ]);
 
-  // Back swipe / popstate listener to collapse container
-  React.useEffect(() => {
-    const handlePopState = () => {
-      if (isEditingSchedule) {
-        setIsEditingSchedule(false);
-        setEditingSchedule(null);
-        return;
-      }
-      if (isEditingPractice) {
-        setIsEditingPractice(false);
-        setEditingPractice(null);
-        return;
-      }
-      if (selectedEntryId) {
-        setSelectedEntryId(null);
-        return;
-      }
-      if (selectedPracticeId) {
-        setSelectedPracticeId(null);
-        return;
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isEditingSchedule, isEditingPractice, selectedEntryId, selectedPracticeId]);
+  useBackLayer(isEditingSchedule || isEditingPractice || isEditingChoir || isAddingTrackModal || isAddingVocalPartModal || !!selectedEntryId || !!selectedPracticeId || !!selectedChoirId, () => {
+    if (isAddingVocalPartModal) { if (!savingVocalPartRef.current) handleCloseVocalPartModal(); }
+    else if (isAddingTrackModal) { if (!savingTrackRef.current && !isUploadingCloudMedia) setIsAddingTrackModal(false); }
+    else if (isEditingChoir) { setIsEditingChoir(false); setEditingChoir(null); }
+    else if (isEditingPractice) { if (isSavingPractice) return; setIsEditingPractice(false); setEditingPractice(null); }
+    else if (isEditingSchedule) { setIsEditingSchedule(false); setEditingSchedule(null); }
+    else if (selectedPracticeId) setSelectedPracticeId(null);
+    else if (selectedChoirId) { setExpandedChoirLyricsIds({}); setSelectedChoirId(null); }
+    else { setExpandedScheduleLyricsIds({}); setSelectedEntryId(null); }
+  });
+
+  useBackLayer(activeSubTab !== 'schedules', () => setActiveSubTab('schedules'));
 
   // MediaSession integration for background play
   React.useEffect(() => {

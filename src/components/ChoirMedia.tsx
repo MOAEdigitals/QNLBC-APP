@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useRef, useState } from 'react';
 import { Paperclip, Play, Trash2, X, ExternalLink } from 'lucide-react';
 import type { ChoirEntry, ChoirMediaAttachment, UserAccount } from '../types';
@@ -32,6 +33,7 @@ export function ChoirMedia({ entry, currentUser, onSave }: { entry: ChoirEntry; 
     catch { setError('Enter a valid https:// or http:// link.'); return; }
     if (await persist([...files, { id: generateUUID(), part, title: title.trim() || part, url: url.trim(), kind }])) { setAdding(false); setUrl(''); setTitle(''); }
   }
+  useBackLayer(adding, () => { if (!lock.current) setAdding(false); });
   return <section className="space-y-3" aria-label="Choir media">
     <div className="space-y-2">{files.map(item => <div key={item.id} className="flex gap-2 items-center rounded-xl border border-slate-200 dark:border-slate-700 p-2">
       <button type="button" aria-label={`Play ${item.title}`} aria-pressed={activeId === item.id} onClick={() => setActiveId(activeId === item.id ? null : item.id)} className="flex-1 min-w-0 flex items-center gap-3 text-left p-1"><Play className="w-4 h-4 shrink-0" /><span className="min-w-0"><span className="block text-sm font-semibold">{item.part}</span>{item.title !== item.part && <span className="block text-xs truncate">{item.title}</span>}</span></button>

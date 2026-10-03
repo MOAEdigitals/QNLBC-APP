@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import React, { useState, useEffect } from 'react';
 import {
@@ -15,6 +16,7 @@ import {
   getCurrentRecognitionWindow,
   categorizeAnnualCelebrants,
   getTodayStr,
+  getNextAnnualOccurrence,
   parseDate,
 } from '../utils/dateUtils';
 import { generateUUID } from '../services/supabaseData';
@@ -85,12 +87,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 }) => {
   const lastProcessedSignalRef = React.useRef<number | undefined>(collapseSignal);
   const [subTab, setSubTab] = useState<RecognitionsSubTab>('birthdays');
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('nlbc_recognitions_subtab_v1', subTab);
-    } catch {}
-  }, [subTab]);
 
   // Modal States
   const [isAddingBirthday, setIsAddingBirthday] = useState(false);
@@ -299,6 +295,11 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setIsAddingSpecial(false);
   };
 
+  useBackLayer(isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial, () => {
+    if (isSavingBirthday) return;
+    setIsAddingBirthday(false); setIsAddingAnniversary(false); setIsAddingVisitor(false); setIsAddingSpecial(false);
+  });
+  useBackLayer(subTab !== 'birthdays', () => setSubTab('birthdays'));
   const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial;
 
   return (
@@ -448,8 +449,11 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           className={`p-4 rounded-2xl border shadow-xs flex items-start justify-between ${BIRTHDAY_MONTH_COLORS[month].card}`}
                         >
                           <div className="flex items-start space-x-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
-                              {Number(item.birthDate.split('-')[2])}
+                            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
+                              <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                                {getNextAnnualOccurrence(item.birthDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+                              </span>
+                              <span className="text-base font-black leading-none mt-0.5">{Number(item.birthDate.split('-')[2])}</span>
                             </div>
                             <div>
                               <h4 className="text-sm font-bold text-slate-900 dark:text-white">

@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
 import {
@@ -105,6 +106,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details' };
+  useBackLayer(!!selectedMemberId || !!settingsSection, () => {
+    if (selectedMemberId) setSelectedMemberId(null); else setSettingsSection(null);
+  });
   // Existing section content remains mounted while navigating settings.
   const isAccountCollapsed = false;
   const isAppearanceCollapsed = false;

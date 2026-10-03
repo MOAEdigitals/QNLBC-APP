@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useBackLayer';
 import { useLyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Song } from '../types';
@@ -78,34 +79,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     };
   }, []);
 
-  // Browser history popstate integration (supports OS native swipe-back & Android back button)
+  useBackLayer(isOpen, handleExit);
   useEffect(() => {
-    if (!isOpen) {
-      setSwipeOffset(0);
-      setIsSwiping(false);
-      return;
-    }
-
-    // Push a temporary history state so native swipe-back / back button exits prompter without leaving the app
-    window.history.pushState({ stagePrompterOpen: true }, '');
-
-    let closedViaPopState = false;
-
-    const handlePopState = () => {
-      closedViaPopState = true;
-      handleExit();
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-      // Clean up the pushed history entry if closed via UI button or swipe gesture
-      if (!closedViaPopState && window.history.state?.stagePrompterOpen) {
-        window.history.back();
-      }
-    };
-  }, [isOpen, handleExit]);
+    if (!isOpen) { setSwipeOffset(0); setIsSwiping(false); }
+  }, [isOpen]);
 
   // Touch handlers for swipe-back gesture to exit
   const handleTouchStart = (e: React.TouchEvent) => {

@@ -1,3 +1,4 @@
+import { isBackLayerMounted } from './hooks/useBackLayer';
 import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserAccount,
@@ -121,20 +122,10 @@ export default function App() {
   }, [theme]);
 
   // Active Tab & Browser Navigation (Preserved)
-  const [currentTab, setCurrentTab] = useState<AppTab>(() => {
-    const hash = window.location.hash.replace('#', '');
-    const validTabs: AppTab[] = ['home', 'recognitions', 'special-numbers', 'songs', 'settings'];
-    if (hash && validTabs.includes(hash as AppTab)) {
-      return hash as AppTab;
-    }
-    try {
-      const savedTab = localStorage.getItem('nlbc_active_tab_v1');
-      if (savedTab && validTabs.includes(savedTab as AppTab)) {
-        return savedTab as AppTab;
-      }
-    } catch {}
-    return 'home';
-  });
+  const [currentTab, setCurrentTab] = useState<AppTab>('home');
+  useEffect(() => {
+    window.history.replaceState({ tab: 'home' }, '', '#home');
+  }, []);
 
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
   const tabHistoryRef = useRef<AppTab[]>([currentTab]);
@@ -148,11 +139,7 @@ export default function App() {
     hasActiveSubViewRef.current = isOpen;
   }, []);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('nlbc_active_tab_v1', currentTab);
-    } catch {}
-  }, [currentTab]);
+
 
   // Deep linking and navigation helpers
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
@@ -431,6 +418,7 @@ export default function App() {
         }));
         return;
       }
+      hasActiveSubViewRef.current = false;
       const isReturningToSetlist =
         newTab === 'home' &&
         (Boolean(returnSetlistIdRef.current) ||
@@ -472,8 +460,13 @@ export default function App() {
     }
 
     const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.localScreen && !isBackLayerMounted(event.state.localScreen)) {
+        window.history.back();
+        return;
+      }
       const targetTab: AppTab = event.state?.tab || 'home';
-      if (currentTab !== 'home') {
+      if (currentTab === 'home' && hasActiveSubViewRef.current) return;
+      if (currentTab !== 'home' || targetTab !== 'home') {
         const isReturningToSetlist =
           targetTab === 'home' &&
           (Boolean(returnSetlistIdRef.current) ||

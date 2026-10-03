@@ -1,3 +1,4 @@
+import { useBackLayer } from '../hooks/useBackLayer';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue, useCallback } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
@@ -61,6 +62,7 @@ export type SongCategory = (typeof VALID_SONG_CATEGORIES)[number];
 const SONG_PAGE_SIZE = 80;
 type SongSortMode = 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added';
 
+let sessionSongSort: SongSortMode = 'alpha-asc';
 const SONG_SORT_OPTIONS: Array<{ value: SongSortMode; label: string; shortLabel: string }> = [
   { value: 'alpha-asc', label: 'Title: A–Z', shortLabel: 'A–Z' },
   { value: 'alpha-desc', label: 'Title: Z–A', shortLabel: 'Z–A' },
@@ -119,12 +121,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const [visibleResultCount, setVisibleResultCount] = useState(SONG_PAGE_SIZE);
-  const [sortMode, setSortMode] = useState<SongSortMode>(() => {
-    const savedSort = localStorage.getItem('qnlbc-song-sort');
-    return SONG_SORT_OPTIONS.some((option) => option.value === savedSort)
-      ? (savedSort as SongSortMode)
-      : 'alpha-asc';
-  });
+  const [sortMode, setSortMode] = useState<SongSortMode>(sessionSongSort);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const [categoryFilter, setCategoryFilter] = useState<
@@ -362,6 +359,14 @@ if (isEditing && !savingSongRef.current) {
     }
   }, [collapseSignal, selectedSongId, isEditing, isAddingAttachment, isAddToSetlistOpen, onClearInitialSelectedSongId]);
 
+  useBackLayer(!isStagePrompterOpen && (isSortMenuOpen || !!openMenuSongId || isEditing || isAddingAttachment || isAddToSetlistOpen || !!selectedSongId), () => {
+    if (isSortMenuOpen) setIsSortMenuOpen(false);
+    else if (isEditing) { if (!savingSongRef.current) { setIsEditing(false); setEditingSong(null); } }
+    else if (isAddingAttachment) { if (!isUploadingCloudMedia) setIsAddingAttachment(false); }
+    else if (isAddToSetlistOpen) setIsAddToSetlistOpen(false);
+    else if (openMenuSongId) setOpenMenuSongId(null);
+    else { setSelectedSongId(null); setActiveMedia(null); setOpenMenuSongId(null); onClearInitialSelectedSongId?.(); }
+  });
   // Back swipe / popstate listener to collapse container
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
@@ -481,12 +486,11 @@ if (isEditing && !savingSongRef.current) {
     }, 2500);
   };
 
+  useEffect(() => { sessionSongSort = sortMode; }, [sortMode]);
+
   // Fast O(1) cached usage map
   const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
 
-  useEffect(() => {
-    localStorage.setItem('qnlbc-song-sort', sortMode);
-  }, [sortMode]);
 
   useEffect(() => {
     if (!isSortMenuOpen) return;
