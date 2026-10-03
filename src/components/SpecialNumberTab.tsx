@@ -2272,7 +2272,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               if (selectedEntryId === item.id) setSelectedEntryId(null);
                             }
                           }} />
-                          <div className="p-1 text-slate-400">{isSelected ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</div>
                         </div>
                       </div>
 
@@ -3031,11 +3030,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       </div>
 
                       <CardActions label="Choir" onEdit={() => { setEditingChoir(entry); setIsEditingChoir(true); }} onDelete={() => handleDeleteChoir(entry.id)} />
-                      <ChevronDown
-                        className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
-                          isLyricsExpanded ? 'rotate-180 text-slate-600 dark:text-slate-200' : ''
-                        }`}
-                      />
                     </div>
 
                     {/* Expanded Lyrics */}
