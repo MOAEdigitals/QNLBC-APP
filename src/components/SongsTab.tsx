@@ -564,13 +564,13 @@ if (isEditing && !savingSongRef.current) {
     return sortedSongs.filter((s) => getSongCategories(s).includes(categoryFilter as SongCategory));
   }, [sortedSongs, categoryFilter]);
 
-  const songSearchResults = useMemo(() => {
+  const songSearchResults = useMemo<Array<ReturnType<typeof searchSong> & { history: SongUsageHistory }>>(() => {
     if (!deferredSearchQuery.trim()) {
       return categoryFilteredSongs.map((song) => ({
         song,
         matches: true,
         score: 100,
-        matchedField: 'none' as const,
+        matchedField: 'none' as ReturnType<typeof searchSong>['matchedField'],
         lyricSnippet: undefined,
         history: getSongUsageHistoryFromMap(song.title, usageMap),
       }));

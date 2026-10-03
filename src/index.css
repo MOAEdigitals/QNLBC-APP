@@ -111,3 +111,23 @@ button.ui-settings-row { cursor: pointer; }
     display: none !important;
   }
 }
+
+/* Sermon editor and reader: preserve indentation while wrapping to the screen. */
+.sermon-prose { font-family: Arial, sans-serif; line-height: 1.65; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; }
+.sermon-prose p { margin: 0 0 1em; min-height: 1em; }
+.sermon-prose p:last-child { margin-bottom: 0; }
+.sermon-prose strong, .sermon-prose b { font-weight: 700; }
+.sermon-prose ul { list-style: disc; padding-left: 1.6em; margin: .6em 0 1em; }
+.sermon-prose ol { list-style: decimal; padding-left: 1.6em; margin: .6em 0 1em; }
+.sermon-prose li { padding-left: .2em; }
+.sermon-prose li > p { margin-bottom: .35em; }
+.sermon-prose ul ul { list-style: circle; }
+.sermon-prose ul ul ul { list-style: square; }
+.sermon-prose h1, .sermon-prose h2, .sermon-prose h3, .sermon-prose h4 { font-weight: 700; margin: 1em 0 .5em; }
+.sermon-prose h1 { font-size: 1.5em; }
+.sermon-prose h2 { font-size: 1.3em; }
+.sermon-prose h3 { font-size: 1.15em; }
+.sermon-prose blockquote { margin: 1em 0; padding-left: 1em; border-left: 3px solid #94a3b8; }
+.sermon-prose pre { white-space: pre-wrap; font-family: inherit; }
+.sermon-prose hr { margin: 1em 0; border-color: #cbd5e1; }
+.sermon-prose .ProseMirror:focus { outline: none; }

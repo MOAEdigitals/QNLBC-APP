@@ -607,7 +607,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   // Start creating Sunday Setlist
   const handleStartCreateSunday = () => {
     const nextSun = getNextSundayStr();
-    const monthTheme = getThemeSongForMonth(setlists, nextSun);
+    const monthTheme = getThemeSongForMonth(songs, nextSun);
 
     const initialData: Partial<Setlist> = {
       id: generateUUID(),

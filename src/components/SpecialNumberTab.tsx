@@ -1,4 +1,3 @@
-import SermonOutlines from '../features/sermons/SermonOutlines';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
@@ -85,6 +84,8 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
+
+const SermonOutlines = React.lazy(() => import('../features/sermons/SermonOutlines'));
 
 interface SpecialNumberTabProps {
   currentUser: UserAccount | null;
@@ -511,7 +512,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     id: string;
     title: string;
     url: string;
-    type: 'video' | 'link';
+    type: 'video' | 'link' | 'audio';
     partLabel?: string;
     groupId?: string;
   } | null>(null);
@@ -1146,7 +1147,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         updatedAt: new Date().toISOString(),
       };
       const savedSong = await onSaveSong(newSong);
-      effectiveSongId = savedSong?.id;
+      effectiveSongId = savedSong ? savedSong.id : undefined;
     } else if (matchedSong) {
       effectiveSongId = matchedSong.id;
       // If user provided/updated artist or lyrics, save update to the song in library
@@ -1187,7 +1188,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
       if (onSavePracticeEntry) {
         const saved = await onSavePracticeEntry(entryToSave, isNew);
-        if (saved?.id) {
+        if (saved && saved.id) {
           setSelectedPracticeId(saved.id);
         }
       }
@@ -1397,7 +1398,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       } else {
         setTrackFileName('');
       }
-      setTrackType(track.type || 'link');
+      setTrackType(track.type === 'image' || track.type === 'text' ? 'file' : track.type || 'link');
     } else {
       trackSubmissionIdRef.current = generateUUID();
       setEditingTrackIndex(null);
@@ -2085,7 +2086,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         </h2>
       )}
 
-      {activeSubTab === 'outlines' && <SermonOutlines currentUser={currentUser} />}
+      {activeSubTab === 'outlines' && <React.Suspense fallback={<p role="status">Loading outlines…</p>}><SermonOutlines currentUser={currentUser} /></React.Suspense>}
       {activeSubTab === 'activities' && (
         <section aria-label="Activities" className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-10 text-center">
           <Calendar className="w-8 h-8 mx-auto mb-3 text-amber-500" />
@@ -4087,7 +4088,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   onSelectSuggestion={(suggestion) => {
                     const matchedSong = songs.find((s) => s.title === suggestion);
                     if (matchedSong) {
-                      handleSelectSongForChoir(matchedSong);
+                      handleSelectSongForChoir(matchedSong.title);
                     } else {
                       setEditingChoir({ ...editingChoir, songTitle: suggestion });
                     }

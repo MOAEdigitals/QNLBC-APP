@@ -30,6 +30,7 @@ export type UserProfile = UserAccount;
 export type AttachmentCategory = 'plus_one' | 'minus_one';
 
 export interface SongAttachment {
+  position?: number;
   id: string;
   name: string;
   category?: AttachmentCategory;
