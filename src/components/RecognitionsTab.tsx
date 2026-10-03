@@ -37,6 +37,21 @@ import {
   BookmarkCheck,
 } from 'lucide-react';
 
+const BIRTHDAY_MONTH_COLORS = [
+  { text: 'text-blue-800 dark:text-blue-300', line: 'bg-blue-200 dark:bg-blue-800', card: 'bg-blue-50/60 dark:bg-blue-950/30 border-blue-200 dark:border-blue-900/60', badge: 'bg-blue-700 text-white' },
+  { text: 'text-violet-800 dark:text-violet-300', line: 'bg-violet-200 dark:bg-violet-800', card: 'bg-violet-50/60 dark:bg-violet-950/30 border-violet-200 dark:border-violet-900/60', badge: 'bg-violet-700 text-white' },
+  { text: 'text-emerald-800 dark:text-emerald-300', line: 'bg-emerald-200 dark:bg-emerald-800', card: 'bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60', badge: 'bg-emerald-700 text-white' },
+  { text: 'text-rose-800 dark:text-rose-300', line: 'bg-rose-200 dark:bg-rose-800', card: 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60', badge: 'bg-rose-700 text-white' },
+  { text: 'text-amber-800 dark:text-amber-300', line: 'bg-amber-200 dark:bg-amber-800', card: 'bg-amber-50/60 dark:bg-amber-950/30 border-amber-200 dark:border-amber-900/60', badge: 'bg-amber-700 text-white' },
+  { text: 'text-cyan-800 dark:text-cyan-300', line: 'bg-cyan-200 dark:bg-cyan-800', card: 'bg-cyan-50/60 dark:bg-cyan-950/30 border-cyan-200 dark:border-cyan-900/60', badge: 'bg-cyan-700 text-white' },
+  { text: 'text-orange-800 dark:text-orange-300', line: 'bg-orange-200 dark:bg-orange-800', card: 'bg-orange-50/60 dark:bg-orange-950/30 border-orange-200 dark:border-orange-900/60', badge: 'bg-orange-700 text-white' },
+  { text: 'text-fuchsia-800 dark:text-fuchsia-300', line: 'bg-fuchsia-200 dark:bg-fuchsia-800', card: 'bg-fuchsia-50/60 dark:bg-fuchsia-950/30 border-fuchsia-200 dark:border-fuchsia-900/60', badge: 'bg-fuchsia-700 text-white' },
+  { text: 'text-teal-800 dark:text-teal-300', line: 'bg-teal-200 dark:bg-teal-800', card: 'bg-teal-50/60 dark:bg-teal-950/30 border-teal-200 dark:border-teal-900/60', badge: 'bg-teal-700 text-white' },
+  { text: 'text-indigo-800 dark:text-indigo-300', line: 'bg-indigo-200 dark:bg-indigo-800', card: 'bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-900/60', badge: 'bg-indigo-700 text-white' },
+  { text: 'text-lime-800 dark:text-lime-300', line: 'bg-lime-200 dark:bg-lime-800', card: 'bg-lime-50/60 dark:bg-lime-950/30 border-lime-200 dark:border-lime-900/60', badge: 'bg-lime-700 text-white' },
+  { text: 'text-red-800 dark:text-red-300', line: 'bg-red-200 dark:bg-red-800', card: 'bg-red-50/60 dark:bg-red-950/30 border-red-200 dark:border-red-900/60', badge: 'bg-red-700 text-white' },
+];
+
 interface RecognitionsTabProps {
   birthdays: BirthdayCelebrant[];
   anniversaries: AnniversaryCelebrant[];
@@ -418,11 +433,11 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {Array.from(birthdayMonths, ([month, items]) => (
                   <section key={month} aria-labelledby={`birthday-month-${month}`} className="space-y-3">
                     <div className="flex items-center gap-3 px-1">
-                      <h3 id={`birthday-month-${month}`} className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
+                      <h3 id={`birthday-month-${month}`} className={`shrink-0 text-sm font-bold ${BIRTHDAY_MONTH_COLORS[month].text}`}>
                         {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
                       </h3>
-                      <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-                      <span className="shrink-0 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
+                      <div aria-hidden="true" className={`h-px flex-1 ${BIRTHDAY_MONTH_COLORS[month].line}`} />
+                      <span className={`shrink-0 text-xs font-semibold ${BIRTHDAY_MONTH_COLORS[month].text}`}>
                         {items.length} {items.length === 1 ? 'birthday' : 'birthdays'}
                       </span>
                     </div>
@@ -430,17 +445,17 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60 shadow-xs flex items-start justify-between"
+                          className={`p-4 rounded-2xl border shadow-xs flex items-start justify-between ${BIRTHDAY_MONTH_COLORS[month].card}`}
                         >
                           <div className="flex items-start space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
                               {Number(item.birthDate.split('-')[2])}
                             </div>
                             <div>
                               <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                                 {item.name}
                               </h4>
-                              <div className="text-xs text-indigo-700 dark:text-indigo-300 font-semibold mt-0.5">
+                              <div className={`text-xs font-semibold mt-0.5 ${BIRTHDAY_MONTH_COLORS[month].text}`}>
                                 {parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
                               </div>
                               {item.ministryOrGroup && (
