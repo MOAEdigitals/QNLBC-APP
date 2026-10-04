@@ -12,7 +12,6 @@ import {
 } from '../types';
 import {
   formatDateStr,
-  formatShortDate,
   getCurrentRecognitionWindow,
   categorizeAnnualCelebrants,
   getTodayStr,
@@ -550,8 +549,9 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                     className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center text-xs font-bold shrink-0">
-                        {formatShortDate(item.anniversaryDate)}
+                      <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex flex-col items-center justify-center font-bold shrink-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">{getNextAnnualOccurrence(item.anniversaryDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
+                        <span className="text-base font-black leading-none mt-0.5">{Number(item.anniversaryDate.split('-')[2])}</span>
                       </div>
                       <div>
                         <h4 className="text-sm font-semibold text-slate-900 dark:text-white">

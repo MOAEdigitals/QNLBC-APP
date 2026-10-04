@@ -18,6 +18,7 @@ import {
 } from '../types';
 import {
   formatDateStr,
+  parseDate,
   isPastDate,
   isToday,
   getNextSundayStr,
@@ -2204,10 +2205,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             }`}
                           >
                             <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                              {formatDateStr(item.scheduledDate, { shortMonth: true }).split(' ')[0]}
+                              {parseDate(item.scheduledDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                             </span>
                             <span className="text-base font-black leading-none mt-0.5">
-                              {item.scheduledDate.split('-')[2]}
+                              {Number(item.scheduledDate.split('-')[2])}
                             </span>
                           </div>
 
@@ -2999,10 +3000,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           }`}
                         >
                           <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                            {formatDateStr(entry.date, { shortMonth: true }).split(' ')[0]}
+                            {entry.date ? parseDate(entry.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : ''}
                           </span>
                           <span className="text-base font-black leading-none mt-0.5">
-                            {entry.date ? entry.date.split('-')[2] : ''}
+                            {entry.date ? Number(entry.date.split('-')[2]) : ''}
                           </span>
                         </div>
 

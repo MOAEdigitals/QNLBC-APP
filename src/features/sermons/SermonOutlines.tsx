@@ -4,7 +4,7 @@ import { monthList } from '../../components/MonthSeparators';
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Check, Trash2 } from 'lucide-react';
 import type { UserAccount } from '../../types';
-import { formatDateStr, getNextSundayStr, getTodayStr } from '../../utils/dateUtils';
+import { parseDate, formatDateStr, getNextSundayStr, getTodayStr } from '../../utils/dateUtils';
 import { generateUUID } from '../../services/supabaseData';
 import { listSermons, sermonPayload } from './model';
 import type { SermonOutline, SermonInput, SermonAttachment } from './model';
@@ -198,7 +198,7 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
       const past = row.service_date < today || !!row.is_done;
       return <div key={row.id} className={`w-full text-left p-3 min-w-0 rounded-2xl border transition-all cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-500 opacity-60 grayscale border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
         <button type="button" onClick={() => openSermon(row)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
-        <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${past ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}><span className="text-[10px] font-bold uppercase tracking-wider leading-none">{formatDateStr(row.service_date, { shortMonth: true }).split(' ')[0]}</span><span className="text-base font-black leading-none mt-0.5">{row.service_date.split('-')[2]}</span></div>
+        <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${past ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}><span className="text-[10px] font-bold uppercase tracking-wider leading-none">{parseDate(row.service_date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span><span className="text-base font-black leading-none mt-0.5">{Number(row.service_date.split('-')[2])}</span></div>
         <div className="flex-1 min-w-0"><div className="flex min-w-0 items-center gap-1.5"><h3 className={`min-w-0 truncate text-sm sm:text-base ${past ? 'font-bold text-slate-500 dark:text-slate-400' : 'font-black text-slate-900 dark:text-white'}`}>{row.title}</h3>{row.status === 'draft' && <span className="text-[10px] font-semibold shrink-0 text-amber-600">Draft</span>}</div><div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><span className="min-w-0 truncate font-semibold">{row.preacher}</span><span aria-hidden="true">·</span><span className="shrink-0">{formatDateStr(row.service_date, { shortMonth: true })}</span>{row.is_done && <span className="shrink-0">· Done</span>}</div></div>
         {!!row.attachments?.length && <span className="flex items-center gap-1 text-xs text-slate-400 shrink-0" aria-label={`${row.attachments.length} attachments`}><Paperclip className="w-3 h-3" />{row.attachments.length}</span>}
         </button>
