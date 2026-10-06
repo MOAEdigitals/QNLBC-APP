@@ -1,4 +1,4 @@
-import { isBackLayerMounted } from './hooks/useBackLayer';
+import { isBackLayerMounted, useBackLayer } from './hooks/useBackLayer';
 import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import {
   UserAccount,
@@ -128,6 +128,7 @@ export default function App() {
   }, []);
 
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
+  useBackLayer(showLogoutConfirmModal, () => setShowLogoutConfirmModal(false));
   const tabHistoryRef = useRef<AppTab[]>([currentTab]);
   const hasActiveSubViewRef = useRef(false);
   const [collapseSignals, setCollapseSignals] = useState<Record<string, number>>({});

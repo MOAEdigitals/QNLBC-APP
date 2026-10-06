@@ -79,6 +79,15 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
     setEditor({ item: { id: generateUUID(), title: '', activityDate: date, activityTime: '' }, isNew: true });
   };
 
+  const showActivitiesForDate = (date: string) => {
+    const first = items.find(item => item.activityDate === date);
+    if (!first) return;
+    document.getElementById(`activity-card-${first.id}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  };
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!editor || savingRef.current) return;
@@ -125,8 +134,8 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
           const count = counts.get(key) || 0;
           const isToday = key === todayKey();
-          return <button key={key} type="button" onClick={() => canAdd && openNew(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
-            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${isToday ? 'bg-indigo-600 font-bold text-white' : ''}`}>{day}</span>
+          return <button key={key} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
+            <span className={`flex h-7 w-7 items-center justify-center ${isToday ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}`}>{day}</span>
             <span className="flex h-2 max-w-8 flex-wrap items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: count }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}</span>
           </button>;
         })}
@@ -137,7 +146,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : items.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">No activities yet.</p></div> : <div className="space-y-2">
       {monthList(items, item => item.activityDate, ['activity', 'activities']).render(item => {
         const date = localDate(item.activityDate);
-        return <article key={item.id} className="relative flex min-h-[72px] items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+        return <article id={`activity-card-${item.id}`} key={item.id} className="relative flex min-h-[72px] scroll-mt-4 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
           <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
           {(canEdit || canDelete) && <div className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>}

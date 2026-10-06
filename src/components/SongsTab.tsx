@@ -367,38 +367,6 @@ if (isEditing && !savingSongRef.current) {
     else if (openMenuSongId) setOpenMenuSongId(null);
     else { setSelectedSongId(null); setActiveMedia(null); setOpenMenuSongId(null); onClearInitialSelectedSongId?.(); }
   });
-  // Back swipe / popstate listener to collapse container
-  useEffect(() => {
-    const handlePopState = (e: PopStateEvent) => {
-      if (isEditing && !savingSongRef.current) {
-        setIsEditing(false);
-        setEditingSong(null);
-        return;
-      }
-      if (isAddingAttachment) {
-        setIsAddingAttachment(false);
-        return;
-      }
-      if (isAddToSetlistOpen) {
-        setIsAddToSetlistOpen(false);
-        return;
-      }
-      // If navigating back to setlists (home tab), let App.tsx handle switching tabs
-      if (e.state?.tab === 'home' || !e.state?.tab) {
-        return;
-      }
-      if (selectedSongId) {
-        setSelectedSongId(null);
-        setActiveMedia(null);
-        setOpenMenuSongId(null);
-        onClearInitialSelectedSongId?.();
-        return;
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isEditing, isAddingAttachment, isAddToSetlistOpen, selectedSongId, onClearInitialSelectedSongId]);
-
   // Instantly position the selected song card so its top outline/edge is right below the sticky header (no scroll transition)
   const alignSongCardBelowHeader = useCallback((targetSongId: string) => {
     const align = () => {

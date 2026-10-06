@@ -106,9 +106,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details' };
-  useBackLayer(!!selectedMemberId || !!settingsSection, () => {
-    if (selectedMemberId) setSelectedMemberId(null); else setSettingsSection(null);
-  });
   // Existing section content remains mounted while navigating settings.
   const isAccountCollapsed = false;
   const isAppearanceCollapsed = false;
@@ -141,6 +138,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+
+  useBackLayer(showPromptModal || !!selectedMemberId || !!settingsSection, () => {
+    if (showPromptModal) setShowPromptModal(false);
+    else if (selectedMemberId) setSelectedMemberId(null);
+    else setSettingsSection(null);
+  });
 
   const isAdmin = currentUser.role === 'admin';
   const statusObj = databaseStatus || firestoreStatus;

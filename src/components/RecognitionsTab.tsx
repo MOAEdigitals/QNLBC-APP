@@ -310,7 +310,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setBirthdayMenuId(null);
     setIsAddingBirthday(false); setIsAddingAnniversary(false); setIsAddingVisitor(false); setIsAddingSpecial(false);
   });
-  useBackLayer(subTab !== 'birthdays', () => setSubTab('birthdays'));
   const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial;
 
   return (

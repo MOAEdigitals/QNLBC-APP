@@ -951,8 +951,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     else { setExpandedScheduleLyricsIds({}); setSelectedEntryId(null); }
   });
 
-  useBackLayer(activeSubTab !== 'schedules', () => setActiveSubTab('schedules'));
-
   // MediaSession integration for background play
   React.useEffect(() => {
     if (!activePracticeMedia) return;

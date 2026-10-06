@@ -1,4 +1,5 @@
 import { monthList } from './MonthSeparators';
+import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
@@ -542,73 +543,36 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     }
   }, [selectedSetlistId, isEditing, onSubViewChange]);
 
-  // History state & Back navigation / swipe listener
-  useEffect(() => {
-    const handlePopState = () => {
-      if (saveInProgressRef.current) {
-        window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
-        return;
-      }
-      if (!isEditing && selectedSetlistId) {
-        setSelectedSetlistId(null);
-        return;
-      }
-      // 1. If editor modal is open
-      if (isEditing && editingSetlist) {
-        const isDirty = JSON.stringify(editingSetlist) !== initialEditingJsonRef.current;
-
-        // If no changes made, close immediately
-        if (!isDirty) {
-          setIsEditing(false);
-          setEditingSetlist(null);
-          setEditPromptMsg(null);
-          backSwipeCountRef.current = 0;
-          return;
-        }
-
-        // If user swiped/pressed back twice, exit creation/editing
-        if (backSwipeCountRef.current >= 1) {
-          setIsEditing(false);
-          setEditingSetlist(null);
-          setEditPromptMsg(null);
-          backSwipeCountRef.current = 0;
-          return;
-        }
-
-        // First swipe/back: check completeness and prompt
-        backSwipeCountRef.current = 1;
-        const isEventOrFellowship = editingSetlist.type === 'event' || editingSetlist.type === 'fellowship';
-        const hasMissingFields = !editingSetlist.date || (isEventOrFellowship && !editingSetlist.title?.trim());
-
-        if (hasMissingFields) {
-          setEditPromptMsg({
-            type: 'warn',
-            message: 'Incomplete required fields. Please fill all fields, or swipe back again to exit.',
-          });
-        } else {
-          setEditPromptMsg({
-            type: 'info',
-            message: 'All fields completed. Please click Save, or swipe back again to exit.',
-          });
-        }
-
-        // Push state back to prevent unintended page exit
-        window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
-
-        if (backSwipeTimeoutRef.current) clearTimeout(backSwipeTimeoutRef.current);
-        backSwipeTimeoutRef.current = setTimeout(() => {
-          backSwipeCountRef.current = 0;
-          setEditPromptMsg(null);
-        }, 3500);
-        return;
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isEditing, editingSetlist, selectedSetlistId]);
+  useBackLayer(isEditing || !!selectedSetlistId, () => {
+    if (saveInProgressRef.current) return;
+    if (!isEditing) {
+      setSelectedSetlistId(null);
+      return;
+    }
+    if (!editingSetlist) return;
+    const isDirty = JSON.stringify(editingSetlist) !== initialEditingJsonRef.current;
+    if (!isDirty || backSwipeCountRef.current >= 1) {
+      setIsEditing(false);
+      setEditingSetlist(null);
+      setEditPromptMsg(null);
+      backSwipeCountRef.current = 0;
+      return;
+    }
+    backSwipeCountRef.current = 1;
+    const isEventOrFellowship = editingSetlist.type === 'event' || editingSetlist.type === 'fellowship';
+    const hasMissingFields = !editingSetlist.date || (isEventOrFellowship && !editingSetlist.title?.trim());
+    setEditPromptMsg({
+      type: hasMissingFields ? 'warn' : 'info',
+      message: hasMissingFields
+        ? 'Incomplete required fields. Please fill all fields, or swipe back again to exit.'
+        : 'All fields completed. Please click Save, or swipe back again to exit.',
+    });
+    if (backSwipeTimeoutRef.current) clearTimeout(backSwipeTimeoutRef.current);
+    backSwipeTimeoutRef.current = setTimeout(() => {
+      backSwipeCountRef.current = 0;
+      setEditPromptMsg(null);
+    }, 3500);
+  });
 
   // Start creating Sunday Setlist
   const handleStartCreateSunday = () => {

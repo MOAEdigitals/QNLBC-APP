@@ -4,6 +4,8 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import { useBackLayer } from '../src/hooks/useBackLayer.ts';
+import fs from 'node:fs';
+import path from 'node:path';
 const dom = new JSDOM('<div id="root"></div>', { url: 'https://example.com/#songs' });
 Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true });
 const wait = () => new Promise(resolve => setTimeout(resolve, 40));
@@ -43,4 +45,30 @@ test('Back closes the top screen first, respects saving, and consumes manual-clo
   assert.equal(window.history.state?.localScreen, undefined);
   await act(async () => root.unmount());
   window.removeEventListener('popstate', parent);
+});
+
+test('schedule subtabs do not become Back layers that reset to Song Numbers', () => {
+  const source = fs.readFileSync(
+    path.join(process.cwd(), 'src/components/SpecialNumberTab.tsx'),
+    'utf8',
+  ).replace(/\r\n/g, '\n');
+  assert.doesNotMatch(
+    source,
+    /useBackLayer\(activeSubTab !== 'schedules',[\s\S]*?setActiveSubTab\('schedules'\)/,
+  );
+  assert.match(source, /useBackLayer\(isEditingSchedule/);
+});
+
+test('section tabs do not hijack Back and full-screen views use one Back system', () => {
+  const special = fs.readFileSync(path.join(process.cwd(), 'src/components/SpecialNumberTab.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const recognitions = fs.readFileSync(path.join(process.cwd(), 'src/components/RecognitionsTab.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const songs = fs.readFileSync(path.join(process.cwd(), 'src/components/SongsTab.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const setlists = fs.readFileSync(path.join(process.cwd(), 'src/components/SetlistsTab.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const settings = fs.readFileSync(path.join(process.cwd(), 'src/components/SettingsTab.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.doesNotMatch(special, /useBackLayer\(activeSubTab/);
+  assert.doesNotMatch(recognitions, /useBackLayer\(subTab/);
+  assert.doesNotMatch(songs, /addEventListener\('popstate'/);
+  assert.doesNotMatch(setlists, /addEventListener\('popstate'/);
+  assert.match(setlists, /useBackLayer\(isEditing \|\| !!selectedSetlistId/);
+  assert.match(settings, /useBackLayer\(showPromptModal \|\| !!selectedMemberId \|\| !!settingsSection/);
 });

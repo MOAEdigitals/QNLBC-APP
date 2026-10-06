@@ -13,6 +13,10 @@ test('activities show a month calendar with one dot per activity date occurrence
   assert.match(source, /grid grid-cols-7/);
   assert.match(source, /Previous month/);
   assert.match(source, /Next month/);
+  assert.match(source, /onClick=\{\(\) => showActivitiesForDate\(key\)\}/);
+  assert.match(source, /activity-card-\$\{first\.id\}/);
+  assert.doesNotMatch(source, /onClick=\{\(\) => canAdd && openNew\(key\)\}/);
+  assert.doesNotMatch(source, /isToday \? 'bg-indigo-600/);
 });
 
 test('activities use compact month-grouped cards and a minimal editor', () => {

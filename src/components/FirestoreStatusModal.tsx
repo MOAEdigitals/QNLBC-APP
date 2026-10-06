@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBackLayer } from '../hooks/useBackLayer';
 import { DatabaseStatusInfo, TableSyncStatus } from '../types';
 import {
   Database,
@@ -77,6 +78,7 @@ export const FirestoreStatusModal: React.FC<DatabaseStatusModalProps> = ({
   statusInfo,
 }) => {
   const [now, setNow] = useState(Date.now());
+  useBackLayer(isOpen, onClose);
 
   useEffect(() => {
     if (!isOpen) return;
