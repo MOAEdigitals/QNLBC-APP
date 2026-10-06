@@ -91,6 +91,7 @@ import {
 } from 'lucide-react';
 
 const SermonOutlines = React.lazy(() => import('../features/sermons/SermonOutlines'));
+const Activities = React.lazy(() => import('../features/activities/Activities'));
 
 interface SpecialNumberTabProps {
   currentUser: UserAccount | null;
@@ -2069,11 +2070,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
       {activeSubTab === 'outlines' && <React.Suspense fallback={<p role="status">Loading outlines…</p>}><SermonOutlines currentUser={currentUser} /></React.Suspense>}
       {activeSubTab === 'activities' && (
-        <section aria-label="Activities" className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-10 text-center">
-          <Calendar className="w-8 h-8 mx-auto mb-3 text-amber-500" />
-          <h2 className="text-base font-semibold text-slate-900 dark:text-white">Church Activities</h2>
-          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">The yearly activities calendar is coming soon.</p>
-        </section>
+        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities currentUser={currentUser} /></React.Suspense>
       )}
 
       {/* ========================================================================= */}

@@ -249,6 +249,20 @@ export interface ChoirEntry {
   updatedAt?: string;
 }
 
+export interface ChurchActivity {
+  id: string;
+  title: string;
+  activityDate: string;
+  activity_date?: string;
+  activityTime?: string | null;
+  activity_time?: string | null;
+  revision?: number;
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
+}
+
 export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'settings';
 export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
 export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir' | 'outlines' | 'activities';
