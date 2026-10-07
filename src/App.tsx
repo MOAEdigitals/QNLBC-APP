@@ -66,11 +66,7 @@ import {
   upsertSongFromSpecialNumber,
   loadWelcomeSongs,
 } from './utils/storage';
-import {
-  categorizeAnnualCelebrants,
-  isPastDate,
-  getNextSundayStr,
-} from './utils/dateUtils';
+import { getNextSundayStr } from './utils/dateUtils';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { AuthScreen } from './components/AuthScreen';
@@ -1140,18 +1136,6 @@ export default function App() {
     await supabaseSaveMinistrySavedNames(names).catch(console.error);
   };
 
-  // Badge calculations
-  const { currentWindow: thisWeekBirthdays } = categorizeAnnualCelebrants<BirthdayCelebrant>(
-    birthdays,
-    (b: BirthdayCelebrant) => b.birthDate
-  );
-  const { currentWindow: thisWeekAnniversaries } = categorizeAnnualCelebrants<AnniversaryCelebrant>(
-    anniversaries,
-    (a: AnniversaryCelebrant) => a.anniversaryDate
-  );
-  const totalCelebrantsThisWeek = thisWeekBirthdays.length + thisWeekAnniversaries.length;
-  const upcomingSpecialCount = specialNumbers.filter((s) => !isPastDate(s.scheduledDate)).length;
-
   // Requirement 2: Show loading/skeleton screen until Supabase authentication and the first authoritative query finish.
   // Do not render stale shared records during startup.
   if (isLoadingInitialData) {
@@ -1337,8 +1321,6 @@ export default function App() {
       <BottomNav
         activeTab={currentTab}
         onChangeTab={handleNavigateTab}
-        celebrantCount={totalCelebrantsThisWeek}
-        upcomingSpecialCount={upcomingSpecialCount}
       />
 
       {/* Database Realtime Timestamps & Connection Status Modal */}

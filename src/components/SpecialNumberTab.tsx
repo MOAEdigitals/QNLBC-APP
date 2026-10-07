@@ -1029,20 +1029,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
   });
 
-  // Tab badges are actionable counts, not archive totals. Include today and
-  // future items only; undated, unfinished practices remain active/current.
-  const currentScheduleCount = specialNumbers.filter(
-    (entry) => !isPastDate(entry.scheduledDate)
-  ).length;
-  const currentPracticeCount = practiceEntries.filter((entry) => {
-    if (entry.isDone) return false;
-    const date = entry.practiceDate || entry.targetDate || '';
-    return !date || !isPastDate(date);
-  }).length;
-  const currentChoirCount = choirEntries.filter(
-    (entry) => !entry.isDone && !isPastDate(entry.date)
-  ).length;
-
   // Helper for YouTube embed
   const getYouTubeEmbedUrl = (url?: string) => {
     if (!url) return null;
@@ -1956,87 +1942,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
       {/* The selected section expands to show its label; the others remain one-tap icons. */}
       <div role="group" aria-label="Schedules sections" className="flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('schedules')}
-          aria-pressed={activeSubTab === 'schedules'}
-          aria-label="Song Numbers"
-          title="Song Numbers"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'schedules' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            activeSubTab === 'schedules'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Mic2 className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" />
-          <span className={`${activeSubTab === 'schedules' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Song Numbers</span>
-          {currentScheduleCount > 0 && (
-            <span
-              className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
-                activeSubTab === 'schedules'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {currentScheduleCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('practice')}
-          aria-pressed={activeSubTab === 'practice'}
-          aria-label="Practice"
-          title="Practice"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'practice' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            activeSubTab === 'practice'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Play className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
-          <span className={`${activeSubTab === 'practice' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Practice</span>
-          {currentPracticeCount > 0 && (
-            <span
-              className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
-                activeSubTab === 'practice'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {currentPracticeCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('choir')}
-          aria-pressed={activeSubTab === 'choir'}
-          aria-label="Choir"
-          title="Choir"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'choir' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            activeSubTab === 'choir'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Users className="w-5 h-5 sm:w-4 sm:h-4 text-sky-500 shrink-0" />
-          <span className={`${activeSubTab === 'choir' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Choir</span>
-          {currentChoirCount > 0 && (
-            <span
-              className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
-                activeSubTab === 'choir'
-                  ? 'bg-sky-600 text-white'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-              }`}
-            >
-              {currentChoirCount}
-            </span>
-          )}
-        </button>
-        {(['outlines', 'activities'] as const).map((tab) => (
+        {(['activities', 'outlines'] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -2058,13 +1964,55 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             <span className={`${activeSubTab === tab ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
           </button>
         ))}
-      </div>
 
-      {!(activeSubTab === 'practice' && selectedPracticeId) && (
-        <h2 className="sm:hidden text-sm font-semibold text-slate-900 dark:text-white">
-          {{ schedules: 'Song Numbers', practice: 'Practice', choir: 'Choir', outlines: 'Outlines', activities: 'Activities' }[activeSubTab]}
-        </h2>
-      )}
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('schedules')}
+          aria-pressed={activeSubTab === 'schedules'}
+          aria-label="Song Numbers"
+          title="Song Numbers"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'schedules' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+            activeSubTab === 'schedules'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Mic2 className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" />
+          <span className={`${activeSubTab === 'schedules' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Song Numbers</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('choir')}
+          aria-pressed={activeSubTab === 'choir'}
+          aria-label="Choir"
+          title="Choir"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'choir' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+            activeSubTab === 'choir'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Users className="w-5 h-5 sm:w-4 sm:h-4 text-sky-500 shrink-0" />
+          <span className={`${activeSubTab === 'choir' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Choir</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSubTab('practice')}
+          aria-pressed={activeSubTab === 'practice'}
+          aria-label="Practice"
+          title="Practice"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'practice' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+            activeSubTab === 'practice'
+              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }`}
+        >
+          <Play className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
+          <span className={`${activeSubTab === 'practice' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Practice</span>
+        </button>
+      </div>
 
       {activeSubTab === 'outlines' && <React.Suspense fallback={<p role="status">Loading outlines…</p>}><SermonOutlines currentUser={currentUser} /></React.Suspense>}
       {activeSubTab === 'activities' && (

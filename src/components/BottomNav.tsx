@@ -5,15 +5,11 @@ import { CalendarDays, Award, Music, Settings } from 'lucide-react';
 interface BottomNavProps {
   activeTab: AppTab;
   onChangeTab: (tab: AppTab) => void;
-  celebrantCount?: number;
-  upcomingSpecialCount?: number;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeTab,
   onChangeTab,
-  celebrantCount = 0,
-  upcomingSpecialCount = 0,
 }) => {
   const tabs = [
     {
@@ -21,35 +17,30 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       label: 'Setlists',
       sublabel: 'Order of Service',
       icon: CalendarDays,
-      badge: 0,
     },
     {
       id: 'recognitions' as AppTab,
       label: 'Recognitions',
       sublabel: 'Celebrants',
       icon: Award,
-      badge: celebrantCount,
     },
     {
       id: 'special-numbers' as AppTab,
       label: 'Schedules',
       sublabel: 'Songs, Outlines & Activities',
       icon: CalendarDays,
-      badge: upcomingSpecialCount,
     },
     {
       id: 'songs' as AppTab,
       label: 'Songs',
       sublabel: 'Library',
       icon: Music,
-      badge: 0,
     },
     {
       id: 'settings' as AppTab,
       label: 'Settings',
       sublabel: 'Admin & Theme',
       icon: Settings,
-      badge: 0,
     },
   ];
 
@@ -73,7 +64,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
-              <div className="relative">
+              <div>
                 <div
                   className={`p-1.5 rounded-lg transition-transform ${
                     isActive ? 'scale-110 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : ''
@@ -81,11 +72,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 >
                   <Icon className="w-5 h-5" />
                 </div>
-                {tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                    {tab.badge}
-                  </span>
-                )}
               </div>
               <span className="w-full text-xs leading-tight mt-0.5 text-center break-words">
                 {tab.label}

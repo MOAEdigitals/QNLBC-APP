@@ -330,11 +330,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         >
           <Cake className="w-4 h-4 text-indigo-500" />
           <span className={`${subTab === 'birthdays' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Birthdays</span>
-          {currentBirthdays.length > 0 && (
-            <span className="absolute right-0 top-0 sm:static px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {currentBirthdays.length}<span className="hidden sm:inline ml-1">this week</span>
-            </span>
-          )}
         </button>
 
         <button
@@ -350,11 +345,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         >
           <Award className="w-4 h-4 text-sky-500" />
           <span className={`${subTab === 'special' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Special</span>
-          {specialRecognitions.length > 0 && (
-            <span className="absolute right-0 top-0 sm:static w-4 h-4 rounded-full bg-sky-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {specialRecognitions.length}
-            </span>
-          )}
         </button>
 
         <button
@@ -370,11 +360,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         >
           <Heart className="w-4 h-4 text-rose-500" />
           <span className={`${subTab === 'anniversaries' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Anniversaries</span>
-          {currentAnniversaries.length > 0 && (
-            <span className="absolute right-0 top-0 sm:static w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {currentAnniversaries.length}
-            </span>
-          )}
         </button>
 
         <button
@@ -390,11 +375,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         >
           <Users className="w-4 h-4 text-emerald-500" />
           <span className={`${subTab === 'visitors' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Visitors</span>
-          {visitors.length > 0 && (
-            <span className="absolute right-0 top-0 sm:static w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">
-              {visitors.length}
-            </span>
-          )}
         </button>
 
       </div>
