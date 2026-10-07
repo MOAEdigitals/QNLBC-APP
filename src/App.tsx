@@ -68,6 +68,7 @@ import {
 } from './utils/storage';
 import { getNextSundayStr } from './utils/dateUtils';
 import { Navbar } from './components/Navbar';
+import { HeaderSearchProvider } from './components/HeaderSearch';
 import { BottomNav } from './components/BottomNav';
 import { AuthScreen } from './components/AuthScreen';
 import { FirestoreStatusModal } from './components/FirestoreStatusModal';
@@ -1169,6 +1170,7 @@ export default function App() {
   }
 
   return (
+    <HeaderSearchProvider>
     <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
       {isPracticeDetailOpen ? (
@@ -1372,5 +1374,6 @@ export default function App() {
         </div>
       )}
     </div>
+    </HeaderSearchProvider>
   );
 }

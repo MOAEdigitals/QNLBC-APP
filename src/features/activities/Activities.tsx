@@ -5,6 +5,7 @@ import { generateUUID } from '../../services/supabaseData';
 import { monthList } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
+import { useHeaderSearch } from '../../components/HeaderSearch';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -39,6 +40,8 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   const [items, setItems] = useState<ChurchActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [search, setSearch] = useState('');
+  useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities', label: 'Search activities' });
   const [editor, setEditor] = useState<{ item: ChurchActivity; isNew: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -68,6 +71,10 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
     for (const item of items) result.set(item.activityDate, (result.get(item.activityDate) || 0) + 1);
     return result;
   }, [items]);
+  const filteredItems = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return query ? items.filter(item => item.title.toLowerCase().includes(query)) : items;
+  }, [items, search]);
 
   const calendarDays = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -145,8 +152,8 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
     </section>
 
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
-    {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : items.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">No activities yet.</p></div> : <div className="space-y-2">
-      {monthList(items, item => item.activityDate, ['activity', 'activities']).render(item => {
+    {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-2">
+      {monthList(filteredItems, item => item.activityDate, ['activity', 'activities']).render(item => {
         const date = localDate(item.activityDate);
         return <article id={`activity-card-${item.id}`} key={item.id} className="relative flex min-h-[72px] scroll-mt-4 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
           <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>

@@ -1,5 +1,6 @@
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
+import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect } from 'react';
 import {
   RecognitionsSubTab,
@@ -166,6 +167,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   }, [birthdayMenuId]);
 
   const [birthdaySearchQuery, setBirthdaySearchQuery] = useState('');
+  useHeaderSearch({ value: birthdaySearchQuery, onChange: setBirthdaySearchQuery, placeholder: `Search ${subTab}`, label: `Search ${subTab}` });
   const [isSavingBirthday, setIsSavingBirthday] = useState(false);
   const [birthdaySaveError, setBirthdaySaveError] = useState('');
 
@@ -192,10 +194,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
     categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
+  const recognitionQuery = birthdaySearchQuery.trim().toLowerCase();
+  const filteredAnniversaries = [...currentAnniversaries, ...upcomingAnniversaries].filter(item => !recognitionQuery || `${item.title} ${item.type}`.toLowerCase().includes(recognitionQuery));
+  const filteredVisitors = visitors.filter(item => !recognitionQuery || `${item.name} ${item.barangay} ${item.tier}`.toLowerCase().includes(recognitionQuery));
 
   // Group Special Recognitions by Type
   const groupedSpecial: Record<string, SpecialRecognition[]> = {};
-  for (const item of specialRecognitions) {
+  for (const item of specialRecognitions.filter(item => !recognitionQuery || `${item.name} ${item.recognitionType} ${item.customType || ''} ${item.description || ''}`.toLowerCase().includes(recognitionQuery))) {
     const key = item.recognitionType === 'Custom' && item.customType ? item.customType : item.recognitionType;
     if (!groupedSpecial[key]) {
       groupedSpecial[key] = [];
@@ -382,35 +387,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       {/* SUBTAB 1: BIRTHDAYS */}
       {subTab === 'birthdays' && (
         <div className="space-y-6">
-          {/* Search Bar - only element at the top */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              id="birthday-celebrants-search"
-              name="birthday_search"
-              type="search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="sentences"
-              spellCheck={false}
-              data-form-type="other"
-              data-lpignore="true"
-              value={birthdaySearchQuery}
-              onChange={(e) => setBirthdaySearchQuery(e.target.value)}
-              placeholder="Search birthday celebrant by name..."
-              className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 transition-colors [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
-            />
-            {birthdaySearchQuery && (
-              <button
-                type="button"
-                onClick={() => setBirthdaySearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
           {/* Celebrants Section - Directly below search bar */}
           <div className="space-y-3">
             {filteredBirthdays.length === 0 ? (
@@ -513,16 +489,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           {/* Upcoming Anniversaries Section */}
           <div className="space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block px-1">
-              Upcoming Anniversaries ({currentAnniversaries.length + upcomingAnniversaries.length})
+              Upcoming Anniversaries ({filteredAnniversaries.length})
             </span>
 
-            {currentAnniversaries.length + upcomingAnniversaries.length === 0 ? (
+            {filteredAnniversaries.length === 0 ? (
               <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
                 No upcoming anniversaries recorded.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {monthList([...currentAnniversaries, ...upcomingAnniversaries], item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
+                {monthList(filteredAnniversaries, item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
                   <div
                     key={item.id}
                     className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
@@ -561,13 +537,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       {/* SUBTAB 3: VISITORS */}
       {subTab === 'visitors' && (
         <div className="space-y-6">
-          {visitors.length === 0 ? (
+          {filteredVisitors.length === 0 ? (
             <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
               No visitors recorded yet. Click "Add Visitor" to log first-time attendees!
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2.5">
-              {monthList(visitors, item => item.dateVisited, ['visitor', 'visitors']).render((item) => (
+              {monthList(filteredVisitors, item => item.dateVisited, ['visitor', 'visitors']).render((item) => (
                 <div
                   key={item.id}
                   className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs"

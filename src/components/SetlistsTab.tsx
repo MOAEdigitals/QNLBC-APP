@@ -1,5 +1,6 @@
 import { monthList } from './MonthSeparators';
 import { useBackLayer } from '../hooks/useBackLayer';
+import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
@@ -228,6 +229,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search names, songs, dates, or setlists', label: 'Search setlists' });
   const [isSaving, setIsSaving] = useState(false);
   const [songPickerFilter, setSongPickerFilter] = useState<SongPickerFilter>('all');
   const saveInProgressRef = useRef(false);
@@ -842,13 +844,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen setlists-screen space-y-6">
-      <div className="ui-page-header">
-        <label className="flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-500 dark:text-slate-400">
-          <Search className="w-4 h-4 shrink-0" />
-          <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search names, songs, dates, or setlists" aria-label="Search setlists" className="w-full min-w-0 bg-transparent text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none" />
-        </label>
-      </div>
-
       {searchQuery.trim() && searchSummaries.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" aria-live="polite">
           {searchSummaries.map((summary) => (

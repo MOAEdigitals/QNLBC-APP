@@ -12,6 +12,7 @@ import { loadSermons, saveSermon, deleteSermon } from './data';
 import { uploadSermonFile, validateSermonFile, removeUnusedSermonFiles } from './attachments';
 import { plainTextHtml, sanitizeOutline } from './formatting';
 import RichOutlineEditor from './RichOutlineEditor';
+import { useHeaderSearch } from '../../components/HeaderSearch';
 const AttachmentViewer = lazy(() => import('./AttachmentViewer'));
 const field = 'w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2.5 text-slate-900 dark:text-white';
 const action = 'min-h-11 px-3 py-2 rounded-xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40';
@@ -26,6 +27,7 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
   const [search, setSearch] = useState('');
+  useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search sermons', label: 'Search outlines' });
   const [today, setToday] = useState(getTodayStr);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [source, setSource] = useState('outline');
@@ -190,7 +192,6 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
   }
   return <div className="space-y-4 text-slate-900 dark:text-white">
     {error && !fullScreen && <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-200">{error}</p>}
-    <div className="relative"><Search className="absolute left-3 top-3.5 w-4 h-4 text-slate-400" /><input id="sermon-search" name="sermon_search" type="search" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-form-type="other" data-lpignore="true" aria-label="Search sermons" placeholder="Search sermons" className={`${field} pl-9`} value={search} onChange={event => setSearch(event.target.value)} /></div>
     {canAdd && !fullScreen && <button type="button" disabled={!ready} aria-label="Add outline" title="Add outline" className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2 disabled:opacity-40" onClick={startNew}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
     {loading && !ready && <p role="status" className="text-sm text-slate-500">Loading outlines…</p>}
     {ready && visible.length === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}

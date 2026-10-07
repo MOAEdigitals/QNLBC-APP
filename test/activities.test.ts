@@ -21,7 +21,7 @@ test('activities show a month calendar with one dot per activity date occurrence
 });
 
 test('activities use compact month-grouped cards and a minimal editor', () => {
-  assert.match(source, /monthList\(items, item => item\.activityDate/);
+  assert.match(source, /monthList\(filteredItems, item => item\.activityDate/);
   assert.match(source, /min-h-\[72px\]/);
   assert.match(source, />Title<input required/);
   assert.match(source, />Date<input required/);

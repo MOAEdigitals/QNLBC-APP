@@ -14,11 +14,14 @@ test('Activities fields suppress unrelated browser and password-manager suggesti
 
 test('Outlines fields suppress unrelated browser and password-manager suggestions', () => {
   const source = read('src/features/sermons/SermonOutlines.tsx');
-  for (const name of ['sermon_search', 'sermon_service_date', 'sermon_preacher', 'sermon_title']) {
+  for (const name of ['sermon_service_date', 'sermon_preacher', 'sermon_title']) {
     assert.match(source, new RegExp(`name="${name}"[^>]*autoComplete="off"[^>]*data-form-type="other"[^>]*data-lpignore="true"`));
   }
   assert.match(source, /autoComplete="off" data-form-type="other" className="flex flex-col flex-1 min-h-0"/);
 
   const editor = read('src/features/sermons/RichOutlineEditor.tsx');
   assert.match(editor, /autocomplete: 'off'[^}]*'data-form-type': 'other'[^}]*'data-lpignore': 'true'/);
+
+  const header = read('src/components/Navbar.tsx');
+  assert.match(header, /name="header_search"[^>]*autoComplete="off"[^>]*data-form-type="other"[^>]*data-lpignore="true"/);
 });
