@@ -67,7 +67,7 @@ interface SettingsTabProps {
   users: UserAccount[];
   onUpdateUsers: (users: UserAccount[]) => void;
   savedNames?: string[];
-  onUpdateSavedNames?: (names: string[]) => void;
+  onUpdateSavedNames?: (names: string[]) => void | Promise<void>;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onSignOut: () => void;
@@ -141,6 +141,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   }, [propSavedNames]);
 
   const [newNameInput, setNewNameInput] = useState('');
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [directorySaving, setDirectorySaving] = useState(false);
+  const [directoryNotice, setDirectoryNotice] = useState<{ error: boolean; message: string } | null>(null);
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [lyricsImportStatus, setLyricsImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [cleanStorageStatus, setCleanStorageStatus] = useState<string | null>(null);
@@ -177,7 +180,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   // Directory Name Management
-  const handleAddDirectoryName = (e: React.FormEvent) => {
+  const persistDirectoryNames = async (next: string[], previous: string[]) => {
+    setDirectorySaving(true);
+    setDirectoryNotice(null);
+    setSavedNames(next);
+    try {
+      await onUpdateSavedNames?.(next);
+      setDirectoryNotice({ error: false, message: 'Church directory updated.' });
+    } catch (error: any) {
+      setSavedNames(previous);
+      setDirectoryNotice({ error: true, message: error?.message || 'Could not update the church directory.' });
+      throw error;
+    } finally {
+      setDirectorySaving(false);
+    }
+  };
+
+  const handleAddDirectoryName = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = newNameInput.trim();
     if (!trimmed) return;
@@ -186,16 +205,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       return;
     }
     const updated = [...savedNames, trimmed].sort();
-    setSavedNames(updated);
-    setNewNameInput('');
-    if (onUpdateSavedNames) onUpdateSavedNames(updated);
+    try {
+      await persistDirectoryNames(updated, savedNames);
+      setNewNameInput('');
+    } catch {}
   };
 
-  const handleDeleteDirectoryName = (nameToDelete: string) => {
+  const handleDeleteDirectoryName = async (nameToDelete: string) => {
     const updated = savedNames.filter((n) => n !== nameToDelete);
-    setSavedNames(updated);
-    if (onUpdateSavedNames) onUpdateSavedNames(updated);
+    try { await persistDirectoryNames(updated, savedNames); } catch {}
   };
+
+  const filteredDirectoryNames = useMemo(() => {
+    const query = directoryQuery.trim().toLowerCase();
+    return query ? savedNames.filter(name => name.toLowerCase().includes(query)) : savedNames;
+  }, [directoryQuery, savedNames]);
 
   // Targeted Legacy Storage Cleanup
   const handlePurgeLegacyStorage = () => {
@@ -903,7 +927,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {!isChurchDirectoryCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              <form onSubmit={handleAddDirectoryName} className="flex items-center gap-2 pt-2">
+              <form onSubmit={handleAddDirectoryName} className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center">
                 <input
                   type="text"
                   value={newNameInput}
@@ -913,16 +937,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 />
                 <button
                   type="submit"
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shrink-0 hover:bg-slate-800 cursor-pointer shadow-xs"
+                  disabled={directorySaving || !newNameInput.trim()}
+                  className="min-h-11 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 shrink-0 hover:bg-slate-800 cursor-pointer shadow-xs disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Name</span>
                 </button>
               </form>
 
-              {savedNames.length > 0 ? (
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input type="text" inputMode="search" value={directoryQuery} onChange={event => setDirectoryQuery(event.target.value)} placeholder="Search names" className="min-h-11 w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-base dark:border-slate-700 dark:bg-slate-900" />
+              </label>
+              {directoryNotice && <p role={directoryNotice.error ? 'alert' : 'status'} className={`text-sm ${directoryNotice.error ? 'text-rose-600' : 'text-emerald-600'}`}>{directoryNotice.message}</p>}
+
+              {filteredDirectoryNames.length > 0 ? (
                 <div className="flex flex-wrap gap-2 pt-2 max-h-56 overflow-y-auto p-1">
-                  {savedNames.map((name) => (
+                  {filteredDirectoryNames.map((name) => (
                     <span
                       key={name}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 shadow-2xs"
@@ -930,7 +961,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <span>{name}</span>
                       <button
                         type="button"
-                        onClick={() => handleDeleteDirectoryName(name)}
+                        disabled={directorySaving}
+                        onClick={() => void handleDeleteDirectoryName(name)}
                         className="text-slate-400 hover:text-rose-500 p-0.5 cursor-pointer transition-colors"
                         title={`Remove ${name}`}
                       >
@@ -941,7 +973,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               ) : (
                 <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                  Church directory is empty. Add names above to enable autofill across all forms.
+                  {savedNames.length ? 'No names match your search.' : 'Church directory is empty. Add names above to enable autofill across all forms.'}
                 </div>
               )}
             </div>

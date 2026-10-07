@@ -66,6 +66,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   const [showFilters, setShowFilters] = useState(false);
   const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: true });
   const savingRef = useRef(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const canAdd = currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd;
   const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
   const canDelete = currentUser?.role === 'admin' || !!currentUser?.permissions?.canDelete;
@@ -111,6 +112,15 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
     document.addEventListener('pointerdown', close);
     return () => document.removeEventListener('pointerdown', close);
   }, [openMenu]);
+
+  useEffect(() => {
+    if (!showFilters) return;
+    const close = (event: PointerEvent) => {
+      if (!filterRef.current?.contains(event.target as Node)) setShowFilters(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [showFilters]);
 
   const copyActivity = async (item: ChurchActivity) => {
     const date = localDate(item.activityDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -196,7 +206,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
       </div>
     </section>
 
-    <div className="relative flex justify-end">
+    <div ref={filterRef} className="relative flex justify-end">
       <button type="button" className="inline-flex min-h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-3.5 w-3.5" />Filter</button>
       {showFilters && <div className="absolute right-0 top-10 z-20 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
         {([['prayer', 'Wednesday prayer meeting'], ['sunday', 'Sunday service'], ['practice', 'Saturday practice']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}

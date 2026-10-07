@@ -153,7 +153,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [isSavingSong, setIsSavingSong] = useState(false);
   const savingSongRef = useRef(false);
   const [showArtistInput, setShowArtistInput] = useState(false);
-  const [isLyricsExpandedInEditor, setIsLyricsExpandedInEditor] = useState(false);
 
   // Category quick-picker popup state for song card
   const [categoryPickerSongId, setCategoryPickerSongId] = useState<string | null>(null);
@@ -2172,29 +2171,12 @@ if (isEditing && !savingSongRef.current) {
                 )}
               </div>
 
-              {/* Lyrics Field with Expand/Collapse toggle */}
+              {/* Lyrics editor stays fully open while editing. */}
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="mb-1">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Lyrics
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsLyricsExpandedInEditor(!isLyricsExpandedInEditor)}
-                    className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer flex items-center gap-1"
-                  >
-                    {isLyricsExpandedInEditor ? (
-                      <>
-                        <ChevronUp className="w-3.5 h-3.5" />
-                        <span>Compact box</span>
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3.5 h-3.5" />
-                        <span>Expand box</span>
-                      </>
-                    )}
-                  </button>
                 </div>
                 <textarea
                   id="song-lyrics-input"
@@ -2205,11 +2187,11 @@ if (isEditing && !savingSongRef.current) {
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
-                  rows={isLyricsExpandedInEditor ? 18 : 8}
+                  rows={18}
                   value={editingSong.lyrics || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y transition-all"
+                  className="min-h-[24rem] w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y"
                 />
               </div>
 

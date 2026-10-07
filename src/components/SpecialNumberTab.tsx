@@ -177,7 +177,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [choirFilter, setChoirFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [expandedChoirLyricsIds, setExpandedChoirLyricsIds] = useState<Record<string, boolean>>({});
   const [copiedChoirLyricsId, setCopiedChoirLyricsId] = useState<string | null>(null);
-  const [isChoirModalLyricsExpanded, setIsChoirModalLyricsExpanded] = useState(false);
   const [newChoirArtist, setNewChoirArtist] = useState('');
   const [showChoirArtistInput, setShowChoirArtistInput] = useState(false);
 
@@ -527,7 +526,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 
   // Expandable Lyrics states for modals and cards
-  const [isScheduleModalLyricsExpanded, setIsScheduleModalLyricsExpanded] = useState(false);
   const practiceLyricsTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [expandedScheduleLyricsIds, setExpandedScheduleLyricsIds] = useState<Record<string, boolean>>({});
   const [copiedScheduleLyricsId, setCopiedScheduleLyricsId] = useState<string | null>(null);
@@ -3049,30 +3047,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
 
 
-              {/* Lyrics Field with Standard Sizing & Expand Toggle */}
+              {/* Lyrics editor stays fully open while editing. */}
               <div>
-                <div className="flex items-center justify-between mb-1">
+                <div className="mb-1">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Lyrics / Performance Text (Optional)
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsScheduleModalLyricsExpanded(!isScheduleModalLyricsExpanded)}
-                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                    title={isScheduleModalLyricsExpanded ? 'Collapse' : 'Expand'}
-                  >
-                    {isScheduleModalLyricsExpanded ? (
-                      <>
-                        <ChevronUp className="w-3 h-3" />
-                        <span>Collapse</span>
-                      </>
-                    ) : (
-                      <>
-                        <ChevronDown className="w-3 h-3" />
-                        <span>Expand</span>
-                      </>
-                    )}
-                  </button>
                 </div>
                 <textarea
                   id="schedule-lyrics-input"
@@ -3083,11 +3063,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
-                  rows={isScheduleModalLyricsExpanded ? 18 : 9}
+                  rows={18}
                   value={editingSchedule.lyrics || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed"
+                  className="min-h-[24rem] w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y"
                 />
               </div>
 

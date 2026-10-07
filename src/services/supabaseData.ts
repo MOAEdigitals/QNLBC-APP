@@ -1860,7 +1860,7 @@ export async function saveAppSettings(key: string, value: any): Promise<void> {
     .upsert({ key, value }, { onConflict: 'key' });
 
   if (error) {
-    console.warn(`Failed to save app_settings key=${key}:`, error);
+    throw new Error(error.message || `Failed to save ${key}.`);
   }
 }
 

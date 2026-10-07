@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.qnlbc.churchapp',
-  appName: 'QNLBC Church App',
+  appName: 'QNLBC App',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

@@ -1152,8 +1152,8 @@ export default function App() {
 
   // Directory saved names
   const handleUpdateSavedNames = async (names: string[]) => {
+    await supabaseSaveMinistrySavedNames(names);
     setSavedNames(names);
-    await supabaseSaveMinistrySavedNames(names).catch(console.error);
   };
 
   // Requirement 2: Show loading/skeleton screen until Supabase authentication and the first authoritative query finish.
