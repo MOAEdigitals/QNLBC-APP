@@ -9,14 +9,15 @@ const data = fs.readFileSync(path.join(root, 'src/features/activities/data.ts'),
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261006_church_activities.sql'), 'utf8').replace(/\r\n/g, '\n');
 
 test('activities show a month calendar with one dot per activity date occurrence', () => {
-  assert.match(source, /Array\.from\(\{ length: count \}/);
+  assert.match(source, /Array\.from\(\{ length: Math\.min\(count, 3\) \}/);
   assert.match(source, /grid grid-cols-7/);
   assert.match(source, /Previous month/);
   assert.match(source, /Next month/);
   assert.match(source, /onClick=\{\(\) => showActivitiesForDate\(key\)\}/);
   assert.match(source, /activity-card-\$\{first\.id\}/);
   assert.doesNotMatch(source, /onClick=\{\(\) => canAdd && openNew\(key\)\}/);
-  assert.doesNotMatch(source, /isToday \? 'bg-indigo-600/);
+  assert.match(source, /setSelectedDate\(date\)/);
+  assert.match(source, /isSelected \? 'bg-indigo-100/);
 });
 
 test('activities use compact month-grouped cards and a minimal editor', () => {

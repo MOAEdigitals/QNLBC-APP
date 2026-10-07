@@ -35,6 +35,7 @@ function sortActivities(items: ChurchActivity[]) {
 export default function Activities({ currentUser }: { currentUser: UserAccount | null }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(todayKey);
   const [items, setItems] = useState<ChurchActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -80,6 +81,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   };
 
   const showActivitiesForDate = (date: string) => {
+    setSelectedDate(date);
     const first = items.find(item => item.activityDate === date);
     if (!first) return;
     document.getElementById(`activity-card-${first.id}`)?.scrollIntoView({
@@ -133,10 +135,10 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
           if (!day) return <span key={`blank-${index}`} />;
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
           const count = counts.get(key) || 0;
-          const isToday = key === todayKey();
+          const isSelected = key === selectedDate;
           return <button key={key} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
-            <span className={`flex h-7 w-7 items-center justify-center ${isToday ? 'font-bold text-indigo-600 dark:text-indigo-400' : ''}`}>{day}</span>
-            <span className="flex h-2 max-w-8 flex-wrap items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: count }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}</span>
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
+            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}</span>
           </button>;
         })}
       </div>
