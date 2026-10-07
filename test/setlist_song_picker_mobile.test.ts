@@ -38,7 +38,8 @@ test('mobile suggestions use one fixed contained portal panel', () => {
   assert.match(source, /fixed z-\[200\]/);
   assert.match(source, /top: mobilePickerPosition\.top/);
   assert.match(source, /left: mobilePickerPosition\.left/);
-  assert.match(source, /formScroller\.scrollTop \+= desiredHeight - availableBelow/);
+  assert.match(source, /const placeAbove = availableBelow < Math\.min\(240, desiredHeight\) && availableAbove > availableBelow/);
+  assert.match(source, /rect\.top - maxHeight - 6/);
   assert.match(source, /qnlbc-autofill-open/);
   assert.match(source, /min-h-0 overflow-y-auto divide-y/);
   assert.doesNotMatch(source, /scrollIntoView/);

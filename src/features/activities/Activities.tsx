@@ -163,7 +163,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
       })}
     </div>}
 
-    {canAdd && <button type="button" aria-label="Add activity" title="Add activity" className="fixed bottom-24 right-5 z-30 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg dark:bg-white dark:text-slate-900 sm:absolute sm:bottom-0 sm:right-0" onClick={() => openNew()}><Plus className="h-6 w-6" /></button>}
+    {canAdd && <button type="button" aria-label="Add activity" title="Add activity" className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2" onClick={() => openNew()}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
 
     {editor && <div role="dialog" aria-modal="true" aria-labelledby="activity-editor-title" className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 sm:items-center sm:justify-center sm:bg-black/50 sm:p-4">
       <form onSubmit={submit} autoComplete="off" data-form-type="other" className="flex h-full w-full flex-col bg-white dark:bg-slate-950 sm:h-auto sm:max-w-md sm:rounded-2xl">

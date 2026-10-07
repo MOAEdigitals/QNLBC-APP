@@ -19,7 +19,6 @@ test('existing page searches register with the shared header instead of renderin
     'src/components/RecognitionsTab.tsx',
     'src/components/SongsTab.tsx',
     'src/components/SpecialNumberTab.tsx',
-    'src/components/SettingsTab.tsx',
     'src/features/activities/Activities.tsx',
     'src/features/sermons/SermonOutlines.tsx',
   ]) assert.match(read(file), /useHeaderSearch/);
@@ -33,4 +32,8 @@ test('existing page searches register with the shared header instead of renderin
     'src/features/sermons/SermonOutlines.tsx',
   ].map(read).join('\n');
   assert.doesNotMatch(combined, /type="search"/);
+});
+
+test('Settings keeps the header free of search controls', () => {
+  assert.doesNotMatch(read('src/components/SettingsTab.tsx'), /useHeaderSearch/);
 });

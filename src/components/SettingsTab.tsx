@@ -1,5 +1,4 @@
 import { useBackLayer } from '../hooks/useBackLayer';
-import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
 import {
@@ -120,7 +119,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // User management filtering
   const [userSearchQuery, setUserSearchQuery] = useState('');
-  useHeaderSearch({ value: userSearchQuery, onChange: setUserSearchQuery, placeholder: 'Search members', label: 'Search settings' });
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [managingUserId, setManagingUserId] = useState<string | null>(null);
 

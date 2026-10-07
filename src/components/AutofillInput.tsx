@@ -112,7 +112,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const lastScrollTimeRef = useRef<number>(0);
   const scrollTimeoutRef = useRef<any>(null);
 
-  const positionMobilePicker = (ensureSpace = false) => {
+  const positionMobilePicker = (_ensureSpace = false) => {
     const input = inputRef.current;
     if (!input) return;
 
@@ -122,24 +122,19 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const viewportBottom = viewportTop + viewportHeight;
     const desiredHeight = Math.min(360, Math.max(240, viewportHeight * 0.48));
     const rect = input.getBoundingClientRect();
-    const availableBelow = viewportBottom - rect.bottom - 12;
-
-    if (ensureSpace && availableBelow < desiredHeight) {
-      const formScroller = input.closest('form');
-      if (formScroller) {
-        formScroller.scrollTop += desiredHeight - availableBelow;
-        requestAnimationFrame(() => positionMobilePicker(false));
-        return;
-      }
-    }
-
-    const updatedRect = input.getBoundingClientRect();
-    const top = updatedRect.bottom + 6;
+    const availableBelow = Math.max(0, viewportBottom - rect.bottom - 12);
+    const availableAbove = Math.max(0, rect.top - viewportTop - 12);
+    const placeAbove = availableBelow < Math.min(240, desiredHeight) && availableAbove > availableBelow;
+    const availableHeight = placeAbove ? availableAbove : availableBelow;
+    const maxHeight = Math.max(120, Math.min(desiredHeight, availableHeight));
+    const top = placeAbove
+      ? Math.max(viewportTop + 12, rect.top - maxHeight - 6)
+      : rect.bottom + 6;
     setMobilePickerPosition({
       top,
-      left: Math.max(12, updatedRect.left),
-      width: Math.min(updatedRect.width, window.innerWidth - 24),
-      maxHeight: Math.max(180, viewportBottom - top - 12),
+      left: Math.max(12, rect.left),
+      width: Math.min(rect.width, window.innerWidth - 24),
+      maxHeight,
     });
   };
 
