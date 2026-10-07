@@ -3,6 +3,7 @@
 // and have them instantly streamable and synced across all devices without personal Google logins.
 
 import { saveAudioToStorage, getAudioFromStorage } from '../utils/audioStorage';
+import { Capacitor } from '@capacitor/core';
 
 export interface MediaUploadResult {
   url: string;
@@ -17,7 +18,10 @@ const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/
 const UPLOAD_ENDPOINT = `${API_BASE}/api/upload-media`;
 
 function isStaticGitHubPagesDeployment(): boolean {
-  return !API_BASE && typeof window !== 'undefined' && /\.github\.io$/i.test(window.location.hostname);
+  return !API_BASE && (
+    Capacitor.isNativePlatform() ||
+    (typeof window !== 'undefined' && /\.github\.io$/i.test(window.location.hostname))
+  );
 }
 
 /**

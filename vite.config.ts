@@ -4,15 +4,18 @@ import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
   return {
-    base: '/QNLBC-APP/',
+    // GitHub Pages is hosted below /QNLBC-APP/. Capacitor loads the same
+    // bundle from its own origin and needs relative asset paths.
+    base: mode === 'android' ? './' : '/QNLBC-APP/',
     plugins: [react(), tailwindcss()],
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(
-        process.env.VITE_SUPABASE_URL || ''
+        process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL || ''
       ),
       'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(
-        process.env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
+        process.env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_PUBLISHABLE_KEY || ''
       ),
     },
     resolve: {
