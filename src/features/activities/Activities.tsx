@@ -2,13 +2,27 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Loader2, MoreVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
-import { monthList } from '../../components/MonthSeparators';
+import { groupByMonth } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
+const monthColors = [
+  'border-sky-300 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/25',
+  'border-pink-300 bg-pink-50 dark:border-pink-900 dark:bg-pink-950/25',
+  'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/25',
+  'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/25',
+  'border-violet-300 bg-violet-50 dark:border-violet-900 dark:bg-violet-950/25',
+  'border-cyan-300 bg-cyan-50 dark:border-cyan-900 dark:bg-cyan-950/25',
+  'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/25',
+  'border-teal-300 bg-teal-50 dark:border-teal-900 dark:bg-teal-950/25',
+  'border-indigo-300 bg-indigo-50 dark:border-indigo-900 dark:bg-indigo-950/25',
+  'border-purple-300 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/25',
+  'border-lime-300 bg-lime-50 dark:border-lime-900 dark:bg-lime-950/25',
+  'border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/25',
+];
 
 function localDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -46,6 +60,9 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
+  const [showTime, setShowTime] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
   const savingRef = useRef(false);
   const canAdd = currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd;
   const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
@@ -73,7 +90,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   }, [items]);
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return query ? items.filter(item => item.title.toLowerCase().includes(query)) : items;
+    return query ? items.filter(item => `${item.title} ${item.description || ''}`.toLowerCase().includes(query)) : items;
   }, [items, search]);
 
   const calendarDays = useMemo(() => {
@@ -84,7 +101,9 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
 
   const openNew = (date = todayKey()) => {
     setSaveError('');
-    setEditor({ item: { id: generateUUID(), title: '', activityDate: date, activityTime: '' }, isNew: true });
+    setShowTime(false);
+    setShowDescription(false);
+    setEditor({ item: { id: generateUUID(), title: '', activityDate: date, activityTime: '', description: '' }, isNew: true });
   };
 
   const showActivitiesForDate = (date: string) => {
@@ -152,18 +171,25 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
     </section>
 
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
-    {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-2">
-      {monthList(filteredItems, item => item.activityDate, ['activity', 'activities']).render(item => {
-        const date = localDate(item.activityDate);
-        return <article id={`activity-card-${item.id}`} key={item.id} className="relative flex min-h-[72px] scroll-mt-4 items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
-          <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
-          <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
-          {(canEdit || canDelete) && <div className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>}
-        </article>;
+    {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
+      {groupByMonth(filteredItems, item => item.activityDate).map(group => {
+        const monthIndex = Number(group.key.slice(5, 7)) - 1;
+        const color = monthColors[monthIndex] || monthColors[0];
+        return <section key={group.key} className="space-y-2">
+          <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
+          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; return <article id={`activity-card-${item.id}`} key={item.id} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 ${color}`}>
+            <div className="flex min-h-[52px] items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-white/70 dark:bg-slate-900/60"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
+              <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+              {(canEdit || canDelete) && <div className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>}
+            </div>
+            {expanded && item.description && <p className="border-t border-current/10 pt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{item.description}</p>}
+          </article>; })}
+        </section>;
       })}
     </div>}
 
-    {canAdd && <button type="button" aria-label="Add activity" title="Add activity" className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2" onClick={() => openNew()}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
+    {canAdd && <button type="button" aria-label="Add activity" title="Add activity" className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2" onClick={() => openNew()}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
 
     {editor && <div role="dialog" aria-modal="true" aria-labelledby="activity-editor-title" className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 sm:items-center sm:justify-center sm:bg-black/50 sm:p-4">
       <form onSubmit={submit} autoComplete="off" data-form-type="other" className="flex h-full w-full flex-col bg-white dark:bg-slate-950 sm:h-auto sm:max-w-md sm:rounded-2xl">
@@ -171,7 +197,8 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
         <fieldset disabled={saving} className="flex-1 space-y-4 overflow-y-auto p-4">
           <label className="block text-sm font-medium">Title<input required autoFocus id="activity-title" name="activity_title" autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false} data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.title} onChange={event => setEditor({ ...editor, item: { ...editor.item, title: event.target.value } })} /></label>
           <label className="block text-sm font-medium">Date<input required id="activity-date" name="activity_date" type="date" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityDate} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityDate: event.target.value } })} /></label>
-          <label className="block text-sm font-medium">Time <span className="font-normal text-slate-400">(optional)</span><input id="activity-time" name="activity_time" type="time" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityTime || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityTime: event.target.value } })} /></label>
+          {!showTime ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowTime(true)}>+ Add time</button> : <label className="block text-sm font-medium">Time <span className="font-normal text-slate-400">(optional)</span><input id="activity-time" name="activity_time" type="time" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityTime || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityTime: event.target.value } })} /></label>}
+          {!showDescription ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowDescription(true)}>+ Add description</button> : <label className="block text-sm font-medium">Description <span className="font-normal text-slate-400">(optional)</span><textarea id="activity-description" name="activity_description" rows={4} className={`${field} mt-1.5 resize-none`} value={editor.item.description || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, description: event.target.value } })} /></label>}
           {saveError && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{saveError}</p>}
         </fieldset>
         <footer className="border-t border-slate-200 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-slate-800"><button type="submit" disabled={saving || !editor.item.title.trim() || !editor.item.activityDate} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-slate-900">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? 'Saving…' : 'Save'}</button></footer>

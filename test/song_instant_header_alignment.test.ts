@@ -37,12 +37,12 @@ test('SongsTab positions opened song directly below sticky header instantly with
 test('App.tsx uses instantScroll when opening song detail from setlists or other tabs', () => {
   assert.match(
     appTsx,
-    /handleNavigateTab\('songs',\s*\{\s*instantScroll:\s*true\s*\}\)/,
+    /handleNavigateTab\('songs',\s*\{\s*instantScroll:\s*true,\s*preserveSongSelection:\s*true\s*\}\)/,
     'handleOpenSongDetail must navigate to songs tab with instantScroll: true'
   );
   assert.match(
     appTsx,
-    /options\?:\s*\{\s*instantScroll\?:\s*boolean\s*\}/,
+    /options\?:\s*\{\s*instantScroll\?:\s*boolean;\s*preserveSongSelection\?:\s*boolean\s*\}/,
     'handleNavigateTab must accept instantScroll option'
   );
 });

@@ -25,8 +25,8 @@ test('RecognitionsTab replaces top full-width add button with floating + action 
 
   assert.match(
     recognitions,
-    /rounded-full.*shadow-xl/,
-    'Floating action button must be circular with shadow styling'
+    /rounded-2xl.*shadow-xl/,
+    'Floating action button must use the shared rounded-square styling'
   );
 
   // Ensure it triggers the active subTab modal
@@ -54,12 +54,12 @@ test('RecognitionsTab replaces top full-width add button with floating + action 
   // Ensure FAB styling matches SongsTab
   assert.match(
     songs,
-    /fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full/,
+    /fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl/,
     'SongsTab has standard FAB positioning classes'
   );
   assert.match(
     recognitions,
-    /fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full/,
+    /fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl/,
     'RecognitionsTab FAB matches SongsTab FAB positioning classes'
   );
 });

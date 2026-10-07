@@ -3306,19 +3306,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0">
-                  <Paperclip className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {editingTrackIndex !== null ? 'Edit Track or Attachment' : 'Add Track or Attachment'}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Attach minus-one backing tracks or plus-one vocal reference files.
-                  </p>
-                </div>
-              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {editingTrackIndex !== null ? 'Edit track or attachment' : 'Add track or attachment'}
+              </h3>
               <button
                 type="button"
                 onClick={() => {
@@ -3513,16 +3503,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-800 dark:text-slate-200 shrink-0">
-                  <Layers className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {editingVocalPartIndex !== null ? 'Edit vocal part' : 'Add vocal part'}
-                  </h3>
-                </div>
-              </div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {editingVocalPartIndex !== null ? 'Edit vocal part' : 'Add vocal part'}
+              </h3>
               <button
                 type="button"
                 onClick={handleCloseVocalPartModal}
@@ -4019,7 +4002,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               ? 'New practice'
               : 'Line Up Choir Song'
           }
-          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
+          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
         >
           <Plus className="w-6 h-6 stroke-[2.5]" />
         </button>

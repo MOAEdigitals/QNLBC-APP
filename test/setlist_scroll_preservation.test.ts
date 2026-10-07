@@ -55,6 +55,16 @@ test('SetlistsTab and App.tsx preserve setlist state and scroll position when re
     /newTab === 'home' && isReturningToSetlist[\s\S]*?setInitialSelectedSetlistId\(targetSetlistId\)/,
     'Tapping Setlists must restore the originating expanded setlist'
   );
+  assert.match(
+    appFile,
+    /newTab === 'songs' && !options\?\.preserveSongSelection[\s\S]*?setSelectedSongIdForTab\(null\)[\s\S]*?returnSetlistIdRef\.current = null/,
+    'Opening Songs from bottom navigation must show the default collapsed library'
+  );
+  assert.match(
+    appFile,
+    /handleNavigateTab\('songs', \{ instantScroll: true, preserveSongSelection: true \}\)/,
+    'Opening a specific song must preserve its cross-navigation selection'
+  );
 });
 
 test('Setlists start collapsed on first login or new session', () => {

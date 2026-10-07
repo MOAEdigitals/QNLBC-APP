@@ -1877,8 +1877,7 @@ if (isEditing && !savingSongRef.current) {
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Paperclip className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 <span>{editingAttachmentId ? 'Edit Track or Attachment' : 'Add Track or Attachment'}</span>
               </h3>
               <button onClick={() => { setIsAddingAttachment(false); setEditingAttachmentId(null); }} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
@@ -2227,7 +2226,7 @@ if (isEditing && !savingSongRef.current) {
           onClick={handleStartCreateSong}
           aria-label="New song"
           title="Add new song"
-          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
+          className="fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"
         >
           <Plus className="w-6 h-6 stroke-[2.5]" />
         </button>

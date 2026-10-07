@@ -408,7 +408,7 @@ export default function App() {
 
   // Tab Navigation
   const handleNavigateTab = useCallback(
-    (newTab: AppTab, options?: { instantScroll?: boolean }) => {
+    (newTab: AppTab, options?: { instantScroll?: boolean; preserveSongSelection?: boolean }) => {
       if (newTab === currentTab) {
         setCollapseSignals((prev) => ({
           ...prev,
@@ -417,6 +417,11 @@ export default function App() {
         return;
       }
       hasActiveSubViewRef.current = false;
+      if (newTab === 'songs' && !options?.preserveSongSelection) {
+        setSelectedSongIdForTab(null);
+        setSongNavigationTrigger(null);
+        returnSetlistIdRef.current = null;
+      }
       const isReturningToSetlist =
         newTab === 'home' &&
         (Boolean(returnSetlistIdRef.current) ||
@@ -1048,7 +1053,7 @@ export default function App() {
     }
     setSelectedSongIdForTab(songId);
     setSongNavigationTrigger({ songId, timestamp: Date.now() });
-    handleNavigateTab('songs', { instantScroll: true });
+    handleNavigateTab('songs', { instantScroll: true, preserveSongSelection: true });
   };
 
   const handleBackToSetlist = () => {
@@ -1282,7 +1287,7 @@ export default function App() {
             songNavigationTrigger={songNavigationTrigger}
             onClearInitialSelectedSongId={() => setSelectedSongIdForTab(null)}
             collapseSignal={collapseSignals.songs}
-            returnSetlistId={returnSetlistIdRef.current || initialSelectedSetlistId}
+            returnSetlistId={returnSetlistIdRef.current}
             onBackToSetlist={handleBackToSetlist}
           />
         )}

@@ -6,6 +6,7 @@ type ActivityRow = {
   title: string;
   activity_date: string;
   activity_time: string | null;
+  description: string | null;
   revision: number;
   created_at: string;
   updated_at: string;
@@ -17,6 +18,7 @@ function fromRow(row: ActivityRow): ChurchActivity {
     title: row.title,
     activityDate: row.activity_date,
     activityTime: row.activity_time,
+    description: row.description,
     revision: row.revision,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -39,6 +41,7 @@ export async function saveActivity(activity: ChurchActivity, isNew: boolean): Pr
     title: activity.title.trim(),
     activity_date: activity.activityDate,
     activity_time: activity.activityTime || null,
+    description: activity.description?.trim() || null,
   };
   const query = isNew
     ? supabase.from('church_activities').insert(payload)

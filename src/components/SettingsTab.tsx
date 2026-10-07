@@ -20,6 +20,8 @@ import {
   setProfileRole,
   toggleProfileActive,
   updateUserProfile,
+  createManagedUser,
+  fetchAllProfiles,
 } from '../services/supabaseData';
 import { compressImageToAvatar } from '../utils/imageUtils';
 import {
@@ -121,6 +123,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [managingUserId, setManagingUserId] = useState<string | null>(null);
+  const [showCreateMember, setShowCreateMember] = useState(false);
+  const [newMember, setNewMember] = useState({ displayName: '', username: '', password: '' });
+  const [memberCreateError, setMemberCreateError] = useState('');
+  const [creatingMember, setCreatingMember] = useState(false);
 
   // Church directory names state
   const [savedNames, setSavedNames] = useState<string[]>(propSavedNames);
@@ -153,13 +159,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleAvatarChange = async (file: File) => {
     try {
       const avatarBase64 = await compressImageToAvatar(file);
-      const updated = { ...currentUser, avatar: avatarBase64 };
+      const updated = await updateUserProfile(currentUser.id, { avatar_url: avatarBase64 });
       onUpdateCurrentUser(updated);
-      await updateUserProfile(currentUser.id, { avatar_url: avatarBase64 });
-      setAvatarNoticeMsg('Profile picture updated successfully!');
+      onUpdateUsers(users.map(user => user.id === updated.id ? updated : user));
+      setAvatarNoticeMsg('Profile picture updated.');
       setTimeout(() => setAvatarNoticeMsg(null), 4000);
     } catch (err: any) {
-      alert('Failed to process image: ' + err.message);
+      setAvatarNoticeMsg('Could not update profile picture. Please try again.');
+      setTimeout(() => setAvatarNoticeMsg(null), 5000);
     }
   };
 
@@ -263,6 +270,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       alert('Failed to update permissions: ' + (err.message || 'Error'));
     } finally {
       setManagingUserId(null);
+    }
+  };
+
+  const handleCreateMember = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (creatingMember) return;
+    setCreatingMember(true);
+    setMemberCreateError('');
+    try {
+      await createManagedUser(newMember);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      onUpdateUsers(await fetchAllProfiles());
+      setNewMember({ displayName: '', username: '', password: '' });
+      setShowCreateMember(false);
+    } catch (error: any) {
+      setMemberCreateError(error?.message || 'Could not create account.');
+    } finally {
+      setCreatingMember(false);
     }
   };
 
@@ -751,7 +776,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     Members ({users.filter((u) => u.role !== 'admin').length})
                   </button>
                 </div>
+                <button type="button" className="ui-secondary" onClick={() => setShowCreateMember(value => !value)}>
+                  <Plus className="h-4 w-4" /> New member
+                </button>
               </div>
+
+              {!selectedMemberId && showCreateMember && <form onSubmit={handleCreateMember} className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>
+                <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
+                <label className="block text-sm font-medium">Password<input required minLength={6} type="password" autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /></label>
+                {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
+                <button type="submit" disabled={creatingMember} className="ui-primary w-full">{creatingMember ? 'Creating…' : 'Create account'}</button>
+              </form>}
 
               {selectedMemberId && <button type="button" className="ui-back" onClick={() => setSelectedMemberId(null)}>← All members</button>}
               <div className="space-y-3">

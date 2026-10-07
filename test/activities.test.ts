@@ -7,6 +7,7 @@ const root = process.cwd();
 const source = fs.readFileSync(path.join(root, 'src/features/activities/Activities.tsx'), 'utf8').replace(/\r\n/g, '\n');
 const data = fs.readFileSync(path.join(root, 'src/features/activities/data.ts'), 'utf8').replace(/\r\n/g, '\n');
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261006_church_activities.sql'), 'utf8').replace(/\r\n/g, '\n');
+const descriptionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261007_activity_descriptions.sql'), 'utf8').replace(/\r\n/g, '\n');
 
 test('activities show a month calendar with one dot per activity date occurrence', () => {
   assert.match(source, /Array\.from\(\{ length: Math\.min\(count, 3\) \}/);
@@ -21,11 +22,13 @@ test('activities show a month calendar with one dot per activity date occurrence
 });
 
 test('activities use compact month-grouped cards and a minimal editor', () => {
-  assert.match(source, /monthList\(filteredItems, item => item\.activityDate/);
-  assert.match(source, /min-h-\[72px\]/);
+  assert.match(source, /groupByMonth\(filteredItems, item => item\.activityDate/);
+  assert.match(source, /monthColors\[monthIndex\]/);
   assert.match(source, />Title<input required/);
   assert.match(source, />Date<input required/);
-  assert.match(source, />Time <span[^>]*>\(optional\)/);
+  assert.match(source, />\+ Add time</);
+  assert.match(source, />\+ Add description</);
+  assert.match(source, /expanded && item\.description/);
 });
 
 test('activities persist through a permission-protected Supabase table', () => {
@@ -34,4 +37,6 @@ test('activities persist through a permission-protected Supabase table', () => {
   assert.match(migration, /has_permission\('add'\)/);
   assert.match(migration, /has_permission\('edit'\)/);
   assert.match(migration, /has_permission\('delete'\)/);
+  assert.match(descriptionMigration, /add column if not exists description text/);
+  assert.match(data, /description: activity\.description\?\.trim\(\) \|\| null/);
 });

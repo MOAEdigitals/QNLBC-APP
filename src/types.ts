@@ -252,6 +252,7 @@ export interface ChoirEntry {
 export interface ChurchActivity {
   id: string;
   title: string;
+  description?: string | null;
   activityDate: string;
   activity_date?: string;
   activityTime?: string | null;

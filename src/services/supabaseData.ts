@@ -189,12 +189,23 @@ export async function updateUserProfile(
     query = query.eq('revision', expectedRevision);
   }
 
-  const { data, error } = await query.select().single();
+  const { error } = await query;
 
-  if (error || !data) {
+  if (error) {
     throw new ConcurrencyConflictError(
-      error?.message || 'Profile update conflict: user has been modified by another administrator.'
+      error.message || 'Profile update conflict: user has been modified by another administrator.'
     );
+  }
+
+  // Read the authoritative profile separately. PostgREST can return a successful
+  // update with no embedded row, which made `.single()` report a false failure.
+  const { data, error: readError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', targetUserId)
+    .maybeSingle();
+  if (readError || !data) {
+    throw new Error(readError?.message || 'Profile updated but could not be reloaded.');
   }
 
   return {
@@ -217,6 +228,11 @@ export async function updateUserProfile(
     createdAt: data.created_at,
     updatedAt: data.updated_at,
   };
+}
+
+export async function createManagedUser(input: { username: string; password: string; displayName: string }): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('admin-create-user', { body: input });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not create account.');
 }
 
 export async function setProfileRole(userId: string, role: 'admin' | 'user'): Promise<void> {
