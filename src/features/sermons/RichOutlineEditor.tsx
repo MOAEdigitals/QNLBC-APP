@@ -25,7 +25,7 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
     parseOptions: { preserveWhitespace: 'full' },
     editable: !disabled,
     editorProps: {
-      attributes: { class: 'sermon-prose min-h-[45vh] p-4 focus:outline-none', role: 'textbox', 'aria-label': 'Outline', 'aria-multiline': 'true', spellcheck: 'false' },
+      attributes: { class: 'sermon-prose min-h-[45vh] p-4 focus:outline-none', role: 'textbox', 'aria-label': 'Outline', 'aria-multiline': 'true', autocomplete: 'off', autocorrect: 'off', autocapitalize: 'sentences', spellcheck: 'false', 'data-form-type': 'other', 'data-lpignore': 'true' },
       handlePaste(view, event) {
         const clipboard = event.clipboardData;
         if (!clipboard) return false;

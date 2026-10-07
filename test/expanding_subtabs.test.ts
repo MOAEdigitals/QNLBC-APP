@@ -17,6 +17,11 @@ test('Schedules keeps every subtab one tap away and labels only the selected ite
   assert.doesNotMatch(styles, /\.practice-screen > div:first-child > button/);
 });
 
+test('Schedules opens Activities as its default subtab', () => {
+  const source = read('src/components/SpecialNumberTab.tsx');
+  assert.match(source, /useState<SpecialNumbersSubTab>\('activities'\)/);
+});
+
 test('main and recognition navigation do not render numeric bubbles', () => {
   const bottomNav = read('src/components/BottomNav.tsx');
   const recognitions = read('src/components/RecognitionsTab.tsx');
