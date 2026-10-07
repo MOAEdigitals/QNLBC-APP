@@ -314,24 +314,24 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
-      {/* One icon row on mobile; labeled tabs on larger screens */}
-      <div className="recognition-tabs grid grid-cols-4 gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      {/* The selected section expands to show its label; the others remain one-tap icons. */}
+      <div className="recognition-tabs flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         {/* Birthdays */}
         <button
           type="button"
           aria-label="Birthdays"
           title="Birthdays"
           onClick={() => setSubTab('birthdays')}
-          className={`flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+          className={`relative min-w-0 flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${subTab === 'birthdays' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'birthdays'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Cake className="w-4 h-4 text-indigo-500" />
-          <span className="hidden sm:inline">Birthdays</span>
+          <span className={`${subTab === 'birthdays' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Birthdays</span>
           {currentBirthdays.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute right-0 top-0 sm:static px-1.5 sm:px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] flex items-center justify-center font-bold">
               {currentBirthdays.length}<span className="hidden sm:inline ml-1">this week</span>
             </span>
           )}
@@ -342,16 +342,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           aria-label="Special"
           title="Special"
           onClick={() => setSubTab('special')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'special' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'special'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Award className="w-4 h-4 text-sky-500" />
-          <span className="hidden sm:inline">Special</span>
+          <span className={`${subTab === 'special' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Special</span>
           {specialRecognitions.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-sky-600 text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute right-0 top-0 sm:static w-4 h-4 rounded-full bg-sky-600 text-white text-[10px] flex items-center justify-center font-bold">
               {specialRecognitions.length}
             </span>
           )}
@@ -362,16 +362,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           aria-label="Anniversaries"
           title="Anniversaries"
           onClick={() => setSubTab('anniversaries')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'anniversaries' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'anniversaries'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Heart className="w-4 h-4 text-rose-500" />
-          <span className="hidden sm:inline">Anniversaries</span>
+          <span className={`${subTab === 'anniversaries' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Anniversaries</span>
           {currentAnniversaries.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute right-0 top-0 sm:static w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] flex items-center justify-center font-bold">
               {currentAnniversaries.length}
             </span>
           )}
@@ -382,16 +382,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           aria-label="Visitors"
           title="Visitors"
           onClick={() => setSubTab('visitors')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'visitors' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'visitors'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Users className="w-4 h-4 text-emerald-500" />
-          <span className="hidden sm:inline">Visitors</span>
+          <span className={`${subTab === 'visitors' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Visitors</span>
           {visitors.length > 0 && (
-            <span className="w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">
+            <span className="absolute right-0 top-0 sm:static w-4 h-4 rounded-full bg-emerald-600 text-white text-[10px] flex items-center justify-center font-bold">
               {visitors.length}
             </span>
           )}

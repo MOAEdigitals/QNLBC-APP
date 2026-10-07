@@ -1954,22 +1954,22 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
-      {/* Keep every subtab visible on mobile, in one icon row on phones. */}
-      <div role="group" aria-label="Schedules sections" className="grid grid-cols-5 sm:grid-cols-[minmax(max-content,1.4fr)_repeat(4,minmax(max-content,1fr))] gap-1.5 overflow-x-auto bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      {/* The selected section expands to show its label; the others remain one-tap icons. */}
+      <div role="group" aria-label="Schedules sections" className="flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button
           type="button"
           onClick={() => setActiveSubTab('schedules')}
           aria-pressed={activeSubTab === 'schedules'}
           aria-label="Song Numbers"
           title="Song Numbers"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'schedules' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             activeSubTab === 'schedules'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Mic2 className="w-5 h-5 sm:w-4 sm:h-4 text-indigo-500 shrink-0" />
-          <span className="hidden sm:inline whitespace-nowrap">Song Numbers</span>
+          <span className={`${activeSubTab === 'schedules' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Song Numbers</span>
           {currentScheduleCount > 0 && (
             <span
               className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -1989,14 +1989,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           aria-pressed={activeSubTab === 'practice'}
           aria-label="Practice"
           title="Practice"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'practice' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             activeSubTab === 'practice'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Play className="w-5 h-5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
-          <span className="hidden sm:inline whitespace-nowrap">Practice</span>
+          <span className={`${activeSubTab === 'practice' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Practice</span>
           {currentPracticeCount > 0 && (
             <span
               className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -2016,14 +2016,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           aria-pressed={activeSubTab === 'choir'}
           aria-label="Choir"
           title="Choir"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'choir' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             activeSubTab === 'choir'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
           <Users className="w-5 h-5 sm:w-4 sm:h-4 text-sky-500 shrink-0" />
-          <span className="hidden sm:inline whitespace-nowrap">Choir</span>
+          <span className={`${activeSubTab === 'choir' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Choir</span>
           {currentChoirCount > 0 && (
             <span
               className={`absolute top-0 right-0 sm:static px-1.5 py-0.2 rounded-full text-[10px] font-bold shrink-0 ${
@@ -2044,7 +2044,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             aria-pressed={activeSubTab === tab}
             aria-label={tab === 'outlines' ? 'Outlines' : 'Activities'}
             title={tab === 'outlines' ? 'Outlines' : 'Activities'}
-            className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+            className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === tab ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
               activeSubTab === tab
                 ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -2055,7 +2055,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             ) : (
               <Calendar className="w-5 h-5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
             )}
-            <span className="hidden sm:inline whitespace-nowrap">{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
+            <span className={`${activeSubTab === tab ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
           </button>
         ))}
       </div>
