@@ -235,6 +235,16 @@ export async function createManagedUser(input: { username: string; password: str
   if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not create account.');
 }
 
+export async function updateManagedUser(input: { userId: string; username: string; displayName: string; password?: string }): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('admin-update-user', { body: input });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update account.');
+}
+
+export async function deleteManagedUser(userId: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('admin-delete-user', { body: { userId } });
+  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not delete account.');
+}
+
 export async function setProfileRole(userId: string, role: 'admin' | 'user'): Promise<void> {
   if (!isSupabaseConfigured()) return;
   const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);

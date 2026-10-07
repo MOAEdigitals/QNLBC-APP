@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Loader2, MoreVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
 import { groupByMonth } from '../../components/MonthSeparators';
@@ -63,6 +63,8 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
   const [showTime, setShowTime] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: true });
   const savingRef = useRef(false);
   const canAdd = currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd;
   const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
@@ -90,8 +92,32 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   }, [items]);
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return query ? items.filter(item => `${item.title} ${item.description || ''}`.toLowerCase().includes(query)) : items;
-  }, [items, search]);
+    return items.filter(item => {
+      const title = item.title.toLowerCase();
+      const kind = title.includes('wednesday') && title.includes('prayer') ? 'prayer'
+        : title.includes('sunday service') ? 'sunday'
+        : title.includes('saturday') && title.includes('practice') ? 'practice' : null;
+      if (kind && !gatheringFilters[kind]) return false;
+      return !query || `${item.title} ${item.description || ''}`.toLowerCase().includes(query);
+    });
+  }, [items, search, gatheringFilters]);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const close = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(`[data-activity-actions="${openMenu}"]`)) setOpenMenu(null);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [openMenu]);
+
+  const copyActivity = async (item: ChurchActivity) => {
+    const date = localDate(item.activityDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const time = item.activityTime ? new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+    await navigator.clipboard.writeText([item.title, date, time, item.description].filter(Boolean).join('\n'));
+    setOpenMenu(null);
+  };
 
   const calendarDays = useMemo(() => {
     const first = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -170,6 +196,13 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
       </div>
     </section>
 
+    <div className="relative flex justify-end">
+      <button type="button" className="inline-flex min-h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-3.5 w-3.5" />Filter</button>
+      {showFilters && <div className="absolute right-0 top-10 z-20 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        {([['prayer', 'Wednesday prayer meeting'], ['sunday', 'Sunday service'], ['practice', 'Saturday practice']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
+      </div>}
+    </div>
+
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {groupByMonth(filteredItems, item => item.activityDate).map(group => {
@@ -181,7 +214,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
             <div className="flex min-h-[52px] items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-white/70 dark:bg-slate-900/60"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
               <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
-              {(canEdit || canDelete) && <div className="relative"><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>}
+              <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
             {expanded && item.description && <p className="border-t border-current/10 pt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{item.description}</p>}
           </article>; })}
@@ -197,8 +230,8 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
         <fieldset disabled={saving} className="flex-1 space-y-4 overflow-y-auto p-4">
           <label className="block text-sm font-medium">Title<input required autoFocus id="activity-title" name="activity_title" autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false} data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.title} onChange={event => setEditor({ ...editor, item: { ...editor.item, title: event.target.value } })} /></label>
           <label className="block text-sm font-medium">Date<input required id="activity-date" name="activity_date" type="date" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityDate} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityDate: event.target.value } })} /></label>
-          {!showTime ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowTime(true)}>+ Add time</button> : <label className="block text-sm font-medium">Time <span className="font-normal text-slate-400">(optional)</span><input id="activity-time" name="activity_time" type="time" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityTime || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityTime: event.target.value } })} /></label>}
-          {!showDescription ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowDescription(true)}>+ Add description</button> : <label className="block text-sm font-medium">Description <span className="font-normal text-slate-400">(optional)</span><textarea id="activity-description" name="activity_description" rows={4} className={`${field} mt-1.5 resize-none`} value={editor.item.description || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, description: event.target.value } })} /></label>}
+          <div>{!showTime ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowTime(true)}>+ Add time</button> : <label className="block text-sm font-medium">Time <span className="font-normal text-slate-400">(optional)</span><input id="activity-time" name="activity_time" type="time" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityTime || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityTime: event.target.value } })} /></label>}</div>
+          <div className="pt-3">{!showDescription ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowDescription(true)}>+ Add description</button> : <label className="block text-sm font-medium">Description <span className="font-normal text-slate-400">(optional)</span><textarea id="activity-description" name="activity_description" rows={4} className={`${field} mt-1.5 resize-none`} value={editor.item.description || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, description: event.target.value } })} /></label>}</div>
           {saveError && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{saveError}</p>}
         </fieldset>
         <footer className="border-t border-slate-200 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] dark:border-slate-800"><button type="submit" disabled={saving || !editor.item.title.trim() || !editor.item.activityDate} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 font-semibold text-white disabled:opacity-50 dark:bg-white dark:text-slate-900">{saving && <Loader2 className="h-4 w-4 animate-spin" />}{saving ? 'Saving…' : 'Save'}</button></footer>

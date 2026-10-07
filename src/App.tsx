@@ -119,9 +119,9 @@ export default function App() {
   }, [theme]);
 
   // Active Tab & Browser Navigation (Preserved)
-  const [currentTab, setCurrentTab] = useState<AppTab>('home');
+  const [currentTab, setCurrentTab] = useState<AppTab>('special-numbers');
   useEffect(() => {
-    window.history.replaceState({ tab: 'home' }, '', '#home');
+    window.history.replaceState({ tab: 'special-numbers' }, '', '#special-numbers');
   }, []);
 
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
@@ -144,7 +144,19 @@ export default function App() {
   const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
   const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
   const returnSetlistIdRef = useRef<string | null>(null);
-  const savedSetlistScrollPosRef = useRef<{ setlistId: string; scrollY: number } | null>(null);
+  const savedSetlistScrollPosRef = useRef<{ setlistId: string; scrollY: number } | null>((() => {
+    try {
+      const setlistId = sessionStorage.getItem('nlbc_saved_setlist_id');
+      return setlistId ? { setlistId, scrollY: Number(sessionStorage.getItem('nlbc_saved_setlist_scroll_y') || 0) } : null;
+    } catch { return null; }
+  })());
+  const [setlistJourney, setSetlistJourney] = useState<{ setlistId: string; scrollY: number } | null>(() => {
+    try {
+      const setlistId = sessionStorage.getItem('nlbc_saved_setlist_id');
+      const scrollY = Number(sessionStorage.getItem('nlbc_saved_setlist_scroll_y') || 0);
+      return setlistId ? { setlistId, scrollY } : null;
+    } catch { return null; }
+  });
 
   // 3. Shared Collections: MUST start strictly as empty arrays - no localStorage loaders!
   const [setlists, setSetlists] = useState<Setlist[]>([]);
@@ -426,14 +438,14 @@ export default function App() {
         newTab === 'home' &&
         (Boolean(returnSetlistIdRef.current) ||
           Boolean(savedSetlistScrollPosRef.current) ||
-          Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
+          Boolean(setlistJourney) || Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
 
       const shouldInstantScroll = Boolean(options?.instantScroll || isReturningToSetlist);
 
       if (newTab === 'home' && isReturningToSetlist) {
         const targetSetlistId =
           returnSetlistIdRef.current ||
-          savedSetlistScrollPosRef.current?.setlistId ||
+          savedSetlistScrollPosRef.current?.setlistId || setlistJourney?.setlistId ||
           (() => {
             try {
               return sessionStorage.getItem('nlbc_saved_setlist_id');
@@ -453,7 +465,7 @@ export default function App() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     },
-    [currentTab]
+    [currentTab, setlistJourney]
   );
 
   // Popstate history listener
@@ -474,12 +486,12 @@ export default function App() {
           targetTab === 'home' &&
           (Boolean(returnSetlistIdRef.current) ||
             Boolean(savedSetlistScrollPosRef.current) ||
-            Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
+            Boolean(setlistJourney) || Boolean(sessionStorage.getItem('nlbc_saved_setlist_scroll_y')));
 
         if (targetTab === 'home' && isReturningToSetlist) {
           const targetSetlistId =
             returnSetlistIdRef.current ||
-            savedSetlistScrollPosRef.current?.setlistId ||
+            savedSetlistScrollPosRef.current?.setlistId || setlistJourney?.setlistId ||
             (() => {
               try {
                 return sessionStorage.getItem('nlbc_saved_setlist_id');
@@ -506,13 +518,14 @@ export default function App() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [currentTab]);
+  }, [currentTab, setlistJourney]);
 
   // Auth Handlers
   const handleSignInSuccess = async (user: UserAccount) => {
     setInitialSelectedSetlistId(null);
     returnSetlistIdRef.current = null;
     savedSetlistScrollPosRef.current = null;
+    setSetlistJourney(null);
     try {
       sessionStorage.removeItem('nlbc_saved_setlist_id');
       sessionStorage.removeItem('nlbc_saved_setlist_scroll_y');
@@ -524,9 +537,9 @@ export default function App() {
     sectionLoadPromisesRef.current = {};
     await loadCoreData();
     setIsLoadingInitialData(false);
-    setCurrentTab('home');
-    tabHistoryRef.current = ['home'];
-    window.history.replaceState({ tab: 'home' }, '', '#home');
+    setCurrentTab('special-numbers');
+    tabHistoryRef.current = ['special-numbers'];
+    window.history.replaceState({ tab: 'special-numbers' }, '', '#special-numbers');
   };
 
   const handleSignOut = async () => {
@@ -1046,6 +1059,7 @@ export default function App() {
 
     if (returnSetlistId) {
       setInitialSelectedSetlistId(returnSetlistId);
+      setSetlistJourney({ setlistId: returnSetlistId, scrollY: currentScrollY });
       try {
         sessionStorage.setItem('nlbc_saved_setlist_scroll_y', String(currentScrollY));
         sessionStorage.setItem('nlbc_saved_setlist_id', returnSetlistId);
@@ -1059,7 +1073,7 @@ export default function App() {
   const handleBackToSetlist = () => {
     const targetSetlistId =
       returnSetlistIdRef.current ||
-      savedSetlistScrollPosRef.current?.setlistId ||
+      savedSetlistScrollPosRef.current?.setlistId || setlistJourney?.setlistId ||
       initialSelectedSetlistId ||
       (() => {
         try {
@@ -1218,7 +1232,7 @@ export default function App() {
             onSubViewChange={(hasActive) => {
               hasActiveSubViewRef.current = hasActive;
             }}
-            initialSelectedSetlistId={initialSelectedSetlistId || returnSetlistIdRef.current || savedSetlistScrollPosRef.current?.setlistId}
+            initialSelectedSetlistId={initialSelectedSetlistId || returnSetlistIdRef.current || savedSetlistScrollPosRef.current?.setlistId || setlistJourney?.setlistId}
             initialScrollY={savedSetlistScrollPosRef.current?.scrollY}
             collapseSignal={collapseSignals.home}
           />

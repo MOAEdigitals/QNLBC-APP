@@ -21,6 +21,8 @@ import {
   toggleProfileActive,
   updateUserProfile,
   createManagedUser,
+  updateManagedUser,
+  deleteManagedUser,
   fetchAllProfiles,
 } from '../services/supabaseData';
 import { compressImageToAvatar } from '../utils/imageUtils';
@@ -54,6 +56,7 @@ import {
   Copy,
   Code2,
   UserX,
+  Pencil,
   X,
 } from 'lucide-react';
 import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
@@ -127,6 +130,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [newMember, setNewMember] = useState({ displayName: '', username: '', password: '' });
   const [memberCreateError, setMemberCreateError] = useState('');
   const [creatingMember, setCreatingMember] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [memberEdit, setMemberEdit] = useState({ displayName: '', username: '', password: '' });
+  const [memberEditError, setMemberEditError] = useState('');
 
   // Church directory names state
   const [savedNames, setSavedNames] = useState<string[]>(propSavedNames);
@@ -289,6 +295,37 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     } finally {
       setCreatingMember(false);
     }
+  };
+
+  const startEditingMember = (user: UserAccount) => {
+    setMemberEditError('');
+    setMemberEdit({ displayName: user.displayName || user.name || user.username, username: user.username, password: '' });
+    setEditingMemberId(user.id);
+  };
+
+  const handleUpdateMember = async (event: React.FormEvent, user: UserAccount) => {
+    event.preventDefault();
+    setManagingUserId(user.id);
+    setMemberEditError('');
+    try {
+      await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), username: memberEdit.username.trim().toLowerCase(), password: memberEdit.password || undefined });
+      onUpdateUsers(await fetchAllProfiles());
+      setEditingMemberId(null);
+    } catch (error: any) {
+      setMemberEditError(error.message || 'Could not update account.');
+    } finally { setManagingUserId(null); }
+  };
+
+  const handleDeleteMember = async (user: UserAccount) => {
+    if (user.id === currentUser.id || !confirm(`Permanently delete ${user.displayName || user.username}?`)) return;
+    setManagingUserId(user.id);
+    try {
+      await deleteManagedUser(user.id);
+      onUpdateUsers(users.filter(item => item.id !== user.id));
+      setSelectedMemberId(null);
+    } catch (error: any) {
+      alert(error.message || 'Could not delete account.');
+    } finally { setManagingUserId(null); }
   };
 
   // Export JSON Backup
@@ -518,8 +555,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   return (
     <div className="ui-revamp settings-screen space-y-5 max-w-3xl mx-auto pb-8">
       <header className="space-y-3">
-        {settingsSection && <button type="button" className="ui-back" onClick={() => { setSettingsSection(null); setSelectedMemberId(null); }}>← Settings</button>}
-        <h2 className="text-2xl font-semibold">{settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
+        {settingsSection && <button type="button" className="ui-back" onClick={() => { if (selectedMemberId) { setSelectedMemberId(null); setEditingMemberId(null); } else setSettingsSection(null); }}>{selectedMemberId ? '← All members' : '← Settings'}</button>}
+        <h2 className="text-2xl font-semibold">{selectedMemberId ? 'Member account' : settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
       </header>
       {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
         {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'data'] : [])].map(section => (
@@ -789,7 +826,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <button type="submit" disabled={creatingMember} className="ui-primary w-full">{creatingMember ? 'Creating…' : 'Create account'}</button>
               </form>}
 
-              {selectedMemberId && <button type="button" className="ui-back" onClick={() => setSelectedMemberId(null)}>← All members</button>}
               <div className="space-y-3">
                 {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map(u => {
                   const isCurrent = u.id === currentUser.id;
@@ -800,6 +836,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <p className="text-sm text-slate-600 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'} · {u.active !== false ? 'Active' : 'Deactivated'}</p>
                     </div>
                     {!selectedMemberId ? <button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button> : <>
+                      {editingMemberId === u.id && <form onSubmit={event => handleUpdateMember(event, u)} className="space-y-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                        <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
+                        <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
+                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><input minLength={6} type="password" autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /></label>
+                        {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
+                        <div className="flex gap-2"><button className="ui-primary" disabled={isManaging}>Save</button><button type="button" className="ui-secondary" onClick={() => setEditingMemberId(null)}>Cancel</button></div>
+                      </form>}
                       {u.role === 'admin' ? <p>Administrators have full access.</p> : <div className="divide-y divide-slate-200 dark:divide-slate-800">
                         {([['canAdd', 'Add'], ['canEdit', 'Edit'], ['canDelete', 'Delete']] as const).map(([key, label]) => {
                           const enabled = Boolean(u.permissions?.[key]);
@@ -812,8 +855,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       </div>}
                       {isManaging && <p role="status">Saving…</p>}
                       <div className="flex flex-wrap gap-2 pt-3">
+                        <button type="button" disabled={isManaging} onClick={() => startEditingMember(u)} className="ui-secondary"><Pencil className="h-4 w-4" /> Edit account</button>
                         <button type="button" disabled={isManaging} onClick={() => handleToggleUserRole(u)} className="ui-secondary">{u.role === 'admin' ? 'Make member' : 'Make admin'}</button>
                         {!isCurrent && <button type="button" disabled={isManaging} onClick={() => handleToggleUserActive(u)} className="ui-secondary">{u.active !== false ? 'Deactivate' : 'Activate'}</button>}
+                        {!isCurrent && <button type="button" disabled={isManaging} onClick={() => void handleDeleteMember(u)} className="ui-secondary text-rose-600"><Trash2 className="h-4 w-4" /> Delete account</button>}
                       </div>
                     </>}
                   </article>;

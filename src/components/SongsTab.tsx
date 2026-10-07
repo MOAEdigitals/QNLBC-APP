@@ -87,6 +87,25 @@ export function getSongCategories(song: Song): SongCategory[] {
   return [];
 }
 
+function getUpcomingSongSchedule(song: Song, setlists: Setlist[]): Setlist | undefined {
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const normalizedTitle = song.title.trim().toLowerCase();
+  const includesSong = (item?: { songId?: string; song_id?: string; title?: string }) => Boolean(item && (
+    item.songId === song.id || item.song_id === song.id || (!item.songId && !item.song_id && item.title?.trim().toLowerCase() === normalizedTitle)
+  ));
+  return [...setlists]
+    .filter(setlist => setlist.date >= todayKey)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .find(setlist => {
+      const namedSongs = [setlist.welcomeSong, setlist.welcome_song, setlist.closingSong, setlist.closing_song, setlist.themeSong, setlist.theme_song]
+        .some(title => title?.trim().toLowerCase() === normalizedTitle);
+      const sectionSongs = [setlist.sundaySchool?.songs, setlist.worshipService?.songs, setlist.program?.songs]
+        .some(items => items?.some(includesSong));
+      return namedSongs || sectionSongs;
+    });
+}
+
 interface SongsTabProps {
   songs: Song[];
   setlists: Setlist[];
@@ -1104,6 +1123,7 @@ if (isEditing && !savingSongRef.current) {
             const totalTrackCount = attachments.length + (hasLegacyMinusOne ? 1 : 0);
             const hasAttachments = totalTrackCount > 0;
             const isMenuOpen = openMenuSongId === song.id;
+            const upcomingSchedule = getUpcomingSongSchedule(song, setlists);
 
             return (
               <div
@@ -1192,6 +1212,10 @@ if (isEditing && !savingSongRef.current) {
                         <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1 text-[11px]">
                           <Clock className="w-3 h-3  inline" />
                           <span>Last sung: {history.relativeTimeAgo}</span>
+                        </span>
+                      ) : upcomingSchedule ? (
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+                          <CalendarPlus className="h-3 w-3" />Scheduled {formatDateStr(upcomingSchedule.date)}
                         </span>
                       ) : (
                         <span className="text-slate-400/70 dark:text-slate-600 text-[11px]">
