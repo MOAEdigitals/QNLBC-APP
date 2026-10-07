@@ -369,6 +369,12 @@ if (isEditing && !savingSongRef.current) {
     else if (isAddingAttachment) { if (!isUploadingCloudMedia) setIsAddingAttachment(false); }
     else if (isAddToSetlistOpen) setIsAddToSetlistOpen(false);
     else if (openMenuSongId) setOpenMenuSongId(null);
+    else if (selectedSongId && returnSetlistId && onBackToSetlist) {
+      // A song opened from an expanded setlist belongs to that stage flow.
+      // Return to the same setlist instead of stopping at the collapsed song list.
+      onClearInitialSelectedSongId?.();
+      onBackToSetlist();
+    }
     else { setSelectedSongId(null); setActiveMedia(null); setOpenMenuSongId(null); onClearInitialSelectedSongId?.(); }
   });
   // Instantly position the selected song card so its top outline/edge is right below the sticky header (no scroll transition)

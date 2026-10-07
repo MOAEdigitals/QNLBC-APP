@@ -6,6 +6,7 @@ import path from 'node:path';
 test('SetlistsTab and App.tsx preserve setlist state and scroll position when returning from Songs tab', () => {
   const appFile = fs.readFileSync(path.resolve(process.cwd(), 'src/App.tsx'), 'utf-8');
   const setlistsTabFile = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SetlistsTab.tsx'), 'utf-8');
+  const songsTabFile = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SongsTab.tsx'), 'utf-8');
 
   // 1. App.tsx tracks savedSetlistScrollPosRef and saves scrollY upon openSongDetail
   assert.ok(
@@ -41,6 +42,18 @@ test('SetlistsTab and App.tsx preserve setlist state and scroll position when re
   assert.ok(
     setlistsTabFile.includes('restoredScrollRef.current || initialScrollY != null'),
     'SetlistsTab suppresses smooth scrollIntoView when scroll position is already restored'
+  );
+
+  // 3. Back from a song reached through a setlist returns to that expanded setlist.
+  assert.match(
+    songsTabFile,
+    /selectedSongId && returnSetlistId && onBackToSetlist[\s\S]*?onClearInitialSelectedSongId\?\.\(\);[\s\S]*?onBackToSetlist\(\);/,
+    'Songs opened from a setlist must return directly to that setlist on Back'
+  );
+  assert.match(
+    appFile,
+    /newTab === 'home' && isReturningToSetlist[\s\S]*?setInitialSelectedSetlistId\(targetSetlistId\)/,
+    'Tapping Setlists must restore the originating expanded setlist'
   );
 });
 
