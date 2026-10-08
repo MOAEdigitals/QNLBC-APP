@@ -58,6 +58,8 @@ import {
   UserX,
   Pencil,
   X,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
 
@@ -130,11 +132,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [managingUserId, setManagingUserId] = useState<string | null>(null);
   const [showCreateMember, setShowCreateMember] = useState(false);
   const [newMember, setNewMember] = useState({ displayName: '', username: '', password: '' });
+  const [showNewMemberPassword, setShowNewMemberPassword] = useState(false);
   const [memberCreateError, setMemberCreateError] = useState('');
   const [creatingMember, setCreatingMember] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberEdit, setMemberEdit] = useState({ displayName: '', username: '', password: '' });
+  const [showMemberEditPassword, setShowMemberEditPassword] = useState(false);
   const [memberEditError, setMemberEditError] = useState('');
+  const [memberCredentials, setMemberCredentials] = useState<Record<string, { username: string; password: string }>>({});
+  const [credentialNotice, setCredentialNotice] = useState<{ userId: string; username: string; password: string } | null>(null);
+  const [copiedCredentialId, setCopiedCredentialId] = useState<string | null>(null);
 
   // Church directory names state
   const [savedNames, setSavedNames] = useState<string[]>(propSavedNames);
@@ -323,10 +330,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setCreatingMember(true);
     setMemberCreateError('');
     try {
-      await createManagedUser(newMember);
+      const createdCredentials = {
+        username: newMember.username.trim().toLowerCase(),
+        password: newMember.password,
+      };
+      await createManagedUser({ ...newMember, username: createdCredentials.username });
       await new Promise(resolve => setTimeout(resolve, 500));
-      onUpdateUsers(await fetchAllProfiles());
+      const refreshedUsers = await fetchAllProfiles();
+      onUpdateUsers(refreshedUsers);
+      const createdUser = refreshedUsers.find(user => user.username === createdCredentials.username);
+      if (createdUser) {
+        setMemberCredentials(current => ({ ...current, [createdUser.id]: createdCredentials }));
+        setCredentialNotice({ userId: createdUser.id, ...createdCredentials });
+      }
       setNewMember({ displayName: '', username: '', password: '' });
+      setShowNewMemberPassword(false);
       setShowCreateMember(false);
     } catch (error: any) {
       setMemberCreateError(error?.message || 'Could not create account.');
@@ -337,6 +355,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const startEditingMember = (user: UserAccount) => {
     setMemberEditError('');
+    setShowMemberEditPassword(false);
     setMemberEdit({ displayName: user.displayName || user.name || user.username, username: user.username, password: '' });
     setEditingMemberId(user.id);
   };
@@ -346,12 +365,33 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setManagingUserId(user.id);
     setMemberEditError('');
     try {
-      await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), username: memberEdit.username.trim().toLowerCase(), password: memberEdit.password || undefined });
+      const nextUsername = memberEdit.username.trim().toLowerCase();
+      const nextPassword = memberEdit.password;
+      await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), username: nextUsername, password: nextPassword || undefined });
       onUpdateUsers(await fetchAllProfiles());
+      if (nextPassword) {
+        const credentials = { username: nextUsername, password: nextPassword };
+        setMemberCredentials(current => ({ ...current, [user.id]: credentials }));
+        setCredentialNotice({ userId: user.id, ...credentials });
+      } else {
+        setMemberCredentials(current => current[user.id]
+          ? { ...current, [user.id]: { ...current[user.id], username: nextUsername } }
+          : current);
+      }
       setEditingMemberId(null);
     } catch (error: any) {
       setMemberEditError(error.message || 'Could not update account.');
     } finally { setManagingUserId(null); }
+  };
+
+  const handleCopyMemberCredentials = async (userId: string, username: string, password: string) => {
+    try {
+      await navigator.clipboard.writeText(`Username: ${username}\nPassword: ${password}`);
+      setCopiedCredentialId(userId);
+      setTimeout(() => setCopiedCredentialId(current => current === userId ? null : current), 2500);
+    } catch {
+      setMemberEditError('Could not copy credentials. Select the username and password manually.');
+    }
   };
 
   const handleDeleteMember = async (user: UserAccount) => {
@@ -859,10 +899,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {!selectedMemberId && showCreateMember && <form onSubmit={handleCreateMember} className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                 <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
-                <label className="block text-sm font-medium">Password<input required minLength={6} type="password" autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /></label>
+                <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={6} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                 {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
                 <button type="submit" disabled={creatingMember} className="ui-primary w-full">{creatingMember ? 'Creating…' : 'Create account'}</button>
               </form>}
+
+              {credentialNotice && !selectedMemberId && <div role="status" className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+                <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Account credentials ready</p><button type="button" aria-label="Dismiss credentials" className="text-emerald-700 dark:text-emerald-300" onClick={() => setCredentialNotice(null)}><X className="h-4 w-4" /></button></div>
+                <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{credentialNotice.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{credentialNotice.password}</dd></dl>
+                <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(credentialNotice.userId, credentialNotice.username, credentialNotice.password)}>{copiedCredentialId === credentialNotice.userId ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
+                <p className="text-xs text-slate-500 dark:text-slate-400">This password is shown only in this admin session.</p>
+              </div>}
 
               <div className="space-y-3">
                 {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map(u => {
@@ -877,10 +924,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       {editingMemberId === u.id && <form onSubmit={event => handleUpdateMember(event, u)} className="space-y-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
                         <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
-                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><input minLength={6} type="password" autoComplete="new-password" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /></label>
+                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={6} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
                         <div className="flex gap-2"><button className="ui-primary" disabled={isManaging}>Save</button><button type="button" className="ui-secondary" onClick={() => setEditingMemberId(null)}>Cancel</button></div>
                       </form>}
+                      {memberCredentials[u.id] ? <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                        <p className="text-sm font-semibold">Current session credentials</p>
+                        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id].username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id].password}</dd></dl>
+                        <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(u.id, memberCredentials[u.id].username, memberCredentials[u.id].password)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
+                      </div> : <p className="text-xs text-slate-500 dark:text-slate-400">Existing passwords cannot be retrieved. Use Edit account to set a new password, then you can view and copy it here during this admin session.</p>}
                       {u.role === 'admin' ? <p>Administrators have full access.</p> : <div className="divide-y divide-slate-200 dark:divide-slate-800">
                         {([['canAdd', 'Add'], ['canEdit', 'Edit'], ['canDelete', 'Delete']] as const).map(([key, label]) => {
                           const enabled = Boolean(u.permissions?.[key]);

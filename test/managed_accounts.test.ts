@@ -15,9 +15,19 @@ test('login is username and password only with no public registration UI', () =>
 
 test('administrators can create managed username accounts', () => {
   assert.match(settings, /New member/);
-  assert.match(settings, /createManagedUser\(newMember\)/);
+  assert.match(settings, /createManagedUser\(\{ \.\.\.newMember, username: createdCredentials\.username \}\)/);
   assert.match(profile, /invokeAdminFunction\('admin-create-user'/);
   assert.match(profile, /Authorization: `Bearer \$\{token\}`/);
+});
+
+test('new or reset member credentials can be revealed and copied without database password storage', () => {
+  assert.match(settings, /showNewMemberPassword/);
+  assert.match(settings, /showMemberEditPassword/);
+  assert.match(settings, /Copy credentials/);
+  assert.match(settings, /This password is shown only in this admin session/);
+  assert.match(settings, /Existing passwords cannot be retrieved/);
+  assert.match(settings, /navigator\.clipboard\.writeText\(`Username: \$\{username\}\\nPassword: \$\{password\}`\)/);
+  assert.doesNotMatch(profile, /password_hash|passwordHash/);
 });
 
 test('profile updates reload separately instead of coercing the update response to one row', () => {
