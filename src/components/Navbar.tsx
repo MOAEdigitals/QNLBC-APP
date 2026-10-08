@@ -44,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>}
 
         {!isSearching && <div className="flex items-center space-x-2">
+          {search?.beforeSearch}
           {search && <button type="button" onClick={() => setIsSearching(true)} aria-label="Search" title="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Search className="h-5 w-5" /></button>}
           {currentUser && (
             <button

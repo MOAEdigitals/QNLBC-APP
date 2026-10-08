@@ -231,18 +231,43 @@ export async function updateUserProfile(
 }
 
 export async function createManagedUser(input: { username: string; password: string; displayName: string }): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('admin-create-user', { body: input });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not create account.');
+  await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
 }
 
 export async function updateManagedUser(input: { userId: string; username: string; displayName: string; password?: string }): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('admin-update-user', { body: input });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not update account.');
+  await invokeAdminFunction('admin-update-user', input, 'Could not update account.');
 }
 
 export async function deleteManagedUser(userId: string): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('admin-delete-user', { body: { userId } });
-  if (error || data?.error) throw new Error(data?.error || error?.message || 'Could not delete account.');
+  await invokeAdminFunction('admin-delete-user', { userId }, 'Could not delete account.');
+}
+
+async function invokeAdminFunction(name: string, body: unknown, fallback: string): Promise<void> {
+  let { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    const refreshed = await supabase.auth.refreshSession();
+    sessionData = refreshed.data;
+  }
+  const token = sessionData.session?.access_token;
+  if (!token) throw new Error('Your session expired. Please sign in again.');
+
+  const { data, error } = await supabase.functions.invoke(name, {
+    body,
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!error && !data?.error) return;
+
+  let message = data?.error || '';
+  const context = (error as { context?: Response } | null)?.context;
+  if (!message && context) {
+    try {
+      const responseBody = await context.clone().json();
+      message = responseBody?.error || responseBody?.message || '';
+    } catch {
+      // Keep the normal SDK error below when the response is not JSON.
+    }
+  }
+  throw new Error(message || error?.message || fallback);
 }
 
 export async function setProfileRole(userId: string, role: 'admin' | 'user'): Promise<void> {

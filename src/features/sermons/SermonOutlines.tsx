@@ -21,7 +21,7 @@ const primary = 'min-h-11 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm 
 interface OutlineEditor { input: SermonInput; original?: SermonOutline; newId: string }
 interface PendingFile { id: string; file: File }
 
-export default function SermonOutlines({ currentUser }: { currentUser: UserAccount | null }) {
+export default function SermonOutlines({ currentUser, collapseSignal }: { currentUser: UserAccount | null; collapseSignal?: number }) {
   const [rows, setRows] = useState<SermonOutline[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -43,6 +43,7 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
   const alive = useRef(false);
   const loadingLock = useRef(false);
   const surface = useRef<HTMLDivElement>(null);
+  const lastProcessedSignalRef = useRef<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const isAdmin = currentUser?.role === 'admin';
   const canAdd = !!currentUser?.active && (isAdmin || !!currentUser?.permissions?.canAdd);
@@ -181,6 +182,13 @@ export default function SermonOutlines({ currentUser }: { currentUser: UserAccou
   }
   useBackLayer(!!editor, closeEditor);
   useBackLayer(!!selected, () => { if (!saveLock.current) closeReader(); });
+  useEffect(() => {
+    if (!collapseSignal || collapseSignal === lastProcessedSignalRef.current) return;
+    lastProcessedSignalRef.current = collapseSignal;
+    if (editor) { closeEditor(); return; }
+    if (selected) { if (!saveLock.current) closeReader(); return; }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [collapseSignal, editor, selected]);
   function screenKeys(event: React.KeyboardEvent) {
     if (event.key === 'Escape') { event.stopPropagation(); if (editor) closeEditor(); else if (!saveLock.current) closeReader(); }
     if (event.key === 'Tab') {

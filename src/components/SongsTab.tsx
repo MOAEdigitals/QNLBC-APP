@@ -1,6 +1,7 @@
 import { useBackLayer } from '../hooks/useBackLayer';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import { useHeaderSearch } from './HeaderSearch';
+import { AutoGrowTextarea } from './AutoGrowTextarea';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue, useCallback } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
 import { isPastDate, formatDateStr } from '../utils/dateUtils';
@@ -2178,7 +2179,7 @@ if (isEditing && !savingSongRef.current) {
                     Lyrics
                   </label>
                 </div>
-                <textarea
+                <AutoGrowTextarea
                   id="song-lyrics-input"
                   name="library_song_lyrics"
                   autoComplete="off"
@@ -2187,11 +2188,11 @@ if (isEditing && !savingSongRef.current) {
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
-                  rows={18}
+                  rows={8}
                   value={editingSong.lyrics || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="min-h-[24rem] w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y"
+                  className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 

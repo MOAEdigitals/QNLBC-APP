@@ -5,6 +5,7 @@ export interface HeaderSearchConfig {
   onChange: (value: string) => void;
   placeholder: string;
   label: string;
+  beforeSearch?: React.ReactNode;
 }
 
 interface HeaderSearchContextValue {
@@ -40,6 +41,6 @@ export function useHeaderSearch(config: HeaderSearchConfig | null) {
   useEffect(() => {
     if (!register) return;
     register(key.current, config);
-  }, [register, config?.value, config?.onChange, config?.placeholder, config?.label]);
+  }, [register, config?.value, config?.onChange, config?.placeholder, config?.label, config?.beforeSearch]);
   useEffect(() => () => register?.(key.current, null), [register]);
 }

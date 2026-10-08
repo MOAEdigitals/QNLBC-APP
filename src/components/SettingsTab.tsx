@@ -1,5 +1,5 @@
 import { useBackLayer } from '../hooks/useBackLayer';
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
 import {
   cleanupLegacyStorage,
@@ -76,6 +76,7 @@ interface SettingsTabProps {
   firestoreStatus?: any;
   onOpenDatabaseStatusModal?: () => void;
   onOpenFirestoreStatusModal?: () => void;
+  collapseSignal?: number;
   appData?: {
     songs: any[];
     setlists: any[];
@@ -107,6 +108,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   onOpenDatabaseStatusModal,
   onOpenFirestoreStatusModal,
   appData,
+  collapseSignal,
 }) => {
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
@@ -153,6 +155,18 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const lastProcessedSignalRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!collapseSignal || collapseSignal === lastProcessedSignalRef.current) return;
+    lastProcessedSignalRef.current = collapseSignal;
+    if (showPromptModal) { setShowPromptModal(false); return; }
+    if (showCreateMember) { setShowCreateMember(false); return; }
+    if (editingMemberId) { setEditingMemberId(null); return; }
+    if (selectedMemberId) { setSelectedMemberId(null); return; }
+    if (settingsSection) { setSettingsSection(null); return; }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [collapseSignal, showPromptModal, showCreateMember, editingMemberId, selectedMemberId, settingsSection]);
 
   useBackLayer(showPromptModal || !!selectedMemberId || !!settingsSection, () => {
     if (showPromptModal) setShowPromptModal(false);

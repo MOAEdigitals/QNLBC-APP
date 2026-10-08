@@ -47,7 +47,7 @@ function sortActivities(items: ChurchActivity[]) {
   });
 }
 
-export default function Activities({ currentUser }: { currentUser: UserAccount | null }) {
+export default function Activities({ currentUser, collapseSignal }: { currentUser: UserAccount | null; collapseSignal?: number }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(todayKey);
@@ -55,7 +55,6 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
-  useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities', label: 'Search activities' });
   const [editor, setEditor] = useState<{ item: ChurchActivity; isNew: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -67,9 +66,25 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
   const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: true });
   const savingRef = useRef(false);
   const filterRef = useRef<HTMLDivElement>(null);
+  const lastProcessedSignalRef = useRef<number>(0);
   const canAdd = currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd;
   const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
   const canDelete = currentUser?.role === 'admin' || !!currentUser?.permissions?.canDelete;
+
+  useHeaderSearch({
+    value: search,
+    onChange: setSearch,
+    placeholder: 'Search activities',
+    label: 'Search activities',
+    beforeSearch: (
+      <div ref={filterRef} className="relative">
+        <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-5 w-5" /></button>
+        {showFilters && <div className="absolute right-0 top-11 z-50 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+          {([['prayer', 'Wednesday prayer meeting'], ['sunday', 'Sunday service'], ['practice', 'Saturday practice']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
+        </div>}
+      </div>
+    ),
+  });
 
   const load = async () => {
     try {
@@ -85,6 +100,16 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
 
   useEffect(() => { void load(); }, []);
   useBackLayer(!!editor, () => { if (!savingRef.current) setEditor(null); });
+
+  useEffect(() => {
+    if (!collapseSignal || collapseSignal === lastProcessedSignalRef.current) return;
+    lastProcessedSignalRef.current = collapseSignal;
+    if (editor && !savingRef.current) { setEditor(null); return; }
+    if (showFilters) { setShowFilters(false); return; }
+    if (openMenu) { setOpenMenu(null); return; }
+    if (expandedActivity) { setExpandedActivity(null); return; }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [collapseSignal, editor, showFilters, openMenu, expandedActivity]);
 
   const counts = useMemo(() => {
     const result = new Map<string, number>();
@@ -206,13 +231,6 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
       </div>
     </section>
 
-    <div ref={filterRef} className="relative flex justify-end">
-      <button type="button" className="inline-flex min-h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-3.5 w-3.5" />Filter</button>
-      {showFilters && <div className="absolute right-0 top-10 z-20 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-        {([['prayer', 'Wednesday prayer meeting'], ['sunday', 'Sunday service'], ['practice', 'Saturday practice']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
-      </div>}
-    </div>
-
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {groupByMonth(filteredItems, item => item.activityDate).map(group => {
@@ -226,7 +244,7 @@ export default function Activities({ currentUser }: { currentUser: UserAccount |
               <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
               <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
-            {expanded && item.description && <p className="border-t border-current/10 pt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{item.description}</p>}
+            {expanded && item.description && <p className="whitespace-pre-wrap break-words border-t border-current/10 pt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{item.description}</p>}
           </article>; })}
         </section>;
       })}

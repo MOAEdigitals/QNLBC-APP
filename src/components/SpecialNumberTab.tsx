@@ -4,6 +4,7 @@ import { monthList } from './MonthSeparators';
 import { ChoirMedia } from './ChoirMedia';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import { useHeaderSearch } from './HeaderSearch';
+import { AutoGrowTextarea } from './AutoGrowTextarea';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   UserAccount,
@@ -525,19 +526,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Global active playing track ID for in-row practice player (only 1 track plays at a time)
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
 
-  // Expandable Lyrics states for modals and cards
-  const practiceLyricsTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Expandable Lyrics states for cards
   const [expandedScheduleLyricsIds, setExpandedScheduleLyricsIds] = useState<Record<string, boolean>>({});
   const [copiedScheduleLyricsId, setCopiedScheduleLyricsId] = useState<string | null>(null);
-
-  // Keep the practice lyrics editor as one continuous field. It grows with the
-  // content, while the surrounding form provides the page scrolling.
-  useLayoutEffect(() => {
-    const textarea = practiceLyricsTextareaRef.current;
-    if (!textarea || !isEditingPractice) return;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [editingPractice?.lyrics, isEditingPractice]);
 
   // Native <details> menus do not close when the user taps elsewhere. Keep the
   // compact practice menus, but give them standard popover click-away behavior.
@@ -626,20 +617,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   };
 
 
-
-  const handleTogglePracticeDone = (group: PracticeGroupEntry, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-    const updatedGroup: PracticeGroupEntry = {
-      ...group,
-      isDone: !group.isDone,
-      updatedAt: new Date().toISOString(),
-    };
-    if (onSavePracticeEntry) {
-      onSavePracticeEntry(updatedGroup);
-    }
-  };
 
   const formatAudioTime = (sec: number) => {
     if (isNaN(sec) || !isFinite(sec)) return '0:00';
@@ -903,6 +880,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         return;
       }
 
+      // These subtabs own their reader/card state and handle the same signal.
+      if (activeSubTab === 'activities' || activeSubTab === 'outlines') return;
+
       if (activeSubTab === 'schedules' && selectedEntryId) {
         const el = document.getElementById(`schedule-card-${selectedEntryId}`);
         if (el) {
@@ -932,6 +912,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         return;
       }
 
+      if (activeSubTab === 'choir' && selectedChoirId) {
+        setExpandedChoirLyricsIds({});
+        setSelectedChoirId(null);
+        return;
+      }
+
       // If nothing is open, scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -940,6 +926,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     activeSubTab,
     selectedEntryId,
     selectedPracticeId,
+    selectedChoirId,
     isEditingSchedule,
     isEditingPractice,
     isAddingTrackModal,
@@ -2020,9 +2007,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         </button>
       </div>
 
-      {activeSubTab === 'outlines' && <React.Suspense fallback={<p role="status">Loading outlines…</p>}><SermonOutlines currentUser={currentUser} /></React.Suspense>}
+      {activeSubTab === 'outlines' && <React.Suspense fallback={<p role="status">Loading outlines…</p>}><SermonOutlines currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>}
       {activeSubTab === 'activities' && (
-        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities currentUser={currentUser} /></React.Suspense>
+        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
       )}
 
       {/* ========================================================================= */}
@@ -2461,19 +2448,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               <MoreVertical className="h-5 w-5" />
                             </summary>
                             <div className="ui-actions-menu">
-                          {/* Toggle Done Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => handleTogglePracticeDone(group, e)}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                              isDone
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-emerald-600'
-                            }`}
-                            title={isDone ? 'Mark as Not Done' : 'Mark as Done'}
-                          >
-                            <CheckCircle className="w-4 h-4" /><span>{isDone ? 'Mark incomplete' : 'Mark complete'}</span>
-                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -3054,7 +3028,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     Lyrics / Performance Text (Optional)
                   </label>
                 </div>
-                <textarea
+                <AutoGrowTextarea
                   id="schedule-lyrics-input"
                   name="perf_lyrics_content"
                   autoComplete="off"
@@ -3063,11 +3037,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
-                  rows={18}
+                  rows={8}
                   value={editingSchedule.lyrics || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="min-h-[24rem] w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs font-mono text-slate-900 dark:text-white leading-relaxed resize-y"
+                  className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
@@ -3233,8 +3207,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     Lyrics
                   </label>
                 </div>
-                <textarea
-                  ref={practiceLyricsTextareaRef}
+                <AutoGrowTextarea
                   id="practice-lyrics-input"
                   name="practice_lyrics_content"
                   autoComplete="off"
@@ -3247,7 +3220,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   value={editingPractice.lyrics || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
                   placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
-                  className="w-full resize-none overflow-hidden rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
@@ -3875,7 +3848,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Lyrics
                 </label>
-                <textarea
+                <AutoGrowTextarea
                   id="choir-lyrics-arrangement"
                   name="choir_lyrics_arrangement"
                   autoComplete="off"
@@ -3888,7 +3861,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   value={editingChoir.lyrics || ''}
                   onChange={(e) => setEditingChoir({ ...editingChoir, lyrics: e.target.value })}
                   placeholder="Enter or paste choir arrangement lyrics here..."
-                  className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 font-mono text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 leading-relaxed"
+                  className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:text-sm"
                 />
               </div>
 

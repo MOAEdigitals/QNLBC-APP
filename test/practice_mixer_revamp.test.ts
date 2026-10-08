@@ -87,9 +87,10 @@ test('practice cards and details omit audio-track totals', () => {
 });
 
 test('practice lyrics auto-grow without an expand control and sync to the matching song', () => {
-  assert.match(practiceTab, /ref=\{practiceLyricsTextareaRef\}/);
-  assert.match(practiceTab, /textarea\.style\.height = `\$\{textarea\.scrollHeight\}px`/);
-  assert.match(practiceTab, /resize-none overflow-hidden/);
+  const autoGrow = readFileSync('src/components/AutoGrowTextarea.tsx', 'utf8');
+  assert.match(practiceTab, /AutoGrowTextarea/);
+  assert.match(autoGrow, /textarea\.style\.height = `\$\{textarea\.scrollHeight\}px`/);
+  assert.match(autoGrow, /resize-none overflow-hidden/);
   assert.doesNotMatch(practiceTab, /setIsPracticeModalLyricsExpanded/);
   assert.doesNotMatch(practiceTab, /Edit lyrics full screen/);
   assert.match(practiceTab, /value=\{editingPractice\.lyrics \|\| ''\}/);

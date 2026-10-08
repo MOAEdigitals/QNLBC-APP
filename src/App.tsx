@@ -1320,6 +1320,7 @@ export default function App() {
             onDataReset={reloadAllData}
             databaseStatus={dbStatus}
             onOpenDatabaseStatusModal={() => setIsStatusModalOpen(true)}
+            collapseSignal={collapseSignals.settings}
             appData={{
               songs,
               setlists,

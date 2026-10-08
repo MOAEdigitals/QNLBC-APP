@@ -354,23 +354,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       }
 
       if (selectedSetlistId) {
-        const el = document.getElementById(`setlist-card-${selectedSetlistId}`);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          const inView = rect.top >= 60 && rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) + 80;
-          if (!inView) {
-            // Step 1: Return view smoothly to the currently open setlist container
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            return;
-          }
-        }
-        // Step 2: If already in view, collapse the open container
+        // First reselect always collapses the open setlist, wherever it is.
         setSelectedSetlistId(null);
         setShowTypeSelector(false);
         return;
       }
 
-      // Step 3: If nothing is open, scroll smoothly to the top
+      // The next reselect scrolls smoothly to the top.
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [collapseSignal, selectedSetlistId, isEditing]);

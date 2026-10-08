@@ -11,17 +11,41 @@ test('Android branding and keyboard behavior stay app-like', () => {
   assert.match(read('index.html'), /interactive-widget=overlays-content/);
 });
 
-test('activity filters dismiss outside and lyrics editors stay fully open', () => {
+test('activity filters live in the header, dismiss outside, and preserve description formatting', () => {
   const activities = read('src/features/activities/Activities.tsx');
   assert.match(activities, /filterRef\.current\?\.contains/);
   assert.match(activities, /document\.addEventListener\('pointerdown', close\)/);
+  assert.match(activities, /beforeSearch:/);
+  assert.match(activities, /aria-label="Filter activities"/);
+  assert.match(activities, /whitespace-pre-wrap break-words/);
+});
 
+test('lyrics editors auto-grow without nested scrolling or collapse controls', () => {
   const songs = read('src/components/SongsTab.tsx');
   const schedules = read('src/components/SpecialNumberTab.tsx');
+  const autoGrow = read('src/components/AutoGrowTextarea.tsx');
   assert.doesNotMatch(songs, /isLyricsExpandedInEditor/);
   assert.doesNotMatch(schedules, /isScheduleModalLyricsExpanded/);
-  assert.match(songs, /id="song-lyrics-input"[\s\S]*?rows=\{18\}/);
-  assert.match(schedules, /id="schedule-lyrics-input"[\s\S]*?rows=\{18\}/);
+  assert.match(songs, /AutoGrowTextarea/);
+  assert.match(schedules, /AutoGrowTextarea/);
+  assert.match(autoGrow, /textarea\.scrollHeight/);
+  assert.match(autoGrow, /resize-none overflow-hidden/);
+  assert.doesNotMatch(schedules, /Mark complete|Mark incomplete/);
+});
+
+test('reselecting every main tab closes its open layer before scrolling to top', () => {
+  const app = read('src/App.tsx');
+  const setlists = read('src/components/SetlistsTab.tsx');
+  const recognitions = read('src/components/RecognitionsTab.tsx');
+  const schedules = read('src/components/SpecialNumberTab.tsx');
+  const activities = read('src/features/activities/Activities.tsx');
+  const outlines = read('src/features/sermons/SermonOutlines.tsx');
+  const settings = read('src/components/SettingsTab.tsx');
+  assert.match(app, /\[newTab\]: \(prev\[newTab\] \|\| 0\) \+ 1/);
+  for (const source of [setlists, recognitions, schedules, activities, outlines, settings]) {
+    assert.match(source, /window\.scrollTo\(\{ top: 0, behavior: 'smooth' \}\)/);
+  }
+  assert.match(activities, /if \(expandedActivity\) \{ setExpandedActivity\(null\); return; \}/);
 });
 
 test('church directory persists before committing UI state and exposes search', () => {

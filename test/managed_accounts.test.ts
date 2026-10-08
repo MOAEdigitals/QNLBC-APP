@@ -16,7 +16,8 @@ test('login is username and password only with no public registration UI', () =>
 test('administrators can create managed username accounts', () => {
   assert.match(settings, /New member/);
   assert.match(settings, /createManagedUser\(newMember\)/);
-  assert.match(profile, /functions\.invoke\('admin-create-user'/);
+  assert.match(profile, /invokeAdminFunction\('admin-create-user'/);
+  assert.match(profile, /Authorization: `Bearer \$\{token\}`/);
 });
 
 test('profile updates reload separately instead of coercing the update response to one row', () => {

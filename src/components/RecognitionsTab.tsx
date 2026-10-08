@@ -96,18 +96,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const [isAddingAnniversary, setIsAddingAnniversary] = useState(false);
   const [isAddingVisitor, setIsAddingVisitor] = useState(false);
   const [isAddingSpecial, setIsAddingSpecial] = useState(false);
+  const [birthdayMenuId, setBirthdayMenuId] = useState<string | null>(null);
 
   // Collapse/dismiss modals on bottom-nav tap
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
+      const hasOpenLayer = !!birthdayMenuId || isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial;
       setBirthdayMenuId(null);
       setIsAddingBirthday(false);
       setIsAddingAnniversary(false);
       setIsAddingVisitor(false);
       setIsAddingSpecial(false);
+      if (!hasOpenLayer) window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal]);
+  }, [collapseSignal, birthdayMenuId, isAddingBirthday, isAddingAnniversary, isAddingVisitor, isAddingSpecial]);
 
   // Form states
   const [bdayForm, setBdayForm] = useState({
@@ -158,7 +161,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     description: '',
   });
 
-  const [birthdayMenuId, setBirthdayMenuId] = useState<string | null>(null);
   useEffect(() => {
     if (!birthdayMenuId) return;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setBirthdayMenuId(null); };
