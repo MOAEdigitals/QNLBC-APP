@@ -48,10 +48,10 @@ test('reselecting every main tab closes its open layer before scrolling to top',
   assert.match(activities, /if \(expandedActivity\) \{ setExpandedActivity\(null\); return; \}/);
 });
 
-test('church directory persists before committing UI state and exposes search', () => {
+test('church directory persists before committing UI state without a search field', () => {
   const settings = read('src/components/SettingsTab.tsx');
   const app = read('src/App.tsx');
-  assert.match(settings, /placeholder="Search names"/);
+  assert.doesNotMatch(settings, /placeholder="Search names"|directoryQuery|filteredDirectoryNames/);
   assert.match(settings, /await onUpdateSavedNames\?\.\(next\)/);
   assert.match(settings, /setSavedNames\(previous\)/);
   assert.match(app, /await supabaseSaveMinistrySavedNames\(names\);[\s\S]*?setSavedNames\(names\)/);

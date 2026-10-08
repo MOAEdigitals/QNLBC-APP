@@ -2026,7 +2026,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         </div>
       )}
 
-      {!isEditing && !selectedSetlistId && (
+      {!isEditing && (
         <div onClick={(event) => event.stopPropagation()}>
           {showTypeSelector && (
             <div className="fixed bottom-36 right-4 sm:right-6 md:right-8 z-40 w-[min(20rem,calc(100vw-2rem))] bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl py-1.5 divide-y divide-slate-100 dark:divide-slate-800">

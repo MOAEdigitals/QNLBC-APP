@@ -45,7 +45,6 @@ import {
   ChevronDown,
   Camera,
   Check,
-  Search,
   Key,
   Shield,
   Clock,
@@ -150,7 +149,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   }, [propSavedNames]);
 
   const [newNameInput, setNewNameInput] = useState('');
-  const [directoryQuery, setDirectoryQuery] = useState('');
   const [directorySaving, setDirectorySaving] = useState(false);
   const [directoryNotice, setDirectoryNotice] = useState<{ error: boolean; message: string } | null>(null);
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
@@ -236,11 +234,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     const updated = savedNames.filter((n) => n !== nameToDelete);
     try { await persistDirectoryNames(updated, savedNames); } catch {}
   };
-
-  const filteredDirectoryNames = useMemo(() => {
-    const query = directoryQuery.trim().toLowerCase();
-    return query ? savedNames.filter(name => name.toLowerCase().includes(query)) : savedNames;
-  }, [directoryQuery, savedNames]);
 
   // Targeted Legacy Storage Cleanup
   const handlePurgeLegacyStorage = () => {
@@ -1011,15 +1004,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               </form>
 
-              <label className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input type="text" inputMode="search" value={directoryQuery} onChange={event => setDirectoryQuery(event.target.value)} placeholder="Search names" className="min-h-11 w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-base dark:border-slate-700 dark:bg-slate-900" />
-              </label>
               {directoryNotice && <p role={directoryNotice.error ? 'alert' : 'status'} className={`text-sm ${directoryNotice.error ? 'text-rose-600' : 'text-emerald-600'}`}>{directoryNotice.message}</p>}
 
-              {filteredDirectoryNames.length > 0 ? (
+              {savedNames.length > 0 ? (
                 <div className="flex flex-wrap gap-2 pt-2 max-h-56 overflow-y-auto p-1">
-                  {filteredDirectoryNames.map((name) => (
+                  {savedNames.map((name) => (
                     <span
                       key={name}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 shadow-2xs"
@@ -1039,7 +1028,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               ) : (
                 <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                  {savedNames.length ? 'No names match your search.' : 'Church directory is empty. Add names above to enable autofill across all forms.'}
+                  Church directory is empty. Add names above to enable autofill across all forms.
                 </div>
               )}
             </div>
