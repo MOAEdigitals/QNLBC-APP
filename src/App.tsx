@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { App as NativeApp } from '@capacitor/app';
 import { isBackLayerMounted, useBackLayer } from './hooks/useBackLayer';
 import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -125,7 +127,7 @@ export default function App() {
   }, []);
 
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
-  useBackLayer(showLogoutConfirmModal, () => setShowLogoutConfirmModal(false));
+
   const tabHistoryRef = useRef<AppTab[]>([currentTab]);
   const hasActiveSubViewRef = useRef(false);
   const [collapseSignals, setCollapseSignals] = useState<Record<string, number>>({});
@@ -475,6 +477,24 @@ export default function App() {
     [currentTab, setlistJourney]
   );
 
+  const exitGuardInitialized = useRef(false);
+  useEffect(() => {
+    if (exitGuardInitialized.current) return;
+    exitGuardInitialized.current = true;
+    window.history.replaceState({ appRoot: true }, '', window.location.href);
+    window.history.pushState({ tab: currentTab }, '', `#${currentTab}`);
+  }, []);
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = NativeApp.addListener('backButton', () => window.history.back());
+    return () => { void listener.then(handle => handle.remove()); };
+  }, []);
+  const handleExitApp = () => {
+    if (Capacitor.isNativePlatform()) { void NativeApp.exitApp(); return; }
+    if (window.history.length > 2) window.history.go(-2);
+    else window.location.replace('about:blank');
+  };
+
   // Popstate history listener
   useEffect(() => {
     if (!window.history.state || !window.history.state.tab) {
@@ -482,6 +502,11 @@ export default function App() {
     }
 
     const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.appRoot) {
+        setShowLogoutConfirmModal(value => !value);
+        window.history.pushState({ tab: currentTab }, '', `#${currentTab}`);
+        return;
+      }
       if (event.state?.localScreen && !isBackLayerMounted(event.state.localScreen)) {
         window.history.back();
         return;
@@ -514,10 +539,6 @@ export default function App() {
         if (!isReturningToSetlist) {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-      } else {
-        if (hasActiveSubViewRef.current) return;
-        setShowLogoutConfirmModal(true);
-        window.history.pushState({ tab: 'home' }, '', '#home');
       }
     };
 
@@ -1368,7 +1389,7 @@ export default function App() {
               <div className="flex items-center gap-2 text-rose-600">
                 <AlertTriangle className="w-5 h-5" />
                 <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Exit & Sign Out?
+                  Exit app?
                 </h3>
               </div>
               <button
@@ -1380,7 +1401,7 @@ export default function App() {
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-              You are currently on the Home tab. Pressing or swiping back again will close your session. Would you like to sign out of the church ministry app?
+              Exit the app? Your account will stay signed in.
             </p>
 
             <div className="flex items-center justify-end gap-2.5 pt-2">
@@ -1388,14 +1409,14 @@ export default function App() {
                 onClick={() => setShowLogoutConfirmModal(false)}
                 className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
-                Cancel / Stay
+                Cancel
               </button>
               <button
-                onClick={handleSignOut}
+                onClick={handleExitApp}
                 className="px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Log Out</span>
+                <span>Exit app</span>
               </button>
             </div>
           </div>

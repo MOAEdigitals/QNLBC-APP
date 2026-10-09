@@ -1,3 +1,4 @@
+import { compareTracksFirst } from '../utils/songTracks';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import { useHeaderSearch } from './HeaderSearch';
@@ -62,10 +63,11 @@ import {
 export const VALID_SONG_CATEGORIES = ['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'] as const;
 export type SongCategory = (typeof VALID_SONG_CATEGORIES)[number];
 const SONG_PAGE_SIZE = 80;
-type SongSortMode = 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added';
+type SongSortMode = 'tracks-first' | 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added';
 
 let sessionSongSort: SongSortMode = 'alpha-asc';
 const SONG_SORT_OPTIONS: Array<{ value: SongSortMode; label: string; shortLabel: string }> = [
+  { value: 'tracks-first', label: 'Attached tracks first', shortLabel: 'Tracks first' },
   { value: 'alpha-asc', label: 'Title: A–Z', shortLabel: 'A–Z' },
   { value: 'alpha-desc', label: 'Title: Z–A', shortLabel: 'Z–A' },
   { value: 'recently-sung', label: 'Recently Sung', shortLabel: 'Recently Sung' },
@@ -503,6 +505,9 @@ if (isEditing && !savingSongRef.current) {
   // Sort usage-based options by the last date a song was actually sung in a past setlist.
   const sortedSongs = useMemo(() => {
     return [...songs].sort((a, b) => {
+      if (sortMode === 'tracks-first') {
+        return compareTracksFirst(a, b);
+      }
       if (sortMode === 'recently-sung' || sortMode === 'least-recently-sung') {
         const historyA = getSongUsageHistoryFromMap(a.title, usageMap);
         const historyB = getSongUsageHistoryFromMap(b.title, usageMap);
@@ -589,9 +594,9 @@ if (isEditing && !savingSongRef.current) {
       .filter((r) => r.matches);
 
     // When actively searching, sort by search match relevance score descending
-    results.sort((a, b) => b.score - a.score);
+    results.sort((a, b) => sortMode === 'tracks-first' ? compareTracksFirst(a.song, b.song) : b.score - a.score);
     return results;
-  }, [categoryFilteredSongs, deferredSearchQuery, usageMap]);
+  }, [categoryFilteredSongs, deferredSearchQuery, usageMap, sortMode]);
 
   useEffect(() => {
     setVisibleResultCount(SONG_PAGE_SIZE);
@@ -1069,7 +1074,7 @@ if (isEditing && !savingSongRef.current) {
           >
             <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">
-              {deferredSearchQuery.trim()
+              {deferredSearchQuery.trim() && sortMode !== 'tracks-first'
                 ? 'Best Match'
                 : SONG_SORT_OPTIONS.find((option) => option.value === sortMode)?.shortLabel}
             </span>

@@ -131,3 +131,10 @@ button.ui-settings-row { cursor: pointer; }
 .sermon-prose pre { white-space: pre-wrap; font-family: inherit; }
 .sermon-prose hr { margin: 1em 0; border-color: #cbd5e1; }
 .sermon-prose .ProseMirror:focus { outline: none; }
+
+@media (max-width: 639px) {
+  .ui-form-screen { top: var(--form-viewport-top, 0px); bottom: auto; height: var(--form-viewport-height, 100dvh); }
+  .ui-form-screen > div { height: 100%; max-height: 100%; }
+  .ui-form-screen form { scroll-padding-bottom: 6rem; padding-bottom: 6rem; }
+  .ui-form-screen textarea { scroll-margin-bottom: 6rem; }
+}

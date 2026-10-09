@@ -848,11 +848,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
       {/* Setlists Listing with In-Place Accordion Expansion */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            {searchQuery.trim() ? `Results (${searchableSetlists.length})` : `All Setlists (${sortedSetlists.length})`}
-          </span>
-        </div>
+
 
         {searchableSetlists.length === 0 ? (
           <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
