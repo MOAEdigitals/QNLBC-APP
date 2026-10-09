@@ -37,11 +37,11 @@ test('database migration indexes active parent and date query paths', () => {
   assert.match(indexes, /practice_entries \(practice_date desc\)/);
 });
 
-test('static-hosted practice audio skips dead API retries and uploads chunks concurrently', () => {
-  assert.match(cloudMedia, /isStaticGitHubPagesDeployment\(\)/);
-  assert.match(cloudMedia, /return uploadToFirestoreCloudMedia\(fileOrData, cleanId, fileName, onProgress\)/);
-  assert.match(cloudMedia, /const MAX_CONCURRENT_WRITES = 4/);
-  assert.match(cloudMedia, /await Promise\.all\(batch\.map/);
-  assert.doesNotMatch(cloudMedia, /const verifySnap = await getDoc/);
-  assert.doesNotMatch(cloudMedia, /const verifyChunk = await getDoc/);
+test('static-hosted practice audio uses verified R2 without dead API retries or Firestore fallback', () => {
+  assert.match(cloudMedia, /await uploadVerifiedR2\(blob, fileName\)/);
+  assert.doesNotMatch(cloudMedia, /Firestore|XMLHttpRequest|\/api\/upload-media/);
+  const r2 = source('../src/services/r2Media.ts');
+  assert.match(r2, /Authorization: `Bearer/);
+  assert.match(r2, /result.sha256 !== hash/);
+  assert.match(r2, /result.size !== blob.size/);
 });

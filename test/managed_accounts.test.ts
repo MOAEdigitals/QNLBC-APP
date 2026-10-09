@@ -34,3 +34,22 @@ test('profile updates reload separately instead of coercing the update response 
   assert.doesNotMatch(profile, /query\.select\(\)\.single\(\)/);
   assert.match(profile, /Profile updated but could not be reloaded/);
 });
+
+test('account identity is saved by the Auth transaction without a second profile write', () => {
+  const update = readFileSync('supabase/functions/admin-update-user/index.ts', 'utf8');
+  const migration = readFileSync('supabase/migrations/20261008_atomic_account_profile.sql', 'utf8');
+  assert.match(update, /auth\.admin\.updateUserById/);
+  assert.doesNotMatch(update, /from\('profiles'\)\.update/);
+  assert.match(migration, /after update of raw_user_meta_data on auth\.users/);
+  assert.match(migration, /values\(new\.id, handle,/);
+  assert.doesNotMatch(migration, /raw_user_meta_data->>'(?:role|active|can_add|can_edit|can_delete|can_upload)'/);
+  assert.match(settings, /memberSaveLock\.current = true/);
+  assert.match(settings, /Account created, but member refresh failed/);
+  assert.match(settings, /Account saved, but member refresh failed/);
+});
+
+test('username underscores are treated literally when signing in', () => {
+  const login = readFileSync('supabase/functions/username-auth/index.ts', 'utf8');
+  assert.match(login, /handle\.replaceAll\('_', '\\\\_'\)/);
+  assert.match(login, /ilike\('username', literalHandle\)/);
+});

@@ -21,8 +21,7 @@ Deno.serve(async (request) => {
     const updates = { email: `${username}@qnlbc.local`, user_metadata: { username, display_name: displayName }, ...(password ? { password } : {}) };
     const { error } = await admin.auth.admin.updateUserById(userId, updates);
     if (error) throw error;
-    const { error: profileError } = await admin.from('profiles').update({ username, display_name: displayName }).eq('id', userId);
-    if (profileError) throw profileError;
+    // The Auth trigger updates profile identity in the same transaction.
     return Response.json({ success: true }, { headers: cors });
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : 'Could not update account.' }, { status: 400, headers: cors });

@@ -71,20 +71,16 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
   const canDelete = currentUser?.role === 'admin' || !!currentUser?.permissions?.canDelete;
 
-  useHeaderSearch({
-    value: search,
-    onChange: setSearch,
-    placeholder: 'Search activities',
-    label: 'Search activities',
-    beforeSearch: (
+  const activityFilter = useMemo(() => (
       <div ref={filterRef} className="relative">
         <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-5 w-5" /></button>
         {showFilters && <div className="absolute right-0 top-11 z-50 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
           {([['prayer', 'Wednesday prayer meeting'], ['sunday', 'Sunday service'], ['practice', 'Saturday practice']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
         </div>}
       </div>
-    ),
-  });
+    ), [showFilters, gatheringFilters]);
+  useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities',
+    label: 'Search activities', beforeSearch: activityFilter });
 
   const load = async () => {
     try {

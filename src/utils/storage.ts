@@ -337,14 +337,14 @@ export function resetAppToDefaults(): void {
   cleanupLegacyStorage();
 }
 
-export function exportChurchDataJSON(appData?: any): string {
+export function exportChurchDataJSON(appData?: any, download = true): string {
   const dataToExport = appData || {
     version: '3.0',
     appName: 'New Life Baptist Church Program App - Supabase Synchronized',
     exportedAt: new Date().toISOString(),
   };
   const jsonStr = JSON.stringify(dataToExport, null, 2);
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  if (download && typeof window !== 'undefined' && typeof document !== 'undefined') {
     try {
       const blob = new Blob([jsonStr], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -352,9 +352,10 @@ export function exportChurchDataJSON(appData?: any): string {
       a.href = url;
       a.download = `qnlbc_data_backup_${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
       console.warn('Export file download failed:', e);
+      throw e;
     }
   }
   return jsonStr;

@@ -169,14 +169,21 @@ export default function App() {
   const [choirEntries, setChoirEntries] = useState<ChoirEntry[]>([]);
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>([]);
   const [savedNames, setSavedNames] = useState<string[]>([]);
+  const [refreshError, setRefreshError] = useState('');
+  const lastLoadedData = useRef({ setlists, songs, birthdays, anniversaries, visitors, specialRecognitions, specialNumbers, choirEntries, practiceEntries, savedNames, users });
+  lastLoadedData.current = { setlists, songs, birthdays, anniversaries, visitors, specialRecognitions, specialNumbers, choirEntries, practiceEntries, savedNames, users };
+  const preserveOnRefreshFailure = <K extends keyof typeof lastLoadedData.current>(key: K) => {
+    setRefreshError('Unable to refresh. Showing the last loaded data.');
+    return lastLoadedData.current[key];
+  };
   const loadedSectionsRef = useRef<Set<AppTab>>(new Set());
   const sectionLoadPromisesRef = useRef<Partial<Record<AppTab, Promise<void>>>>({});
 
   const loadCoreData = useCallback(async () => {
     const [serverSetlists, serverSongs, serverSavedNames] = await Promise.all([
-      fetchSetlists().catch(() => []),
-      fetchSongs().catch(() => []),
-      fetchMinistrySavedNames().catch(() => []),
+      fetchSetlists().catch(() => preserveOnRefreshFailure('setlists')),
+      fetchSongs().catch(() => preserveOnRefreshFailure('songs')),
+      fetchMinistrySavedNames().catch(() => preserveOnRefreshFailure('savedNames')),
     ]);
     setSetlists(serverSetlists);
     setSongs(serverSongs);
@@ -193,10 +200,10 @@ export default function App() {
     const request = (async () => {
       if (tab === 'recognitions') {
         const [bday, anniv, visitorRows, recognitionRows] = await Promise.all([
-          fetchBirthdays().catch(() => []),
-          fetchAnniversaries().catch(() => []),
-          fetchVisitors().catch(() => []),
-          fetchSpecialRecognitions().catch(() => []),
+          fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays')),
+          fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries')),
+          fetchVisitors().catch(() => preserveOnRefreshFailure('visitors')),
+          fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions')),
         ]);
         setBirthdays(bday);
         setAnniversaries(anniv);
@@ -204,15 +211,15 @@ export default function App() {
         setSpecialRecognitions(recognitionRows);
       } else if (tab === 'special-numbers') {
         const [specialRows, choirRows, practiceRows] = await Promise.all([
-          fetchSpecialNumbers().catch(() => []),
-          fetchChoirEntries().catch(() => []),
-          fetchPracticeEntries().catch(() => []),
+          fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers')),
+          fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries')),
+          fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries')),
         ]);
         setSpecialNumbers(specialRows);
         setChoirEntries(choirRows);
         setPracticeEntries(practiceRows);
       } else if (tab === 'settings') {
-        setUsers(await fetchAllProfiles().catch(() => []));
+        setUsers(await fetchAllProfiles().catch(() => preserveOnRefreshFailure('users')));
       }
       loadedSectionsRef.current.add(tab);
     })().finally(() => {
@@ -301,51 +308,51 @@ export default function App() {
     // Realtime changes listener
     const unsubRealtime = subscribeSupabaseRealtime({
       onSetlistsChange: async () => {
-        const fresh = await fetchSetlists().catch(() => []);
+        const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
         if (isMounted) setSetlists(fresh);
       },
       onSongsChange: async () => {
-        const fresh = await fetchSongs().catch(() => []);
+        const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
         if (isMounted) setSongs(fresh);
       },
       onSpecialNumbersChange: async () => {
         if (!loadedSectionsRef.current.has('special-numbers')) return;
-        const fresh = await fetchSpecialNumbers().catch(() => []);
+        const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
         if (isMounted) setSpecialNumbers(fresh);
       },
       onChoirChange: async () => {
         if (!loadedSectionsRef.current.has('special-numbers')) return;
-        const fresh = await fetchChoirEntries().catch(() => []);
+        const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
         if (isMounted) setChoirEntries(fresh);
       },
       onPracticeChange: async () => {
         if (!loadedSectionsRef.current.has('special-numbers')) return;
-        const fresh = await fetchPracticeEntries().catch(() => []);
+        const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
         if (isMounted) setPracticeEntries(fresh);
       },
       onBirthdaysChange: async () => {
         if (!loadedSectionsRef.current.has('recognitions')) return;
-        const fresh = await fetchBirthdays().catch(() => []);
+        const fresh = await fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays'));
         if (isMounted) setBirthdays(fresh);
       },
       onAnniversariesChange: async () => {
         if (!loadedSectionsRef.current.has('recognitions')) return;
-        const fresh = await fetchAnniversaries().catch(() => []);
+        const fresh = await fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries'));
         if (isMounted) setAnniversaries(fresh);
       },
       onVisitorsChange: async () => {
         if (!loadedSectionsRef.current.has('recognitions')) return;
-        const fresh = await fetchVisitors().catch(() => []);
+        const fresh = await fetchVisitors().catch(() => preserveOnRefreshFailure('visitors'));
         if (isMounted) setVisitors(fresh);
       },
       onRecognitionsChange: async () => {
         if (!loadedSectionsRef.current.has('recognitions')) return;
-        const fresh = await fetchSpecialRecognitions().catch(() => []);
+        const fresh = await fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions'));
         if (isMounted) setSpecialRecognitions(fresh);
       },
       onProfilesChange: async () => {
         if (!loadedSectionsRef.current.has('settings')) return;
-        const fresh = await fetchAllProfiles().catch(() => []);
+        const fresh = await fetchAllProfiles().catch(() => preserveOnRefreshFailure('users'));
         const { data: authData } = await supabase.auth.getUser();
         const refreshedCurrent = authData.user
           ? await fetchCurrentUserProfile(authData.user.id).catch(() => null)
@@ -388,17 +395,17 @@ export default function App() {
         sNames,
         sUsers,
       ] = await Promise.all([
-        fetchSetlists().catch(() => []),
-        fetchSongs().catch(() => []),
-        fetchSpecialNumbers().catch(() => []),
-        fetchChoirEntries().catch(() => []),
-        fetchPracticeEntries().catch(() => []),
-        fetchBirthdays().catch(() => []),
-        fetchAnniversaries().catch(() => []),
-        fetchVisitors().catch(() => []),
-        fetchSpecialRecognitions().catch(() => []),
-        fetchMinistrySavedNames().catch(() => []),
-        fetchAllProfiles().catch(() => []),
+        fetchSetlists().catch(() => preserveOnRefreshFailure('setlists')),
+        fetchSongs().catch(() => preserveOnRefreshFailure('songs')),
+        fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers')),
+        fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries')),
+        fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries')),
+        fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays')),
+        fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries')),
+        fetchVisitors().catch(() => preserveOnRefreshFailure('visitors')),
+        fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions')),
+        fetchMinistrySavedNames().catch(() => preserveOnRefreshFailure('savedNames')),
+        fetchAllProfiles().catch(() => preserveOnRefreshFailure('users')),
       ]);
 
       setSetlists(sList);
@@ -606,7 +613,7 @@ export default function App() {
     } catch (err: any) {
       console.error('Failed to save setlist to Supabase:', err);
       // Refresh authoritative list
-      const fresh = await fetchSetlists().catch(() => []);
+      const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
       setSetlists(fresh);
       alert('Unable to save setlist: ' + (err.message || 'Database error'));
       return false;
@@ -622,7 +629,7 @@ export default function App() {
       await supabaseDeleteSetlist(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete setlist from Supabase:', err);
-      const fresh = await fetchSetlists().catch(() => []);
+      const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
       setSetlists(fresh);
       alert('Unable to delete setlist: ' + (err.message || 'Database error'));
     }
@@ -645,7 +652,7 @@ export default function App() {
       return saved;
     } catch (err: any) {
       console.error('Failed to save song to Supabase:', err);
-      const fresh = await fetchSongs().catch(() => []);
+      const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
       setSongs(fresh);
       alert('Unable to save song: ' + (err.message || 'Database error'));
       throw err;
@@ -677,7 +684,7 @@ export default function App() {
       await supabaseDeleteSong(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete song from Supabase:', err);
-      const fresh = await fetchSongs().catch(() => []);
+      const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
       setSongs(fresh);
       alert('Unable to delete song: ' + (err.message || 'Database error'));
     }
@@ -720,7 +727,7 @@ export default function App() {
       );
     } catch (err: any) {
       console.error('Failed to save special number:', err);
-      const fresh = await fetchSpecialNumbers().catch(() => []);
+      const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
       setSpecialNumbers(fresh);
       alert('Unable to save special number: ' + (err.message || 'Database error'));
     }
@@ -734,7 +741,7 @@ export default function App() {
       await supabaseDeleteSpecialNumber(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete special number:', err);
-      const fresh = await fetchSpecialNumbers().catch(() => []);
+      const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
       setSpecialNumbers(fresh);
     }
   };
@@ -775,7 +782,7 @@ export default function App() {
       );
     } catch (err: any) {
       console.error('Failed to save choir presentation:', err);
-      const fresh = await fetchChoirEntries().catch(() => []);
+      const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
       setChoirEntries(fresh);
       alert('Unable to save choir presentation: ' + (err.message || 'Database error'));
     }
@@ -789,7 +796,7 @@ export default function App() {
       await supabaseDeleteChoirEntry(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete choir presentation:', err);
-      const fresh = await fetchChoirEntries().catch(() => []);
+      const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
       setChoirEntries(fresh);
     }
   };
@@ -813,7 +820,7 @@ export default function App() {
         return saved;
       } catch (err: any) {
         console.error('Failed to create practice entry:', formatSupabaseError(err), err);
-        const fresh = await fetchPracticeEntries().catch(() => []);
+        const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
         setPracticeEntries(fresh);
         alert('Unable to save practice: ' + (err.message || 'Database error'));
         throw err;
@@ -827,12 +834,12 @@ export default function App() {
         console.error('Failed to update practice entry:', formatSupabaseError(err), err);
         if (err.code === 'PGRST116' || err.message?.includes('no longer exists')) {
           setPracticeEntries((prev) => prev.filter((p) => p.id !== entry.id));
-          const fresh = await fetchPracticeEntries().catch(() => []);
+          const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
           setPracticeEntries(fresh);
           alert('Practice no longer exists or could not be accessed.');
           throw err;
         }
-        const fresh = await fetchPracticeEntries().catch(() => []);
+        const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
         setPracticeEntries(fresh);
         alert('Unable to save practice: ' + (err.message || 'Database error'));
         throw err;
@@ -848,7 +855,7 @@ export default function App() {
       await supabaseDeletePracticeEntry(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete practice entry:', formatSupabaseError(err), err);
-      const fresh = await fetchPracticeEntries().catch(() => []);
+      const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
       setPracticeEntries(fresh);
       alert('Unable to delete practice: ' + (err.message || 'Database error'));
     }
@@ -935,7 +942,7 @@ export default function App() {
       return true;
     } catch (err: any) {
       console.error('Failed to save birthday celebrant:', err);
-      const fresh = await fetchBirthdays().catch(() => []);
+      const fresh = await fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays'));
       setBirthdays(fresh);
       alert('Unable to save celebrant: ' + (err.message || 'Database error'));
       return false;
@@ -950,7 +957,7 @@ export default function App() {
       await supabaseDeleteBirthday(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete celebrant:', err);
-      const fresh = await fetchBirthdays().catch(() => []);
+      const fresh = await fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays'));
       setBirthdays(fresh);
     }
   };
@@ -968,7 +975,7 @@ export default function App() {
       );
     } catch (err: any) {
       console.error('Failed to save anniversary:', err);
-      const fresh = await fetchAnniversaries().catch(() => []);
+      const fresh = await fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries'));
       setAnniversaries(fresh);
       alert('Unable to save anniversary: ' + (err.message || 'Database error'));
     }
@@ -982,7 +989,7 @@ export default function App() {
       await supabaseDeleteAnniversary(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete anniversary:', err);
-      const fresh = await fetchAnniversaries().catch(() => []);
+      const fresh = await fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries'));
       setAnniversaries(fresh);
     }
   };
@@ -1000,7 +1007,7 @@ export default function App() {
       );
     } catch (err: any) {
       console.error('Failed to save visitor:', err);
-      const fresh = await fetchVisitors().catch(() => []);
+      const fresh = await fetchVisitors().catch(() => preserveOnRefreshFailure('visitors'));
       setVisitors(fresh);
       alert('Unable to save visitor: ' + (err.message || 'Database error'));
     }
@@ -1014,7 +1021,7 @@ export default function App() {
       await supabaseDeleteVisitor(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete visitor:', err);
-      const fresh = await fetchVisitors().catch(() => []);
+      const fresh = await fetchVisitors().catch(() => preserveOnRefreshFailure('visitors'));
       setVisitors(fresh);
     }
   };
@@ -1032,7 +1039,7 @@ export default function App() {
       );
     } catch (err: any) {
       console.error('Failed to save recognition:', err);
-      const fresh = await fetchSpecialRecognitions().catch(() => []);
+      const fresh = await fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions'));
       setSpecialRecognitions(fresh);
       alert('Unable to save recognition: ' + (err.message || 'Database error'));
     }
@@ -1046,7 +1053,7 @@ export default function App() {
       await supabaseDeleteSpecialRecognition(id, target?.revision || 1);
     } catch (err: any) {
       console.error('Failed to delete recognition:', err);
-      const fresh = await fetchSpecialRecognitions().catch(() => []);
+      const fresh = await fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions'));
       setSpecialRecognitions(fresh);
     }
   };
@@ -1220,6 +1227,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
+        {refreshError && <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 p-3 text-sm"><span>{refreshError}</span><button type="button" className="ui-secondary" onClick={() => { setRefreshError(''); void reloadAllData(); }}>Retry</button></div>}
         <Suspense fallback={<TabLoadingSkeleton />}>
         {currentTab === 'home' && (
           <SetlistsTab

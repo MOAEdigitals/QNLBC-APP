@@ -16,7 +16,9 @@ Deno.serve(async (request) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-    const { data: profile } = await admin.from('profiles').select('id, active').ilike('username', handle).maybeSingle();
+    // Escape LIKE's underscore wildcard while preserving existing case-insensitive logins.
+    const literalHandle = handle.replaceAll('_', '\\_');
+    const { data: profile } = await admin.from('profiles').select('id, active').ilike('username', literalHandle).maybeSingle();
     if (!profile?.active) throw new Error('Invalid username or password.');
     const { data: authUser } = await admin.auth.admin.getUserById(profile.id);
     if (!authUser.user?.email) throw new Error('Invalid username or password.');

@@ -1,0 +1,25 @@
+<!doctype html><html><head><meta charset="utf-8"><title>QNLBC R2 verification</title></head>
+<body><h1>R2 verification</h1><p>Uploads a short silent WAV and verifies its downloaded hash. No database records are changed.</p>
+<button id="verify">Verify upload and download</button><pre id="result" role="status">Ready</pre>
+<script type="module">
+import { uploadVerifiedR2, verifyR2Playback } from '../src/services/r2Media.ts';
+const button = document.querySelector('#verify');
+button.onclick = async () => {
+  button.disabled = true;
+  const result = document.querySelector('#result');
+  result.textContent = 'Verifying…';
+  try {
+    const bytes = new ArrayBuffer(1644), view = new DataView(bytes);
+    const word = (offset, text) => [...text].forEach((letter, i) => view.setUint8(offset + i, letter.charCodeAt(0)));
+    word(0, 'RIFF'); view.setUint32(4, 1636, true); word(8, 'WAVE'); word(12, 'fmt ');
+    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+    view.setUint32(24, 8000, true); view.setUint32(28, 16000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    word(36, 'data'); view.setUint32(40, 1600, true);
+    const saved = await uploadVerifiedR2(new Blob([bytes], { type: 'audio/wav' }), 'qnlbc-storage-verification.wav');
+    result.textContent = 'Upload verified. Checking playback…';
+    await verifyR2Playback(saved.url, saved.sha256);
+    result.textContent = JSON.stringify({ status: 'PASS', bytes: saved.size, sha256: saved.sha256, url: saved.url }, null, 2);
+  } catch (error) { result.textContent = 'FAILED: ' + error.message; }
+  finally { button.disabled = false; }
+};
+</script></body></html>

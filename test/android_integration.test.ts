@@ -22,5 +22,8 @@ test('lyrics use the native keep-awake plugin inside the Android app', () => {
 
 test('Android declares recording permission and avoids an unavailable local upload endpoint', () => {
   assert.match(manifest, /android\.permission\.RECORD_AUDIO/);
-  assert.match(media, /Capacitor\.isNativePlatform\(\)/);
+  assert.match(media, /await uploadVerifiedR2\(blob, fileName\)/);
+  const r2 = readFileSync('src/services/r2Media.ts', 'utf8');
+  assert.match(r2, /https:\/\/qnlbc-media\.aigems2026\.workers\.dev\/api\/upload-media/);
+  assert.doesNotMatch(media, /XMLHttpRequest|VITE_API_BASE_URL/);
 });

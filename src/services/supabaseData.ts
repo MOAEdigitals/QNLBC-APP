@@ -230,8 +230,8 @@ export async function updateUserProfile(
   };
 }
 
-export async function createManagedUser(input: { username: string; password: string; displayName: string }): Promise<void> {
-  await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
+export async function createManagedUser(input: { username: string; password: string; displayName: string }): Promise<{ id: string }> {
+  return await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
 }
 
 export async function updateManagedUser(input: { userId: string; username: string; displayName: string; password?: string }): Promise<void> {
@@ -242,7 +242,7 @@ export async function deleteManagedUser(userId: string): Promise<void> {
   await invokeAdminFunction('admin-delete-user', { userId }, 'Could not delete account.');
 }
 
-async function invokeAdminFunction(name: string, body: unknown, fallback: string): Promise<void> {
+async function invokeAdminFunction(name: string, body: unknown, fallback: string): Promise<any> {
   let { data: sessionData } = await supabase.auth.getSession();
   if (!sessionData.session) {
     const refreshed = await supabase.auth.refreshSession();
@@ -255,7 +255,11 @@ async function invokeAdminFunction(name: string, body: unknown, fallback: string
     body,
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!error && !data?.error) return;
+  if (!error && !data?.error) {
+    const confirmed = name === 'admin-create-user' ? isUUID(data?.id) : data?.success === true;
+    if (!confirmed) throw new Error('The account service returned an unexpected response. The operation could not be confirmed.');
+    return data;
+  }
 
   let message = data?.error || '';
   const context = (error as { context?: Response } | null)?.context;
@@ -478,9 +482,10 @@ export async function fetchSetlists(): Promise<Setlist[]> {
     itemsBySetlistId.set(item.setlist_id, list);
   }
 
-  return setlistsData.map((row) => {
-    const items = itemsBySetlistId.get(row.id) || [];
+  return setlistsData.map(row => mapSavedSetlist(row, itemsBySetlistId.get(row.id) || []));
+}
 
+function mapSavedSetlist(row: any, items: any[]): Setlist {
     const mapItems = (section: string): SetlistSongItem[] =>
       items
         .filter((i) => i.section === section)
@@ -540,8 +545,9 @@ export async function fetchSetlists(): Promise<Setlist[]> {
       deletedAt: row.deleted_at || null,
       deleted_at: row.deleted_at || null,
     };
-  });
 }
+
+const pendingSetlistRequests = new Map<string, string>();
 
 export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Promise<Setlist> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
@@ -563,114 +569,31 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
     general_notes: (setlist.generalNotes || setlist.general_notes)?.trim() || null,
   };
 
-  let savedRow: any;
-  let targetSetlistId: string;
-  const hasValidUUID = isUUID(setlist.id);
-
-  if (isNew || !hasValidUUID) {
-    const { data, error } = await supabase
-      .from('setlists')
-      .insert(setlistPayload)
-      .select('*')
-      .single();
-
-    if (error || !data) throw error || new Error('Failed to create setlist');
-    savedRow = data;
-    targetSetlistId = data.id;
-  } else {
-    targetSetlistId = setlist.id!;
-    const expectedRev = setlist.revision || 1;
-    const { data, error } = await supabase
-      .from('setlists')
-      .update(setlistPayload)
-      .eq('id', targetSetlistId)
-      .eq('revision', expectedRev)
-      .select('*')
-      .single();
-
-    if (error || !data) {
-      throw new ConcurrencyConflictError(
-        error?.message || 'Setlist update conflict: this setlist was modified by another user.'
-      );
-    }
-    savedRow = data;
+  const items = [
+    ['sunday_school', setlist.sundaySchool?.songs || []],
+    ['worship', setlist.worshipService?.songs || []],
+    ['program', setlist.program?.songs || []],
+  ].flatMap(([section, entries]) => (entries as SetlistSongItem[]).map((item, position) => ({
+    id: isUUID(item.id) ? item.id : null, section, position,
+    song_id: isUUID(item.songId || item.song_id) ? (item.songId || item.song_id) : null,
+    song_title: item.title?.trim() || 'Untitled', key_note: (item.keyNote || item.key_note)?.trim() || null,
+    notes: item.notes?.trim() || null, lyrics_mode: item.lyricsMode || item.lyrics_mode || 'live',
+    lyrics_snapshot: item.lyricsSnapshot || item.lyrics_snapshot || null,
+    source_song_revision: item.sourceSongRevision || item.source_song_revision || null,
+  })));
+  const payload = { target_id: isUUID(setlist.id) ? setlist.id : null,
+    expected_revision: setlist.revision || 1, creating: isNew || !isUUID(setlist.id),
+    parent_payload: setlistPayload, items_payload: items };
+  const key = JSON.stringify(payload);
+  const requestId = pendingSetlistRequests.get(key) || generateUUID();
+  pendingSetlistRequests.set(key, requestId);
+  const { data, error } = await supabase.rpc('save_setlist_atomic', { request_id: requestId, ...payload });
+  if (error || !data?.parent || !Array.isArray(data.items)) {
+    throw new Error(error?.message || 'Setlist save could not be confirmed. Your draft is preserved.');
   }
-
-  // Manage setlist_items for the 3 sections:
-  const sectionsToSync: Array<{ section: string; items: SetlistSongItem[] }> = [
-    { section: 'sunday_school', items: setlist.sundaySchool?.songs || [] },
-    { section: 'worship', items: setlist.worshipService?.songs || [] },
-    { section: 'program', items: setlist.program?.songs || [] },
-  ];
-
-  for (const { section, items } of sectionsToSync) {
-    // Delete existing active items in this section if rewriting
-    // To preserve revisions cleanly, delete obsolete items
-    const { data: existingItems } = await supabase
-      .from('setlist_items')
-      .select('id, revision')
-      .eq('setlist_id', targetSetlistId)
-      .eq('section', section)
-      .is('deleted_at', null);
-
-    const keptIds = new Set<string>();
-
-    for (let pos = 0; pos < items.length; pos++) {
-      const item = items[pos];
-      const hasItemUUID = isUUID(item.id);
-      const rawSongId = (item.songId || item.song_id)?.trim();
-      const validSongId = isUUID(rawSongId) ? rawSongId : null;
-
-      const itemPayload = {
-        setlist_id: targetSetlistId,
-        section,
-        position: pos,
-        song_id: validSongId,
-        song_title: item.title?.trim() || 'Untitled',
-        key_note: (item.keyNote || item.key_note)?.trim() || null,
-        notes: item.notes?.trim() || null,
-        lyrics_mode: item.lyricsMode || item.lyrics_mode || 'live',
-        lyrics_snapshot: item.lyricsSnapshot || item.lyrics_snapshot || null,
-        source_song_revision: item.sourceSongRevision || item.source_song_revision || null,
-      };
-
-      const matchExisting = hasItemUUID ? existingItems?.find((e) => e.id === item.id) : null;
-      if (matchExisting) {
-        keptIds.add(matchExisting.id);
-        await supabase
-          .from('setlist_items')
-          .update(itemPayload)
-          .eq('id', matchExisting.id)
-          .eq('revision', matchExisting.revision);
-      } else {
-        const { data: savedItem, error: itemErr } = await supabase
-          .from('setlist_items')
-          .insert(itemPayload)
-          .select('*')
-          .single();
-        if (!itemErr && savedItem) {
-          keptIds.add(savedItem.id);
-        }
-      }
-    }
-
-    // Soft-delete items that were removed
-    for (const ex of existingItems || []) {
-      if (!keptIds.has(ex.id)) {
-        try {
-          await executeSoftDelete('setlist_items', ex.id, Number(ex.revision));
-        } catch {
-          // ignore already deleted
-        }
-      }
-    }
-  }
-
-  const all = await fetchSetlists();
-  const refreshed = all.find((s) => s.id === targetSetlistId);
-  return refreshed || (setlist as Setlist);
+  pendingSetlistRequests.delete(key);
+  return mapSavedSetlist(data.parent, data.items);
 }
-
 export async function deleteSetlist(setlistId: string, expectedRevision: number): Promise<void> {
   await executeSoftDelete('setlists', setlistId, expectedRevision);
 }

@@ -61,6 +61,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
+import { createFullBackup } from '../services/backup';
 
 interface SettingsTabProps {
   currentUser: UserAccount;
@@ -133,6 +134,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [newMember, setNewMember] = useState({ displayName: '', username: '', password: '' });
   const [showNewMemberPassword, setShowNewMemberPassword] = useState(false);
   const [memberCreateError, setMemberCreateError] = useState('');
+  const [memberNotice, setMemberNotice] = useState('');
+  const memberSaveLock = useRef(false);
   const [creatingMember, setCreatingMember] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [memberEdit, setMemberEdit] = useState({ displayName: '', username: '', password: '' });
@@ -155,6 +158,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [lyricsImportStatus, setLyricsImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [cleanStorageStatus, setCleanStorageStatus] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const exportLock = useRef(false);
+  const [backupDownload, setBackupDownload] = useState<{ url: string; name: string } | null>(null);
+  useEffect(() => () => {
+    if (backupDownload) URL.revokeObjectURL(backupDownload.url);
+  }, [backupDownload]);
 
   // Export & prompt modals
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -319,7 +328,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleCreateMember = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (creatingMember) return;
+    if (memberSaveLock.current) return;
+    memberSaveLock.current = true;
+    setMemberNotice('');
     setCreatingMember(true);
     setMemberCreateError('');
     try {
@@ -327,14 +338,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         username: newMember.username.trim().toLowerCase(),
         password: newMember.password,
       };
-      await createManagedUser({ ...newMember, username: createdCredentials.username });
-      await new Promise(resolve => setTimeout(resolve, 500));
-      const refreshedUsers = await fetchAllProfiles();
-      onUpdateUsers(refreshedUsers);
-      const createdUser = refreshedUsers.find(user => user.username === createdCredentials.username);
-      if (createdUser) {
-        setMemberCredentials(current => ({ ...current, [createdUser.id]: createdCredentials }));
-        setCredentialNotice({ userId: createdUser.id, ...createdCredentials });
+      const createdUser = await createManagedUser({ ...newMember, username: createdCredentials.username });
+      setMemberCredentials(current => ({ ...current, [createdUser.id]: createdCredentials }));
+      setCredentialNotice({ userId: createdUser.id, ...createdCredentials });
+      setMemberNotice('Account created.');
+      // A refresh failure must not invite a second account creation.
+      try { onUpdateUsers(await fetchAllProfiles()); }
+      catch (error) {
+        console.warn('Account created, but member refresh failed:', error);
+        setMemberNotice('Account created. Reopen Members to refresh the list.');
       }
       setNewMember({ displayName: '', username: '', password: '' });
       setShowNewMemberPassword(false);
@@ -342,6 +354,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     } catch (error: any) {
       setMemberCreateError(error?.message || 'Could not create account.');
     } finally {
+      memberSaveLock.current = false;
       setCreatingMember(false);
     }
   };
@@ -355,13 +368,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   const handleUpdateMember = async (event: React.FormEvent, user: UserAccount) => {
     event.preventDefault();
+    if (memberSaveLock.current) return;
+    memberSaveLock.current = true;
+    setMemberNotice('');
     setManagingUserId(user.id);
     setMemberEditError('');
     try {
       const nextUsername = memberEdit.username.trim().toLowerCase();
       const nextPassword = memberEdit.password;
       await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), username: nextUsername, password: nextPassword || undefined });
-      onUpdateUsers(await fetchAllProfiles());
+      setMemberNotice('Account saved.');
+      onUpdateUsers(users.map(item => item.id === user.id
+        ? { ...item, username: nextUsername, displayName: memberEdit.displayName.trim() || nextUsername } : item));
+      try { onUpdateUsers(await fetchAllProfiles()); }
+      catch (error) {
+        console.warn('Account saved, but member refresh failed:', error);
+        setMemberNotice('Account saved. Reopen Members to refresh the list.');
+      }
       if (nextPassword) {
         const credentials = { username: nextUsername, password: nextPassword };
         setMemberCredentials(current => ({ ...current, [user.id]: credentials }));
@@ -374,7 +397,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setEditingMemberId(null);
     } catch (error: any) {
       setMemberEditError(error.message || 'Could not update account.');
-    } finally { setManagingUserId(null); }
+    } finally { memberSaveLock.current = false; setManagingUserId(null); }
   };
 
   const handleCopyMemberCredentials = async (userId: string, username: string, password: string) => {
@@ -400,12 +423,25 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   // Export JSON Backup
-  const handleExportBackup = () => {
-    if (!appData) {
-      alert('No data available to export.');
-      return;
+  const handleExportBackup = async () => {
+    if (exportLock.current) return;
+    exportLock.current = true;
+    setIsExporting(true);
+    setBackupDownload(null);
+    try {
+      const backup = await createFullBackup(message => setImportStatus({ success: true, message }));
+      const json = exportChurchDataJSON(backup, false);
+      setBackupDownload({
+        url: URL.createObjectURL(new Blob([json], { type: 'application/json' })),
+        name: `qnlbc_data_backup_${new Date().toISOString().slice(0, 10)}.json`,
+      });
+      setImportStatus({ success: true, message: 'Backup verified. Select Download backup to save the file.' });
+    } catch (error) {
+      setImportStatus({ success: false, message: error instanceof Error ? error.message : 'Backup failed. Please try again.' });
+    } finally {
+      exportLock.current = false;
+      setIsExporting(false);
     }
-    exportChurchDataJSON(appData);
   };
 
   // Import JSON Backup directly to Supabase
@@ -421,6 +457,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       try {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
+        if (parsed.format === 'qnlbc-database-archive') throw new Error('This full database archive requires an administrator recovery procedure. It cannot be imported as a legacy song backup.');
 
         setImportStatus({
           success: true,
@@ -501,41 +538,41 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         // Restore celebrants
         if (Array.isArray(parsed.birthdays)) {
           for (const b of parsed.birthdays) {
-            await supabaseSaveBirthday(b).catch(console.error);
+            await supabaseSaveBirthday(b);
           }
         }
         if (Array.isArray(parsed.anniversaries)) {
           for (const a of parsed.anniversaries) {
-            await supabaseSaveAnniversary(a).catch(console.error);
+            await supabaseSaveAnniversary(a);
           }
         }
         if (Array.isArray(parsed.visitors)) {
           for (const v of parsed.visitors) {
-            await supabaseSaveVisitor(v).catch(console.error);
+            await supabaseSaveVisitor(v);
           }
         }
         if (Array.isArray(parsed.specialRecognitions)) {
           for (const r of parsed.specialRecognitions) {
-            await supabaseSaveSpecialRecognition(r).catch(console.error);
+            await supabaseSaveSpecialRecognition(r);
           }
         }
         if (Array.isArray(parsed.specialNumbers)) {
           for (const sn of parsed.specialNumbers) {
-            await supabaseSaveSpecialNumber(sn).catch(console.error);
+            await supabaseSaveSpecialNumber(sn);
           }
         }
         if (Array.isArray(parsed.practiceEntries)) {
           for (const p of parsed.practiceEntries) {
-            await supabaseSavePracticeEntry(p).catch(console.error);
+            await supabaseSavePracticeEntry(p);
           }
         }
         if (Array.isArray(parsed.choirEntries)) {
           for (const c of parsed.choirEntries) {
-            await supabaseSaveChoirEntry(c).catch(console.error);
+            await supabaseSaveChoirEntry(c);
           }
         }
         if (Array.isArray(parsed.savedNames)) {
-          await supabaseSaveMinistrySavedNames(parsed.savedNames).catch(console.error);
+          await supabaseSaveMinistrySavedNames(parsed.savedNames);
           if (onUpdateSavedNames) onUpdateSavedNames(parsed.savedNames);
         }
 
@@ -889,6 +926,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </button>
               </div>
 
+              {memberNotice && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{memberNotice}</p>}
               {!selectedMemberId && showCreateMember && <form onSubmit={handleCreateMember} className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                 <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
@@ -1134,10 +1172,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 )}
 
+                {backupDownload && <a className="ui-primary mb-3 inline-flex items-center gap-2" href={backupDownload.url} download={backupDownload.name}><Download className="h-4 w-4" />Download backup</a>}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <button
                     type="button"
                     onClick={handleExportBackup}
+                    disabled={isExporting || isImporting}
                     className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs"
                   >
                     <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
@@ -1148,7 +1188,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Export All Data (JSON)
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Download full JSON backup of songs, setlists, and directory entries.
+                        Export church records, recordings, and outline files for administrator recovery.
                       </span>
                     </div>
                   </button>

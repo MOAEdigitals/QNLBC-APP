@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8"><title>QNLBC recording migration</title></head>
+<body><h1>Recording migration</h1><p>Select the verified full backup. Originals are retained. Each copied recording must pass a download hash check before any database reference changes.</p>
+<input id="backup" type="file" accept=".json" aria-label="Verified backup">
+<button id="copy" disabled>Copy and verify recordings</button>
+<button id="apply" disabled>Apply verified references</button><pre id="result" role="status">Select backup</pre>
+<script type="module">
+import { supabase } from '../src/supabase.ts';
+import { uploadVerifiedR2, verifyR2Playback } from '../src/services/r2Media.ts';
+const input = document.querySelector('#backup'), copy = document.querySelector('#copy'), apply = document.querySelector('#apply'), status = document.querySelector('#result');
+let archive, replacements = new Map(), running = false;
+input.onchange = async () => {
+  copy.disabled = true; apply.disabled = true; replacements.clear();
+  try {
+    archive = JSON.parse(await input.files[0].text());
+    if (archive.format !== 'qnlbc-database-archive' || archive.version !== 1 || !archive.tables.attachments || !archive.assets) throw new Error('Choose a full database archive.');
+    status.textContent = `Loaded ${archive.tables.songs.length} songs, ${archive.tables.setlists.length} setlists, ${Object.keys(archive.assets).length} assets.`;
+    copy.disabled = false;
+  } catch (error) { status.textContent = error.message; }
+};
+copy.onclick = async () => {
+  if (running) return; running = true; copy.disabled = true; input.disabled = true;
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    const { data: profile } = await supabase.from('profiles').select('role,active').eq('id', auth.user?.id).single();
+    if (!profile?.active || profile.role !== 'admin') throw new Error('Administrator required.');
+    const refs = [...new Set(archive.tables.attachments.map(row => row.external_url).filter(url => url?.startsWith('firestore:media:')))];
+    for (const [index, ref] of refs.entries()) {
+      status.textContent = `Copying and verifying ${index + 1}/${refs.length}`;
+      if (!archive.assets[ref]?.startsWith('data:')) throw new Error('Backup recording missing: ' + ref);
+      const blob = await (await fetch(archive.assets[ref])).blob();
+      const saved = await uploadVerifiedR2(blob, 'migrated-' + ref.slice('firestore:media:'.length));
+      await verifyR2Playback(saved.url, saved.sha256);
+      replacements.set(ref, saved.url);
+    }
+    status.textContent = `PASS: ${replacements.size} recordings copied and downloaded with matching hashes. Database references unchanged.`;
+    apply.disabled = false;
+  } catch (error) { status.textContent = 'Stopped: ' + error.message; }
+  finally { running = false; copy.disabled = false; input.disabled = false; }
+};
+apply.onclick = async () => {
+  if (running) return; running = true; apply.disabled = true; copy.disabled = true; input.disabled = true;
+  let changed = 0;
+  try {
+    for (const row of archive.tables.attachments) {
+      const replacement = replacements.get(row.external_url);
+      if (!replacement) continue;
+      const { data: current, error: readError } = await supabase.from('attachments').select('id,external_url,revision').eq('id',row.id).single();
+      if (readError) throw readError;
+      if (current.external_url === replacement) continue;
+      if (current.external_url !== row.external_url || current.revision !== row.revision) throw new Error('Recording changed after backup: ' + row.id);
+      const { data, error } = await supabase.from('attachments').update({ external_url: replacement })
+        .eq('id',row.id).eq('revision',row.revision).eq('external_url',row.external_url).select('id,external_url').single();
+      if (error || data?.external_url !== replacement) throw error || new Error('Reference verification failed.');
+      changed++; status.textContent = `Updated ${changed} references. Originals retained.`;
+    }
+    const { count, error } = await supabase.from('attachments').select('id',{count:'exact',head:true}).like('external_url','firestore:%');
+    if (error) throw error;
+    status.textContent = `PASS: ${changed} references updated. Remaining Firestore attachment references: ${count}. Originals retained.`;
+  } catch (error) { status.textContent = `Stopped after ${changed} updates: ${error.message}. Safe to retry using the same backup.`; }
+  finally { running = false; apply.disabled = false; copy.disabled = false; input.disabled = false; }
+};
+</script></body></html>

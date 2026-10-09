@@ -17,7 +17,6 @@ describe('Supabase record creation lifecycle', () => {
   it('uses database-generated UUIDs for new top-level records', () => {
     const insertCalls = [
       ".from('songs')\n      .insert(payload)",
-      ".from('setlists')\n      .insert(setlistPayload)",
       ".from('special_numbers')\n      .insert(payload)",
       ".from('choir_entries')\n      .insert(payload)",
       ".from('practice_entries')\n    .insert(validPayload)",
@@ -31,6 +30,12 @@ describe('Supabase record creation lifecycle', () => {
       assert.ok(dataLayer.includes(call), `Missing authoritative insert: ${call}`);
     }
     assert.equal(dataLayer.includes('.insert(insertPayload)'), false);
+    const atomicSave = readFileSync(new URL('../supabase/migrations/20261008_atomic_setlist_save.sql', import.meta.url), 'utf8');
+    assert.ok(dataLayer.includes(".rpc('save_setlist_atomic'"));
+    const parentInsert = atomicSave.match(/insert into public\.setlists\(([^)]+)\)/i);
+    assert.ok(parentInsert, 'Setlist creation must insert inside the transaction');
+    assert.equal(parentInsert[1].split(',').map(column => column.trim()).includes('id'), false,
+      'The transaction must retain database-generated setlist IDs');
   });
 
   it('passes an explicit creation decision from application state', () => {
