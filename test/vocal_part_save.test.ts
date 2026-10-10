@@ -1,3 +1,4 @@
+import { cleanLeadingSongTitle } from '../src/utils/songLyrics.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
@@ -72,6 +73,7 @@ function database() {
   runInNewContext(compile(service.replaceAll('import.meta.env', '({})')), {
     exports, console: quietConsole,
     require: (name: string) => {
+      if (name === '../utils/songLyrics') return { cleanLeadingSongTitle };
       assert.equal(name, '../supabase');
       return { supabase, isSupabaseConfigured: () => true };
     },

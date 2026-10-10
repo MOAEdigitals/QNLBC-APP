@@ -1319,6 +1319,7 @@ export default function App() {
 
         {currentTab === 'songs' && (
           <SongsTab
+              canManageCategories={currentUser?.role === 'admin'}
             songs={songs}
             setlists={setlists}
             onSaveSong={handleSaveSong}

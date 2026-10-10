@@ -1,3 +1,4 @@
+import { cleanLeadingSongTitle } from '../utils/songLyrics';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import {
   Song,
@@ -353,7 +354,7 @@ export function mapSongFromDB(row: any): Song {
     id: row.id,
     title: row.title,
     artist: row.artist || undefined,
-    lyrics: row.lyrics || '',
+    lyrics: cleanLeadingSongTitle(row.title || '', row.lyrics || ''),
     attachments: Array.isArray(metadata.attachments) ? metadata.attachments : [],
     category: row.category || undefined,
     categories: Array.isArray(row.categories) ? row.categories : [],
@@ -401,7 +402,7 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
   const payload = {
     title: song.title?.trim() || 'Untitled Song',
     artist: song.artist?.trim() || null,
-    lyrics: song.lyrics || '',
+    lyrics: cleanLeadingSongTitle(song.title || '', song.lyrics || ''),
     category: song.category?.trim() || null,
     categories: song.categories || [],
     minus_one_link: (song.minusOneLink || song.minus_one_link)?.trim() || null,

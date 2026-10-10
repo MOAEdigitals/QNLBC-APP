@@ -1,3 +1,5 @@
+import { supabase } from '../supabase';
+import { saveAppSettings } from '../services/supabaseData';
 import { compareTracksFirst } from '../utils/songTracks';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
@@ -61,15 +63,15 @@ import {
 } from '../utils/mediaUtils';
 
 export const VALID_SONG_CATEGORIES = ['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'] as const;
-export type SongCategory = (typeof VALID_SONG_CATEGORIES)[number];
+export type SongCategory = string;
 const SONG_PAGE_SIZE = 80;
 type SongSortMode = 'tracks-first' | 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added';
 
 let sessionSongSort: SongSortMode = 'alpha-asc';
 const SONG_SORT_OPTIONS: Array<{ value: SongSortMode; label: string; shortLabel: string }> = [
-  { value: 'tracks-first', label: 'Attached tracks first', shortLabel: 'Tracks first' },
   { value: 'alpha-asc', label: 'Title: A–Z', shortLabel: 'A–Z' },
   { value: 'alpha-desc', label: 'Title: Z–A', shortLabel: 'Z–A' },
+  { value: 'tracks-first', label: 'Attached tracks first', shortLabel: 'Tracks first' },
   { value: 'recently-sung', label: 'Recently Sung', shortLabel: 'Recently Sung' },
   { value: 'least-recently-sung', label: 'Not Sung Recently', shortLabel: 'Not Sung Recently' },
   { value: 'recently-added', label: 'Recently Added', shortLabel: 'Recently Added' },
@@ -78,13 +80,13 @@ const SONG_SORT_OPTIONS: Array<{ value: SongSortMode; label: string; shortLabel:
 export function getSongCategories(song: Song): SongCategory[] {
   if (Array.isArray(song.categories) && song.categories.length > 0) {
     return song.categories.filter((c): c is SongCategory =>
-      (VALID_SONG_CATEGORIES as readonly string[]).includes(c)
+      typeof c === 'string' && c.trim().length > 0
     );
   }
   if (song.category && typeof song.category === 'string') {
     const parts = song.category.split(',').map((c) => c.trim());
     return parts.filter((c): c is SongCategory =>
-      (VALID_SONG_CATEGORIES as readonly string[]).includes(c)
+      typeof c === 'string' && c.trim().length > 0
     );
   }
   return [];
@@ -111,6 +113,7 @@ function getUpcomingSongSchedule(song: Song, setlists: Setlist[]): Setlist | und
 
 interface SongsTabProps {
   songs: Song[];
+  canManageCategories?: boolean;
   setlists: Setlist[];
   onSaveSong: (song: Song) => Promise<Song>;
   onBatchSaveSongs?: (songs: Song[]) => void;
@@ -127,6 +130,7 @@ interface SongsTabProps {
 
 export const SongsTab: React.FC<SongsTabProps> = ({
   songs,
+  canManageCategories = false,
   setlists,
   onSaveSong,
   onBatchSaveSongs,
@@ -148,9 +152,37 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [sortMode, setSortMode] = useState<SongSortMode>(sessionSongSort);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
-  const [categoryFilter, setCategoryFilter] = useState<
-    'all' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized' | 'Starred'
-  >('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState('');
+  const [savingCategory, setSavingCategory] = useState(false);
+  const categoryLock = useRef(false);
+  const allCategories = useMemo(() => [...new Set([...VALID_SONG_CATEGORIES, ...customCategories, ...songs.flatMap(getSongCategories)])], [customCategories, songs]);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const { data, error } = await supabase.from('app_settings').select('value').like('key', 'song_category:%');
+      if (active && !error) setCustomCategories((data || []).map(row => row.value).filter((value): value is string => typeof value === 'string'));
+      if (active && error) setCategoryError('Could not load categories. Please reopen Songs to retry.');
+    };
+    void load();
+    const channel = supabase.channel('song-category-settings').on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => { void load(); }).subscribe();
+    return () => { active = false; void supabase.removeChannel(channel); };
+  }, []);
+  const createCategory = async () => {
+    const name = newCategory?.trim();
+    if (!name || categoryLock.current) return;
+    if (['all', 'starred', 'uncategorized', ...allCategories.map(value => value.toLowerCase())].includes(name.toLowerCase()) || name.includes(',')) {
+      setCategoryError('Choose a new category name without commas.'); return;
+    }
+    categoryLock.current = true; setSavingCategory(true); setCategoryError('');
+    try {
+      await saveAppSettings(`song_category:${name.toLowerCase()}`, name);
+      setCustomCategories(current => [...new Set([...current, name])]); setNewCategory(null);
+    } catch (error) { setCategoryError(error instanceof Error ? error.message : 'Could not save category.'); }
+    finally { categoryLock.current = false; setSavingCategory(false); }
+  };
   const [isEditing, setIsEditing] = useState(false);
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
   const [isSavingSong, setIsSavingSong] = useState(false);
@@ -645,39 +677,6 @@ if (isEditing && !savingSongRef.current) {
     setIsEditing(true);
   };
 
-  const handleToggleThemeSong = (song: Song, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setOpenMenuSongId(null);
-    const updated: Song = {
-      ...song,
-      isThemeSong: !song.isThemeSong,
-      updatedAt: new Date().toISOString(),
-    };
-    onSaveSong(updated);
-  };
-
-  const handleToggleWelcomeSong = (song: Song, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setOpenMenuSongId(null);
-    const updated: Song = {
-      ...song,
-      isWelcomeSong: !song.isWelcomeSong,
-      updatedAt: new Date().toISOString(),
-    };
-    onSaveSong(updated);
-  };
-
-  const handleToggleClosingSong = (song: Song, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    setOpenMenuSongId(null);
-    const updated: Song = {
-      ...song,
-      isClosingSong: !song.isClosingSong,
-      updatedAt: new Date().toISOString(),
-    };
-    onSaveSong(updated);
-  };
-
   const handleToggleStar = (song: Song, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const currentStarred = Boolean(song.isStarred || (song as any).starred);
@@ -1026,6 +1025,10 @@ if (isEditing && !savingSongRef.current) {
           <span>Tagalog</span>
         </button>
 
+        {allCategories.filter(cat => !(VALID_SONG_CATEGORIES as readonly string[]).includes(cat)).map(cat => (
+          <button key={cat} type="button" onClick={() => setCategoryFilter(cat)} className={categoryFilter === cat ? 'ui-primary shrink-0' : 'ui-secondary shrink-0'}>{cat}</button>
+        ))}
+        {canManageCategories && <button type="button" className="ui-secondary shrink-0" aria-label="Add category" onClick={() => { setNewCategory(''); setCategoryError(''); }}><Plus className="w-4 h-4" /></button>}
         {categoryCounts.uncategorized > 0 && (
           <button
             type="button"
@@ -1053,6 +1056,13 @@ if (isEditing && !savingSongRef.current) {
           <span>Starred</span>
         </button>
       </div>
+
+      {newCategory !== null && <form className="flex gap-2 items-center" onSubmit={event => { event.preventDefault(); void createCategory(); }}>
+        <input aria-label="Category name" maxLength={40} autoComplete="off" value={newCategory} onChange={event => setNewCategory(event.target.value)} className="min-w-0 flex-1 border rounded-lg p-2 bg-transparent" />
+        <button className="ui-primary" disabled={savingCategory || !newCategory.trim()}>{savingCategory ? 'Saving�' : 'Save'}</button>
+        <button type="button" className="ui-secondary" disabled={savingCategory} onClick={() => setNewCategory(null)}>Cancel</button>
+      </form>}
+      {categoryError && <p role="alert" className="text-red-600">{categoryError}</p>}
 
       {/* Song list header with one compact sort menu */}
       <div className="flex items-center justify-between gap-2 px-1">
@@ -1177,27 +1187,6 @@ if (isEditing && !savingSongRef.current) {
                         {song.title}
                       </h4>
 
-                      {/* Theme Song Badge */}
-                      {song.isThemeSong && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800">
-                          Theme Song
-                        </span>
-                      )}
-
-                      {/* Welcome Song Badge */}
-                      {song.isWelcomeSong && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
-                          Welcome
-                        </span>
-                      )}
-
-                      {/* Closing Song Badge */}
-                      {song.isClosingSong && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                          Closing
-                        </span>
-                      )}
-
                       {/* Repetition Warning: Sung recently (within 14 days) */}
                       {history.isRecent && (
                         <span
@@ -1316,7 +1305,7 @@ if (isEditing && !savingSongRef.current) {
                               <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 Categories
                               </div>
-                              {VALID_SONG_CATEGORIES.map((cat) => {
+                              {allCategories.map((cat) => {
                                 const isChecked = getSongCategories(song).includes(cat);
                                 return (
                                   <button
@@ -1422,47 +1411,6 @@ if (isEditing && !savingSongRef.current) {
                         {/* 3-Dot Dropdown Menu Popover */}
                         {isMenuOpen && (
                           <div className="absolute right-0 top-full mt-1.5 w-56 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                handleToggleStar(song, e);
-                                setOpenMenuSongId(null);
-                              }}
-                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Star className={`w-3.5 h-3.5 ${song.isStarred || (song as any).starred ? 'fill-yellow-400 text-yellow-400' : 'text-yellow-400'}`} />
-                              <span>{song.isStarred || (song as any).starred ? 'Remove from Starred' : 'Add to Starred'}</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={(e) => handleToggleThemeSong(song, e)}
-                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-violet-500" />
-                              <span>{song.isThemeSong ? 'Remove Theme Song Badge' : 'Mark as Theme Song'}</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={(e) => handleToggleWelcomeSong(song, e)}
-                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-sky-500" />
-                              <span>{song.isWelcomeSong ? 'Remove Welcome Song Badge' : 'Mark as Welcome Song'}</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={(e) => handleToggleClosingSong(song, e)}
-                              className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"
-                            >
-                              <BookmarkCheck className="w-3.5 h-3.5 text-indigo-500" />
-                              <span>{song.isClosingSong ? 'Remove Closing Song Badge' : 'Mark as Closing Song'}</span>
-                            </button>
-
-                            <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-
                             <button
                               type="button"
                               onClick={(e) => handleStartEditSong(song, e)}

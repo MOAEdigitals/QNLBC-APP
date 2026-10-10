@@ -14,39 +14,29 @@ export const AutoGrowTextarea = forwardRef<HTMLTextAreaElement, Props>(function 
     else if (forwardedRef) forwardedRef.current = node;
   };
 
-  const revealEnd = () => {
-    const textarea = localRef.current;
-    if (!textarea || document.activeElement !== textarea || textarea.selectionEnd !== textarea.value.length) return;
-    const form = textarea.closest('form');
-    if (!form) return;
-    const bottom = Math.min(form.getBoundingClientRect().bottom, window.visualViewport?.height ?? window.innerHeight) - 96;
-    const overflow = textarea.getBoundingClientRect().bottom - bottom;
-    if (overflow > 0) form.scrollTop += overflow;
-  };
   const resize = () => {
     const textarea = localRef.current;
     if (!textarea) return;
+    // Temporarily shrinking a tall textarea clamps its scroll container's position.
+    // Restore that position after measuring, before the browser paints.
+    const containers: Array<{ node: HTMLElement; top: number }> = [];
+    for (let node = textarea.parentElement; node; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight) containers.push({ node, top: node.scrollTop });
+    }
     textarea.style.height = 'auto';
     textarea.style.height = `${textarea.scrollHeight}px`;
+    for (const { node, top } of containers) node.scrollTop = top;
   };
 
-  useLayoutEffect(() => {
-    const textarea = localRef.current;
-    if (!textarea) return;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  }, [value]);
+  useLayoutEffect(resize, [value]);
 
   return (
     <textarea
       {...props}
       ref={assignRef}
       value={value}
-      onChange={(event) => {
-        onChange?.(event);
-        requestAnimationFrame(() => { resize(); revealEnd(); });
-      }}
-      onSelect={(event) => { onSelect?.(event); requestAnimationFrame(revealEnd); }}
+      onChange={onChange}
+      onSelect={onSelect}
       className={`resize-none overflow-hidden ${className}`}
     />
   );
