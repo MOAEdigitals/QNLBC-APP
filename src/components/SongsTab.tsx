@@ -1028,7 +1028,6 @@ if (isEditing && !savingSongRef.current) {
         {allCategories.filter(cat => !(VALID_SONG_CATEGORIES as readonly string[]).includes(cat)).map(cat => (
           <button key={cat} type="button" onClick={() => setCategoryFilter(cat)} className={categoryFilter === cat ? 'ui-primary shrink-0' : 'ui-secondary shrink-0'}>{cat}</button>
         ))}
-        {canManageCategories && <button type="button" className="ui-secondary shrink-0" aria-label="Add category" onClick={() => { setNewCategory(''); setCategoryError(''); }}><Plus className="w-4 h-4" /></button>}
         {categoryCounts.uncategorized > 0 && (
           <button
             type="button"
@@ -1055,6 +1054,7 @@ if (isEditing && !savingSongRef.current) {
           <Star className={`w-3.5 h-3.5 ${categoryFilter === 'Starred' ? 'fill-yellow-400 text-yellow-400' : 'fill-yellow-400 text-yellow-500'}`} />
           <span>Starred</span>
         </button>
+        {canManageCategories && <button type="button" className="ui-secondary shrink-0" aria-label="Add category" onClick={() => { setNewCategory(''); setCategoryError(''); }}><Plus className="w-4 h-4" /></button>}
       </div>
 
       {newCategory !== null && <form className="flex gap-2 items-center" onSubmit={event => { event.preventDefault(); void createCategory(); }}>

@@ -353,6 +353,7 @@ export function mapSongFromDB(row: any): Song {
   return {
     id: row.id,
     title: row.title,
+    previousTitles: Array.isArray(metadata.previousTitles) ? metadata.previousTitles.filter((title: unknown) => typeof title === 'string') : [],
     artist: row.artist || undefined,
     lyrics: cleanLeadingSongTitle(row.title || '', row.lyrics || ''),
     attachments: Array.isArray(metadata.attachments) ? metadata.attachments : [],
@@ -399,6 +400,20 @@ export async function fetchSongs(): Promise<Song[]> {
 export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
+  // Preserve rename history for older setlists that stored only a title.
+  let existingMetadata: Record<string, any> = {};
+  let previousTitle: string | undefined;
+  if (!isNew && isUUID(song.id)) {
+    const { data: existing, error } = await supabase.from('songs').select('title,metadata').eq('id', song.id).single();
+    if (error || !existing) throw error || new Error('Song not found');
+    existingMetadata = existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {};
+    previousTitle = existing.title;
+  }
+  const previousTitles = [...new Set([
+    ...(Array.isArray(existingMetadata.previousTitles) ? existingMetadata.previousTitles : []),
+    ...(previousTitle && previousTitle !== song.title?.trim() ? [previousTitle] : []),
+  ].filter((title): title is string => typeof title === 'string' && Boolean(title.trim())))];
+
   const payload = {
     title: song.title?.trim() || 'Untitled Song',
     artist: song.artist?.trim() || null,
@@ -411,6 +426,8 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     is_closing_song: Boolean(song.isClosingSong ?? song.is_closing_song),
     is_theme_song: Boolean(song.isThemeSong ?? song.is_theme_song),
     metadata: {
+      ...existingMetadata,
+      previousTitles,
       attachments: Array.isArray(song.attachments) ? song.attachments : [],
     },
   };

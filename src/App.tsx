@@ -1,7 +1,8 @@
+import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { isBackLayerMounted, useBackLayer } from './hooks/useBackLayer';
-import React, { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   UserAccount,
   AppTab,
@@ -170,6 +171,12 @@ export default function App() {
   const [specialNumbers, setSpecialNumbers] = useState<SpecialNumberEntry[]>([]);
   const [choirEntries, setChoirEntries] = useState<ChoirEntry[]>([]);
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>([]);
+  const resolveLibrarySong = useMemo(() => songResolver(songs), [songs]);
+  const linkedSetlists = useMemo(() => setlists.map(entry => linkSetlist(entry, resolveLibrarySong)), [setlists, resolveLibrarySong]);
+  const linkedSpecialNumbers = useMemo(() => specialNumbers.map(entry => linkSongEntry(entry, resolveLibrarySong)), [specialNumbers, resolveLibrarySong]);
+  const linkedChoirEntries = useMemo(() => choirEntries.map(entry => linkSongEntry(entry, resolveLibrarySong)), [choirEntries, resolveLibrarySong]);
+  const linkedPracticeEntries = useMemo(() => practiceEntries.map(entry => linkSongEntry(entry, resolveLibrarySong)), [practiceEntries, resolveLibrarySong]);
+
   const [savedNames, setSavedNames] = useState<string[]>([]);
   const [refreshError, setRefreshError] = useState('');
   const lastLoadedData = useRef({ setlists, songs, birthdays, anniversaries, visitors, specialRecognitions, specialNumbers, choirEntries, practiceEntries, savedNames, users });
@@ -1252,7 +1259,7 @@ export default function App() {
         <Suspense fallback={<TabLoadingSkeleton />}>
         {currentTab === 'home' && (
           <SetlistsTab
-            setlists={setlists}
+            setlists={linkedSetlists}
             songs={songs}
             savedNames={savedNames}
             onSaveSetlist={handleSaveSetlist}
@@ -1288,11 +1295,11 @@ export default function App() {
         {currentTab === 'special-numbers' && (!loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
             currentUser={currentUser}
-            specialNumbers={specialNumbers}
-            practiceEntries={practiceEntries}
-            choirEntries={choirEntries}
+            specialNumbers={linkedSpecialNumbers}
+            practiceEntries={linkedPracticeEntries}
+            choirEntries={linkedChoirEntries}
             songs={songs}
-            setlists={setlists}
+            setlists={linkedSetlists}
             savedNames={savedNames}
             onSaveSpecialNumber={handleSaveSpecialNumber}
             onDeleteSpecialNumber={handleDeleteSpecialNumber}
@@ -1321,7 +1328,7 @@ export default function App() {
           <SongsTab
               canManageCategories={currentUser?.role === 'admin'}
             songs={songs}
-            setlists={setlists}
+            setlists={linkedSetlists}
             onSaveSong={handleSaveSong}
             onBatchSaveSongs={handleBatchSaveSongs}
             onDeleteSong={handleDeleteSong}

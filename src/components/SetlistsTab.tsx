@@ -1149,8 +1149,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                  <div className="space-y-1.5">
                                   {(item.sundaySchool?.songs || []).map((song, idx) => {
                                     const matchedSong =
-                                      songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
-                                      (song.songId ? songs.find((s) => s.id === song.songId) : undefined);
+                                      song.songId ? songs.find((s) => s.id === song.songId) : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
                                     const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
                                     return (
@@ -1203,8 +1202,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                  <div className="space-y-1.5">
                                   {(item.worshipService?.songs || []).map((song, idx) => {
                                     const matchedSong =
-                                      songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
-                                      (song.songId ? songs.find((s) => s.id === song.songId) : undefined);
+                                      song.songId ? songs.find((s) => s.id === song.songId) : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
                                     const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
                                     return (
@@ -1374,8 +1372,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             </span>
                             {(item.program?.songs || []).map((song, idx) => {
                               const matchedSong =
-                                songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase()) ||
-                                (song.songId ? songs.find((s) => s.id === song.songId) : undefined);
+                                song.songId ? songs.find((s) => s.id === song.songId) : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
                               const targetSongId = matchedSong ? matchedSong.id : song.songId;
 
                               return (

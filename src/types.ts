@@ -43,6 +43,7 @@ export interface SongAttachment {
 }
 
 export interface Song {
+  previousTitles?: string[];
   id: string;
   title: string;
   artist?: string;
