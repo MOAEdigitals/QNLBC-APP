@@ -51,10 +51,15 @@ export async function createFullBackup(progress: (message: string) => void) {
   };
   collect(tables);
   for (const reference of references) {
-    progress(`Backing up recording ${Object.keys(assets).length + 1}…`);
+    progress(`Backing up media file ${Object.keys(assets).length + 1} of ${references.size} (all records, including deleted)...`);
     let data: string | null;
     if (reference.startsWith('https:')) {
-      const response = await fetch(reference, { signal: AbortSignal.timeout(180000) });
+      let response: Response;
+      try {
+        response = await fetch(reference, { signal: AbortSignal.timeout(180000) });
+      } catch {
+        throw new Error(`Backup contains ${references.size} unique media files across all records (including deleted records). Could not download file ${Object.keys(assets).length + 1}; check your connection and retry. No completed backup was created.`);
+      }
       if (!response.ok) throw new Error('Recording download failed. Backup was not completed.');
       data = await asDataUrl(await response.blob());
     } else {

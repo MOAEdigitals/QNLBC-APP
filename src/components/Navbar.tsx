@@ -18,17 +18,26 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { search } = useHeaderSearchContext();
   const [isSearching, setIsSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { setIsSearching(false); }, [currentTab, search?.label]);
   useEffect(() => { if (isSearching) inputRef.current?.focus(); }, [isSearching]);
+  useEffect(() => {
+    if (!isSearching) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!searchRef.current?.contains(event.target as Node)) setIsSearching(false);
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [isSearching]);
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
       <div className="max-w-4xl mx-auto px-4 py-2 flex min-h-12 items-center justify-between gap-3">
         {isSearching && search ? (
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
+          <div ref={searchRef} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
             <Search className="h-4 w-4 shrink-0 text-slate-400" />
             <input ref={inputRef} type="search" name="header_search" autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false} data-form-type="other" data-lpignore="true" value={search.value} onChange={(event) => search.onChange(event.target.value)} placeholder={search.placeholder} aria-label={search.label} className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 dark:text-white [&::-webkit-search-cancel-button]:hidden" />
-            <button type="button" onClick={() => setIsSearching(false)} aria-label="Close search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
+            <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => search.onChange('')} aria-label="Clear search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
           </div>
         ) : <div className="flex items-center space-x-3">
           <div className="w-8 h-8 shrink-0 overflow-hidden">

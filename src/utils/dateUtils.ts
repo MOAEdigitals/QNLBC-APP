@@ -199,3 +199,18 @@ export function categorizeAnnualCelebrants<T>(items: T[], getDateStr: (item: T) 
     upcoming: upcomingCandidates.map((c) => c.item),
   };
 }
+
+/** Thursday through Wednesday, containing the Sunday recognition service. */
+export function isBirthdayRecognitionWeek(dateStr: string, now = new Date()): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0);
+  start.setDate(start.getDate() - (start.getDay() + 3) % 7);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 7);
+  const [, month, day] = dateStr.split('-').map(Number);
+  for (const year of new Set([start.getFullYear(), end.getFullYear()])) {
+    const occurrence = new Date(year, month - 1, day);
+    if (occurrence.getMonth() === month - 1 && occurrence.getDate() === day && occurrence >= start && occurrence < end) return true;
+  }
+  return false;
+}

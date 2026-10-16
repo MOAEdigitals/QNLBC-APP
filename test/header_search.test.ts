@@ -8,7 +8,7 @@ test('shared header replaces branding and profile with the active contextual sea
   const navbar = read('src/components/Navbar.tsx');
   assert.match(navbar, /isSearching && search \? \(/);
   assert.match(navbar, /aria-label="Search"/);
-  assert.match(navbar, /aria-label="Close search"/);
+  assert.match(navbar, /aria-label="Clear search"/);
   assert.match(navbar, /inputRef\.current\?\.focus\(\)/);
   assert.doesNotMatch(navbar, /currentUser\.displayName \|\| currentUser\.username\}\s*<\/span>/);
 });

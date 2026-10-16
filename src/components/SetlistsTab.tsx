@@ -717,6 +717,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         ...songItem,
         title: newTitle,
         songId: matched ? matched.id : undefined,
+        song_id: matched ? matched.id : undefined,
       };
     });
 
@@ -741,9 +742,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         .filter((s) => s && s.title && s.title.trim().length > 0)
         .map((s) => {
           const trimmedTitle = s.title.trim();
-          const matchedSong = songs.find(
-            (item) => item.title.trim().toLowerCase() === trimmedTitle.toLowerCase()
-          );
+          const linkedId = s.songId || s.song_id;
+          const matchedSong = linkedId
+            ? songs.find(item => item.id === linkedId)
+            : songs.find(item => item.title.trim().toLowerCase() === trimmedTitle.toLowerCase());
           return {
             id: s.id && isUUID(s.id) ? s.id : generateUUID(),
             title: matchedSong ? matchedSong.title : trimmedTitle,
@@ -1760,7 +1762,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             />
                           </div>
 
-                          {(editingSetlist.sundaySchool?.songs?.length || 0) > 2 && (
+                          {(editingSetlist.sundaySchool?.songs?.length || 0) > 0 && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1865,7 +1867,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             />
                           </div>
 
-                          {(editingSetlist.worshipService?.songs?.length || 0) > 2 && (
+                          {(editingSetlist.worshipService?.songs?.length || 0) > 0 && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1970,7 +1972,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           />
                         </div>
 
-                        {(editingSetlist.program?.songs?.length || 0) > 1 && (
+                        {(editingSetlist.program?.songs?.length || 0) > 0 && (
                           <button
                             type="button"
                             onClick={() => {
