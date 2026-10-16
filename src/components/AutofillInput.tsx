@@ -1,3 +1,4 @@
+import { pickerPlacement } from '../utils/pickerPlacement';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Song, Setlist } from '../types';
@@ -122,14 +123,18 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const viewportBottom = viewportTop + viewportHeight;
     const desiredHeight = Math.min(360, Math.max(240, viewportHeight * 0.48));
     const rect = input.getBoundingClientRect();
-    const availableBelow = Math.max(0, viewportBottom - rect.bottom - 12);
-    const availableAbove = Math.max(0, rect.top - viewportTop - 12);
-    const placeAbove = availableBelow < Math.min(240, desiredHeight) && availableAbove > availableBelow;
-    const availableHeight = placeAbove ? availableAbove : availableBelow;
-    const maxHeight = Math.max(120, Math.min(desiredHeight, availableHeight));
-    const top = placeAbove
-      ? Math.max(viewportTop + 12, rect.top - maxHeight - 6)
-      : rect.bottom + 6;
+    const form = input.closest('form');
+    const formRect = form?.getBoundingClientRect();
+    let usableTop = Math.max(viewportTop + 12, formRect?.top ?? viewportTop + 12);
+    let usableBottom = Math.min(viewportBottom - 12, formRect?.bottom ?? viewportBottom - 12);
+    // Use the same action containers as the shared form styling.
+    form?.querySelectorAll(':scope > div:last-child, :scope > fieldset > div:last-child').forEach(footer => {
+      if (!footer.querySelector('button[type="submit"]')) return;
+      const bounds = footer.getBoundingClientRect();
+      if (bounds.height > 0 && bounds.top < usableBottom && bounds.bottom > usableTop) usableBottom = Math.max(usableTop, bounds.top - 6);
+    });
+    usableTop = Math.min(usableTop, usableBottom);
+    const { top, maxHeight } = pickerPlacement(rect, usableTop, usableBottom, desiredHeight);
     setMobilePickerPosition({
       top,
       left: Math.max(12, rect.left),
@@ -291,14 +296,22 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !isTouchPicker) return;
+    if (!isOpen) return;
     const reposition = () => positionMobilePicker(false);
     const repositionAfterKeyboard = () => positionMobilePicker(true);
+    reposition();
+    const observer = new ResizeObserver(reposition);
+    const form = inputRef.current?.closest('form');
+    if (form) {
+      observer.observe(form);
+      form.querySelectorAll(':scope > div:last-child, :scope > fieldset > div:last-child').forEach(element => observer.observe(element));
+    }
     window.addEventListener('resize', reposition);
     window.addEventListener('scroll', reposition, true);
     window.visualViewport?.addEventListener('resize', repositionAfterKeyboard);
     window.visualViewport?.addEventListener('scroll', reposition);
     return () => {
+      observer.disconnect();
       window.removeEventListener('resize', reposition);
       window.removeEventListener('scroll', reposition, true);
       window.visualViewport?.removeEventListener('resize', repositionAfterKeyboard);
@@ -645,7 +658,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
       {/* Suggestion Dropdown List (Scrollable on touch/mouse, high z-index) */}
       {isOpen && (displayedItems.length > 0 || showSongCategoryFilters) && (() => {
-        if (isTouchPicker && !mobilePickerPosition) return null;
+        if (!mobilePickerPosition || mobilePickerPosition.maxHeight <= 0) return null;
         const dropdown = (
           <div
           ref={dropdownRef}
@@ -684,12 +697,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               hasMovedRef.current = false;
             }, 250);
           }}
-          className={`${
-            isTouchPicker
-              ? 'fixed z-[200]'
-              : 'absolute z-[100] left-0 right-0 top-full mt-1.5 max-h-72'
-          } bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
-          style={isTouchPicker && mobilePickerPosition
+          className={`fixed z-[200] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
+          style={mobilePickerPosition
             ? {
                 WebkitOverflowScrolling: 'touch',
                 top: mobilePickerPosition.top,
@@ -820,7 +829,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           </div>
         );
 
-        if (!isTouchPicker) return dropdown;
 
         return createPortal(dropdown, document.body);
       })()}
