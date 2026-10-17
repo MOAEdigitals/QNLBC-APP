@@ -1443,7 +1443,7 @@ if (isEditing && !savingSongRef.current) {
 
                     {/* Lyrics Block */}
                     <div
-                      className={`p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
+                      className={`border-t border-slate-200 dark:border-slate-700 pt-4 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
                         ['text-[15px] leading-relaxed', 'text-[18px] leading-relaxed', 'text-[22px] leading-relaxed', 'text-[28px] leading-relaxed'][inCardFontSize]
                       }`}
                     >
