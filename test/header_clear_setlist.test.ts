@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 const read=(path: string)=>readFileSync(path,'utf8').replace(/\r\n/g,'\n');
 test('clear search preserves focus without forcing the software keyboard open',()=>{
  const source=read('src/components/Navbar.tsx');
- assert.match(source,/onPointerDown=\{\(event\) => event.preventDefault\(\)\} onClick=\{\(\) => search.onChange\(''\)\} aria-label="Clear search"/);
+ assert.match(source,/onPointerDown=\{\(event\) => event.preventDefault\(\)\} onClick=\{\(\) => \{ setIsSearching\(true\); search.onChange\(''\); \}\} aria-label="Clear search"/);
  assert.match(source,/searchRef.current\?\.contains/);
  assert.match(source,/removeEventListener\('pointerdown', dismiss\)/);
 });

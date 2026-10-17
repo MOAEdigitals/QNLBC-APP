@@ -975,7 +975,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   const filteredScheduleEntries = sortedEntries.filter((item: SpecialNumberEntry) => {
     if (!scheduleSearchQuery.trim()) return true;
-    const q = scheduleSearchQuery.toLowerCase();
+    const q = scheduleSearchQuery.trim().toLowerCase();
     return (
       item.performerName.toLowerCase().includes(q) ||
       (item.songTitle && item.songTitle.toLowerCase().includes(q))
@@ -995,7 +995,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Practice filtering
   const filteredPracticeEntries = practiceEntries.filter((item) => {
     if (!practiceSearchQuery.trim()) return true;
-    const q = practiceSearchQuery.toLowerCase();
+    const q = practiceSearchQuery.trim().toLowerCase();
     return (
       item.groupName.toLowerCase().includes(q) ||
       item.songTitle.toLowerCase().includes(q) ||
@@ -1013,7 +1013,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     if (choirFilter === 'upcoming' && entry.isDone) return false;
     if (choirFilter === 'completed' && !entry.isDone) return false;
     if (!choirSearchQuery.trim()) return true;
-    const q = choirSearchQuery.toLowerCase();
+    const q = choirSearchQuery.trim().toLowerCase();
     return (
       entry.songTitle.toLowerCase().includes(q) ||
       (entry.choirGroup && entry.choirGroup.toLowerCase().includes(q)) ||

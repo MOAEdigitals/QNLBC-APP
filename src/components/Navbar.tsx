@@ -17,27 +17,39 @@ export const Navbar: React.FC<NavbarProps> = ({
   onNavigateToSettings,
 }) => {
   const { search } = useHeaderSearchContext();
-  const [isSearching, setIsSearching] = useState(false);
+  const [isSearchOpened, setIsSearching] = useState(false);
+  // A filter must never remain active behind a collapsed search button.
+  const isSearching = Boolean(search && (isSearchOpened || search.value.length > 0));
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const focusRequestedRef = useRef(false);
   useEffect(() => { setIsSearching(false); }, [currentTab, search?.label]);
-  useEffect(() => { if (isSearching) inputRef.current?.focus(); }, [isSearching]);
   useEffect(() => {
-    if (!isSearching) return;
+    if (isSearchOpened && focusRequestedRef.current) inputRef.current?.focus();
+    focusRequestedRef.current = false;
+  }, [isSearchOpened]);
+  useEffect(() => {
+    if (!isSearching || search?.value.length) return;
     const dismiss = (event: PointerEvent) => {
       if (!searchRef.current?.contains(event.target as Node)) setIsSearching(false);
     };
     document.addEventListener('pointerdown', dismiss);
     return () => document.removeEventListener('pointerdown', dismiss);
-  }, [isSearching]);
+  }, [isSearching, search?.value]);
   return (
     <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
       <div className="max-w-4xl mx-auto px-4 py-2 flex min-h-12 items-center justify-between gap-3">
         {isSearching && search ? (
           <div ref={searchRef} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
             <Search className="h-4 w-4 shrink-0 text-slate-400" />
-            <input ref={inputRef} type="search" name="header_search" autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false} data-form-type="other" data-lpignore="true" value={search.value} onChange={(event) => search.onChange(event.target.value)} placeholder={search.placeholder} aria-label={search.label} className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 dark:text-white [&::-webkit-search-cancel-button]:hidden" />
-            <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => search.onChange('')} aria-label="Clear search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
+            <input ref={inputRef} type="search" name="header_search" autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false} data-form-type="other" data-lpignore="true" value={search.value} onChange={(event) => search.onChange(event.target.value)} onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              // Prevent native search inputs from silently clearing the active query.
+              event.preventDefault();
+              if (search.value.length) inputRef.current?.blur();
+              else setIsSearching(false);
+            }} placeholder={search.placeholder} aria-label={search.label} className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 dark:text-white [&::-webkit-search-cancel-button]:hidden" />
+            <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => { setIsSearching(true); search.onChange(''); }} aria-label="Clear search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
           </div>
         ) : <div className="flex items-center space-x-3">
           <div className="w-8 h-8 shrink-0 overflow-hidden">
@@ -54,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {!isSearching && <div className="flex items-center space-x-2">
           {search?.beforeSearch}
-          {search && <button type="button" onClick={() => setIsSearching(true)} aria-label="Search" title="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Search className="h-5 w-5" /></button>}
+          {search && <button type="button" onClick={() => { focusRequestedRef.current = true; setIsSearching(true); }} aria-label="Search" title="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Search className="h-5 w-5" /></button>}
           {currentUser && (
             <button
               onClick={onNavigateToSettings}

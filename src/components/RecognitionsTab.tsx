@@ -183,7 +183,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const visibleBirthdays = [...currentBirthdays, ...upcomingBirthdays];
   const filteredBirthdays = visibleBirthdays.filter((b: BirthdayCelebrant) => {
     if (!birthdaySearchQuery.trim()) return true;
-    const q = birthdaySearchQuery.toLowerCase();
+    const q = birthdaySearchQuery.trim().toLowerCase();
     return b.name.toLowerCase().includes(q);
   });
 
