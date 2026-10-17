@@ -200,11 +200,11 @@ export function categorizeAnnualCelebrants<T>(items: T[], getDateStr: (item: T) 
   };
 }
 
-/** Thursday through Wednesday, containing the Sunday recognition service. */
+/** Coming Sunday (including today if Sunday) through the following Saturday. */
 export function isBirthdayRecognitionWeek(dateStr: string, now = new Date()): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0);
-  start.setDate(start.getDate() - (start.getDay() + 3) % 7);
+  start.setDate(start.getDate() + (7 - start.getDay()) % 7);
   const end = new Date(start);
   end.setDate(start.getDate() + 7);
   const [, month, day] = dateStr.split('-').map(Number);

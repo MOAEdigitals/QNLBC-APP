@@ -430,7 +430,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                               </h4>
                               <div className={`text-xs font-semibold mt-0.5 ${BIRTHDAY_MONTH_COLORS[month].text}`}>
                                 {parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="ml-2 inline-block rounded px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200">This Sunday</span>}
+                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="ml-2 inline-block rounded px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200">Greet this Sunday</span>}
                               </div>
                               {item.ministryOrGroup && (
                                 <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 font-medium">
