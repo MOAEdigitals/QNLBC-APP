@@ -189,6 +189,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   });
 
   const isAdmin = currentUser.role === 'admin';
+  useEffect(() => {
+    setMemberCredentials({});
+    setCredentialNotice(null);
+    setMemberEdit({ displayName: '', username: '', password: '' });
+    setNewMember({ displayName: '', username: '', password: '' });
+  }, [currentUser.id, isAdmin]);
   const statusObj = databaseStatus || firestoreStatus;
   const handleOpenStatusModal = onOpenDatabaseStatusModal || onOpenFirestoreStatusModal;
 
@@ -393,8 +399,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         setMemberCredentials(current => current[user.id]
           ? { ...current, [user.id]: { ...current[user.id], username: nextUsername } }
           : current);
+        setCredentialNotice(current => current?.userId === user.id ? { ...current, username: nextUsername } : current);
       }
       setEditingMemberId(null);
+      setMemberEdit({ displayName: '', username: '', password: '' });
     } catch (error: any) {
       setMemberEditError(error.message || 'Could not update account.');
     } finally { memberSaveLock.current = false; setManagingUserId(null); }
@@ -407,6 +415,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setTimeout(() => setCopiedCredentialId(current => current === userId ? null : current), 2500);
     } catch {
       setMemberEditError('Could not copy credentials. Select the username and password manually.');
+    }
+  };
+
+  const handleCopyMemberUsername = async (user: UserAccount) => {
+    try {
+      await navigator.clipboard.writeText(user.username);
+      setMemberNotice(`Username copied: ${user.username}`);
+    } catch {
+      setMemberNotice('Could not copy. Select the username manually.');
     }
   };
 
@@ -648,8 +665,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
       const matchesSearch =
-        u.username.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-        (u.name && u.name.toLowerCase().includes(userSearchQuery.toLowerCase()));
+        u.username.toLowerCase().includes(userSearchQuery.trim().toLowerCase()) ||
+        ((u.displayName || u.name || '').toLowerCase().includes(userSearchQuery.trim().toLowerCase()));
       const matchesRole =
         userRoleFilter === 'all'
           ? true
@@ -676,7 +693,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       {(settingsSection === 'account' || settingsSection === 'data') && statusObj && <button type="button" className="ui-secondary" onClick={() => setSettingsSection('connection')}>Connection details</button>}
 
       {/* Container 1: Current Account */}
-      <div hidden={settingsSection !== 'account'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+      <div hidden={settingsSection !== 'account' || !!selectedMemberId} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
         <div
 
           className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
@@ -853,7 +870,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {/* Container 3: Church Members & permissions (Admin Only) */}
       {isAdmin && (
-        <div hidden={settingsSection !== 'members'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div hidden={settingsSection !== 'members' && settingsSection !== 'account'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
           <div
 
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
@@ -884,6 +901,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {!isUserDatabaseCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
+              {!selectedMemberId && <div className="space-y-2"><h3 className="text-lg font-semibold">User & admin accounts</h3><p className="text-sm text-slate-500">View usernames, edit accounts, or set a new password to prepare login details for a user.</p><label className="block text-sm font-medium">Find account<input type="text" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" placeholder="Name or username" value={userSearchQuery} onChange={event => setUserSearchQuery(event.target.value)} /></label></div>}
               <div className={selectedMemberId ? 'hidden' : 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2'}>
                 {/* Filter */}
                 <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
@@ -948,10 +966,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   const isManaging = managingUserId === u.id;
                   return <article key={u.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
                     <div className="space-y-1 min-w-0">
-                      <h3 className="font-semibold break-words">{u.name || u.username}{isCurrent ? ' (You)' : ''}</h3>
+                      <h3 className="font-semibold break-words">{u.displayName || u.name || u.username}{isCurrent ? ' (You)' : ''}</h3>
                       <p className="text-sm text-slate-600 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'} · {u.active !== false ? 'Active' : 'Deactivated'}</p>
                     </div>
-                    {!selectedMemberId ? <button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button> : <>
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{u.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id]?.password || 'Set a new password to view and copy'}</dd></dl>
+                    <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" onClick={() => void handleCopyMemberUsername(u)}><Copy className="h-4 w-4" /> Copy username</button>{memberCredentials[u.id] && <button type="button" className="ui-secondary" onClick={() => void handleCopyMemberCredentials(u.id, memberCredentials[u.id].username, memberCredentials[u.id].password)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>}</div>
+                    {!selectedMemberId ? <div className="flex flex-wrap gap-2"><button type="button" disabled={isManaging} className="ui-secondary" onClick={() => { setSelectedMemberId(u.id); startEditingMember(u); }}><Pencil className="h-4 w-4" /> Edit account</button><button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button></div> : <>
                       {editingMemberId === u.id && <form onSubmit={event => handleUpdateMember(event, u)} className="space-y-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
                         <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
@@ -959,11 +979,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
                         <div className="flex gap-2"><button className="ui-primary" disabled={isManaging}>Save</button><button type="button" className="ui-secondary" onClick={() => setEditingMemberId(null)}>Cancel</button></div>
                       </form>}
-                      {memberCredentials[u.id] ? <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
-                        <p className="text-sm font-semibold">Current session credentials</p>
-                        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id].username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id].password}</dd></dl>
-                        <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(u.id, memberCredentials[u.id].username, memberCredentials[u.id].password)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
-                      </div> : <p className="text-xs text-slate-500 dark:text-slate-400">Existing passwords cannot be retrieved. Use Edit account to set a new password, then you can view and copy it here during this admin session.</p>}
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{memberCredentials[u.id] ? 'This password is shown only in this admin session.' : 'Existing passwords cannot be retrieved. Use Edit account to set a new password, then you can view and copy it here during this admin session.'}</p>
                       {u.role === 'admin' ? <p>Administrators have full access.</p> : <div className="divide-y divide-slate-200 dark:divide-slate-800">
                         {([['canAdd', 'Add'], ['canEdit', 'Edit'], ['canDelete', 'Delete']] as const).map(([key, label]) => {
                           const enabled = Boolean(u.permissions?.[key]);
