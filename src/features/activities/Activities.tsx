@@ -6,6 +6,7 @@ import { groupByMonth } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
+import { isPastActivity, sortActivities } from './model';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -40,17 +41,11 @@ function todayKey() {
   return dateKey(new Date());
 }
 
-function sortActivities(items: ChurchActivity[]) {
-  return [...items].sort((a, b) => {
-    const dateOrder = a.activityDate.localeCompare(b.activityDate);
-    return dateOrder || (a.activityTime || '').localeCompare(b.activityTime || '');
-  });
-}
-
 export default function Activities({ currentUser, collapseSignal }: { currentUser: UserAccount | null; collapseSignal?: number }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(todayKey);
+  const [today, setToday] = useState(todayKey);
   const [items, setItems] = useState<ChurchActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -95,6 +90,17 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   };
 
   useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    const refreshToday = () => setToday(todayKey());
+    const timer = window.setInterval(refreshToday, 60_000);
+    window.addEventListener('focus', refreshToday);
+    document.addEventListener('visibilitychange', refreshToday);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refreshToday);
+      document.removeEventListener('visibilitychange', refreshToday);
+    };
+  }, []);
   useBackLayer(!!editor, () => { if (!savingRef.current) setEditor(null); });
 
   useEffect(() => {
@@ -183,6 +189,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
       const saved = await saveActivity(editor.item, editor.isNew);
       setItems(previous => sortActivities(editor.isNew ? [...previous, saved] : previous.map(item => item.id === saved.id ? saved : item)));
       setMonth(new Date(localDate(saved.activityDate).getFullYear(), localDate(saved.activityDate).getMonth(), 1));
+      setSelectedDate(saved.activityDate);
       setEditor(null);
     } catch (error) {
       console.error('Failed to save activity:', error);
@@ -234,13 +241,13 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         const color = monthColors[monthIndex] || monthColors[0];
         return <section key={group.key} className="space-y-2">
           <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
-          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; return <article id={`activity-card-${item.id}`} key={item.id} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 ${color}`}>
+          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 ${past ? 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400' : color}`}>
             <div className="flex min-h-[52px] items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-white/70 dark:bg-slate-900/60"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
               <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
               <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
-            {expanded && item.description && <p className="whitespace-pre-wrap break-words border-t border-current/10 pt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{item.description}</p>}
+            {expanded && item.description && <p className={`whitespace-pre-wrap break-words border-t border-current/10 pt-2 text-sm leading-relaxed ${past ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{item.description}</p>}
           </article>; })}
         </section>;
       })}
