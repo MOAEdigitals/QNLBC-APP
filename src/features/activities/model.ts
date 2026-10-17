@@ -11,3 +11,18 @@ export function sortActivities(items: ChurchActivity[]): ChurchActivity[] {
     return dateOrder || (a.activityTime || '').localeCompare(b.activityTime || '');
   });
 }
+
+/** Upcoming dates ascend; past dates follow, most recent first. */
+export function orderActivityList(items: ChurchActivity[], today: string): ChurchActivity[] {
+  const sorted = sortActivities(items);
+  return [
+    ...sorted.filter(item => !isPastActivity(item.activityDate, today)),
+    ...sorted.filter(item => isPastActivity(item.activityDate, today)).reverse(),
+  ];
+}
+
+export function activityBadge(activityDate: string, today: string, isNext: boolean): string | null {
+  if (isPastActivity(activityDate, today)) return null;
+  if (activityDate === today) return 'Today';
+  return isNext ? 'Next up' : 'Upcoming';
+}

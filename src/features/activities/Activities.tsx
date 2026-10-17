@@ -6,7 +6,7 @@ import { groupByMonth } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
-import { isPastActivity, sortActivities } from './model';
+import { activityBadge, isPastActivity, orderActivityList, sortActivities } from './model';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -120,15 +120,21 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   }, [items]);
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return items.filter(item => {
+    return orderActivityList(items.filter(item => {
       const title = item.title.toLowerCase();
       const kind = title.includes('wednesday') && title.includes('prayer') ? 'prayer'
         : title.includes('sunday service') ? 'sunday'
         : title.includes('saturday') && title.includes('practice') ? 'practice' : null;
       if (kind && !gatheringFilters[kind]) return false;
       return !query || `${item.title} ${item.description || ''}`.toLowerCase().includes(query);
-    });
-  }, [items, search, gatheringFilters]);
+    }), today);
+  }, [items, search, gatheringFilters, today]);
+  const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today))?.id;
+  // Keep past cards out of upcoming month groups, including when both share a month.
+  const activityGroups = [false, true].flatMap(past => {
+    const entries = filteredItems.filter(item => isPastActivity(item.activityDate, today) === past);
+    return groupByMonth(entries, item => item.activityDate).map(group => ({ ...group, period: past ? 'past' : 'upcoming' }));
+  });
 
   useEffect(() => {
     if (!openMenu) return;
@@ -236,15 +242,15 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
 
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
-      {groupByMonth(filteredItems, item => item.activityDate).map(group => {
+      {activityGroups.map(group => {
         const monthIndex = Number(group.key.slice(5, 7)) - 1;
         const color = monthColors[monthIndex] || monthColors[0];
-        return <section key={group.key} className="space-y-2">
+        return <section key={`${group.period}-${group.key}`} className="space-y-2">
           <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
           {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 ${past ? 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400' : color}`}>
             <div className="flex min-h-[52px] items-center gap-3">
               <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-white/70 dark:bg-slate-900/60"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
-              <div className="min-w-0 flex-1"><h3 className="truncate text-sm font-semibold">{item.title}</h3>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 truncate text-sm font-semibold">{item.title}</h3>{!past && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${item.activityDate === today ? 'bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-white/70 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300'}`}>{activityBadge(item.activityDate, today, item.id === nextActivityId)}</span>}</div>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
               <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
             {expanded && item.description && <p className={`whitespace-pre-wrap break-words border-t border-current/10 pt-2 text-sm leading-relaxed ${past ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{item.description}</p>}
