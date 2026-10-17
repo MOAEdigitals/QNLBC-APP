@@ -125,15 +125,22 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const rect = input.getBoundingClientRect();
     const form = input.closest('form');
     const formRect = form?.getBoundingClientRect();
-    let usableTop = Math.max(viewportTop + 12, formRect?.top ?? viewportTop + 12);
-    let usableBottom = Math.min(viewportBottom - 12, formRect?.bottom ?? viewportBottom - 12);
+    const body = input.closest('.ui-form-body');
+    const bodyRect = body?.getBoundingClientRect();
+    let usableTop = Math.max(viewportTop + 12, bodyRect?.top ?? formRect?.top ?? viewportTop + 12);
+    let usableBottom = Math.min(viewportBottom - 12, bodyRect?.bottom ?? formRect?.bottom ?? viewportBottom - 12);
     // Use the same action containers as the shared form styling.
-    form?.querySelectorAll(':scope > div:last-child, :scope > fieldset > div:last-child').forEach(footer => {
+    form?.querySelectorAll('.ui-form-actions, :scope > footer, :scope > div:last-child, :scope > fieldset > div:last-child').forEach(footer => {
       if (!footer.querySelector('button[type="submit"]')) return;
       const bounds = footer.getBoundingClientRect();
       if (bounds.height > 0 && bounds.top < usableBottom && bounds.bottom > usableTop) usableBottom = Math.max(usableTop, bounds.top - 6);
     });
     usableTop = Math.min(usableTop, usableBottom);
+    // A field scrolled behind the header/actions must not leave its picker floating over them.
+    if (rect.bottom <= usableTop || rect.top >= usableBottom) {
+      setMobilePickerPosition({ top: usableTop, left: rect.left, width: rect.width, maxHeight: 0 });
+      return;
+    }
     const { top, maxHeight } = pickerPlacement(rect, usableTop, usableBottom, desiredHeight);
     setMobilePickerPosition({
       top,
@@ -304,7 +311,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const form = inputRef.current?.closest('form');
     if (form) {
       observer.observe(form);
-      form.querySelectorAll(':scope > div:last-child, :scope > fieldset > div:last-child').forEach(element => observer.observe(element));
+      form.querySelectorAll('.ui-form-body, .ui-form-actions, :scope > footer, :scope > div:last-child, :scope > fieldset > div:last-child').forEach(element => observer.observe(element));
     }
     window.addEventListener('resize', reposition);
     window.addEventListener('scroll', reposition, true);
@@ -659,6 +666,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       {/* Suggestion Dropdown List (Scrollable on touch/mouse, high z-index) */}
       {isOpen && (displayedItems.length > 0 || showSongCategoryFilters) && (() => {
         if (!mobilePickerPosition || mobilePickerPosition.maxHeight <= 0) return null;
+        const pickerHost = inputRef.current?.closest<HTMLElement>('.ui-form-screen');
+        const hostBounds = pickerHost?.getBoundingClientRect();
         const dropdown = (
           <div
           ref={dropdownRef}
@@ -701,10 +710,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           style={mobilePickerPosition
             ? {
                 WebkitOverflowScrolling: 'touch',
-                top: mobilePickerPosition.top,
-                left: mobilePickerPosition.left,
+                position: pickerHost ? 'absolute' : 'fixed',
+                top: mobilePickerPosition.top - (hostBounds?.top ?? 0) + (pickerHost?.scrollTop ?? 0),
+                left: mobilePickerPosition.left - (hostBounds?.left ?? 0) + (pickerHost?.scrollLeft ?? 0),
                 width: mobilePickerPosition.width,
                 maxHeight: mobilePickerPosition.maxHeight,
+                clipPath: 'inset(0 -12px)',
               }
             : { WebkitOverflowScrolling: 'touch' }}
         >
@@ -830,7 +841,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         );
 
 
-        return createPortal(dropdown, document.body);
+        // Keep the picker in the dialog's stacking context, below its action bar.
+        return createPortal(dropdown, pickerHost || document.body);
       })()}
     </div>
   );

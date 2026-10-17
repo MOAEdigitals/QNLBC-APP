@@ -657,7 +657,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddBirthday} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
+            <form onSubmit={handleAddBirthday} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {birthdaySaveError && (
                 <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300">
                   {birthdaySaveError}
@@ -703,7 +704,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -742,7 +744,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddAnniversary} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
+            <form onSubmit={handleAddAnniversary} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Couple / Event / Ministry Title *
@@ -817,7 +820,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
 
 
-              <div className="flex justify-end gap-3 pt-3">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsAddingAnniversary(false)}
@@ -851,7 +855,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddVisitor} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
+            <form onSubmit={handleAddVisitor} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Visitor Name *
@@ -936,7 +941,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
 
 
-              <div className="flex justify-end gap-3 pt-3">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsAddingVisitor(false)}
@@ -970,7 +976,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddSpecial} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
+            <form onSubmit={handleAddSpecial} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Name / Honoree *
@@ -1074,7 +1081,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsAddingSpecial(false)}

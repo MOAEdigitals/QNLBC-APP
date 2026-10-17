@@ -230,7 +230,7 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
         {activeAttachment && <div className="mt-5 bg-white text-slate-900 rounded-xl p-2 sm:p-4"><Suspense fallback={<p role="status">Loading viewer…</p>}><AttachmentViewer key={activeAttachment.path} attachment={activeAttachment} /></Suspense></div>}
       </article></div>
     </div>}
-    {editor && <div ref={surface} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="sermon-editor-title" className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 outline-none" onKeyDown={screenKeys}>
+    {editor && <div ref={surface} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="sermon-editor-title" className="ui-viewport-screen fixed inset-0 z-50 flex flex-col overflow-hidden bg-white dark:bg-slate-950 outline-none" onKeyDown={screenKeys}>
       <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-5 pt-[env(safe-area-inset-top)]"><div className="max-w-4xl mx-auto flex justify-between items-center py-2"><h2 id="sermon-editor-title" className="font-semibold">{editor.original ? 'Edit outline' : 'Add outline'}</h2><button type="button" disabled={saving || checkingFiles} aria-label="Close editor" className={action} onClick={closeEditor}><X className="w-5 h-5" /></button></div></header>
       <form onSubmit={event => { event.preventDefault(); void submit('published'); }} autoComplete="off" data-form-type="other" className="flex flex-col flex-1 min-h-0">
         <div className="flex-1 min-h-0 overflow-y-auto"><div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">

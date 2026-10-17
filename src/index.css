@@ -81,21 +81,19 @@ button.ui-settings-row { cursor: pointer; }
 .practice-screen[data-practice-open] div:has(> #practice-search-input) { display: none; }
 .practice-screen[data-practice-open] .practice-card { border: 0; padding: 0; }
 .ui-form-screen { margin: 0 !important; }
-.ui-form-screen > div { display: flex; flex-direction: column; max-height: 92dvh; }
-.ui-form-screen > div > div:first-child { flex-shrink: 0; }
-.ui-form-screen form { min-height: 0; overflow-y: auto; max-height: none; }
-.ui-form-screen form { display: flex; flex-direction: column; gap: 1rem; }
-.ui-form-screen > div > div:first-child h3 > svg { display: none; }
+.ui-form-screen > div:has(.ui-modal-form) { display: flex; flex-direction: column; max-height: min(92dvh, calc(100dvh - 2rem)); margin: 0; }
+.ui-form-screen > div:has(.ui-modal-form) > div:first-child { flex-shrink: 0; }
+.ui-form-screen .ui-modal-form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; max-height: none; padding: 0; gap: 0; }
+.ui-form-screen > div:has(.ui-modal-form) > div:first-child h3 > svg { display: none; }
 .ui-form-screen form > fieldset { display: contents; }
-.ui-form-screen :is(form, fieldset) > div { flex-shrink: 0; margin-block: 0; }
-.ui-form-screen :is(form, fieldset) > div:last-child { position: sticky; bottom: -1px; background: var(--ui-surface); padding: 1rem 0; z-index: 10; }
-.ui-form-screen :is(form, fieldset) > div:last-child { margin-top: auto; }
+.ui-form-screen .ui-form-body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; gap: 1rem; padding: 1.25rem; }
+.ui-form-screen .ui-form-body > * { flex-shrink: 0; margin-block: 0; }
+.ui-form-screen .ui-form-actions { position: relative; z-index: 210; flex: 0 0 auto; order: 100; margin: 0; border-top: 1px solid var(--ui-border); background: var(--ui-surface); padding: 1rem 1.25rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 .practice-screen [role="status"].fixed { bottom: calc(5.5rem + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 2rem); }
 @media (max-width: 639px) {
   body:has(.ui-form-screen) { overflow: hidden; }
   .ui-form-screen { padding: 0; align-items: stretch; background: var(--ui-surface); overflow: hidden; }
-  .ui-form-screen > div { width: 100%; height: 100dvh; max-height: 100dvh; max-width: none; border: 0; border-radius: 0; margin: 0; }
-  .ui-form-screen form { flex: 1; padding-bottom: env(safe-area-inset-bottom); }
+  .ui-form-screen > div:has(.ui-modal-form) { width: 100%; height: 100dvh; max-height: 100dvh; max-width: none; border: 0; border-radius: 0; margin: 0; }
   body:has(.ui-form-screen) > #root nav.fixed { display: none; }
   .practice-screen [id^="practice-track-"] > div:nth-of-type(1) { align-items: center; }
 }
@@ -133,10 +131,7 @@ button.ui-settings-row { cursor: pointer; }
 .sermon-prose .ProseMirror:focus { outline: none; }
 
 @media (max-width: 639px) {
-  .ui-form-screen { top: var(--form-viewport-top, 0px); bottom: auto; height: var(--form-viewport-height, 100dvh); }
-  .ui-form-screen > div { height: 100%; max-height: 100%; }
-  /* Scroll clearance must not become physical space below the sticky actions. */
-  .ui-form-screen form { scroll-padding-bottom: 6rem; padding-bottom: 0; }
-  .ui-form-screen :is(form, fieldset) > div:last-child { bottom: 0; }
-  .ui-form-screen textarea { scroll-margin-bottom: 6rem; }
+  .ui-form-screen, .ui-viewport-screen { top: var(--form-viewport-top, 0px); bottom: auto; height: var(--form-viewport-height, 100dvh); }
+  .ui-form-screen > div:has(.ui-modal-form) { height: 100%; max-height: 100%; }
+  .ui-form-screen .ui-form-body { padding: 1rem; }
 }

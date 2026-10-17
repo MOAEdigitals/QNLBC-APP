@@ -2935,7 +2935,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveScheduleSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveScheduleSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Performer Name(s) *
@@ -3045,7 +3046,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsEditingSchedule(false)}
@@ -3091,7 +3093,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSavePracticeSubmit} autoComplete="off" data-form-type="other" className="flex max-h-[80vh] flex-col gap-4 overflow-y-auto p-5">
+            <form onSubmit={handleSavePracticeSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {/* Group name */}
               <div className="order-3">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
@@ -3225,7 +3228,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
 
               {practiceSaveError && <p role="alert" className="order-7 text-xs text-rose-600 dark:text-rose-400">{practiceSaveError}</p>}
-              <div className="order-8 flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions order-8 flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsEditingPractice(false)}
@@ -3280,7 +3284,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveTrackModalSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
+            <form onSubmit={handleSaveTrackModalSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {trackSaveError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{trackSaveError}</p>}
               {/* Attachment Category (Segmented Buttons matching Image 2) */}
               <div>
@@ -3413,7 +3418,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
 
               {/* Modal Footer */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => {
@@ -3471,9 +3477,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSaveVocalPartModalSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
+            <form onSubmit={handleSaveVocalPartModalSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
               {vocalPartSaveError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{vocalPartSaveError}</p>}
               <fieldset disabled={isSavingVocalPart} className="space-y-4">
+              <div className="ui-form-body">
               {/* Vocal Part Selection */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -3735,7 +3742,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
 
               {/* Modal Footer */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={handleCloseVocalPartModal}
@@ -3789,7 +3797,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSaveChoirSubmit} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4">
+            <form onSubmit={handleSaveChoirSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {/* 1. Scheduled Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
@@ -3866,7 +3875,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
 
               {/* Modal Footer */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsEditingChoir(false)}

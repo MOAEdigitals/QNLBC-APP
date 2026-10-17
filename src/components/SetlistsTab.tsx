@@ -1468,7 +1468,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               </div>
             )}
 
-            <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="p-4 sm:p-5 space-y-4 max-h-[82vh] overflow-y-auto">
+            <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {/* Date & Title */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
@@ -1995,7 +1996,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               );
             })()}
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   disabled={isSaving}

@@ -1059,7 +1059,7 @@ if (isEditing && !savingSongRef.current) {
 
       {newCategory !== null && <form className="flex gap-2 items-center" onSubmit={event => { event.preventDefault(); void createCategory(); }}>
         <input aria-label="Category name" maxLength={40} autoComplete="off" value={newCategory} onChange={event => setNewCategory(event.target.value)} className="min-w-0 flex-1 border rounded-lg p-2 bg-transparent" />
-        <button className="ui-primary" disabled={savingCategory || !newCategory.trim()}>{savingCategory ? 'Saving…' : 'Save'}</button>
+        <button className="ui-primary" disabled={savingCategory || !newCategory.trim()}>{savingCategory ? 'Savingï¿½' : 'Save'}</button>
         <button type="button" className="ui-secondary" disabled={savingCategory} onClick={() => setNewCategory(null)}>Cancel</button>
       </form>}
       {categoryError && <p role="alert" className="text-red-600">{categoryError}</p>}
@@ -1764,7 +1764,8 @@ if (isEditing && !savingSongRef.current) {
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
+            <div className="ui-modal-form">
+              <div className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                   Select Target Setlist *
@@ -1828,7 +1829,8 @@ if (isEditing && !savingSongRef.current) {
                 </>
               )}
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddToSetlistOpen(false)}
@@ -1862,7 +1864,8 @@ if (isEditing && !savingSongRef.current) {
               </button>
             </div>
 
-            <form onSubmit={handleSaveAttachment} autoComplete="off" data-form-type="other" className="p-5 space-y-4">
+            <form onSubmit={handleSaveAttachment} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {/* Category Choice: Plus One vs. Minus One */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -2008,7 +2011,8 @@ if (isEditing && !savingSongRef.current) {
                 </span>
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => { setIsAddingAttachment(false); setEditingAttachmentId(null); }}
@@ -2053,7 +2057,8 @@ if (isEditing && !savingSongRef.current) {
               </button>
             </div>
 
-            <form onSubmit={handleSaveSongForm} autoComplete="off" data-form-type="other" className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleSaveSongForm} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <div className="ui-form-body">
               {/* Song Title (Required) */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
@@ -2149,7 +2154,8 @@ if (isEditing && !savingSongRef.current) {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              </div>
+              <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
                   disabled={isSavingSong}
