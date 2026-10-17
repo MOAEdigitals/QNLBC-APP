@@ -1,4 +1,5 @@
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
+import { initialAppTab } from './utils/tabNavigation';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { isBackLayerMounted, useBackLayer } from './hooks/useBackLayer';
@@ -122,10 +123,7 @@ export default function App() {
   }, [theme]);
 
   // Active Tab & Browser Navigation (Preserved)
-  const [currentTab, setCurrentTab] = useState<AppTab>('special-numbers');
-  useEffect(() => {
-    window.history.replaceState({ tab: 'special-numbers' }, '', '#special-numbers');
-  }, []);
+  const [currentTab, setCurrentTab] = useState<AppTab>(() => initialAppTab(window.location.hash));
 
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
