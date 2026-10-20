@@ -11,18 +11,9 @@ import { activityBadge, isPastActivity, orderActivityList, sortActivities } from
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
 const monthColors = [
-  'border-sky-300 bg-sky-50 dark:border-sky-900 dark:bg-sky-950/25',
-  'border-pink-300 bg-pink-50 dark:border-pink-900 dark:bg-pink-950/25',
-  'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/25',
-  'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/25',
-  'border-violet-300 bg-violet-50 dark:border-violet-900 dark:bg-violet-950/25',
-  'border-cyan-300 bg-cyan-50 dark:border-cyan-900 dark:bg-cyan-950/25',
-  'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/25',
-  'border-teal-300 bg-teal-50 dark:border-teal-900 dark:bg-teal-950/25',
-  'border-indigo-300 bg-indigo-50 dark:border-indigo-900 dark:bg-indigo-950/25',
-  'border-purple-300 bg-purple-50 dark:border-purple-900 dark:bg-purple-950/25',
-  'border-lime-300 bg-lime-50 dark:border-lime-900 dark:bg-lime-950/25',
-  'border-red-300 bg-red-50 dark:border-red-900 dark:bg-red-950/25',
+  'bg-sky-800', 'bg-pink-800', 'bg-emerald-800', 'bg-amber-800',
+  'bg-violet-800', 'bg-cyan-800', 'bg-rose-800', 'bg-teal-800',
+  'bg-indigo-800', 'bg-purple-800', 'bg-lime-800', 'bg-red-800',
 ];
 
 function localDate(value: string) {
@@ -244,13 +235,14 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         const color = monthColors[monthIndex] || monthColors[0];
         return <section key={group.key} className="space-y-2">
           <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
-          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 ${past ? 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400' : color}`}>
-            <div className="flex min-h-[52px] items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-white/70 dark:bg-slate-900/60"><span className="text-[10px] font-bold uppercase text-slate-500">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span><span className="text-lg font-bold leading-none">{date.getDate()}</span></div>
-              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 truncate text-sm font-semibold">{item.title}</h3>{!past && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${item.activityDate === today ? 'bg-emerald-100/70 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-white/70 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300'}`}>{activityBadge(item.activityDate, today, item.id === nextActivityId)}</span>}</div>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
-              <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
+          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl px-3 py-2.5 text-white ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
+            <div className="flex min-h-11 items-center gap-3">
+              <div className="flex w-10 shrink-0 flex-col items-center justify-center"><span className="text-2xl font-bold leading-none">{date.getDate()}</span><span className="mt-0.5 text-[11px] leading-none">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></div>
+              <div aria-hidden="true" className="h-10 w-px shrink-0 bg-white/50" />
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 break-words text-sm font-semibold">{item.title}</h3>{!past && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${item.activityDate === today ? 'bg-white text-emerald-800' : 'bg-white text-slate-700'}`}>{activityBadge(item.activityDate, today, item.id === nextActivityId)}</span>}</div>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-white"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+              <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
-            {expanded && item.description && <p className={`whitespace-pre-wrap break-words border-t border-current/10 pt-2 text-sm leading-relaxed ${past ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}`}>{item.description}</p>}
+            {expanded && item.description && <p className="mt-2 whitespace-pre-wrap break-words border-t border-white/30 pt-3 text-sm leading-relaxed text-white">{item.description}</p>}
           </article>; })}
         </section>;
       })}
