@@ -11,9 +11,18 @@ import { activityBadge, isPastActivity, orderActivityList, sortActivities } from
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
 const monthColors = [
-  'bg-sky-800', 'bg-pink-800', 'bg-emerald-800', 'bg-amber-800',
-  'bg-violet-800', 'bg-cyan-800', 'bg-rose-800', 'bg-teal-800',
-  'bg-indigo-800', 'bg-purple-800', 'bg-lime-800', 'bg-red-800',
+  'bg-sky-50 border-sky-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-pink-50 border-pink-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-emerald-50 border-emerald-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-amber-50 border-amber-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-violet-50 border-violet-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-cyan-50 border-cyan-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-rose-50 border-rose-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-teal-50 border-teal-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-indigo-50 border-indigo-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-purple-50 border-purple-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-lime-50 border-lime-100 dark:bg-slate-900 dark:border-slate-800',
+  'bg-red-50 border-red-100 dark:bg-slate-900 dark:border-slate-800',
 ];
 
 function localDate(value: string) {
@@ -220,8 +229,9 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
           const count = counts.get(key) || 0;
           const isSelected = key === selectedDate;
-          return <button key={key} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
-            <span className={`flex h-7 w-7 items-center justify-center rounded-full ${isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
+          const isCurrentDay = key === today;
+          return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
+            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isCurrentDay ? 'ring-2 ring-[var(--ui-accent)] ring-offset-2 ring-offset-white dark:ring-offset-slate-900 font-bold' : ''} ${isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
             <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}</span>
           </button>;
         })}
@@ -235,14 +245,14 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         const color = monthColors[monthIndex] || monthColors[0];
         return <section key={group.key} className="space-y-2">
           <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
-          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl px-3 py-2.5 text-white ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
+          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 text-slate-800 dark:text-slate-200 ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
             <div className="flex min-h-11 items-center gap-3">
               <div className="flex w-10 shrink-0 flex-col items-center justify-center"><span className="text-2xl font-bold leading-none">{date.getDate()}</span><span className="mt-0.5 text-[11px] leading-none">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></div>
-              <div aria-hidden="true" className="h-10 w-px shrink-0 bg-white/50" />
-              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 break-words text-sm font-semibold">{item.title}</h3>{!past && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${item.activityDate === today ? 'bg-white text-emerald-800' : 'bg-white text-slate-700'}`}>{activityBadge(item.activityDate, today, item.id === nextActivityId)}</span>}</div>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-white"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+              <div aria-hidden="true" className="h-10 w-px shrink-0 bg-slate-300 dark:bg-slate-700" />
+              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h3 className="min-w-0 break-words text-sm font-semibold">{item.title}</h3>{!past && <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${item.activityDate === today ? 'bg-emerald-100 text-emerald-800 dark:bg-slate-800 dark:text-emerald-300' : 'bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{activityBadge(item.activityDate, today, item.id === nextActivityId)}</span>}</div>{item.activityTime && <p className="mt-1 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
               <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreVertical className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
-            {expanded && item.description && <p className="mt-2 whitespace-pre-wrap break-words border-t border-white/30 pt-3 text-sm leading-relaxed text-white">{item.description}</p>}
+            {expanded && item.description && <p className="mt-2 whitespace-pre-wrap break-words border-t border-slate-200 dark:border-slate-700 pt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{item.description}</p>}
           </article>; })}
         </section>;
       })}
