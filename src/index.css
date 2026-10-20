@@ -138,6 +138,8 @@ button.ui-settings-row { cursor: pointer; }
 
 /* Personal themes accent controls; neutral surfaces and semantic colors stay intact. */
 html[data-color-theme] .ui-revamp button[class~="bg-slate-900"],
+html[data-color-theme] button[class~="bg-indigo-600"],
+html[data-color-theme] button[class~="bg-blue-600"],
 html[data-color-theme] .ui-primary {
   background: var(--theme-button); color: var(--theme-button-text); border-color: var(--theme-button);
 }

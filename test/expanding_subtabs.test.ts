@@ -11,8 +11,8 @@ test('Schedules keeps every subtab one tap away and labels only the selected ite
   assert.match(source, /aria-label="Schedules sections" className="flex gap-1\.5/);
   assert.match(source, /activeSubTab === 'schedules' \? 'flex-1' : 'w-11 shrink-0'/);
   assert.match(source, /activeSubTab === 'practice' \? 'flex-1' : 'w-11 shrink-0'/);
-  assert.match(source, /activeSubTab === tab \? 'inline' : 'hidden'/);
-  assert.match(source, /\(\['activities', 'outlines'\] as const\)\.map[\s\S]*?aria-label="Song Numbers"[\s\S]*?aria-label="Choir"[\s\S]*?aria-label="Practice"/);
+  assert.match(source, /activeSubTab === 'activities' \? 'inline' : 'hidden'/);
+  assert.match(source, /aria-label="Activities"[\s\S]*?aria-label="Song Numbers"[\s\S]*?aria-label="Choir"[\s\S]*?aria-label="Practice"/);
   assert.doesNotMatch(source, /\{ schedules: 'Song Numbers', practice: 'Practice'/);
   assert.doesNotMatch(styles, /\.practice-screen > div:first-child > button/);
 });

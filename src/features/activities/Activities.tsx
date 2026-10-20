@@ -1,3 +1,4 @@
+import { highlightActivityCards } from './highlight';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreVertical, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ChurchActivity, UserAccount } from '../../types';
@@ -174,12 +175,14 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
 
   const showActivitiesForDate = (date: string) => {
     setSelectedDate(date);
-    const first = items.find(item => item.activityDate === date);
+    const matches = filteredItems.filter(item => item.activityDate === date);
+    const first = matches[0];
     if (!first) return;
     document.getElementById(`activity-card-${first.id}`)?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
     });
+    highlightActivityCards(matches.map(item => document.getElementById(`activity-card-${item.id}`)).filter((element): element is HTMLElement => !!element), window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -231,7 +234,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
           const isSelected = key === selectedDate;
           const isCurrentDay = key === today;
           return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
-            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isCurrentDay ? 'ring-2 ring-[var(--ui-accent)] ring-offset-2 ring-offset-white dark:ring-offset-slate-900 font-bold' : ''} ${isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
+            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isCurrentDay ? 'bg-indigo-600 text-white dark:bg-indigo-300 dark:text-slate-950 font-bold' : isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
             <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}</span>
           </button>;
         })}

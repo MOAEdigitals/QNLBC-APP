@@ -87,6 +87,7 @@ const SetlistsTab = lazy(() => import('./components/SetlistsTab').then((module) 
 const RecognitionsTab = lazy(() => import('./components/RecognitionsTab').then((module) => ({ default: module.RecognitionsTab })));
 const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then((module) => ({ default: module.SpecialNumberTab })));
 const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
+const SermonOutlines = React.lazy(() => import('./features/sermons/SermonOutlines'));
 const SettingsTab = lazy(() => import('./components/SettingsTab').then((module) => ({ default: module.SettingsTab })));
 
 function TabLoadingSkeleton() {
@@ -1344,6 +1345,7 @@ export default function App() {
           />
         )}
 
+        {currentTab === 'outlines' && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines} />}
         {currentTab === 'settings' && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
           <SettingsTab
             currentUser={currentUser}

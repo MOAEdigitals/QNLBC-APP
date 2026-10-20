@@ -850,7 +850,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {COLOR_THEMES.map(option => <label key={option.id} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-slate-300 dark:border-slate-700 p-3">
                   <input type="radio" name="color-theme" value={option.id} checked={colorTheme === option.id} onChange={() => onChangeColorTheme(option.id)} className="h-4 w-4 shrink-0" />
-                  <span aria-hidden="true" className="flex h-8 w-10 shrink-0 overflow-hidden rounded-lg border border-black/10"><span className="w-1/2" style={{ backgroundColor: option.base }} /><span className="w-1/2" style={{ backgroundColor: option.accent }} /></span>
+                  <span aria-hidden="true" className="flex h-8 w-10 shrink-0 overflow-hidden rounded-lg border border-black/10">{option.swatches.map(color => <span key={color} className="w-1/4" style={{ backgroundColor: color }} />)}</span>
                   <span className="text-sm font-medium">{option.name}</span>
                 </label>)}
               </div>

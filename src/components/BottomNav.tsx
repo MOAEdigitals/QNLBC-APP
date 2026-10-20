@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppTab } from '../types';
-import { CalendarDays, Award, Music } from 'lucide-react';
+import { CalendarDays, Award, Music, FileText } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: AppTab;
@@ -36,6 +36,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       sublabel: 'Library',
       icon: Music,
     },
+    { id: 'outlines' as AppTab, label: 'Outlines', sublabel: 'Sermons', icon: FileText },
   ];
 
   return (

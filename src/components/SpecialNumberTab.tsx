@@ -92,7 +92,6 @@ import {
   AlertCircle,
 } from 'lucide-react';
 
-const SermonOutlines = React.lazy(() => import('../features/sermons/SermonOutlines'));
 const Activities = React.lazy(() => import('../features/activities/Activities'));
 
 interface SpecialNumberTabProps {
@@ -881,7 +880,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }
 
       // These subtabs own their reader/card state and handle the same signal.
-      if (activeSubTab === 'activities' || activeSubTab === 'outlines') return;
+      if (activeSubTab === 'activities') return;
 
       if (activeSubTab === 'schedules' && selectedEntryId) {
         const el = document.getElementById(`schedule-card-${selectedEntryId}`);
@@ -1935,28 +1934,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
       {/* The selected section expands to show its label; the others remain one-tap icons. */}
       <div role="group" aria-label="Schedules sections" className="flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
-        {(['activities', 'outlines'] as const).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveSubTab(tab)}
-            aria-pressed={activeSubTab === tab}
-            aria-label={tab === 'outlines' ? 'Outlines' : 'Activities'}
-            title={tab === 'outlines' ? 'Outlines' : 'Activities'}
-            className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === tab ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-              activeSubTab === tab
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            {tab === 'outlines' ? (
-              <FileText className="w-5 h-5 sm:w-4 sm:h-4 text-violet-500 shrink-0" />
-            ) : (
-              <Calendar className="w-5 h-5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
-            )}
-            <span className={`${activeSubTab === tab ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>{tab === 'outlines' ? 'Outlines' : 'Activities'}</span>
-          </button>
-        ))}
+        <button type="button" onClick={() => setActiveSubTab('activities')} aria-pressed={activeSubTab === 'activities'} aria-label="Activities" title="Activities"
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${activeSubTab === 'activities' ? 'flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'w-11 shrink-0 text-slate-600 dark:text-slate-400'} sm:flex-1 sm:w-auto`}>
+          <Calendar className="w-5 h-5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
+          <span className={`${activeSubTab === 'activities' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Activities</span>
+        </button>
 
         <button
           type="button"
@@ -2007,7 +1989,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         </button>
       </div>
 
-      {activeSubTab === 'outlines' && <React.Suspense fallback={<p role="status">Loading outlines…</p>}><SermonOutlines currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>}
       {activeSubTab === 'activities' && (
         <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
       )}
@@ -3906,7 +3887,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       />
 
       {/* Floating Action Button (FAB) for Song Numbers - Circular & anchored at lower-right across all sub-tabs */}
-      {activeSubTab !== 'outlines' && activeSubTab !== 'activities' && !isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
+      {activeSubTab !== 'activities' && !isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
         <button
           type="button"
           onClick={() => {

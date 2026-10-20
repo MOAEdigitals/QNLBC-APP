@@ -1,12 +1,8 @@
 export const COLOR_THEMES = [
-  { id: 'default', name: 'Default', base: '#0f172a', accent: '#93c5fd' },
-  { id: 'prompt', name: 'Prompt Blue / AI Green', base: '#0B132B', accent: '#39FF88' },
-  { id: 'blueberry', name: 'Blueberry / Cream Soda', base: '#283D87', accent: '#FFF1C7' },
-  { id: 'raspberry', name: 'Raspberry / Pale Sky', base: '#BD0C51', accent: '#E0F2FF' },
-  { id: 'teal', name: 'Cyber Teal / Aqua Foam', base: '#003B41', accent: '#91F9DF' },
-  { id: 'clay', name: 'Clay Brown / Soft Butter', base: '#6B352A', accent: '#FFF1A6' },
-  { id: 'forest', name: 'Forest Graphite / Acid Mint', base: '#18251D', accent: '#B7FF72' },
-  { id: 'inkberry', name: 'Inkberry / Peach', base: '#1A0B2E', accent: '#FFB7A5' },
+  { id: 'default', name: 'Corporate (Default)', base: '#44749D', accent: '#C6D4E1', swatches: ['#BDB8AD','#EBE7E0','#C6D4E1','#44749D'] },
+  { id: 'zesty', name: 'Zesty', base: '#0F2080', accent: '#85C0F9', swatches: ['#F5793A','#A95AA1','#85C0F9','#0F2080'] },
+  { id: 'elegant', name: 'Elegant', base: '#382119', accent: '#ABC3C9', swatches: ['#ABC3C9','#E0DCD3','#CCBE9F','#382119'] },
+  { id: 'retro', name: 'Retro', base: '#601A4A', accent: '#63ACBE', swatches: ['#601A4A','#EE442F','#63ACBE','#F9F4EC'] },
 ] as const;
 export type ColorTheme = typeof COLOR_THEMES[number]['id'];
 export function loadColorTheme(): ColorTheme {
@@ -22,13 +18,11 @@ export function applyColorTheme(root: HTMLElement, id: ColorTheme, mode: 'light'
     ...['blue', 'indigo'].flatMap(color => [50,100,200,300,400,500,600,700,800,900,950].map(step => `--color-${color}-${step}`))];
   properties.forEach(property => root.style.removeProperty(property));
   delete root.dataset.colorTheme;
-  if (theme.id !== 'default') {
-    root.dataset.colorTheme = theme.id;
-    const foreground = mode === 'dark' ? theme.accent : theme.base;
-    root.style.setProperty('--ui-accent', foreground);
-    root.style.setProperty('--theme-button', foreground);
-    root.style.setProperty('--theme-button-text', mode === 'dark' ? theme.base : '#ffffff');
-    root.style.setProperty('--theme-highlight', `color-mix(in srgb, ${mode === 'dark' ? theme.accent : theme.base} 12%, ${mode === 'dark' ? '#0f172a' : '#ffffff'})`);
-  }
+  root.dataset.colorTheme = theme.id;
+  const foreground = mode === 'dark' ? theme.accent : theme.base;
+  root.style.setProperty('--ui-accent', foreground);
+  root.style.setProperty('--theme-button', foreground);
+  root.style.setProperty('--theme-button-text', mode === 'dark' ? '#0f172a' : '#ffffff');
+  root.style.setProperty('--theme-highlight', `color-mix(in srgb, ${mode === 'dark' ? theme.accent : theme.base} 12%, ${mode === 'dark' ? '#0f172a' : '#ffffff'})`);
   try { localStorage.setItem('qnlbc_color_theme', theme.id); } catch {}
 }

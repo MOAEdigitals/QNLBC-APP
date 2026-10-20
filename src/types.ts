@@ -265,9 +265,9 @@ export interface ChurchActivity {
   updated_at?: string;
 }
 
-export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'settings';
+export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'outlines' | 'settings';
 export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
-export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir' | 'outlines' | 'activities';
+export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir' | 'activities';
 
 export type VocalPartLabel =
   | 'Soprano'
