@@ -12,8 +12,8 @@ test('past schedules remain gray even while expanded', () => {
   assert.match(special, /isSelected \? 'ring-2 ring-slate-400 dark:ring-slate-600'/);
 });
 
-test('past setlists remain gray across their expanded inner content', () => {
-  assert.match(setlists, /isPast\s*\n\s*\? `bg-slate-100\/70[\s\S]*?opacity-60 grayscale/);
+test('past setlists retain muted surfaces without fading their action menus', () => {
+  assert.match(setlists, /isPast\s*\n\s*\? `bg-slate-100\/70[\s\S]*?text-slate-700 dark:text-slate-200/);
   assert.match(setlists, /isSelected[\s\S]*?border-slate-400 dark:border-slate-600 ring-2/);
   assert.doesNotMatch(setlists, /hover:grayscale-0/);
   assert.doesNotMatch(setlists, /isPast && !isSelected/);

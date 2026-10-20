@@ -869,9 +869,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   key={item.id}
                   id={`setlist-card-${item.id}`}
                   onClick={(e) => handleSelectSetlist(item.id, e)}
-                  className={`p-3 min-w-0 rounded-2xl border transition-all cursor-pointer ${
+                  className={`relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
-                      ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-500 opacity-60 grayscale ${
+                      ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 ${
                           isSelected
                             ? 'border-slate-400 dark:border-slate-600 ring-2 ring-slate-300 dark:ring-slate-700'
                             : 'border-slate-200/80 dark:border-slate-800/70'
