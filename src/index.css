@@ -135,29 +135,3 @@ button.ui-settings-row { cursor: pointer; }
   .ui-form-screen > div:has(.ui-modal-form) { height: 100%; max-height: 100%; }
   .ui-form-screen .ui-form-body { padding: 1rem; }
 }
-
-/* Personal themes accent controls; neutral surfaces and semantic colors stay intact. */
-html[data-color-theme] .ui-revamp button[class~="bg-slate-900"],
-html[data-color-theme] button[class~="bg-indigo-600"],
-html[data-color-theme] button[class~="bg-blue-600"],
-html[data-color-theme] .ui-primary {
-  background: var(--theme-button); color: var(--theme-button-text); border-color: var(--theme-button);
-}
-html[data-color-theme] .ui-primary:hover { filter: brightness(.94); }
-html[data-color-theme] nav button[aria-current="page"],
-html[data-color-theme] nav button[aria-current="page"] [class~="bg-slate-100"],
-html[data-color-theme] [aria-label="Schedules sections"] button[aria-pressed="true"],
-html[data-color-theme] .recognition-tabs button[aria-pressed="true"] {
-  color: var(--ui-accent); background: var(--theme-highlight);
-}
-html[data-color-theme] :is([aria-label="Schedules sections"], .recognition-tabs) button[aria-pressed="true"] svg {
-  color: var(--ui-accent);
-}
-html[data-color-theme] input[type="radio"], html[data-color-theme] input[type="checkbox"] {
-  accent-color: var(--ui-accent);
-}
-
-/* Neutral icons follow the selected accent; colored icons use palette scales. */
-html[data-color-theme] :is(header, nav, .ui-actions) button > svg:not([class*="text-"]),
-html[data-color-theme] .ui-actions summary > svg { color: var(--ui-accent); }
-html[data-color-theme] .practice-actions > summary { color: var(--ui-accent); }

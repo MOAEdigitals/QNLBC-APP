@@ -1,4 +1,3 @@
-import { applyColorTheme, loadColorTheme, type ColorTheme } from './utils/colorThemes';
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
 import { initialAppTab } from './utils/tabNavigation';
 import { Capacitor } from '@capacitor/core';
@@ -113,7 +112,6 @@ export default function App() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
   // 2. Personal Display Preferences (Preserved)
-  const [colorTheme, setColorTheme] = useState<ColorTheme>(loadColorTheme);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
 
   useEffect(() => {
@@ -123,8 +121,8 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
     saveTheme(theme);
-    applyColorTheme(document.documentElement, colorTheme, theme);
-  }, [theme, colorTheme]);
+    try { localStorage.removeItem('qnlbc_color_theme'); } catch {}
+  }, [theme]);
 
   // Active Tab & Browser Navigation (Preserved)
   const [currentTab, setCurrentTab] = useState<AppTab>(() => initialAppTab(window.location.hash));
@@ -1354,8 +1352,6 @@ export default function App() {
             onUpdateUsers={setUsers}
             savedNames={savedNames}
             onUpdateSavedNames={handleUpdateSavedNames}
-            colorTheme={colorTheme}
-            onChangeColorTheme={setColorTheme}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}
