@@ -156,3 +156,8 @@ html[data-color-theme] :is([aria-label="Schedules sections"], .recognition-tabs)
 html[data-color-theme] input[type="radio"], html[data-color-theme] input[type="checkbox"] {
   accent-color: var(--ui-accent);
 }
+
+/* Neutral icons follow the selected accent; colored icons use palette scales. */
+html[data-color-theme] :is(header, nav, .ui-actions) button > svg:not([class*="text-"]),
+html[data-color-theme] .ui-actions summary > svg { color: var(--ui-accent); }
+html[data-color-theme] .practice-actions > summary { color: var(--ui-accent); }

@@ -38,7 +38,7 @@ test('settings is accessed through the profile and removed only from bottom navi
  assert.match(app,/currentTab === 'settings'/);
 });
 
-test('personal palettes preserve neutral surfaces, borders, text and semantic utility colors',()=>{
+test('personal palettes preserve neutral surfaces and neutral text',()=>{
  const root=dom.window.document.documentElement;
  // Simulate tokens left over by the previous implementation.
  root.style.setProperty('--color-slate-900','#18251d');
@@ -46,7 +46,7 @@ test('personal palettes preserve neutral surfaces, borders, text and semantic ut
  for(const theme of COLOR_THEMES) for(const mode of ['light','dark'] as const) {
    applyColorTheme(root,theme.id,mode);
    for(const token of ['--ui-surface','--ui-border','--theme-page',
-     '--color-slate-50','--color-slate-500','--color-slate-900','--color-blue-600','--color-indigo-600']) {
+     '--color-slate-50','--color-slate-500','--color-slate-900']) {
      assert.equal(root.style.getPropertyValue(token),'', `${theme.id}/${mode}: ${token}`);
    }
  }
@@ -72,4 +72,28 @@ test('palette choices use the infographic schemes and fall back from retired pal
  for(const theme of COLOR_THEMES) assert.equal(theme.swatches.length,4);
  localStorage.setItem('qnlbc_color_theme','forest');
  assert.equal(loadColorTheme(),'default');
+});
+
+const { THEME_HUES, THEME_LEVELS, paletteScale, themeContrast } = await import('../src/utils/colorThemes.ts');
+test('every palette recolors all chromatic families without tinting page surfaces',()=>{
+ const root=dom.window.document.documentElement;
+ for(const theme of COLOR_THEMES) for(const mode of ['light','dark'] as const) {
+   applyColorTheme(root,theme.id,mode);
+   for(const hue of THEME_HUES) for(const level of THEME_LEVELS) assert.match(root.style.getPropertyValue(`--color-${hue}-${level}`),/^#[0-9a-f]{6}$/);
+   assert.equal(root.style.getPropertyValue('--color-slate-950'),'');
+   assert.equal(root.style.getPropertyValue('--ui-surface'),'');
+ }
+ applyColorTheme(root,'default','light');
+ const first=root.style.getPropertyValue('--color-purple-600');
+ applyColorTheme(root,'retro','light');
+ assert.notEqual(root.style.getPropertyValue('--color-purple-600'),first);
+});
+test('palette scales keep soft cards and readable foregrounds in Light and Dark modes',()=>{
+ for(const theme of COLOR_THEMES) for(const seed of theme.swatches) {
+   const scale=paletteScale(seed);
+   assert.ok(themeContrast(scale[600],scale[50])>=4.5,`${theme.name}: light card text`);
+   assert.ok(themeContrast(scale[300],scale[950])>=4.5,`${theme.name}: dark card text`);
+   assert.ok(themeContrast(scale[500],'#ffffff')>=4.5,`${theme.name}: solid badge text`);
+   assert.ok(themeContrast(scale[50],'#ffffff')<1.15,`${theme.name}: soft background`);
+ }
 });
