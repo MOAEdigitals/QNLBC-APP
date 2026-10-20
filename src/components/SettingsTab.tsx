@@ -1,3 +1,4 @@
+import { CardActions } from './CardActions';
 import { COLOR_THEMES, type ColorTheme } from '../utils/colorThemes';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
@@ -146,6 +147,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [memberEdit, setMemberEdit] = useState({ displayName: '', username: '', password: '' });
   const [showMemberEditPassword, setShowMemberEditPassword] = useState(false);
   const [memberEditError, setMemberEditError] = useState('');
+  const [visibleCredentialId, setVisibleCredentialId] = useState<string | null>(null);
   const [memberCredentials, setMemberCredentials] = useState<Record<string, { username: string; password: string }>>({});
   const [credentialNotice, setCredentialNotice] = useState<{ userId: string; username: string; password: string } | null>(null);
   const [copiedCredentialId, setCopiedCredentialId] = useState<string | null>(null);
@@ -196,6 +198,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const isAdmin = currentUser.role === 'admin';
   useEffect(() => {
     setMemberCredentials({});
+    setVisibleCredentialId(null);
     setCredentialNotice(null);
     setMemberEdit({ displayName: '', username: '', password: '' });
     setNewMember({ displayName: '', username: '', password: '' });
@@ -917,7 +920,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {!isUserDatabaseCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              {!selectedMemberId && <div className="space-y-2"><h3 className="text-lg font-semibold">User & admin accounts</h3><p className="text-sm text-slate-500">View usernames, edit accounts, or set a new password to prepare login details for a user.</p><label className="block text-sm font-medium">Find account<input type="text" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" placeholder="Name or username" value={userSearchQuery} onChange={event => setUserSearchQuery(event.target.value)} /></label></div>}
+              {!selectedMemberId && <div className="space-y-2"><h3 className="text-lg font-semibold">User & admin accounts</h3><label className="block text-sm font-medium">Find account<input type="text" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" placeholder="Name or username" value={userSearchQuery} onChange={event => setUserSearchQuery(event.target.value)} /></label></div>}
               <div className={selectedMemberId ? 'hidden' : 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2'}>
                 {/* Filter */}
                 <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
@@ -976,10 +979,36 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400">This password is shown only in this admin session.</p>
               </div>}
 
-              <div className="space-y-3">
-                {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map(u => {
+              <div className={selectedMemberId ? 'space-y-3' : 'divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800'}>
+                {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map((u, index) => {
                   const isCurrent = u.id === currentUser.id;
                   const isManaging = managingUserId === u.id;
+                  if (!selectedMemberId) {
+                    const name = u.displayName || u.name || u.username;
+                    const avatar = u.avatar || u.avatarUrl || u.avatar_url;
+                    const credentials = memberCredentials[u.id];
+                    const visible = visibleCredentialId === u.id;
+                    return <article key={u.id} aria-label={`Account: ${name}`} className="grid grid-cols-[1.25rem_2.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_2.75rem_minmax(0,1fr)_minmax(12rem,16rem)_auto] items-center gap-x-3 gap-y-2 p-3 sm:py-4">
+                      <span className="self-start pt-2 text-center text-xs text-slate-500">{index + 1}</span>
+                      <div className="h-10 w-10 self-start overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-sm font-semibold">
+                        {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : name.slice(0,2).toUpperCase()}
+                      </div>
+                      <button type="button" className="min-w-0 text-left" aria-label={`Manage account for ${name}`} onClick={() => setSelectedMemberId(u.id)}>
+                        <span className="block break-words font-semibold">{name}{isCurrent ? ' (You)' : ''}</span>
+                        <span className="block break-all text-xs text-slate-500 dark:text-slate-400">{u.username}</span>
+                        <span className="mt-1 flex flex-wrap gap-1 text-[11px]"><span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'}</span>{u.active === false && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-slate-800">Deactivated</span>}</span>
+                      </button>
+                      <div className="col-start-3 row-start-2 sm:col-start-4 sm:row-start-1 min-w-0 flex items-center gap-1">
+                        <div className="flex min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-slate-50 pl-2 dark:border-slate-700 dark:bg-slate-800">
+                          <Key className="h-4 w-4 shrink-0 text-slate-400" />
+                          <span className="min-w-0 flex-1 break-all px-2 font-mono text-sm" aria-live="polite">{credentials ? visible ? credentials.password : '••••••••' : <span className="font-sans text-xs text-slate-500 dark:text-slate-400">Not available</span>}</span>
+                          <button type="button" disabled={!credentials} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 disabled:cursor-default disabled:opacity-40" aria-label={`${visible ? 'Hide' : 'Show'} password for ${name}`} title={credentials ? 'Show or hide password' : 'Use Edit account to set a new password'} onClick={() => setVisibleCredentialId(visible ? null : u.id)}>{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                        </div>
+                        {credentials && <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`Copy credentials for ${name}`} onClick={() => void handleCopyMemberCredentials(u.id, credentials.username, credentials.password)}>{copiedCredentialId === u.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button>}
+                      </div>
+                      <div className="col-start-4 row-start-1 self-start sm:col-start-5"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
+                    </article>;
+                  }
                   return <article key={u.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
                     <div className="space-y-1 min-w-0">
                       <h3 className="font-semibold break-words">{u.displayName || u.name || u.username}{isCurrent ? ' (You)' : ''}</h3>
