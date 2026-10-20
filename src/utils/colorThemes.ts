@@ -17,26 +17,18 @@ export function loadColorTheme(): ColorTheme {
 }
 export function applyColorTheme(root: HTMLElement, id: ColorTheme, mode: 'light' | 'dark') {
   const theme = COLOR_THEMES.find(theme => theme.id === id) || COLOR_THEMES[0];
-  const properties = ['--ui-accent', '--ui-border', '--ui-surface', '--theme-page', '--theme-button', '--theme-button-text',
+  const properties = ['--ui-accent', '--ui-border', '--ui-surface', '--theme-page', '--theme-button', '--theme-button-text', '--theme-highlight',
     ...[50,100,200,300,400,500,600,700,800,900,950].map(step => `--color-slate-${step}`),
     ...['blue', 'indigo'].flatMap(color => [50,100,200,300,400,500,600,700,800,900,950].map(step => `--color-${color}-${step}`))];
   properties.forEach(property => root.style.removeProperty(property));
   delete root.dataset.colorTheme;
   if (theme.id !== 'default') {
     root.dataset.colorTheme = theme.id;
-    const mix = (base: string, percent: number, other: string) => `color-mix(in srgb, ${base} ${percent}%, ${other})`;
-    const levels = [50,100,200,300,400,500,600,700,800,900,950];
-    const weights = [3,7,16,28,44,60,72,82,90,96,100];
-    levels.forEach((level,index) => {
-      root.style.setProperty(`--color-slate-${level}`, mix(theme.base, weights[index], theme.accent));
-      for (const color of ['blue','indigo']) root.style.setProperty(`--color-${color}-${level}`, mix(theme.base, weights[index], theme.accent));
-    });
-    root.style.setProperty('--ui-accent', mode === 'dark' ? theme.accent : theme.base);
-    root.style.setProperty('--ui-border', mix(theme.base, mode === 'dark' ? 75 : 20, theme.accent));
-    root.style.setProperty('--ui-surface', mode === 'dark' ? mix(theme.base, 96, theme.accent) : mix(theme.accent, 24, '#ffffff'));
-    root.style.setProperty('--theme-page', mode === 'dark' ? theme.base : mix(theme.accent, 12, '#ffffff'));
-    root.style.setProperty('--theme-button', mode === 'dark' ? theme.accent : theme.base);
+    const foreground = mode === 'dark' ? theme.accent : theme.base;
+    root.style.setProperty('--ui-accent', foreground);
+    root.style.setProperty('--theme-button', foreground);
     root.style.setProperty('--theme-button-text', mode === 'dark' ? theme.base : '#ffffff');
+    root.style.setProperty('--theme-highlight', `color-mix(in srgb, ${mode === 'dark' ? theme.accent : theme.base} 12%, ${mode === 'dark' ? '#0f172a' : '#ffffff'})`);
   }
   try { localStorage.setItem('qnlbc_color_theme', theme.id); } catch {}
 }

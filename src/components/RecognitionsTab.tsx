@@ -328,6 +328,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         <button
           type="button"
           aria-label="Birthdays"
+          aria-pressed={subTab === 'birthdays'}
           title="Birthdays"
           onClick={() => setSubTab('birthdays')}
           className={`relative min-w-0 flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${subTab === 'birthdays' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
@@ -343,6 +344,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         <button
           type="button"
           aria-label="Special"
+          aria-pressed={subTab === 'special'}
           title="Special"
           onClick={() => setSubTab('special')}
           className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'special' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
@@ -358,6 +360,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         <button
           type="button"
           aria-label="Anniversaries"
+          aria-pressed={subTab === 'anniversaries'}
           title="Anniversaries"
           onClick={() => setSubTab('anniversaries')}
           className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'anniversaries' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
@@ -373,6 +376,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         <button
           type="button"
           aria-label="Visitors"
+          aria-pressed={subTab === 'visitors'}
           title="Visitors"
           onClick={() => setSubTab('visitors')}
           className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'visitors' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${

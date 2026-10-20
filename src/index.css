@@ -136,9 +136,21 @@ button.ui-settings-row { cursor: pointer; }
   .ui-form-screen .ui-form-body { padding: 1rem; }
 }
 
-/* Personal palettes use shared utility tokens, including dialogs and menus. */
-html[data-color-theme] .qnlbc-app { background-color: var(--theme-page); }
-html[data-color-theme] :is([class~="bg-white"], [class~="bg-white/95"]) { background-color: var(--ui-surface); }
+/* Personal themes accent controls; neutral surfaces and semantic colors stay intact. */
 html[data-color-theme] .ui-revamp button[class~="bg-slate-900"],
-html[data-color-theme] .ui-primary { background: var(--theme-button); color: var(--theme-button-text); border-color: var(--theme-button); }
+html[data-color-theme] .ui-primary {
+  background: var(--theme-button); color: var(--theme-button-text); border-color: var(--theme-button);
+}
 html[data-color-theme] .ui-primary:hover { filter: brightness(.94); }
+html[data-color-theme] nav button[aria-current="page"],
+html[data-color-theme] nav button[aria-current="page"] [class~="bg-slate-100"],
+html[data-color-theme] [aria-label="Schedules sections"] button[aria-pressed="true"],
+html[data-color-theme] .recognition-tabs button[aria-pressed="true"] {
+  color: var(--ui-accent); background: var(--theme-highlight);
+}
+html[data-color-theme] :is([aria-label="Schedules sections"], .recognition-tabs) button[aria-pressed="true"] svg {
+  color: var(--ui-accent);
+}
+html[data-color-theme] input[type="radio"], html[data-color-theme] input[type="checkbox"] {
+  accent-color: var(--ui-accent);
+}
