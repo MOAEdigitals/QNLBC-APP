@@ -130,11 +130,8 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     }), today);
   }, [items, search, gatheringFilters, today]);
   const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today))?.id;
-  // Keep past cards out of upcoming month groups, including when both share a month.
-  const activityGroups = [false, true].flatMap(past => {
-    const entries = filteredItems.filter(item => isPastActivity(item.activityDate, today) === past);
-    return groupByMonth(entries, item => item.activityDate).map(group => ({ ...group, period: past ? 'past' : 'upcoming' }));
-  });
+  // One separator per calendar month; individual cards retain their past/upcoming styling.
+  const activityGroups = groupByMonth(filteredItems, item => item.activityDate);
 
   useEffect(() => {
     if (!openMenu) return;
@@ -245,7 +242,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
       {activityGroups.map(group => {
         const monthIndex = Number(group.key.slice(5, 7)) - 1;
         const color = monthColors[monthIndex] || monthColors[0];
-        return <section key={`${group.period}-${group.key}`} className="space-y-2">
+        return <section key={group.key} className="space-y-2">
           <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
           {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 ${past ? 'border-slate-200 bg-slate-100 text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400' : color}`}>
             <div className="flex min-h-[52px] items-center gap-3">
