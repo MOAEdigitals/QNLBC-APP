@@ -135,3 +135,10 @@ button.ui-settings-row { cursor: pointer; }
   .ui-form-screen > div:has(.ui-modal-form) { height: 100%; max-height: 100%; }
   .ui-form-screen .ui-form-body { padding: 1rem; }
 }
+
+/* Personal palettes use shared utility tokens, including dialogs and menus. */
+html[data-color-theme] .qnlbc-app { background-color: var(--theme-page); }
+html[data-color-theme] :is([class~="bg-white"], [class~="bg-white/95"]) { background-color: var(--ui-surface); }
+html[data-color-theme] .ui-revamp button[class~="bg-slate-900"],
+html[data-color-theme] .ui-primary { background: var(--theme-button); color: var(--theme-button-text); border-color: var(--theme-button); }
+html[data-color-theme] .ui-primary:hover { filter: brightness(.94); }

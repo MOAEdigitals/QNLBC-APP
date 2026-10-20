@@ -1,3 +1,4 @@
+import { applyColorTheme, loadColorTheme, type ColorTheme } from './utils/colorThemes';
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
 import { initialAppTab } from './utils/tabNavigation';
 import { Capacitor } from '@capacitor/core';
@@ -111,6 +112,7 @@ export default function App() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
 
   // 2. Personal Display Preferences (Preserved)
+  const [colorTheme, setColorTheme] = useState<ColorTheme>(loadColorTheme);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
 
   useEffect(() => {
@@ -120,7 +122,8 @@ export default function App() {
       document.documentElement.classList.remove('dark');
     }
     saveTheme(theme);
-  }, [theme]);
+    applyColorTheme(document.documentElement, colorTheme, theme);
+  }, [theme, colorTheme]);
 
   // Active Tab & Browser Navigation (Preserved)
   const [currentTab, setCurrentTab] = useState<AppTab>(() => initialAppTab(window.location.hash));
@@ -1223,7 +1226,7 @@ export default function App() {
 
   return (
     <HeaderSearchProvider>
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+    <div className="qnlbc-app min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
       {isPracticeDetailOpen ? (
         <header data-practice-detail-header="true" className="sticky top-0 z-40 border-b border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -1349,6 +1352,8 @@ export default function App() {
             onUpdateUsers={setUsers}
             savedNames={savedNames}
             onUpdateSavedNames={handleUpdateSavedNames}
+            colorTheme={colorTheme}
+            onChangeColorTheme={setColorTheme}
             theme={theme}
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}

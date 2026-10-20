@@ -1,3 +1,4 @@
+import { COLOR_THEMES, type ColorTheme } from '../utils/colorThemes';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
@@ -70,6 +71,8 @@ interface SettingsTabProps {
   onUpdateUsers: (users: UserAccount[]) => void;
   savedNames?: string[];
   onUpdateSavedNames?: (names: string[]) => void | Promise<void>;
+  colorTheme: ColorTheme;
+  onChangeColorTheme: (theme: ColorTheme) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
   onSignOut: () => void;
@@ -102,6 +105,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   savedNames: propSavedNames = [],
   onUpdateSavedNames,
   theme,
+  colorTheme,
+  onChangeColorTheme,
   onToggleTheme,
   onSignOut,
   onDataReset,
@@ -815,7 +820,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
               <div>
                 <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-                  Color Theme
+                  Display mode
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400">
                   Switch between Light and Dark interface modes
@@ -839,6 +844,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 )}
               </button>
             </div>
+
+            <fieldset className="space-y-3">
+              <legend className="text-base font-semibold">Color theme</legend>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {COLOR_THEMES.map(option => <label key={option.id} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl border border-slate-300 dark:border-slate-700 p-3">
+                  <input type="radio" name="color-theme" value={option.id} checked={colorTheme === option.id} onChange={() => onChangeColorTheme(option.id)} className="h-4 w-4 shrink-0" />
+                  <span aria-hidden="true" className="flex h-8 w-10 shrink-0 overflow-hidden rounded-lg border border-black/10"><span className="w-1/2" style={{ backgroundColor: option.base }} /><span className="w-1/2" style={{ backgroundColor: option.accent }} /></span>
+                  <span className="text-sm font-medium">{option.name}</span>
+                </label>)}
+              </div>
+            </fieldset>
 
             {/* Targeted Cache & Legacy Storage Tool */}
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
