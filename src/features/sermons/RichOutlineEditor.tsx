@@ -22,6 +22,9 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
   const editor = useEditor({
     extensions: [StarterKit.configure({ link: false }), TextStyleKit, ParagraphStyle],
     content: html ? sanitizeOutline(html) : plainTextHtml(text),
+    // Preserve asterisk notation for the reader; toolbar formatting still works.
+    enableInputRules: ['bulletList', 'orderedList', 'blockquote', 'heading', 'codeBlock', 'horizontalRule', 'strike', 'code'],
+    enablePasteRules: ['strike', 'code'],
     parseOptions: { preserveWhitespace: 'full' },
     editable: !disabled,
     editorProps: {

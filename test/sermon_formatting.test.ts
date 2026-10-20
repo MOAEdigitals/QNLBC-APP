@@ -55,3 +55,24 @@ test('formatter finds multiple Bible references and preserves offsets, prefixes 
   assert.deepEqual(bibleReferences(text).map(r => text.slice(r.from, r.to)), ['Job 23:10', '1 Peter 1:6–7', 'Hebrews 12:10–11']);
   assert.deepEqual(bibleReferences('Meet at 12:30; point 1.'), []);
 });
+
+const { renderOutline } = await import('../src/features/sermons/formatting.ts');
+test('asterisk pairs render bold with increasing sizes and preserve paragraph layout', () => {
+  const result = new JSDOM(renderOutline(null, '*Bold* **Larger** ***Heading***\n\nNormal')).window.document;
+  const marks = [...result.querySelectorAll('strong')];
+  assert.deepEqual(marks.map(mark => mark.textContent), ['Bold', 'Larger', 'Heading']);
+  assert.deepEqual(marks.map(mark => mark.style.fontSize), ['1em', '1.2em', '1.4em']);
+  assert.equal(result.querySelectorAll('p').length, 3);
+});
+test('malformed markers stay literal and enclosed HTML remains safe text', () => {
+  const result = new JSDOM(renderOutline(null, '*unclosed\n**mismatch*\n*<img src=x>*')).window.document;
+  assert.ok(result.body.textContent?.includes('**mismatch*'));
+  assert.equal(result.querySelector('img'), null);
+  assert.equal(result.querySelector('strong')?.textContent, '<img src=x>');
+});
+test('rich lists retain formatting, code stays literal and size is capped', () => {
+  const result = new JSDOM(renderOutline('<ul><li><span style="color:blue">**Point**</span></li></ul><pre>*code*</pre><p>********Huge********</p>', '')).window.document;
+  assert.equal(result.querySelector('li strong')?.textContent, 'Point');
+  assert.equal(result.querySelector('pre')?.textContent, '*code*');
+  assert.equal((result.querySelector('p strong') as HTMLElement).style.fontSize, '2em');
+});

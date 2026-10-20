@@ -10,7 +10,7 @@ import { listSermons, sermonPayload } from './model';
 import type { SermonOutline, SermonInput, SermonAttachment } from './model';
 import { loadSermons, saveSermon, deleteSermon } from './data';
 import { uploadSermonFile, validateSermonFile, removeUnusedSermonFiles } from './attachments';
-import { plainTextHtml, sanitizeOutline } from './formatting';
+import { renderOutline, sanitizeOutline } from './formatting';
 import RichOutlineEditor from './RichOutlineEditor';
 import { useHeaderSearch } from '../../components/HeaderSearch';
 const AttachmentViewer = lazy(() => import('./AttachmentViewer'));
@@ -226,7 +226,7 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
         <h2 id="sermon-reader-title" className="text-xl sm:text-2xl font-bold break-words">{selected.title}</h2><p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{selected.preacher} · {formatDateStr(selected.service_date)}</p>
         {(attachments.length > 1 || (attachments.length > 0 && !!selected.outline.trim())) && <div className="flex gap-2 overflow-x-auto py-4" aria-label="Sermon content">{selected.outline.trim() && <button type="button" className={`${action} shrink-0 ${source === 'outline' ? 'bg-slate-100 dark:bg-slate-800' : ''}`} aria-pressed={source === 'outline'} onClick={() => setSource('outline')}>Outline</button>}{attachments.map(item => <button key={item.id} type="button" className={`${action} shrink-0 ${source === item.id ? 'bg-slate-100 dark:bg-slate-800' : ''}`} aria-pressed={source === item.id} onClick={() => setSource(item.id)}><Paperclip className="w-4 h-4" />{item.name}</button>)}</div>}
         {copyMessage && <p role="status" className="text-sm mt-3">{copyMessage}</p>}
-        {source === 'outline' && <div className="sermon-prose mt-6" style={{ fontSize, tabSize: 4 }} dangerouslySetInnerHTML={{ __html: selected.outline_html ? sanitizeOutline(selected.outline_html) : plainTextHtml(selected.outline) }} />}
+        {source === 'outline' && <div className="sermon-prose mt-6" style={{ fontSize, tabSize: 4 }} dangerouslySetInnerHTML={{ __html: renderOutline(selected.outline_html, selected.outline) }} />}
         {activeAttachment && <div className="mt-5 bg-white text-slate-900 rounded-xl p-2 sm:p-4"><Suspense fallback={<p role="status">Loading viewer…</p>}><AttachmentViewer key={activeAttachment.path} attachment={activeAttachment} /></Suspense></div>}
       </article></div>
     </div>}

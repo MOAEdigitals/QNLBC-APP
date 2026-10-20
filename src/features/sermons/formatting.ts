@@ -24,3 +24,34 @@ export function sanitizeOutline(html: string): string {
   });
   return root.innerHTML;
 }
+
+/** Display notation without changing the editable source or interpreting HTML. */
+export function renderOutline(html: string | null | undefined, text: string): string {
+  const root = document.createElement('div');
+  root.innerHTML = html ? sanitizeOutline(html) : plainTextHtml(text);
+  const walker = document.createTreeWalker(root, 4);
+  const nodes: Text[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+  for (const node of nodes) {
+    if (node.parentElement?.closest('pre, code')) continue;
+    const source = node.data;
+    const pattern = /(?<![\\*])(\*+)([^*\n]+?)\1(?!\*)/g;
+    const fragment = document.createDocumentFragment();
+    let cursor = 0;
+    for (const match of source.matchAll(pattern)) {
+      if (!match[2].trim()) continue;
+      fragment.append(document.createTextNode(source.slice(cursor, match.index)));
+      const strong = document.createElement('strong');
+      strong.textContent = match[2];
+      // Each additional pair increases size, capped to remain readable on phones.
+      strong.style.fontSize = `${Math.min(2, 1 + (match[1].length - 1) * 0.2)}em`;
+      fragment.append(strong);
+      cursor = match.index! + match[0].length;
+    }
+    if (cursor) {
+      fragment.append(document.createTextNode(source.slice(cursor)));
+      node.replaceWith(fragment);
+    }
+  }
+  return root.innerHTML;
+}
