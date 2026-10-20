@@ -10,7 +10,7 @@ import { listSermons, sermonPayload } from './model';
 import type { SermonOutline, SermonInput, SermonAttachment } from './model';
 import { loadSermons, saveSermon, deleteSermon } from './data';
 import { uploadSermonFile, validateSermonFile, removeUnusedSermonFiles } from './attachments';
-import { renderOutline, sanitizeOutline } from './formatting';
+import { colorOutlineVerses, renderOutline, sanitizeOutline } from './formatting';
 import RichOutlineEditor from './RichOutlineEditor';
 import { useHeaderSearch } from '../../components/HeaderSearch';
 const AttachmentViewer = lazy(() => import('./AttachmentViewer'));
@@ -139,7 +139,7 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
         setPendingFiles(previous => previous.filter(file => file.id !== item.id));
       }
       setSaveLabel('Saving…');
-      const input = { ...editor.input, outline_html: editor.input.outline_html ? sanitizeOutline(editor.input.outline_html) : null, attachments: uploaded, status };
+      const input = { ...editor.input, outline_html: colorOutlineVerses(editor.input.outline_html, editor.input.outline), attachments: uploaded, status };
       const saved = await saveSermon(input, currentUser.id, editor.original, editor.newId);
       if (!alive.current) return;
       setRows(previous => [...previous.filter(row => row.id !== saved.id), saved]);

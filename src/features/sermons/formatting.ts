@@ -1,3 +1,4 @@
+import { bibleReferences } from './autoFormat.ts';
 import DOMPurify from 'dompurify';
 
 export function escapeText(text: string): string {
@@ -51,6 +52,60 @@ export function renderOutline(html: string | null | undefined, text: string): st
     if (cursor) {
       fragment.append(document.createTextNode(source.slice(cursor)));
       node.replaceWith(fragment);
+    }
+  }
+  return root.innerHTML;
+}
+
+/** Apply reference/verse color without rewriting text, indentation or rich marks. */
+export function colorOutlineVerses(html: string | null | undefined, text: string): string {
+  const root = document.createElement('div');
+  root.innerHTML = html ? sanitizeOutline(html) : plainTextHtml(text);
+  const blocks = root.querySelectorAll<HTMLElement>('p, h1, h2, h3, h4, li, div, blockquote');
+  let verseBlock = false;
+  for (const block of blocks) {
+    if (block.querySelector('p, h1, h2, h3, h4, li, div, blockquote') || block.closest('pre, code')) continue;
+    const value = block.textContent || '';
+    const references = bibleReferences(value);
+    const first = references[0];
+    const prefix = first ? value.slice(0, first.from).replace(/[\s*"“”'‘’()[\]—–-]/g, '') : '';
+    const quoted = /^\s*[*]*["“]/.test(value) && references.length > 0;
+    const numberedContinuation = verseBlock && /^\s*\d{1,3}[.)]?\s+\S/.test(value);
+    if ((first && !prefix) || quoted || numberedContinuation) {
+      block.style.color = '#197aa3';
+      // Existing inline colors must not override verse blue.
+      block.querySelectorAll<HTMLElement>('[style]').forEach(child => child.style.removeProperty('color'));
+      verseBlock = true;
+      continue;
+    }
+    verseBlock = false;
+    if (!references.length) continue;
+    const walker = document.createTreeWalker(block, 4);
+    const nodes: Text[] = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode as Text);
+    let offset = 0;
+    for (const node of nodes) {
+      const start = offset;
+      offset += node.length;
+      if (node.parentElement?.closest('code')) continue;
+      if (node.parentElement?.style.color === 'rgb(25, 122, 163)') continue;
+      const fragment = document.createDocumentFragment();
+      let cursor = 0;
+      for (const reference of references) {
+        const from = Math.max(0, reference.from - start);
+        const to = Math.min(node.length, reference.to - start);
+        if (to <= from) continue;
+        fragment.append(document.createTextNode(node.data.slice(cursor, from)));
+        const span = document.createElement('span');
+        span.style.color = '#197aa3';
+        span.textContent = node.data.slice(from, to);
+        fragment.append(span);
+        cursor = to;
+      }
+      if (cursor) {
+        fragment.append(document.createTextNode(node.data.slice(cursor)));
+        node.replaceWith(fragment);
+      }
     }
   }
   return root.innerHTML;

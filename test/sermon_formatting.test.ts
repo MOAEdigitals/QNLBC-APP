@@ -76,3 +76,28 @@ test('rich lists retain formatting, code stays literal and size is capped', () =
   assert.equal(result.querySelector('pre')?.textContent, '*code*');
   assert.equal((result.querySelector('p strong') as HTMLElement).style.fontSize, '2em');
 });
+
+const { colorOutlineVerses } = await import('../src/features/sermons/formatting.ts');
+test('saved English and Tagalog verses automatically become blue', () => {
+ const html=colorOutlineVerses(null, 'John 3:16 For God so loved the world.\n\nJuan 3:16 Sapagkat gayon na lamang ang pag-ibig ng Diyos.\n\nMga Awit 23:1 Ang Panginoon ang aking pastor.');
+ const doc=new JSDOM(html).window.document;
+ for(const index of [0,2,4]) assert.equal((doc.querySelectorAll('p')[index] as HTMLElement).style.color,'rgb(25, 122, 163)');
+});
+test('inline references and split rich text turn blue without coloring ordinary explanations',()=>{
+ const html=colorOutlineVerses('<p>Consider <b>Juan</b> 3:16 today.</p><p>Normal explanation</p>', '');
+ const doc=new JSDOM(html).window.document;
+ assert.equal((doc.querySelector('p') as HTMLElement).style.color,'');
+ assert.equal(doc.querySelectorAll('span').length,2);
+ assert.equal(colorOutlineVerses(html, ''), html);
+ assert.equal(doc.querySelector('b')?.textContent,'Juan');
+ assert.equal(doc.querySelectorAll('p')[1].textContent,'Normal explanation');
+});
+test('verse coloring preserves asterisks and numbered continuation, and repeated saves are stable',()=>{
+ const text='**Roma 8:1** Ngayon ay wala nang hatol.\n2 Sapagkat ang kautusan...\n\nI. Application';
+ const once=colorOutlineVerses(null,text);
+ assert.equal(colorOutlineVerses(once,text),once);
+ const doc=new JSDOM(once).window.document;
+ assert.equal(doc.querySelector('p')?.textContent,'**Roma 8:1** Ngayon ay wala nang hatol.');
+ assert.equal((doc.querySelectorAll('p')[1] as HTMLElement).style.color,'rgb(25, 122, 163)');
+ assert.equal((doc.querySelectorAll('p')[3] as HTMLElement).style.color,'');
+});
