@@ -32,7 +32,7 @@ import {
   Volume2,
   ChevronDown,
   ChevronUp,
-  MoreVertical,
+  MoreHorizontal,
   Repeat,
   Sparkles,
   BookmarkCheck,
@@ -915,7 +915,7 @@ if (isEditing && !savingSongRef.current) {
   const renderAttachmentActions = (attachment: SongAttachment) => (
     <div className="relative shrink-0" onClick={(event) => event.stopPropagation()}>
       <button type="button" aria-label={`Actions for ${attachment.name}`} title="Track actions" onClick={(event) => { event.stopPropagation(); setOpenAttachmentMenuId(current => current === attachment.id ? null : attachment.id); }} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
-        <MoreVertical className="h-4 w-4" />
+        <MoreHorizontal className="h-4 w-4" />
       </button>
       {openAttachmentMenuId === attachment.id && (
         <div className="absolute right-0 top-9 z-30 w-32 rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
@@ -1405,7 +1405,7 @@ if (isEditing && !savingSongRef.current) {
                           title="Song Options"
                           aria-label="Song Options"
                         >
-                          <MoreVertical className="w-4 h-4" />
+                          <MoreHorizontal className="w-4 h-4" />
                         </button>
 
                         {/* 3-Dot Dropdown Menu Popover */}

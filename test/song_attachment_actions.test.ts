@@ -6,7 +6,7 @@ const source = readFileSync('src/components/SongsTab.tsx', 'utf8').replace(/\r\n
 
 test('attached song tracks use a three-dot menu with edit and delete actions', () => {
   assert.match(source, /aria-label=\{`Actions for \$\{attachment\.name\}`\}/);
-  assert.match(source, /<MoreVertical className="h-4 w-4"/);
+  assert.match(source, /<MoreHorizontal className="h-4 w-4"/);
   assert.match(source, /handleOpenEditAttachment\(attachment, event\)/);
   assert.match(source, />Edit<\/button>/);
   assert.match(source, />Delete<\/button>/);

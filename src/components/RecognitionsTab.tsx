@@ -32,7 +32,7 @@ import {
   Sparkles,
   Trash2,
   Copy,
-  MoreVertical,
+  MoreHorizontal,
   Pencil,
   X,
   Search,
@@ -448,7 +448,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                               onClick={() => setBirthdayMenuId(birthdayMenuId === item.id ? null : item.id)}
                               className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"
                             >
-                              <MoreVertical className="w-4 h-4" />
+                              <MoreHorizontal className="w-4 h-4" />
                             </button>
                             {birthdayMenuId === item.id && (
                               <>

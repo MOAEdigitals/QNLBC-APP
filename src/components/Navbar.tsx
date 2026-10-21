@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         ) : <div className="flex items-center space-x-3">
           <div>
             <div className="flex items-center space-x-2">
-              <h1 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">
+              <h1 className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white leading-tight">
                 {TAB_LABELS[currentTab]}
               </h1>
             </div>

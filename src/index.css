@@ -31,6 +31,10 @@
 }
 
 /* Shared application foundations. */
+.setlist-detail :is(div,span)[class*='rounded'] { background: transparent !important; border-width: 0; border-radius: 0; box-shadow: none; }
+.setlist-detail .setlist-sections > div { padding: 12px 0; border-bottom: 1px solid var(--ui-border); }
+.setlist-detail div[title='Click to open in Song Library'] { padding-inline: 0; border-bottom: 1px solid var(--ui-border); }
+.setlist-detail > div:not(.setlist-sections) { padding-inline: 0; }
 .ui-revamp .setlist-names { font-size: 12px; font-weight: 400; line-height: 1.5; }
 .birthday-sunday-dot { display: inline-block; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: #15803d; box-shadow: 0 0 7px #15803d80; }
 .dark .birthday-sunday-dot { background: #86efac; box-shadow: 0 0 8px #86efac90; }

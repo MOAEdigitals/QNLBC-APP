@@ -83,7 +83,7 @@ import {
   FileImage,
   Link2,
   Copy,
-  MoreVertical,
+  MoreHorizontal,
   BookOpen,
   Cloud,
   Loader2,
@@ -982,6 +982,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   });
 
   const soonestEntry = sortedEntries.find((e) => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate));
+  const followingEntry = sortedEntries.find(e => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate) && e.id !== soonestEntry?.id);
 
   // Compute vacant fellowships or special events
   const vacantEvents = setlists.filter((s) => {
@@ -2122,11 +2123,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                               {isSoonest && !today && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                                  ★ Upcoming
+                                  Next up
                                 </span>
                               )}
 
-                              {!isPast && !isSoonest && !today && (
+                              {!isPast && !isSoonest && !today && item.id === followingEntry?.id && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                                   Upcoming
                                 </span>
@@ -2135,12 +2136,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               {today && (
                                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
                                   Today
-                                </span>
-                              )}
-
-                              {isPast && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-200 dark:bg-slate-800 text-slate-500">
-                                  Past
                                 </span>
                               )}
                             </div>
@@ -2157,8 +2152,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
 
                             <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                              <span>{formatDateStr(item.scheduledDate, { showDayOfWeek: true })}</span>
-                              {item.minusOneLink && <span>• Minus-one available</span>}
+                              {item.minusOneLink && <span>Minus-one available</span>}
                             </div>
                           </div>
                         </div>
@@ -2426,7 +2420,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         <div className="flex shrink-0 items-center gap-1">
                           <details className="ui-actions practice-actions" onClick={(e) => e.stopPropagation()}>
                             <summary aria-label="Practice actions" title="Practice actions">
-                              <MoreVertical className="h-5 w-5" />
+                              <MoreHorizontal className="h-5 w-5" />
                             </summary>
                             <div className="ui-actions-menu">
                           <button
