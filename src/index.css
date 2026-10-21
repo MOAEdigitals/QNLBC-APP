@@ -2,9 +2,17 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/plus-jakarta-sans-400.ttf') format('truetype'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/plus-jakarta-sans-500.ttf') format('truetype'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/plus-jakarta-sans-600.ttf') format('truetype'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/plus-jakarta-sans-700.ttf') format('truetype'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/plus-jakarta-sans-800.ttf') format('truetype'); }
+
 @layer base {
   :root {
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: var(--font-sans);
+    --font-serif: var(--font-sans);
   }
   
   html {
@@ -110,7 +118,7 @@ button.ui-settings-row { cursor: pointer; }
 }
 
 /* Sermon editor and reader: preserve indentation while wrapping to the screen. */
-.sermon-prose { font-family: Arial, sans-serif; line-height: 1.4; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; }
+.sermon-prose { font-family: var(--font-sans); line-height: 1.4; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; }
 .sermon-prose p { margin: 0 0 .35em; min-height: 1em; }
 .sermon-prose p:has(> br:only-child) { min-height: .5em; line-height: .5em; margin-bottom: .15em; }
 .sermon-prose p:last-child { margin-bottom: 0; }

@@ -4,6 +4,15 @@ import { ChurchLogo } from './ChurchLogo';
 import { Search, X } from 'lucide-react';
 import { useHeaderSearchContext } from './HeaderSearch';
 
+const TAB_LABELS: Record<AppTab, string> = {
+  home: 'Setlists',
+  recognitions: 'Recognitions',
+  'special-numbers': 'Schedules',
+  songs: 'Songs',
+  outlines: 'Outlines',
+  settings: 'Profile',
+};
+
 interface NavbarProps {
   currentUser: UserAccount | null;
   users?: UserAccount[];
@@ -58,7 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">
-                New Life Baptist Church
+                {TAB_LABELS[currentTab]}
               </h1>
             </div>
           </div>
