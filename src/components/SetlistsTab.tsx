@@ -1057,7 +1057,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     <User className="w-4 h-4" />
                                   </div>
                                   <div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${presiderColor.text} block`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                       Presider
                                     </span>
                                     <span className={`text-sm font-bold ${presiderColor.textBold}`}>
@@ -1134,10 +1134,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             return (
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className={`text-xs font-medium ${ssLeaderColor.text}`}>
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                                     Leader: <span className={`font-bold ${ssLeaderColor.textBold}`}>{item.sundaySchool?.songLeader || 'Unassigned'}</span>
                                   </span>
-                                  <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${ssLeaderColor.textBold}`}>
+                                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
                                     Sunday School
                                   </h4>
                                 </div>
@@ -1187,10 +1187,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             return (
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className={`text-xs font-medium ${wsLeaderColor.text}`}>
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                                     Leader: <span className={`font-bold ${wsLeaderColor.textBold}`}>{item.worshipService?.songLeader || 'Unassigned'}</span>
                                   </span>
-                                  <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${wsLeaderColor.textBold}`}>
+                                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
                                     Worship Service
                                   </h4>
                                 </div>
@@ -1278,7 +1278,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 const pColor = getPersonColor(item.presider);
                                 return (
                                   <div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${pColor.text} block`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                       Presider
                                     </span>
                                     <span className={`text-xs font-bold ${pColor.textBold}`}>
@@ -1291,7 +1291,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 const lColor = getPersonColor(item.program.songLeader);
                                 return (
                                   <div className={item.presider ? "pl-3 border-l border-slate-200 dark:border-slate-700" : ""}>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${lColor.text} block`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                       Song Leader
                                     </span>
                                     <span className={`text-xs font-bold ${lColor.textBold}`}>
