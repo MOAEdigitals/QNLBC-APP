@@ -12,6 +12,18 @@ export interface PersonColor {
 }
 
 export const COLOR_PALETTE: Record<string, PersonColor> = {
+  sky: {
+    key: 'sky',
+    name: 'Sky Blue',
+    text: 'text-sky-600 dark:text-sky-400',
+    textBold: 'text-sky-700 dark:text-sky-300',
+    bgLight: 'bg-sky-50 dark:bg-sky-950/60',
+    border: 'border-sky-200 dark:border-sky-800',
+    borderStrong: 'border-sky-500/80 dark:border-sky-500/70',
+    badge: 'bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800',
+    pill: 'bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300',
+    dot: 'bg-sky-500',
+  },
   blue: {
     key: 'blue',
     name: 'Blue',
@@ -164,7 +176,7 @@ export const UNASSIGNED_PERSON_COLOR: PersonColor = {
  * Returns a stable PersonColor for any church leader or directory member.
  * Explicit assignments:
  * - Brother JB: Blue
- * - Brother Marius: Violet
+ * - Brother Marius: Sky Blue
  * - Brother Joshua: Green
  * - Brother Eric: Fuchsia
  * - Brother Ronnie: Amber
@@ -187,7 +199,7 @@ export function getPersonColor(rawName?: string | null): PersonColor {
     return COLOR_PALETTE.blue;
   }
   if (clean === 'marius' || clean.includes('marius')) {
-    return COLOR_PALETTE.violet;
+    return COLOR_PALETTE.sky;
   }
   if (clean === 'joshua' || clean.includes('joshua')) {
     return COLOR_PALETTE.green;
