@@ -1,0 +1,93 @@
+/* QNLBC soft-card presentation. State, permissions and event handlers stay in React. */
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/plus-jakarta-sans-400.ttf') format('truetype'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/plus-jakarta-sans-500.ttf') format('truetype'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/plus-jakarta-sans-600.ttf') format('truetype'); }
+
+.qnlbc-app {
+  --app-bg: #f7f7f8; --app-card: #fff; --app-raised: #eeeeef;
+  --app-text: #171717; --app-muted: #606066; --app-line: #dedee2;
+  --app-purple: #ac83f5; --app-mint: #89f8f0; --app-ink: #17121f;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--app-bg); color: var(--app-text);
+}
+.dark .qnlbc-app { --app-bg: #080808; --app-card: #171717; --app-raised: #272727; --app-text: #f7f7f7; --app-muted: #a5a5a5; --app-line: #303030; }
+.qnlbc-app > main { padding-top: 14px; }
+.qnlbc-app .app-header { background: var(--app-bg); border: 0; backdrop-filter: none; }
+.qnlbc-app .app-header > div { min-height: 76px; padding-inline: 22px; }
+.qnlbc-app .app-header h1 { font-size: 22px; font-weight: 600; letter-spacing: -.65px; color: var(--app-text); }
+.qnlbc-app .app-header button { min-width: 44px; min-height: 44px; border: 0; border-radius: 50%; }
+.qnlbc-app .app-header button[aria-label='Search'] { background: var(--app-card); color: var(--app-text); }
+.qnlbc-app .app-header div:has(> input[type='search']) { background: var(--app-card); border: 0; border-radius: 24px; }
+.qnlbc-app .app-bottom-nav { background: var(--app-bg); border: 0; backdrop-filter: none; }
+.qnlbc-app .app-bottom-nav > div { display: grid; grid-template-columns: .9fr 1.25fr 1.1fr .8fr .9fr; padding: 8px 5px; }
+.qnlbc-app .app-bottom-nav button { min-height: 58px; color: var(--app-muted); padding-inline: 0; }
+.qnlbc-app .app-bottom-nav button > span { font-size: 11px; letter-spacing: -.5px; white-space: nowrap; margin-top: 5px; }
+.qnlbc-app .app-bottom-nav button[aria-current='page'] { color: var(--app-text); }
+.qnlbc-app .app-bottom-nav button[aria-current='page'] > div > div { background: var(--app-mint); color: var(--app-ink); border-radius: 24px; padding: 7px 16px; transform: none; }
+.qnlbc-app .ui-screen { font-size: 14px; line-height: 1.5; }
+.qnlbc-app .ui-screen :is(.text-xs, [class~='text-[11px]']) { font-size: 12px; }
+.qnlbc-app .ui-screen .text-sm { font-size: 14px; }
+.qnlbc-app .ui-screen [class~='text-[10px]'] { font-size: 11px; }
+.qnlbc-app .ui-screen :is(input:not([type='checkbox']):not([type='range']),textarea,select) { font-size: 16px; }
+.qnlbc-app :is(.recognition-tabs,[aria-label='Schedules sections']) { background: transparent; border: 0; padding: 0 9px; gap: 5px; border-radius: 0; }
+.qnlbc-app :is(.recognition-tabs,[aria-label='Schedules sections']) button { background: var(--app-card); color: var(--app-muted); border: 0; border-radius: 24px; box-shadow: none; min-height: 44px; font-size: 12px; font-weight: 500; }
+.qnlbc-app :is(.recognition-tabs,[aria-label='Schedules sections']) button[aria-pressed='true'] { background: var(--app-purple); color: var(--app-ink); }
+.qnlbc-app :is(.recognition-tabs,[aria-label='Schedules sections']) button svg { color: inherit; }
+
+/* Only list surfaces: do not flatten editors, dialogs, media players or menus. */
+.qnlbc-app :is([id^='setlist-card-'],[id^='song-card-'],[id^='schedule-card-'],[id^='choir-card-'],[id^='activity-card-'],.soft-card),
+.qnlbc-app .practice-screen:not([data-practice-open]) [id^='practice-card-'] {
+  background: var(--app-card); color: var(--app-text); border: 0; border-radius: 27px;
+  box-shadow: none; min-height: 82px;
+}
+.qnlbc-app :is([id^='setlist-card-'],[id^='schedule-card-'],[id^='choir-card-'],[id^='activity-card-'],.soft-card) { padding: 16px 20px; }
+.qnlbc-app [id^='song-header-'] { padding: 16px 20px; min-height: 82px; }
+.qnlbc-app :is(.setlist-summary,[id^='song-header-'],.soft-card) :is(h3,h4,h5),
+.qnlbc-app :is([id^='schedule-card-'],[id^='choir-card-'],[id^='activity-card-']) > div:first-child :is(h3,h4) { font-size: 15px; font-weight: 600; letter-spacing: -.3px; color: var(--app-text); }
+.qnlbc-app .setlist-summary > div:first-child > div:first-child,
+.qnlbc-app .soft-card .w-11.h-11 { background: transparent; color: var(--app-text); border: 0; box-shadow: none; width: 34px; }
+.qnlbc-app .setlist-summary > div:first-child > div:first-child > span:first-child { font-size: 11px; font-weight: 500; }
+.qnlbc-app .setlist-summary > div:first-child > div:first-child > span:last-child { font-size: 24px; font-weight: 500; }
+.qnlbc-app .setlist-summary h4 { white-space: normal; overflow-wrap: anywhere; }
+.qnlbc-app .setlist-summary h4 + span { font-size: 11px; font-weight: 400; }
+.qnlbc-app [id^='setlist-card-']:not([data-featured]) .setlist-summary h4 + span { background: transparent; border: 0; color: var(--app-muted); }
+.qnlbc-app .setlist-people { flex-wrap: wrap; gap: 0 5px; font-size: 12px; line-height: 1.5; color: var(--app-muted); }
+.qnlbc-app .setlist-people > span:not([aria-hidden]) { overflow-wrap: anywhere; }
+.qnlbc-app [id^='setlist-card-'][data-featured] { background: var(--app-purple); color: var(--app-ink); border-radius: 34px; min-height: 128px; }
+.qnlbc-app [data-featured] .setlist-summary { position: relative; display: grid; grid-template-columns: 34px minmax(0,1fr) 44px; gap: 14px 12px; }
+.qnlbc-app [data-featured] .setlist-summary > div:first-child,
+.qnlbc-app [data-featured] .setlist-summary > div:first-child > div:last-child { display: contents; }
+.qnlbc-app [data-featured] .setlist-summary > div:first-child > div:first-child { grid-column: 1; grid-row: 1; margin: 0; }
+.qnlbc-app [data-featured] .setlist-summary > div:first-child > div:last-child > div:first-child { grid-column: 2; grid-row: 1; flex-wrap: wrap; gap: 3px 6px; }
+.qnlbc-app [data-featured] [data-setlist-actions] { grid-column: 3; grid-row: 1; margin: 0; }
+.qnlbc-app [data-featured] .setlist-summary h4 { font-size: 18px; color: var(--app-ink); }
+.qnlbc-app [data-featured] .setlist-summary > div:first-child > div:first-child { color: var(--app-ink); }
+.qnlbc-app [data-featured] .setlist-summary h4 + span { background: transparent; color: var(--app-ink); border: 0; }
+.qnlbc-app [data-featured] .setlist-people { grid-column: 1 / -1; grid-row: 2; display: flex; align-items: start; gap: 12px; color: var(--app-ink); }
+.qnlbc-app [data-featured] .setlist-people > span:not([aria-hidden]) { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; }
+.qnlbc-app [data-featured] .setlist-people > [aria-hidden] { display: none; }
+.qnlbc-app [data-featured] .setlist-people small { display: block; font-size: 11px; font-weight: 400; color: #453359; margin-bottom: 3px; }
+.qnlbc-app [data-featured] [data-setlist-actions] > button { color: var(--app-ink); }
+.qnlbc-app [data-featured] > div:not(.setlist-summary) { background: var(--app-card); color: var(--app-text); border-radius: 20px; padding: 16px; }
+.qnlbc-app .birthday-row { min-height: 60px; padding: 8px 12px 8px 20px; gap: 8px; }
+.qnlbc-app .birthday-summary { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
+.qnlbc-app .birthday-summary h4 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 500; }
+.qnlbc-app .birthday-summary time { font-size: 12px; white-space: nowrap; color: var(--app-muted); }
+.qnlbc-app .birthday-greeting { color: #8250cf; padding-left: 6px; }
+.dark .qnlbc-app .birthday-greeting { color: var(--app-mint); }
+.qnlbc-app .birthday-row button { min-width: 44px; min-height: 44px; }
+.qnlbc-app button.fixed.w-14.h-14 { width: auto; min-width: 98px; height: 52px; min-height: 52px; padding: 0 20px; gap: 7px; background: var(--app-mint); color: var(--app-ink); border: 0; border-radius: 28px; box-shadow: none; bottom: calc(80px + env(safe-area-inset-bottom)); }
+.qnlbc-app button.fixed.w-14.h-14::after { content: 'New'; font-size: 14px; font-weight: 500; }
+.qnlbc-app button.fixed.w-14.h-14 svg { width: 20px; height: 20px; stroke-width: 1.7; }
+.qnlbc-app [aria-label='Activity calendar'] { background: var(--app-card); border: 0; border-radius: 27px; }
+@media (max-width: 639px) {
+  .qnlbc-app > main { padding-inline: 5px; }
+  .qnlbc-app > main:has(.ui-settings-panel) { padding-inline: 20px; }
+  .qnlbc-app .ui-screen :is(.gap-3,.gap-2\.5):has(> :is([id^='setlist-card-'],[id^='song-card-'],[id^='schedule-card-'],[id^='choir-card-'],.soft-card)) { gap: 5px; }
+  .qnlbc-app .ui-screen :is(.space-y-3,.space-y-2\.5,.space-y-2):has(> :is([id^='activity-card-'],[id^='practice-card-'],.soft-card)) > :not(:last-child) { margin-block-end: 5px; }
+  .qnlbc-app .ui-screen [role='heading'][aria-level='3'] { padding: 18px 15px 7px; }
+  .qnlbc-app .ui-screen [role='heading'][aria-level='3'] span { font-size: 12px; font-weight: 400; color: var(--app-muted); }
+  .qnlbc-app .ui-screen [role='heading'][aria-level='3'] > div { background: transparent; }
+  .qnlbc-app .ui-screen [role='heading'][aria-level='3'] > span:last-child { margin-left: auto; }
+}
+@media print { .qnlbc-app { background: white; color: black; } }

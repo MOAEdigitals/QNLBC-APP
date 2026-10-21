@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UserAccount, AppTab } from '../types';
-import { ChurchLogo } from './ChurchLogo';
 import { Search, X } from 'lucide-react';
 import { useHeaderSearchContext } from './HeaderSearch';
 
@@ -37,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [isSearching, search?.value]);
   return (
-    <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <header className="app-header sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
       <div className="max-w-4xl mx-auto px-4 py-2 flex min-h-12 items-center justify-between gap-3">
         {isSearching && search ? (
           <div ref={searchRef} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
@@ -52,13 +51,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => { setIsSearching(true); search.onChange(''); }} aria-label="Clear search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
           </div>
         ) : <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 shrink-0 overflow-hidden">
-            <ChurchLogo className="w-full h-full object-contain" />
-          </div>
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">
-                New Life Baptist Church
+                {{ home: 'Setlists', recognitions: 'Recognitions', 'special-numbers': 'Schedules', songs: 'Songs', outlines: 'Outlines', settings: 'Profile' }[currentTab] || 'QNLBC'}
               </h1>
             </div>
           </div>
