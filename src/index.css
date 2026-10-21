@@ -1,6 +1,18 @@
 @import "tailwindcss";
 @import "./app-fonts.css";
 
+/* Shared primary add action, anchored above navigation in every tab. */
+.qnlbc-app button.app-fab {
+  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  right: max(1rem, env(safe-area-inset-right, 0px));
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1d4ed8;
+  box-shadow: 0 8px 24px #1d4ed840;
+  --tw-ring-color: #1d4ed8;
+}
+.qnlbc-app button.app-fab:hover { background: #1e40af; }
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/plus-jakarta-sans-400.ttf') format('truetype'); }
