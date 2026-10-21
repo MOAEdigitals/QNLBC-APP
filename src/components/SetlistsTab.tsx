@@ -936,11 +936,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             </span>
                           )}
 
-                          {isPast && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300/50 dark:border-slate-700/50">
-                              Past
-                            </span>
-                          )}
                         </div>
 
                         {/* Compact role summary: balanced on the line directly below title */}

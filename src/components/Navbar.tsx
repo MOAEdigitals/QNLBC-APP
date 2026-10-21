@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UserAccount, AppTab } from '../types';
-import { ChurchLogo } from './ChurchLogo';
 import { Search, X } from 'lucide-react';
 import { useHeaderSearchContext } from './HeaderSearch';
 
@@ -61,9 +60,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => { setIsSearching(true); search.onChange(''); }} aria-label="Clear search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
           </div>
         ) : <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 shrink-0 overflow-hidden">
-            <ChurchLogo className="w-full h-full object-contain" />
-          </div>
           <div>
             <div className="flex items-center space-x-2">
               <h1 className="text-sm font-semibold text-slate-900 dark:text-white leading-tight">
