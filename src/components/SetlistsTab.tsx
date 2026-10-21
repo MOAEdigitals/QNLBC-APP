@@ -146,6 +146,17 @@ export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []):
   return sections.join('\n\n');
 }
 
+function SetlistPerson({ role, name }: { role: string; name?: string }) {
+  const color = getPersonColor(name);
+  return <div className="flex min-w-0 items-center gap-2.5">
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500 dark:text-slate-400"><User className="h-4 w-4" aria-hidden="true" /></span>
+    <div className="min-w-0">
+      <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">{role}</span>
+      <span className={`block break-words text-sm font-bold ${color.textBold}`}>{name || 'Unassigned'}</span>
+    </div>
+  </div>;
+}
+
 interface SetlistsTabProps {
   setlists: Setlist[];
   songs: Song[];
@@ -1049,22 +1060,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {/* Presider & Service Header Badges */}
                           {(() => {
-                            const presiderColor = getPersonColor(item.presider);
+
                             return (
                               <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                                <div className="flex items-center space-x-2.5">
-                                  <div className="p-1.5 text-slate-500 dark:text-slate-400">
-                                    <User className="w-4 h-4" />
-                                  </div>
-                                  <div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                                      Presider
-                                    </span>
-                                    <span className={`text-sm font-bold ${presiderColor.textBold}`}>
-                                      {item.presider || 'Not assigned yet'}
-                                    </span>
-                                  </div>
-                                </div>
+                                <SetlistPerson role="Presider" name={item.presider} />
 
                                 {/* Badges: Welcome Song & Closing Song (Linkage to Song Library!) */}
                                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1130,17 +1129,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                           {/* Sunday School Container */}
                           {(() => {
-                            const ssLeaderColor = getPersonColor(item.sundaySchool?.songLeader);
+
                             return (
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                    Leader: <span className={`font-bold ${ssLeaderColor.textBold}`}>{item.sundaySchool?.songLeader || 'Unassigned'}</span>
-                                  </span>
-                                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
-                                    Sunday School
-                                  </h4>
-                                </div>
+                                <SetlistPerson role="Sunday School" name={item.sundaySchool?.songLeader} />
 
                                  <div className="space-y-1.5">
                                   {(item.sundaySchool?.songs || []).map((song, idx) => {
@@ -1183,17 +1175,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                           {/* Worship Service Container */}
                           {(() => {
-                            const wsLeaderColor = getPersonColor(item.worshipService?.songLeader);
+
                             return (
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                    Leader: <span className={`font-bold ${wsLeaderColor.textBold}`}>{item.worshipService?.songLeader || 'Unassigned'}</span>
-                                  </span>
-                                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
-                                    Worship Service
-                                  </h4>
-                                </div>
+                                <SetlistPerson role="Worship Service" name={item.worshipService?.songLeader} />
 
                                  <div className="space-y-1.5">
                                   {(item.worshipService?.songs || []).map((song, idx) => {
@@ -1274,32 +1259,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div className="space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 dark:border-slate-700 pb-2">
                             <div className="flex items-center space-x-3">
-                              {item.presider && (() => {
-                                const pColor = getPersonColor(item.presider);
-                                return (
-                                  <div>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                                      Presider
-                                    </span>
-                                    <span className={`text-xs font-bold ${pColor.textBold}`}>
-                                      {item.presider}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
-                              {item.program?.songLeader && (() => {
-                                const lColor = getPersonColor(item.program.songLeader);
-                                return (
-                                  <div className={item.presider ? "pl-3 border-l border-slate-200 dark:border-slate-700" : ""}>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
-                                      Song Leader
-                                    </span>
-                                    <span className={`text-xs font-bold ${lColor.textBold}`}>
-                                      {item.program.songLeader}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
+                              {item.presider && <SetlistPerson role="Presider" name={item.presider} />}
+                              {item.program?.songLeader && <SetlistPerson role="Song Leader" name={item.program.songLeader} />}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-xs">
