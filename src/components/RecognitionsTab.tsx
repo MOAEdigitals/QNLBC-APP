@@ -419,28 +419,22 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          className={`p-4 rounded-2xl border shadow-xs flex items-start justify-between ${BIRTHDAY_MONTH_COLORS[month].card}`}
+                          className={`birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 ${BIRTHDAY_MONTH_COLORS[month].card}`}
                         >
-                          <div className="flex items-start space-x-3">
+                          <div className="flex min-w-0 flex-1 items-center space-x-3">
                             <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
                               <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
                                 {getNextAnnualOccurrence(item.birthDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                               </span>
                               <span className="text-base font-black leading-none mt-0.5">{Number(item.birthDate.split('-')[2])}</span>
                             </div>
-                            <div>
-                              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                            <div className="min-w-0 flex-1">
+                              <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                                <span className="truncate">
                                 {item.name}
-                              </h4>
-                              <div className={`text-xs font-semibold mt-0.5 ${BIRTHDAY_MONTH_COLORS[month].text}`}>
-                                {parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
-                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="ml-2 inline-block rounded px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200">Greet this Sunday</span>}
-                              </div>
-                              {item.ministryOrGroup && (
-                                <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 font-medium">
-                                  {item.ministryOrGroup}
                                 </span>
-                              )}
+                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="birthday-sunday-dot" role="img" aria-label="Greet this coming Sunday" title="Greet this coming Sunday" />}
+                              </h4>
 
                             </div>
                           </div>

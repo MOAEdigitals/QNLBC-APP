@@ -915,7 +915,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 : 'font-black text-slate-900 dark:text-white'
                             }`}
                           >
-                            {item.title || formatDateStr(item.date, { showDayOfWeek: true })}
+                            {item.title || ({ sunday: 'Sunday Service', prayer_meeting: 'Prayer Meeting', fellowship: 'Fellowship', event: 'Special Event' }[item.type || 'sunday'])}
                           </h4>
 
                           {isSoonest && !today && (
@@ -940,26 +940,25 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                         {/* Compact role summary: balanced on the line directly below title */}
                         <div
-                          className="mt-1 flex items-center gap-2 whitespace-nowrap text-slate-500 dark:text-slate-400"
-                          style={{ fontSize: 'clamp(9px, 2.7vw, 12px)' }}
+                          className="setlist-names mt-1 flex flex-wrap items-center gap-x-1.5 text-slate-500 dark:text-slate-400"
                         >
                           <span className="min-w-0">
-                            P: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider || 'TBD'}</span>
+                            {item.presider || 'TBD'}
                           </span>
                           <span aria-hidden="true">•</span>
                           {item.type === 'sunday' || !item.type ? (
                             <>
                               <span className="min-w-0">
-                                SS: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
+                                {item.sundaySchool?.songLeader || 'TBD'}
                               </span>
                               <span aria-hidden="true">•</span>
                               <span className="min-w-0">
-                                WS: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
+                                {item.worshipService?.songLeader || 'TBD'}
                               </span>
                             </>
                           ) : (
                             <span className="min-w-0">
-                              Leader: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
+                              {item.program?.songLeader || 'TBD'}
                             </span>
                           )}
                         </div>
