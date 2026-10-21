@@ -72,6 +72,7 @@ import {
 } from './utils/storage';
 import { getNextSundayStr } from './utils/dateUtils';
 import { Navbar } from './components/Navbar';
+import { loadAppFont, applyAppFont, type AppFont } from './utils/appFont';
 import { HeaderSearchProvider } from './components/HeaderSearch';
 import { BottomNav } from './components/BottomNav';
 import { AuthScreen } from './components/AuthScreen';
@@ -113,6 +114,8 @@ export default function App() {
 
   // 2. Personal Display Preferences (Preserved)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => loadTheme());
+  const [appFont, setAppFont] = useState<AppFont>(loadAppFont);
+  useEffect(() => { applyAppFont(appFont); }, [appFont]);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -1353,6 +1356,8 @@ export default function App() {
             savedNames={savedNames}
             onUpdateSavedNames={handleUpdateSavedNames}
             theme={theme}
+            appFont={appFont}
+            onChangeAppFont={setAppFont}
             onToggleTheme={handleToggleTheme}
             onSignOut={handleSignOut}
             onDataReset={reloadAllData}

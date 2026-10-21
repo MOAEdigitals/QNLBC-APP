@@ -1,4 +1,5 @@
 import { CardActions } from './CardActions';
+import { APP_FONTS, type AppFont } from '../utils/appFont';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
@@ -72,6 +73,8 @@ interface SettingsTabProps {
   savedNames?: string[];
   onUpdateSavedNames?: (names: string[]) => void | Promise<void>;
   theme: 'light' | 'dark';
+  appFont: AppFont;
+  onChangeAppFont: (font: AppFont) => void;
   onToggleTheme: () => void;
   onSignOut: () => void;
   onDataReset: () => void;
@@ -103,6 +106,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   savedNames: propSavedNames = [],
   onUpdateSavedNames,
   theme,
+  appFont,
+  onChangeAppFont,
   onToggleTheme,
   onSignOut,
   onDataReset,
@@ -844,6 +849,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             </div>
 
             {/* Targeted Cache & Legacy Storage Tool */}
+            <div className="space-y-2">
+              <label htmlFor="app-font" className="block text-sm font-semibold">App font</label>
+              <select id="app-font" value={appFont} onChange={event => onChangeAppFont(event.target.value as AppFont)} className="w-full min-h-11 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+                {APP_FONTS.map(font => <option key={font} value={font}>{font}</option>)}
+              </select>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Applies throughout the app. Saved on this device.</p>
+            </div>
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
