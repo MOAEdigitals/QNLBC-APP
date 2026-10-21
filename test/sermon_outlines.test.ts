@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sermonPayload, filterSermons } from '../src/features/sermons/model.ts';
+import { sermonPayload, filterSermons, listSermons } from '../src/features/sermons/model.ts';
 import type { SermonOutline } from '../src/features/sermons/model.ts';
 
 test('sermon persistence preserves literal whitespace, tabs, bullets, asterisks and line endings', () => {
@@ -20,6 +20,11 @@ test('blank outlines are rejected without mutating the input', () => {
 function row(date: string, title = date): SermonOutline {
   return { id: title, service_date: date, title, preacher: 'Marius', outline: '\t• John 3:16', author_id: 'author', status: 'published', revision: 1, created_at: '', updated_at: '' };
 }
+test('outline ordering uses only service dates, even for previously marked-done records', () => {
+  const rows = [{ ...row('2026-10-25'), is_done: true }, row('2026-10-18'), row('2026-10-22')];
+  assert.deepEqual(listSermons(rows, '2026-10-22', '').map(r => r.service_date), ['2026-10-22', '2026-10-25', '2026-10-18']);
+  assert.deepEqual(listSermons(rows, '2026-10-26', '').map(r => r.service_date), ['2026-10-25', '2026-10-22', '2026-10-18']);
+});
 test('today remains upcoming; future sermons ascend and past sermons descend', () => {
   const rows = [row('2026-10-11'), row('2026-09-20'), row('2026-10-03'), row('2026-09-27')];
   assert.deepEqual(filterSermons(rows, 'upcoming', '2026-10-03', '').map(r => r.service_date), ['2026-10-03', '2026-10-11']);

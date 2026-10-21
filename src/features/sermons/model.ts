@@ -40,8 +40,8 @@ export function listSermons(rows: SermonOutline[], today: string, search: string
   const query = search.toLocaleLowerCase().trim();
   return rows.filter(row => !query || `${row.title} ${row.preacher} ${row.outline}`.toLocaleLowerCase().includes(query))
     .sort((a, b) => {
-      const aPast = a.service_date < today || !!a.is_done;
-      const bPast = b.service_date < today || !!b.is_done;
+      const aPast = a.service_date < today;
+      const bPast = b.service_date < today;
       if (aPast !== bPast) return aPast ? 1 : -1;
       return (aPast ? b.service_date.localeCompare(a.service_date) : a.service_date.localeCompare(b.service_date)) || a.title.localeCompare(b.title);
     });

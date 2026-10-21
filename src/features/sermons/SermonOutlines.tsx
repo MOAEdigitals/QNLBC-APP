@@ -2,7 +2,7 @@ import { CardActions } from '../../components/CardActions';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { monthList } from '../../components/MonthSeparators';
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Check, Trash2 } from 'lucide-react';
+import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Trash2 } from 'lucide-react';
 import type { UserAccount } from '../../types';
 import { parseDate, formatDateStr, getNextSundayStr, getTodayStr } from '../../utils/dateUtils';
 import { generateUUID } from '../../services/supabaseData';
@@ -150,15 +150,6 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
       if (alive.current) setSaveError(e instanceof Error ? e.message : 'Unable to save. Your outline and attachments are still here.');
     } finally { saveLock.current = false; if (alive.current) setSaving(false); }
   }
-  async function toggleDone() {
-    if (!selected || saveLock.current || !currentUser) return;
-    saveLock.current = true; setSaving(true); setCopyMessage('');
-    try {
-      const saved = await saveSermon({ service_date: selected.service_date, title: selected.title, preacher: selected.preacher, outline: selected.outline, outline_html: selected.outline_html, attachments: selected.attachments || [], status: selected.status, is_done: !selected.is_done }, currentUser.id, selected);
-      setRows(previous => previous.map(row => row.id === saved.id ? saved : row));
-    } catch (e) { setCopyMessage(e instanceof Error ? e.message : 'Unable to update this sermon.'); }
-    finally { saveLock.current = false; setSaving(false); }
-  }
   async function removeSelected(row = selected) {
     if (!row || !canDelete(row) || saveLock.current) return;
     if (!window.confirm(`Delete “${row.title}”? This cannot be undone.`)) return;
@@ -204,11 +195,11 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
     {loading && !ready && <p role="status" className="text-sm text-slate-500">Loading outlines…</p>}
     {ready && visible.length === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}
     <div className="space-y-2.5">{monthList(visible, row => row.service_date, ['outline', 'outlines']).render(row => {
-      const past = row.service_date < today || !!row.is_done;
+      const past = row.service_date < today;
       return <div key={row.id} className={`relative w-full text-left p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
         <button type="button" onClick={() => openSermon(row)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
         <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${past ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}><span className="text-[10px] font-bold uppercase tracking-wider leading-none">{parseDate(row.service_date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span><span className="text-base font-black leading-none mt-0.5">{Number(row.service_date.split('-')[2])}</span></div>
-        <div className="flex-1 min-w-0"><div className="flex min-w-0 items-center gap-1.5"><h3 className={`min-w-0 truncate text-sm sm:text-base ${past ? 'font-bold text-slate-500 dark:text-slate-400' : 'font-black text-slate-900 dark:text-white'}`}>{row.title}</h3>{row.status === 'draft' && <span className="text-[10px] font-semibold shrink-0 text-amber-600">Draft</span>}</div><div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><span className="min-w-0 truncate font-semibold">{row.preacher}</span>{row.is_done && <span className="shrink-0">· Done</span>}</div></div>
+        <div className="flex-1 min-w-0"><div className="flex min-w-0 items-center gap-1.5"><h3 className={`min-w-0 truncate text-sm sm:text-base ${past ? 'font-bold text-slate-500 dark:text-slate-400' : 'font-black text-slate-900 dark:text-white'}`}>{row.title}</h3>{row.status === 'draft' && <span className="text-[10px] font-semibold shrink-0 text-amber-600">Draft</span>}</div><div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><span className="min-w-0 truncate font-semibold">{row.preacher}</span></div></div>
         {!!row.attachments?.length && <span className="flex items-center gap-1 text-xs text-slate-400 shrink-0" aria-label={`${row.attachments.length} attachments`}><Paperclip className="w-3 h-3" />{row.attachments.length}</span>}
         </button>
         <CardActions label="Outline" disabled={saving} onEdit={canEdit(row) ? () => startEdit(row) : undefined} onDelete={canDelete(row) ? () => void removeSelected(row) : undefined} />
@@ -218,7 +209,7 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
       <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 sm:px-5 pt-[env(safe-area-inset-top)]">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-1 py-1"><button type="button" className={readerAction} aria-label="Back to sermons" onClick={closeReader} disabled={saving}><ArrowLeft className="w-5 h-5" /></button><div className="flex gap-1">
           {source === 'outline' && <><button type="button" className={`${readerAction}`} aria-label="Decrease text size" disabled={fontSize <= 14} onClick={() => setFontSize(size => Math.max(14, size - 2))}>A−</button><button type="button" className={`${readerAction}`} aria-label="Increase text size" disabled={fontSize >= 32} onClick={() => setFontSize(size => Math.min(32, size + 2))}>A+</button><button type="button" className={readerAction} aria-label="Copy outline" title="Copy outline" onClick={() => void copy()}><Copy className="w-4 h-4" /></button></>}
-          {canEdit(selected) && <><button type="button" className={readerAction} aria-label="Edit outline" title="Edit outline" disabled={saving} onClick={() => startEdit(selected)}><Pencil className="w-4 h-4" /></button><button type="button" className={`${readerAction} ${selected.is_done ? 'text-indigo-600' : ''}`} aria-label={selected.is_done ? 'Mark not done' : 'Mark done'} title={selected.is_done ? 'Mark not done' : 'Mark done'} aria-pressed={!!selected.is_done} disabled={saving} onClick={() => void toggleDone()}><Check className="w-4 h-4" /></button></>}
+          {canEdit(selected) && <><button type="button" className={readerAction} aria-label="Edit outline" title="Edit outline" disabled={saving} onClick={() => startEdit(selected)}><Pencil className="w-4 h-4" /></button></>}
           {canDelete(selected) && <button type="button" className={`${readerAction} text-rose-600 dark:text-rose-400`} aria-label="Delete outline" title="Delete outline" disabled={saving} onClick={() => void removeSelected()}><Trash2 className="w-4 h-4" /></button>}
         </div></div>
       </header>
