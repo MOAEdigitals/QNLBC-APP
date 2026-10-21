@@ -1051,13 +1051,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {(() => {
                             const presiderColor = getPersonColor(item.presider);
                             return (
-                              <div className={`md:col-span-2 p-2.5 sm:p-3 rounded-xl ${presiderColor.bgLight} border-2 ${presiderColor.borderStrong} flex flex-col sm:flex-row sm:items-center justify-between gap-2.5`}>
+                              <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                                 <div className="flex items-center space-x-2.5">
-                                  <div className={`p-1.5 rounded-lg ${presiderColor.bgLight} ${presiderColor.text} border ${presiderColor.border}`}>
+                                  <div className="p-1.5 text-slate-500 dark:text-slate-400">
                                     <User className="w-4 h-4" />
                                   </div>
                                   <div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${presiderColor.text} block`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                       Presider
                                     </span>
                                     <span className={`text-sm font-bold ${presiderColor.textBold}`}>
@@ -1132,12 +1132,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {(() => {
                             const ssLeaderColor = getPersonColor(item.sundaySchool?.songLeader);
                             return (
-                              <div className={`p-3 rounded-xl ${ssLeaderColor.bgLight} border-2 ${ssLeaderColor.borderStrong} space-y-2`}>
-                                <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-700/80 pb-2">
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${ssLeaderColor.bgLight} ${ssLeaderColor.text} border ${ssLeaderColor.border}`}>
+                              <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                                     Leader: <span className={`font-bold ${ssLeaderColor.textBold}`}>{item.sundaySchool?.songLeader || 'Unassigned'}</span>
                                   </span>
-                                  <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${ssLeaderColor.textBold}`}>
+                                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
                                     Sunday School
                                   </h4>
                                 </div>
@@ -1185,12 +1185,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           {(() => {
                             const wsLeaderColor = getPersonColor(item.worshipService?.songLeader);
                             return (
-                              <div className={`p-3 rounded-xl ${wsLeaderColor.bgLight} border-2 ${wsLeaderColor.borderStrong} space-y-2`}>
-                                <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-700/80 pb-2">
-                                  <span className={`text-xs font-medium px-2 py-0.5 rounded ${wsLeaderColor.bgLight} ${wsLeaderColor.text} border ${wsLeaderColor.border}`}>
+                              <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                                     Leader: <span className={`font-bold ${wsLeaderColor.textBold}`}>{item.worshipService?.songLeader || 'Unassigned'}</span>
                                   </span>
-                                  <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${wsLeaderColor.textBold}`}>
+                                  <h4 className="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-900 dark:text-white">
                                     Worship Service
                                   </h4>
                                 </div>
@@ -1271,14 +1271,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                       {/* Non-Sunday Programs (Prayer Meeting, Fellowship, Event) */}
                       {item.type && item.type !== 'sunday' && (
-                        <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2.5">
+                        <div className="space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 dark:border-slate-700 pb-2">
                             <div className="flex items-center space-x-3">
                               {item.presider && (() => {
                                 const pColor = getPersonColor(item.presider);
                                 return (
                                   <div>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${pColor.text} block`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                       Presider
                                     </span>
                                     <span className={`text-xs font-bold ${pColor.textBold}`}>
@@ -1291,7 +1291,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 const lColor = getPersonColor(item.program.songLeader);
                                 return (
                                   <div className={item.presider ? "pl-3 border-l border-slate-200 dark:border-slate-700" : ""}>
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${lColor.text} block`}>
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block">
                                       Song Leader
                                     </span>
                                     <span className={`text-xs font-bold ${lColor.textBold}`}>
