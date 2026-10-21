@@ -419,14 +419,30 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          className="soft-card birthday-row flex items-center justify-between"
+                          className={`p-4 rounded-2xl border shadow-xs flex items-start justify-between ${BIRTHDAY_MONTH_COLORS[month].card}`}
                         >
-                          <div className="birthday-summary">
-                              <h4 title={[item.name, item.ministryOrGroup, isBirthdayRecognitionWeek(item.birthDate) ? 'Greet this Sunday' : ''].filter(Boolean).join(' · ')} className="text-sm font-medium text-slate-900 dark:text-white">
+                          <div className="flex items-start space-x-3">
+                            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
+                              <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
+                                {getNextAnnualOccurrence(item.birthDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+                              </span>
+                              <span className="text-base font-black leading-none mt-0.5">{Number(item.birthDate.split('-')[2])}</span>
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                                 {item.name}
-                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="birthday-greeting" aria-label="Greet this Sunday" title="Greet this Sunday">•</span>}
                               </h4>
-                              <time dateTime={`2000-${item.birthDate.slice(5)}`}>{parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</time>
+                              <div className={`text-xs font-semibold mt-0.5 ${BIRTHDAY_MONTH_COLORS[month].text}`}>
+                                {parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="ml-2 inline-block rounded px-2 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200">Greet this Sunday</span>}
+                              </div>
+                              {item.ministryOrGroup && (
+                                <span className="inline-block mt-1 text-[11px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/70 text-slate-700 dark:text-slate-300 font-medium">
+                                  {item.ministryOrGroup}
+                                </span>
+                              )}
+
+                            </div>
                           </div>
 
                           <div className="relative shrink-0">
@@ -493,7 +509,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {monthList(filteredAnniversaries, item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
                   <div
                     key={item.id}
-                    className="soft-card p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                    className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
                       <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex flex-col items-center justify-center font-bold shrink-0">
@@ -538,7 +554,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               {monthList(filteredVisitors, item => item.dateVisited, ['visitor', 'visitors']).render((item) => (
                 <div
                   key={item.id}
-                  className="soft-card p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs"
+                  className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs"
                 >
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -593,7 +609,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                     {monthList(items, item => item.date, ['recognition', 'recognitions']).render((item) => (
                       <div
                         key={item.id}
-                        className="soft-card p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between"
+                        className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between"
                       >
                         <div className="space-y-1">
                           <h5 className="text-sm font-bold text-slate-900 dark:text-white">{item.name}</h5>

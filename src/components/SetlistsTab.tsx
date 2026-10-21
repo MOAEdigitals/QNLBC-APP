@@ -868,7 +868,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 <div
                   key={item.id}
                   id={`setlist-card-${item.id}`}
-                  data-featured={today || isSoonest || undefined}
                   onClick={(e) => handleSelectSetlist(item.id, e)}
                   className={`relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
@@ -885,7 +884,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   }`}
                 >
                   {/* Card Header Row with Far-Right 3-Dots / Actions */}
-                  <div className="setlist-summary flex items-center justify-between min-w-0">
+                  <div className="flex items-center justify-between min-w-0">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       {/* Date Badge */}
                       <div
@@ -916,7 +915,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 : 'font-black text-slate-900 dark:text-white'
                             }`}
                           >
-                            {item.title || ({ sunday: 'Sunday service', prayer_meeting: 'Prayer meeting', fellowship: 'Fellowship', event: 'Special event' }[item.type || 'sunday'])}
+                            {item.title || formatDateStr(item.date, { showDayOfWeek: true })}
                           </h4>
 
                           {isSoonest && !today && (
@@ -946,25 +945,26 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                         {/* Compact role summary: balanced on the line directly below title */}
                         <div
-                          className="setlist-people mt-1 flex items-center gap-2 text-slate-500 dark:text-slate-400"
+                          className="mt-1 flex items-center gap-2 whitespace-nowrap text-slate-500 dark:text-slate-400"
+                          style={{ fontSize: 'clamp(9px, 2.7vw, 12px)' }}
                         >
                           <span className="min-w-0">
-                            {(today || isSoonest) && <small>Presider</small>}<span>{item.presider || 'TBD'}</span>
+                            P: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.presider).textBold}`}>{item.presider || 'TBD'}</span>
                           </span>
                           <span aria-hidden="true">•</span>
                           {item.type === 'sunday' || !item.type ? (
                             <>
                               <span className="min-w-0">
-                                {(today || isSoonest) && <small>Sunday school</small>}<span>{item.sundaySchool?.songLeader || 'TBD'}</span>
+                                SS: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.sundaySchool?.songLeader).textBold}`}>{item.sundaySchool?.songLeader || 'TBD'}</span>
                               </span>
                               <span aria-hidden="true">•</span>
                               <span className="min-w-0">
-                                {(today || isSoonest) && <small>Worship service</small>}<span>{item.worshipService?.songLeader || 'TBD'}</span>
+                                WS: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.worshipService?.songLeader).textBold}`}>{item.worshipService?.songLeader || 'TBD'}</span>
                               </span>
                             </>
                           ) : (
                             <span className="min-w-0">
-                              {(today || isSoonest) && <small>Song leader</small>}<span>{item.program?.songLeader || 'TBD'}</span>
+                              Leader: <span className={`font-semibold ${isPast ? 'text-slate-600 dark:text-slate-400' : getPersonColor(item.program?.songLeader).textBold}`}>{item.program?.songLeader || 'TBD'}</span>
                             </span>
                           )}
                         </div>
