@@ -32,11 +32,14 @@ test('one setlist stays expanded across tab remounts until its header or another
   const months = compile('src/components/MonthSeparators.tsx', {});
   const component = compile('src/components/SetlistsTab.tsx', { '../hooks/useSetlistReorder': reorderHook, './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
   const rows = ['one', 'two'].map(id => ({ id, date: dates.getTodayStr(), type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
-  const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], initialExpandedSetlistIds: fresh ? undefined : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
+  rows.push(...['old-one', 'old-two'].map(id => ({ id, date: '2000-01-01', type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } })));
+  const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], canReorder: true, onReorderSetlists: async () => {}, initialExpandedSetlistIds: fresh ? undefined : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
   const clickHeader = async (id: string) => act(() => document.querySelector<HTMLDivElement>(`#setlist-card-${id} > div`)!.click());
   const open = (id: string) => document.querySelector(`#setlist-card-${id}`)!.children.length > 1;
   try {
     await act(() => render());
+    assert.equal(document.querySelectorAll('[aria-label^="Reorder"]').length, 2, 'only today/future same-date cards have handles');
+    assert.equal(document.querySelector('#setlist-card-old-one [aria-label^="Reorder"]'), null);
     assert.ok(document.getElementById('setlist-card-one'), document.body.innerHTML.slice(0, 3000));
     await clickHeader('one');
     assert.equal(open('one'), true); assert.equal(open('two'), false);

@@ -18,14 +18,13 @@ test('editor sections toggle independently, keep fields mounted and reveal inval
     exports, requestAnimationFrame: (callback: () => void) => frames.push(callback), require: (name: string) => name === 'react' ? React : new Proxy({}, { get: () => () => null }),
   });
   try {
-    assert.equal(exports.setlistProgramSummary({ songLeader: 'Bro Ronnie', songs: [{ title: 'Amazing Grace' }, { title: ' ' }] }), 'Bro Ronnie · 1 song');
-    assert.equal(exports.setlistProgramSummary(), 'Choose a song leader · No songs selected');
     await act(() => root.render(React.createElement('form', null,
-      React.createElement(exports.SetlistEditorSection, { title: 'Service Details', summary: 'October 25', colorClass: 'text-sky-700', initialOpen: true }, React.createElement('input', { id: 'date', required: true, defaultValue: '2026-10-25' })),
-      React.createElement(exports.SetlistEditorSection, { title: 'Sunday School', summary: 'Bro Ronnie · 1 song', colorClass: 'text-amber-700' }, React.createElement('input', { id: 'song', defaultValue: 'Amazing Grace' })),
-      React.createElement(exports.SetlistEditorSection, { title: 'Worship Service', summary: 'Bro Joshua · 2 songs', colorClass: 'text-indigo-700' }, React.createElement('input', { id: 'leader', defaultValue: 'Bro Joshua' })),
+      React.createElement(exports.SetlistEditorSection, { title: 'Service Details', colorClass: 'text-sky-700', initialOpen: true }, React.createElement('input', { id: 'date', required: true, defaultValue: '2026-10-25' })),
+      React.createElement(exports.SetlistEditorSection, { title: 'Sunday School', colorClass: 'text-amber-700' }, React.createElement('input', { id: 'song', defaultValue: 'Amazing Grace' })),
+      React.createElement(exports.SetlistEditorSection, { title: 'Worship Service', colorClass: 'text-indigo-700' }, React.createElement('input', { id: 'leader', defaultValue: 'Bro Joshua' })),
     )));
     const buttons = [...document.querySelectorAll('button')];
+    assert.deepEqual(buttons.map(button => button.textContent), ['Service Details', 'Sunday School', 'Worship Service']);
     assert.deepEqual(buttons.map(button => button.getAttribute('aria-expanded')), ['true', 'false', 'false']);
     const song = document.getElementById('song') as HTMLInputElement;
     await act(() => buttons[1].click());

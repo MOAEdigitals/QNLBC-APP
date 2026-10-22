@@ -67,11 +67,13 @@ test('saved practice cards open from the whole card and use icon-only header con
   assert.doesNotMatch(practiceTab, /← All practices/);
 });
 
-test('practice header keeps controls fixed while long titles and badges wrap on the left', () => {
-  assert.match(practiceTab, /grid grid-cols-\[auto_auto_minmax\(0,1fr\)_auto\] items-center gap-3/);
-  assert.match(practiceTab, /line-clamp-2 break-words text-base font-black leading-tight/);
-  assert.match(practiceTab, /mt-2 flex flex-wrap items-center gap-x-1\.5 gap-y-1/);
-  assert.match(practiceTab, /<div className="flex shrink-0 items-center gap-1">/);
+test('practice header shows the song and optional group without an event or leading date icon', () => {
+  const start = practiceTab.indexOf('{/* Card Header */}', practiceTab.indexOf('id={`practice-card-'));
+  const header = practiceTab.slice(start, practiceTab.indexOf('<div className="flex shrink-0 items-center gap-1">', start));
+  assert.match(header, /min-w-0 flex-1/);
+  assert.match(header, /group.songTitle/);
+  assert.match(header, /group.groupName\?\.trim\(\)/);
+  assert.doesNotMatch(header, /CardDate|assignedEvent|Worship Team/);
 });
 
 test('opened practice keeps lyrics expanded and hides its new-practice FAB', () => {

@@ -321,7 +321,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       {items.map((item) => (
                         <div
                           key={item.id}
-                          data-upcoming-card={isBirthdayRecognitionWeek(item.birthDate) ? 'recognition' : undefined}
+                          data-birthday-celebrant={isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                         >
@@ -332,7 +332,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                                 <span className="truncate">
                                 {item.name}
                                 </span>
-                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="birthday-sunday-dot" role="img" aria-label="Greet this coming Sunday" title="Greet this coming Sunday" />}
+                                {isBirthdayRecognitionWeek(item.birthDate) && <span className="sr-only">Greet this coming Sunday</span>}
                               </h4>
 
                             </div>

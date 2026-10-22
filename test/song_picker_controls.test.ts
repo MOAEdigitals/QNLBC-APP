@@ -140,6 +140,31 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       assert.equal(selected, kind === 'songs' ? 'Zion' : 'Bro Ronnie');
       assert.equal(document.querySelector('[role="dialog"]'), null);
     }
+
+    for (const current of ['Napakaligaya', 'Give Thanks', 'Previously selected theme']) {
+      selected = current;
+      await act(() => root.render(React.createElement(exports.AutofillInput, { key: current, value: current, defaultValue: current === 'Previously selected theme' ? undefined : current, onChange: (value: string) => { selected = value; }, songs, suggestions: songs.map(song => song.title), showAllOnFocus: true })));
+      const field = document.querySelector('input')!;
+      field.getBoundingClientRect = () => ({ top: 100, bottom: 144, left: 20, right: 370, width: 350, height: 44, x: 20, y: 100, toJSON() {} });
+      await act(() => field.dispatchEvent(new dom.window.FocusEvent('focusin', { bubbles: true })));
+      assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed'], 'saved/default songs do not become browse queries');
+      assert.equal(selected, current, 'browsing does not overwrite the default');
+      await click([...document.querySelectorAll('button')].find(button => button.textContent === 'Choir')!);
+      assert.deepEqual(titles(), ['Blessed']);
+      await act(() => field.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      await click(field);
+      assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed'], 'reopening resets to All even while the field retains focus');
+      await act(() => field.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      await touch(field, 'pointerdown'); await touch(field, 'pointerup');
+      assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed']);
+      assert.equal(document.querySelector<HTMLTextAreaElement>('[role="dialog"] input')!.value, '', 'mobile browse query is empty even when a saved value exists');
+      await click([...document.querySelectorAll('button')].find(button => button.textContent === 'Choir')!);
+      await click(document.querySelector('[aria-label="Close picker"]')!);
+      await touch(field, 'pointerdown'); await touch(field, 'pointerup');
+      assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed'], 'mobile reopen resets to All');
+      assert.equal(selected, current);
+      await click(document.querySelector('[aria-label="Close picker"]')!);
+    }
   } finally {
     await act(() => root.unmount()); dom.window.close();
     globals.forEach((key, index) => { if (saved[index]) Object.defineProperty(globalThis, key, saved[index]!); else delete (globalThis as any)[key]; });

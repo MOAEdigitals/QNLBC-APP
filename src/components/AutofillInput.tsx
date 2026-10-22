@@ -85,6 +85,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   id,
   name,
   autoComplete = 'off',
+  showAllOnFocus = false,
   showSongCategoryFilters: categoryFiltersRequested = false,
   songFilter: controlledSongFilter,
   onSongFilterChange: onControlledFilterChange,
@@ -106,6 +107,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [isTouchPicker, setIsTouchPicker] = useState(false);
   const [isBrowseOnly, setIsBrowseOnly] = useState(true);
   const [pickerQuery, setPickerQuery] = useState('');
+  const [desktopBrowsing, setDesktopBrowsing] = useState(false);
   const [isPickerFullscreen, setIsPickerFullscreen] = useState(false);
   const [pickerDragY, setPickerDragY] = useState(0);
   const pickerDragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
@@ -204,7 +206,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
-  const activeQuery = isTouchPicker ? pickerQuery.trim().toLowerCase() : lowerVal;
+  const activeQuery = isTouchPicker ? pickerQuery.trim().toLowerCase() : showAllOnFocus && desktopBrowsing ? '' : lowerVal;
   const cleanDefault = (defaultValue || '').trim().toLowerCase();
 
   const filteredSongs = useMemo(
@@ -702,6 +704,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               setIsFocused(false);
               setIsBrowseOnly(true);
               setPickerQuery('');
+              if (showAllOnFocus) onSongFilterChange('all');
               setIsPickerFullscreen(false);
               setPickerDragY(0);
               setMobilePickerPosition(null);
@@ -711,11 +714,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             }
           }}
           onChange={(e) => {
+            setDesktopBrowsing(false);
             onChange(e.target.value);
             setIsOpen(true);
             setHighlightedIndex(-1);
           }}
           onFocus={() => {
+            if (showAllOnFocus) { setDesktopBrowsing(true); onSongFilterChange('all'); }
             setIsFocused(true);
             setIsOpen(true);
           }}
@@ -724,6 +729,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               ignoreTouchClickRef.current = false;
               return;
             }
+            if (showAllOnFocus && !isOpen) { setDesktopBrowsing(true); onSongFilterChange('all'); }
             setIsFocused(true);
             setIsOpen(true);
           }}

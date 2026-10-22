@@ -24,26 +24,8 @@ test('SetlistsTab: today setlist displays only Today badge and no upcoming badge
     'isSoonest in SetlistsTab must be false when today is true'
   );
 
-  // ★ Upcoming badge must not render for today
-  assert.match(
-    setlistsSrc,
-    /\{isSoonest\s*&&\s*!today\s*&&\s*\(/,
-    '★ Upcoming badge in SetlistsTab must guard against today'
-  );
+  assert.match(setlistsSrc, /<UpcomingBadge status=\{today \? 'today' : isSoonest \? 'next-up'/, 'one shared badge gives Today priority');
 
-  // Upcoming badge must not render for today
-  assert.match(
-    setlistsSrc,
-    /\{!isPast\s*&&\s*!isSoonest\s*&&\s*!today\s*&&\s*item.id === followingUpcoming\?\.id\s*&&\s*\(/,
-    'Upcoming badge in SetlistsTab must guard against today'
-  );
-
-  // Today badge renders for today
-  assert.match(
-    setlistsSrc,
-    /\{today\s*&&\s*\(\s*<span[^>]*>\s*Today\s*<\/span>\s*\)\}/,
-    'Today badge in SetlistsTab must render when today is true'
-  );
 });
 
 test('SpecialNumberTab: today entry displays only Today badge and no upcoming badge', () => {
@@ -61,12 +43,8 @@ test('SpecialNumberTab: today entry displays only Today badge and no upcoming ba
     'isSoonest in SpecialNumberTab must be false when today is true'
   );
 
-  // ★ Upcoming badge must not render for today
-  assert.match(
-    specialNumSrc,
-    /\{isSoonest\s*&&\s*!today\s*&&\s*\(/,
-    '★ Upcoming badge in SpecialNumberTab must guard against today'
-  );
+  assert.match(specialNumSrc, /<UpcomingBadge status=\{today \? 'today' : isSoonest \? 'next-up'/, 'one shared badge gives Today priority');
+
 });
 
 test('Badge determination logic: today item gets exactly Today badge and never Upcoming', () => {

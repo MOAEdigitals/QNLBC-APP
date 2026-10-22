@@ -1,3 +1,4 @@
+import { UpcomingBadge } from './UpcomingBadge';
 import { SetlistShareDialog } from './SetlistShareDialog';
 import { CardDate } from './CardDate';
 import { initialSetlistCardId, orderSameDateSetlists } from '../utils/initialSetlistCard';
@@ -5,7 +6,7 @@ import { useSetlistReorder } from '../hooks/useSetlistReorder';
 import type { SaveSetlistOrder } from '../hooks/useSetlistReorder';
 import { createPortal } from 'react-dom';
 import { monthList } from './MonthSeparators';
-import { SetlistEditorSection, setlistProgramSummary } from './SetlistEditorSection';
+import { SetlistEditorSection } from './SetlistEditorSection';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
@@ -23,7 +24,6 @@ import {
   loadWelcomeSongs,
   saveWelcomeSongs,
   getAllDirectoryNames,
-  getThemeSongForMonth,
 } from '../utils/storage';
 import { generateUUID, isUUID } from '../services/supabaseData';
 import { COLOR_PALETTE, getPersonColor } from '../utils/personColors';
@@ -471,31 +471,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const directoryNames = useMemo(() => getAllDirectoryNames(savedNames), [savedNames, isEditing]);
   const songTitleSuggestions = useMemo(() => songs.map((s) => s.title), [songs]);
 
-  // Marked songs from library (plus defaults)
-  const markedWelcomeSongs = useMemo(
-    () =>
-      Array.from(
-        new Set(['Napakaligaya', ...songs.filter((s) => s.isWelcomeSong).map((s) => s.title)])
-      ).filter(Boolean),
-    [songs]
-  );
-
-  const markedClosingSongs = useMemo(
-    () =>
-      Array.from(
-        new Set(['Give Thanks', ...songs.filter((s) => s.isClosingSong).map((s) => s.title)])
-      ).filter(Boolean),
-    [songs]
-  );
-
-  const markedThemeSongs = useMemo(
-    () =>
-      Array.from(
-        new Set(songs.filter((s) => s.isThemeSong).map((s) => s.title))
-      ).filter(Boolean),
-    [songs]
-  );
-
   // Sort upcoming soonest first, then past below
   const sortedSetlists = useMemo(
     () => orderSameDateSetlists(sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date)),
@@ -634,7 +609,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   // Start creating Sunday Setlist
   const handleStartCreateSunday = () => {
     const nextSun = getNextSundayStr();
-    const monthTheme = getThemeSongForMonth(songs, nextSun);
 
     const initialData: Partial<Setlist> = {
       id: generateUUID(),
@@ -706,7 +680,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         date: nextSun,
         presider: '',
         welcomeSong: 'Napakaligaya',
-        closingSong: '',
+        closingSong: 'Give Thanks',
         program: {
           songLeader: '',
           songs: [
@@ -946,7 +920,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   data-setlist-drag-id={item.id}
                   aria-busy={reorder.busy || undefined}
                   style={reorder.drag?.id === item.id ? { opacity: .5 } : undefined}
-                  data-upcoming-card={isSoonest ? 'next-up' : !isPast && !today && item.id === followingUpcoming?.id ? 'upcoming' : undefined}
+                  data-upcoming-card={today ? 'today' : isSoonest ? 'next-up' : !isPast && !today && item.id === followingUpcoming?.id ? 'upcoming' : undefined}
                   className={`app-date-card relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
                       ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 ${
@@ -980,23 +954,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             {item.title || ({ sunday: 'Sunday Service', prayer_meeting: 'Prayer Meeting', fellowship: 'Fellowship', event: 'Special Event' }[item.type || 'sunday'])}
                           </h4>
 
-                          {isSoonest && !today && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                              Next up
-                            </span>
-                          )}
-
-                          {!isPast && !isSoonest && !today && item.id === followingUpcoming?.id && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                              Upcoming
-                            </span>
-                          )}
-
-                          {today && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
-                              Today
-                            </span>
-                          )}
+                          <UpcomingBadge status={today ? 'today' : isSoonest ? 'next-up' : !isPast && item.id === followingUpcoming?.id ? 'upcoming' : undefined} />
 
                         </div>
 
@@ -1033,7 +991,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {reorder.canDrag(item) && <button {...reorder.handleProps(item)} aria-label={`Reorder ${item.title || 'setlist'} on ${item.date}. Drag or use arrow keys.`} className="flex h-11 w-8 shrink-0 touch-none items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-grab active:cursor-grabbing disabled:opacity-50"><GripVertical className="h-4 w-4" aria-hidden="true" /></button>}
+                      {!isPast && reorder.canDrag(item) && <button {...reorder.handleProps(item)} aria-label={`Reorder ${item.title || 'setlist'} on ${item.date}. Drag or use arrow keys.`} className="flex h-11 w-8 shrink-0 touch-none items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-grab active:cursor-grabbing disabled:opacity-50"><GripVertical className="h-4 w-4" aria-hidden="true" /></button>}
 
 
                       <button
@@ -1481,13 +1439,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {songReorder.error && <p role="alert" className="text-sm text-red-500">{songReorder.error}</p>}
 
               <div className="ui-form-body">
-              <SetlistEditorSection title="Service Details" initialOpen colorClass={COLOR_PALETTE.sky.textBold}
-                summary={[editingSetlist.date ? formatDateStr(editingSetlist.date, { shortMonth: true }) : 'Choose a date', editingSetlist.type !== 'prayer_meeting' ? editingSetlist.presider?.trim() || 'Choose a presider' : editingSetlist.title?.trim()].filter(Boolean).join(' · ')}>
+              <SetlistEditorSection title="Service Details" initialOpen colorClass={COLOR_PALETTE.sky.textBold}>
               {/* Date & Title */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                    Scheduled Date *
+                  <label htmlFor="setlist-scheduled-date" className="sr-only">
+                    Scheduled date
                   </label>
                   <input
                     id="setlist-scheduled-date"
@@ -1541,7 +1498,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 ) : (
                   <div className="flex flex-col justify-end">
                     {!showCustomTitle && !editingSetlist.title ? (
-                      <div className="py-2.5">
+                      <div className="flex items-center min-h-9">
                         <button
                           type="button"
                           onClick={() => setShowCustomTitle(true)}
@@ -1626,11 +1583,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
-                          suggestions={markedWelcomeSongs}
+                          suggestions={songTitleSuggestions}
                           allSuggestions={songTitleSuggestions}
                           defaultValue="Napakaligaya"
                           songs={songs}
                           selectedSongTitles={selectedSetlistSongTitles}
+                          showAllOnFocus
                           setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select welcome song..."
@@ -1651,11 +1609,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.closingSong ?? 'Give Thanks'}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
-                          suggestions={markedClosingSongs}
+                          suggestions={songTitleSuggestions}
                           allSuggestions={songTitleSuggestions}
                           defaultValue="Give Thanks"
                           songs={songs}
                           selectedSongTitles={selectedSetlistSongTitles}
+                          showAllOnFocus
                           setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select closing song..."
@@ -1678,10 +1637,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.themeSong || ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, themeSong: val })}
-                          suggestions={markedThemeSongs}
+                          suggestions={songTitleSuggestions}
                           allSuggestions={songTitleSuggestions}
                           songs={songs}
                           selectedSongTitles={selectedSetlistSongTitles}
+                          showAllOnFocus
                           setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select theme song..."
@@ -1702,12 +1662,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {(() => {
                     const ssSectionColor = COLOR_PALETTE.amber;
                     return (
-                      <SetlistEditorSection title="Sunday School" colorClass={ssSectionColor.textBold} summary={setlistProgramSummary(editingSetlist.sundaySchool)}>
+                      <SetlistEditorSection title="Sunday School" colorClass={ssSectionColor.textBold}>
 
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            Sunday School Song Leader
+                            Song Leader
                           </label>
                           <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                             <AutofillInput
@@ -1723,7 +1683,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 })
                               }
                               suggestions={directoryNames}
-                              placeholder="Enter Sunday School song leader"
+                              placeholder="Choose song leader"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
                           </div>
@@ -1769,6 +1729,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               selectedSongTitles={selectedSetlistSongTitles}
+                          showAllOnFocus
                               setlists={setlists}
                               showSongCategoryFilters
                               songFilter={songPickerFilter}
@@ -1805,12 +1766,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {(() => {
                     const wsSectionColor = COLOR_PALETTE.indigo;
                     return (
-                      <SetlistEditorSection title="Worship Service" colorClass={wsSectionColor.textBold} summary={setlistProgramSummary(editingSetlist.worshipService)}>
+                      <SetlistEditorSection title="Worship Service" colorClass={wsSectionColor.textBold}>
 
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                            Worship Service Song Leader
+                            Song Leader
                           </label>
                           <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700">
                             <AutofillInput
@@ -1826,7 +1787,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 })
                               }
                               suggestions={directoryNames}
-                              placeholder="Enter Worship song leader"
+                              placeholder="Choose song leader"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
                           </div>
@@ -1872,6 +1833,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               selectedSongTitles={selectedSetlistSongTitles}
+                          showAllOnFocus
                               setlists={setlists}
                               showSongCategoryFilters
                               songFilter={songPickerFilter}
@@ -1910,7 +1872,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {editingSetlist.type && editingSetlist.type !== 'sunday' && (() => {
 
                 return (
-                  <SetlistEditorSection title="Program Songs" colorClass={COLOR_PALETTE.indigo.textBold} summary={setlistProgramSummary(editingSetlist.program)}>
+                  <SetlistEditorSection title="Program Songs" colorClass={COLOR_PALETTE.indigo.textBold}>
 
 
                     <div>
@@ -1975,6 +1937,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             suggestions={songTitleSuggestions}
                             songs={songs}
                             selectedSongTitles={selectedSetlistSongTitles}
+                          showAllOnFocus
                             setlists={setlists}
                             showSongCategoryFilters
                             songFilter={songPickerFilter}

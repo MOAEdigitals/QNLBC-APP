@@ -1132,7 +1132,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
     const entryToSave: Partial<PracticeGroupEntry> = {
       ...(isNew ? {} : { id: editingPractice.id }),
-      groupName: editingPractice.groupName?.trim() || 'Worship Team',
+      groupName: editingPractice.groupName?.trim() || '',
       songTitle: trimmedTitle,
       songId: effectiveSongId,
       assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
@@ -2069,7 +2069,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={item.id}
                       id={`schedule-card-${item.id}`}
-                      data-upcoming-card={isSoonest ? 'next-up' : !isPast && !today && item.id === followingEntry?.id ? 'upcoming' : undefined}
+                      data-upcoming-card={today ? 'today' : isSoonest ? 'next-up' : !isPast && !today && item.id === followingEntry?.id ? 'upcoming' : undefined}
                       onClick={(e) => {
                         if (isSelected) {
                           setSelectedEntryId(null);
@@ -2111,23 +2111,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                 {item.performerName}
                               </h4>
 
-                              {isSoonest && !today && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                                  Next up
-                                </span>
-                              )}
+                              <UpcomingBadge status={today ? 'today' : isSoonest ? 'next-up' : !isPast && item.id === followingEntry?.id ? 'upcoming' : undefined} />
 
-                              {!isPast && !isSoonest && !today && item.id === followingEntry?.id && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
-                                  Upcoming
-                                </span>
-                              )}
-
-                              {today && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900">
-                                  Today
-                                </span>
-                              )}
                             </div>
 
                             {/* Song title or RED 'No Song Yet' badge */}
@@ -2363,7 +2348,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
-                      data-upcoming-card={practiceUpcoming.get(group.id)}
+                      data-upcoming-card={!isDone && isToday(group.practiceDate || group.targetDate || '') ? 'today' : practiceUpcoming.get(group.id)}
                       onClick={() => {
                         if (!isSelected) setSelectedPracticeId(group.id);
                       }}
@@ -2380,34 +2365,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       }`}
                     >
                       {/* Card Header */}
-                      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3">
-                        <CardDate date={group.practiceDate || group.targetDate || ''} />
+                      <div className="flex items-center gap-3">
                         <div className="min-w-0 flex-1">
-                          <h4
-                            className={`app-card-title line-clamp-2 break-words text-base font-black leading-tight ${
-                              isDone
-                                ? 'line-through text-slate-500 dark:text-slate-400'
-                                : 'text-slate-900 dark:text-white'
-                            }`}
-                          >
-                            {group.songTitle}
-                          </h4>
-                          <UpcomingBadge status={practiceUpcoming.get(group.id)} />
-
-                          <div className="app-card-secondary mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
-                            {group.assignedEvent && (
-                              <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                                {group.assignedEvent}
-                              </span>
-                            )}
-                            {isDone && (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                                <Check className="w-3 h-3" />
-                                <span>Done</span>
-                              </span>
-                            )}
-                            <span className="truncate font-semibold">{group.groupName || 'Worship Team'}</span>
+                          <div className="flex items-center gap-2">
+                            <h4 className={`app-card-title min-w-0 break-words font-semibold ${isDone ? 'line-through text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>{group.songTitle}</h4>
+                            <UpcomingBadge status={!isDone && isToday(group.practiceDate || group.targetDate || '') ? 'today' : practiceUpcoming.get(group.id)} />
                           </div>
+                          {group.groupName?.trim() && <p className="app-card-secondary mt-1 text-slate-500 dark:text-slate-400">{group.groupName}</p>}
+                          {isDone && <span className="text-xs text-slate-500">Done</span>}
                         </div>
 
                         <div className="flex shrink-0 items-center gap-1">
@@ -2796,7 +2761,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   <div
                     key={entry.id}
                     id={`choir-card-${entry.id}`}
-                    data-upcoming-card={choirUpcoming.get(entry.id)}
+                    data-upcoming-card={!entry.isDone && isToday(entry.date) ? 'today' : choirUpcoming.get(entry.id)}
                     onClick={() => {
                       const nextExpanded = !isLyricsExpanded;
                       setExpandedChoirLyricsIds((prev) => ({
@@ -2828,7 +2793,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           >
                             {entry.songTitle}
                           </h4>
-                          <UpcomingBadge status={choirUpcoming.get(entry.id)} />
+                          <UpcomingBadge status={!entry.isDone && isToday(entry.date) ? 'today' : choirUpcoming.get(entry.id)} />
                         </div>
                       </div>
 

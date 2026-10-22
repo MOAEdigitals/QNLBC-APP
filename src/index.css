@@ -59,19 +59,27 @@
 .keyboard-open .ui-viewport-screen form > div:last-child:has(> button[type='submit']) { display: none; }
 .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #dfedff, #ebe7ff); border-color: #c7d2fe; }
 .dark .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #192d46, #332140); border-color: #3b4262; }
-/* Warm highlights distinguish upcoming services and celebrants from activity gradients. */
-.qnlbc-app [data-upcoming-card] { background-image: linear-gradient(115deg, #fff1d8, #fbe3e6); }
-.dark .qnlbc-app [data-upcoming-card] { background-image: linear-gradient(115deg, #302719, #35212c); }
-/* Blue-to-muted-green highlights for upcoming programs/outlines and Sunday birthday greetings. */
-.qnlbc-app :is(.setlists-screen, .outlines-screen) [data-upcoming-card],
-.qnlbc-app .recognitions-screen .birthday-card[data-upcoming-card='recognition'] { background-image: linear-gradient(115deg, #dfedff, #e7f1e8); }
-.dark .qnlbc-app :is(.setlists-screen, .outlines-screen) [data-upcoming-card],
-.dark .qnlbc-app .recognitions-screen .birthday-card[data-upcoming-card='recognition'] { background-image: linear-gradient(115deg, #192d46, #244033); }
+/* One shared highlight treatment for next-up, upcoming and today cards. */
+.qnlbc-app .app-date-card[data-upcoming-card] { background-image: linear-gradient(115deg, #dfedff, #e7f1e8); border-color: #94a3b8; }
+.dark .qnlbc-app .app-date-card[data-upcoming-card] { background-image: linear-gradient(115deg, #192d46, #244033); border-color: #64748b; }
+/* Decorative, static birthday confetti stays inside the frame and never intercepts taps. */
+.birthday-card[data-birthday-celebrant] { position: relative; }
+.birthday-card[data-birthday-celebrant]::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background:
+    radial-gradient(circle at 3% 20%, #7dd3fc 0 2px, transparent 2.5px),
+    radial-gradient(circle at 97% 77%, #fbbf24 0 2px, transparent 2.5px),
+    radial-gradient(circle at 72% 10%, #c4b5fd 0 1.5px, transparent 2px),
+    radial-gradient(circle at 25% 90%, #fb7185 0 1.5px, transparent 2px),
+    linear-gradient(35deg, transparent 44%, #c4b5fd 45% 60%, transparent 61%) 8% 83% / 7px 8px no-repeat,
+    linear-gradient(-30deg, transparent 40%, #7dd3fc 41% 60%, transparent 61%) 90% 17% / 8px 8px no-repeat,
+    linear-gradient(20deg, transparent 40%, #fbbf24 41% 60%, transparent 61%) 47% 8% / 7px 6px no-repeat;
+  opacity: .75;
+}
+.birthday-card[data-birthday-celebrant] > div { position: relative; }
 .qnlbc-app .birthday-card[data-past], .qnlbc-app .special-screen [data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; opacity: .6; }
 .dark .qnlbc-app .birthday-card[data-past], .dark .qnlbc-app .special-screen [data-past] { background-color: #0f172a; border-color: #1e293b; }
 .ui-revamp .setlist-names { font-size: 12px; font-weight: 400; line-height: 1.5; }
-.birthday-sunday-dot { display: inline-block; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: #15803d; box-shadow: 0 0 7px #15803d80; }
-.dark .birthday-sunday-dot { background: #86efac; box-shadow: 0 0 8px #86efac90; }
 :root {
   --ui-accent: #1d4ed8;
   --ui-border: #e2e8f0;

@@ -999,7 +999,7 @@ function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
   const validSongId = rawSongId && isUUID(rawSongId) ? rawSongId : null;
 
   return {
-    group_name: (entry.groupName || entry.group_name)?.trim() || 'Worship Team',
+    group_name: (entry.groupName ?? entry.group_name ?? '').trim(),
     target_date: entry.targetDate || entry.target_date || null,
     practice_date: entry.practiceDate || entry.practice_date || null,
     practice_time: (entry.practiceTime || entry.practice_time)?.trim() || null,
