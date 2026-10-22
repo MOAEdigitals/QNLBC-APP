@@ -103,12 +103,19 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [isTouchPicker, setIsTouchPicker] = useState(false);
   const [isBrowseOnly, setIsBrowseOnly] = useState(true);
   const [pickerQuery, setPickerQuery] = useState('');
+  const [isPickerFullscreen, setIsPickerFullscreen] = useState(false);
+  const [pickerDragY, setPickerDragY] = useState(0);
+  const pickerDragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const ignoreHandleClickRef = useRef(false);
   const pickerSearchRef = useRef<HTMLInputElement>(null);
   const closePicker = () => {
     pickerSearchRef.current?.blur();
     setIsOpen(false);
     setIsFocused(false);
     setIsBrowseOnly(true);
+    setIsPickerFullscreen(false);
+    setPickerDragY(0);
+    pickerDragRef.current = null;
   };
   const [mobilePickerPosition, setMobilePickerPosition] = useState<{
     top: number;
@@ -590,7 +597,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         <div
           onClick={handleAcceptPrefix}
           className="absolute inset-0 flex items-center px-3 py-2 text-sm select-none overflow-hidden pr-2 cursor-pointer pointer-events-none"
-          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingLeft: 44 } : undefined}
+          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 44 } : undefined}
         >
           <span className="opacity-0 whitespace-pre">{value}</span>
           <span className="text-slate-400/80 dark:text-slate-500 font-medium whitespace-pre">
@@ -611,7 +618,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       )}
 
       <div className="relative flex items-center w-full">
-        {isOpen && !isTouchPicker && showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} title={`Sort: ${sortLabel}`} className="absolute left-0 z-10 flex h-11 w-11 items-center justify-center text-slate-500 dark:text-slate-400" onPointerDown={event => event.preventDefault()} onClick={() => { setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance'); setHighlightedIndex(-1); }}><SortIcon className="h-5 w-5" aria-hidden="true" /></button>}
+        {isOpen && !isTouchPicker && showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} title={`Sort: ${sortLabel}`} className="absolute right-0 z-10 flex h-11 w-11 items-center justify-center text-slate-500 dark:text-slate-400" onPointerDown={event => event.preventDefault()} onClick={() => { setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance'); setHighlightedIndex(-1); }}><SortIcon className="h-5 w-5" aria-hidden="true" /></button>}
         <input
           ref={inputRef}
           id={stableInputIdRef.current}
@@ -668,6 +675,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               setIsFocused(false);
               setIsBrowseOnly(true);
               setPickerQuery('');
+              setIsPickerFullscreen(false);
+              setPickerDragY(0);
               setMobilePickerPosition(null);
               setIsOpen(true);
               setHighlightedIndex(-1);
@@ -694,7 +703,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full bg-transparent [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden ${inputClassName}`}
-          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingLeft: 44 } : undefined}
+          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 44 } : undefined}
         />
       </div>
 
@@ -754,8 +763,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
             }
           }}
-          className={`${isTouchPicker ? 'relative w-full max-w-xl mx-auto rounded-t-2xl' : 'fixed z-[200] rounded-2xl'} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
-          style={isTouchPicker ? { height: Math.min(560, mobilePickerPosition.maxHeight - 16), maxHeight: '100%', paddingBottom: 'env(safe-area-inset-bottom)' } : mobilePickerPosition
+          data-picker-fullscreen={isTouchPicker ? isPickerFullscreen : undefined}
+          className={`${isTouchPicker ? `relative w-full mx-auto ${isPickerFullscreen ? '' : 'max-w-xl rounded-t-2xl'} motion-reduce:transition-none` : 'fixed z-[200] rounded-2xl'} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
+          style={isTouchPicker ? {
+            height: isPickerFullscreen ? mobilePickerPosition.maxHeight : Math.min(mobilePickerPosition.maxHeight, Math.min(560, mobilePickerPosition.maxHeight - 16) + Math.max(0, -pickerDragY)),
+            transform: `translateY(${Math.max(0, pickerDragY)}px)`,
+            transition: pickerDragRef.current ? 'none' : 'height 180ms ease, transform 180ms ease',
+            maxHeight: '100%', paddingBottom: 'env(safe-area-inset-bottom)',
+          } : mobilePickerPosition
             ? {
                 WebkitOverflowScrolling: 'touch',
                 position: pickerHost ? 'absolute' : 'fixed',
@@ -768,17 +783,50 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             : { WebkitOverflowScrolling: 'touch' }}
         >
           {isTouchPicker && <div className="shrink-0 p-3 space-y-3">
+            <div data-picker-drag-header className="touch-none select-none"
+              onPointerDown={event => {
+                if (event.button !== 0) return;
+                pickerDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+                ignoreHandleClickRef.current = false;
+              }}
+              onPointerMove={event => {
+                const drag = pickerDragRef.current;
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                const dy = event.clientY - drag.y;
+                if (Math.abs(event.clientX - drag.x) > Math.abs(dy)) return;
+                if (Math.abs(dy) > 8) {
+                  ignoreHandleClickRef.current = true;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                }
+                setPickerDragY(dy);
+              }}
+              onPointerUp={event => {
+                const drag = pickerDragRef.current;
+                if (!drag || drag.pointerId !== event.pointerId) return;
+                const dy = event.clientY - drag.y;
+                const vertical = Math.abs(dy) > Math.abs(event.clientX - drag.x);
+                pickerDragRef.current = null;
+                setPickerDragY(0);
+                if (vertical && Math.abs(dy) > 8) ignoreHandleClickRef.current = true;
+                if (vertical && dy <= -60) setIsPickerFullscreen(true);
+                else if (vertical && dy >= 80) closePicker();
+              }}
+              onPointerCancel={() => { pickerDragRef.current = null; setPickerDragY(0); }}>
+            <button type="button" aria-label={isPickerFullscreen ? 'Reduce picker' : 'Expand picker to full screen'} aria-expanded={isPickerFullscreen}
+              onClick={() => { if (ignoreHandleClickRef.current) { ignoreHandleClickRef.current = false; return; } setIsPickerFullscreen(current => !current); }}
+              className="flex h-6 w-full items-center justify-center cursor-grab active:cursor-grabbing"><span className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" /></button>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-900 dark:text-white">{showSongCategoryFilters ? 'Songs' : 'Names and options'}</h2>
-              <button type="button" aria-label="Close picker" onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
+              <button type="button" aria-label="Close picker" onPointerDown={event => event.stopPropagation()} onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
+            </div>
             </div>
             <div className="relative">
-              {showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} onPointerDown={event => event.preventDefault()} onClick={() => setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance')} className="absolute left-0 top-0 h-11 w-11 flex items-center justify-center text-slate-500"><SortIcon className="h-5 w-5" /></button>}
+              {showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} onPointerDown={event => event.preventDefault()} onClick={() => setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance')} className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-slate-500"><SortIcon className="h-5 w-5" /></button>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
                 onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (pickerQuery.trim()) handleSelect({ title: displayedItems.find(item => item.title.toLowerCase() === activeQuery)?.title || pickerQuery.trim() }); } }}
-                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pr-3 ${showSongCategoryFilters ? 'pl-11' : 'pl-3'}`} />
+                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-3 ${showSongCategoryFilters ? 'pr-11' : 'pr-3'}`} />
             </div>
           </div>}
           {isTouchPicker && showSongCategoryFilters && (

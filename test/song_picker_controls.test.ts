@@ -44,9 +44,9 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
     assert.equal(selected, 'Blessed');
 
     // Touch browsing must not focus an editable field or change the saved value.
-    const touch = async (input: Element, eventName: string, y = 100) => act(() => {
+    const touch = async (input: Element, eventName: string, y = 100, x = 40) => act(() => {
       const event = new dom.window.Event(eventName, { bubbles: true, cancelable: true });
-      Object.defineProperties(event, { pointerType: { value: 'touch' }, clientX: { value: 40 }, clientY: { value: y } });
+      Object.defineProperties(event, { pointerType: { value: 'touch' }, pointerId: { value: 1 }, button: { value: 0 }, clientX: { value: x }, clientY: { value: y } });
       input.dispatchEvent(event);
     });
     for (const kind of ['songs', 'names']) {
@@ -66,6 +66,33 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       assert.notEqual(document.activeElement, search);
       assert.equal(selected, 'Original');
       assert.deepEqual(titles(), kind === 'songs' ? ['Zion', 'Amazing Grace', 'Blessed'] : ['Bro Ronnie', 'Bro Joshua']);
+      if (kind === 'songs') {
+        assert.ok(dialog.querySelector('[aria-label^="Sort songs"]')!.classList.contains('right-0'));
+        await click(dialog.querySelector('[aria-label^="Sort songs"]')!);
+        assert.deepEqual(titles(), ['Amazing Grace', 'Blessed', 'Zion']);
+        assert.equal(search.readOnly, true, 'sorting does not activate the keyboard');
+        await click(dialog.querySelector('[aria-label^="Sort songs"]')!);
+        await click(dialog.querySelector('[aria-label^="Sort songs"]')!);
+      }
+      const header = dialog.querySelector('[data-picker-drag-header]')!;
+      await touch(header, 'pointerdown', 200);
+      await touch(header, 'pointermove', 180);
+      await touch(header, 'pointerup', 180);
+      assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'false', 'short gestures snap back');
+      await touch(header, 'pointerdown', 200);
+      await touch(header, 'pointermove', 100, 200);
+      await touch(header, 'pointerup', 100, 200);
+      assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'false', 'horizontal gestures are ignored');
+      await touch(header, 'pointerdown', 200);
+      await touch(header, 'pointermove', 100);
+      await touch(header, 'pointercancel', 100);
+      assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'false', 'interrupted gestures do not expand');
+      await touch(header, 'pointerdown', 200);
+      await touch(header, 'pointermove', 100);
+      await touch(header, 'pointerup', 100);
+      assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'true');
+      assert.equal((dialog as HTMLElement).style.height, `${window.innerHeight}px`);
+      assert.equal(search.readOnly, true, 'expanding does not activate the keyboard');
       const top = (dialog.parentElement as HTMLElement).style.top;
       await act(() => window.dispatchEvent(new dom.window.Event('resize')));
       assert.equal((dialog.parentElement as HTMLElement).style.top, top, 'sheet does not flip around the field');
@@ -84,6 +111,16 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       await touch(input, 'pointerdown');
       await touch(input, 'pointerup');
       assert.equal(document.querySelector('[role="dialog"] input')!.getAttribute('value'), '');
+      const reopened = document.querySelector('[role="dialog"]')!;
+      assert.equal(reopened.getAttribute('data-picker-fullscreen'), 'false');
+      const reopenedHeader = reopened.querySelector('[data-picker-drag-header]')!;
+      await touch(reopenedHeader, 'pointerdown', 100);
+      await touch(reopenedHeader, 'pointermove', 220);
+      await touch(reopenedHeader, 'pointerup', 220);
+      assert.equal(document.querySelector('[role="dialog"]'), null, 'swipe down closes without changing the field');
+      assert.equal(selected, 'Original');
+      await touch(input, 'pointerdown');
+      await touch(input, 'pointerup');
       await click(document.querySelector('[class*="text-[14px]"]')!);
       assert.equal(selected, kind === 'songs' ? 'Zion' : 'Bro Ronnie');
       assert.equal(document.querySelector('[role="dialog"]'), null);
