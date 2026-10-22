@@ -1540,7 +1540,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {editingSetlist.type !== 'prayer_meeting' && (() => {
                 const presiderColor = getPersonColor(editingSetlist.presider);
                 return (
-                  <div className={`p-4 rounded-xl ${presiderColor.bgLight} border-2 ${presiderColor.borderStrong} space-y-3.5 transition-colors`}>
+                  <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
                     {/* Presider */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
@@ -1645,7 +1645,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {(() => {
                     const ssLeaderColor = getPersonColor(editingSetlist.sundaySchool?.songLeader);
                     return (
-                      <div className={`p-4 rounded-xl ${ssLeaderColor.bgLight} border-2 ${ssLeaderColor.borderStrong} space-y-3.5 transition-colors`}>
+                      <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
                         <div className="flex items-center justify-between">
                           <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${ssLeaderColor.textBold}`}>
                             Sunday School
@@ -1750,7 +1750,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {(() => {
                     const wsLeaderColor = getPersonColor(editingSetlist.worshipService?.songLeader);
                     return (
-                      <div className={`p-4 rounded-xl ${wsLeaderColor.bgLight} border-2 ${wsLeaderColor.borderStrong} space-y-3.5 transition-colors`}>
+                      <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
                         <div className="flex items-center justify-between">
                           <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${wsLeaderColor.textBold}`}>
                             Worship Service
@@ -1857,7 +1857,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               {editingSetlist.type && editingSetlist.type !== 'sunday' && (() => {
                 const progLeaderColor = getPersonColor(editingSetlist.program?.songLeader);
                 return (
-                  <div className={`p-4 rounded-xl ${progLeaderColor.bgLight} border-2 ${progLeaderColor.borderStrong} space-y-3.5 transition-colors`}>
+                  <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
                     <div className="flex items-center justify-between">
                       <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${progLeaderColor.textBold}`}>
                         Program Songs

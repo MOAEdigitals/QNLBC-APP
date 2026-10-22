@@ -42,6 +42,52 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
     assert.deepEqual(titles(), ['Blessed']);
     await click(document.querySelector('[class*="text-[14px]"]')!);
     assert.equal(selected, 'Blessed');
+
+    // Touch browsing must not focus an editable field or change the saved value.
+    const touch = async (input: Element, eventName: string, y = 100) => act(() => {
+      const event = new dom.window.Event(eventName, { bubbles: true, cancelable: true });
+      Object.defineProperties(event, { pointerType: { value: 'touch' }, clientX: { value: 40 }, clientY: { value: y } });
+      input.dispatchEvent(event);
+    });
+    for (const kind of ['songs', 'names']) {
+      selected = 'Original';
+      await act(() => root.render(React.createElement(exports.AutofillInput, { key: kind, value: 'Original', onChange: (value: string) => { selected = value; }, ...(kind === 'songs' ? { songs, suggestions: songs.map(s => s.title) } : { suggestions: ['Bro Ronnie', 'Bro Joshua'] }) })));
+      const input = document.querySelector('input')!;
+      await touch(input, 'pointerdown');
+      await touch(input, 'pointermove', 140);
+      await touch(input, 'pointerup', 140);
+      assert.equal(document.querySelector('[role="dialog"]'), null, 'scrolling past a field does not open the picker');
+      await touch(input, 'pointerdown');
+      await touch(input, 'pointerup');
+      const dialog = document.querySelector('[role="dialog"]')!;
+      assert.ok(dialog);
+      const search = dialog.querySelector('input')!;
+      assert.equal(search.readOnly, true);
+      assert.notEqual(document.activeElement, search);
+      assert.equal(selected, 'Original');
+      assert.deepEqual(titles(), kind === 'songs' ? ['Zion', 'Amazing Grace', 'Blessed'] : ['Bro Ronnie', 'Bro Joshua']);
+      const top = (dialog.parentElement as HTMLElement).style.top;
+      await act(() => window.dispatchEvent(new dom.window.Event('resize')));
+      assert.equal((dialog.parentElement as HTMLElement).style.top, top, 'sheet does not flip around the field');
+      await click(search);
+      assert.equal(search.readOnly, false);
+      assert.equal(document.activeElement, search);
+      await act(() => {
+        Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, 'value')!.set!.call(search, 'New custom name');
+        search.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+      });
+      assert.equal(selected, 'Original', 'search is not an edit to the saved field');
+      assert.ok([...dialog.querySelectorAll('button')].some(button => button.textContent === 'Use “New custom name”'), 'custom values remain available without committing the search');
+      await click(dialog.querySelector('[aria-label="Close picker"]')!);
+      assert.equal(selected, 'Original', 'closing discards the search');
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+      await touch(input, 'pointerdown');
+      await touch(input, 'pointerup');
+      assert.equal(document.querySelector('[role="dialog"] input')!.getAttribute('value'), '');
+      await click(document.querySelector('[class*="text-[14px]"]')!);
+      assert.equal(selected, kind === 'songs' ? 'Zion' : 'Bro Ronnie');
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+    }
   } finally {
     await act(() => root.unmount()); dom.window.close();
     globals.forEach((key, index) => { if (saved[index]) Object.defineProperty(globalThis, key, saved[index]!); else delete (globalThis as any)[key]; });

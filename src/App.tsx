@@ -1230,7 +1230,7 @@ export default function App() {
     <div className="qnlbc-app min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
       {isPracticeDetailOpen ? (
-        <header data-practice-detail-header="true" className="sticky top-0 z-40 border-b border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <header data-practice-detail-header="true" className="sticky top-0 z-40 bg-white dark:bg-slate-950">
           <div className="mx-auto flex w-full max-w-4xl items-center justify-between p-5">
             <h2 className="flex items-center gap-2 text-base font-bold text-slate-900 dark:text-white">
               <Users className="h-4 w-4 text-slate-700 dark:text-slate-300" />

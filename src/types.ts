@@ -266,7 +266,7 @@ export interface ChurchActivity {
 }
 
 export type AppTab = 'home' | 'recognitions' | 'special-numbers' | 'songs' | 'outlines' | 'settings';
-export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'visitors' | 'special';
+export type RecognitionsSubTab = 'birthdays' | 'anniversaries' | 'special';
 export type SpecialNumbersSubTab = 'schedules' | 'practice' | 'choir' | 'activities';
 
 export type VocalPartLabel =

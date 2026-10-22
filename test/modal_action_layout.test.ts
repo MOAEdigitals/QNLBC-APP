@@ -22,7 +22,7 @@ test('all shared add/edit dialogs keep scrollable fields separate from bottom ac
     }
     visit(ast);
   }
-  assert.equal(checked, 13, 'covers setlist program variants and all song, schedule, practice, track, vocal, choir and recognition dialogs');
+  assert.equal(checked, 12, 'covers setlist program variants and all song, schedule, practice, track, vocal, choir and recognition dialogs');
 });
 
 test('suggestion placement stays above actions and hides when its input scrolls behind them', () => {

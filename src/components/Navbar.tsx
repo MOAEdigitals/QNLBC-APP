@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [isSearching, search?.value]);
   return (
-    <header className="sticky top-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors">
+    <header className="sticky top-0 z-30 bg-white dark:bg-slate-950 transition-colors">
       <div className="max-w-4xl mx-auto px-4 py-2 flex min-h-12 items-center justify-between gap-3">
         {isSearching && search ? (
           <div ref={searchRef} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
@@ -78,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 cursor-pointer select-none"
               title="User Profile & Settings"
             >
-              <div className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-900 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 shadow-xs">
+              <div className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-950 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 shadow-xs">
                 {currentUser.avatar || currentUser.avatarUrl ? (
                   <img
                     src={currentUser.avatar || currentUser.avatarUrl}

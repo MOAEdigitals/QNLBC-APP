@@ -46,6 +46,8 @@ import {
   Star,
   Tv,
   Maximize2,
+  AArrowDown,
+  AArrowUp,
   ArrowLeft,
   ArrowUpDown,
 } from 'lucide-react';
@@ -1260,7 +1262,7 @@ if (isEditing && !savingSongRef.current) {
                   <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
                     {/* Action Bar (With Add to Setlist, Category Icon, Font Stepper, Stage View, and 3-dot menu) */}
                     <div className="flex items-center gap-1.5 sm:gap-2 pt-2">
-                      <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
                         {onBackToSetlist && returnSetlistId && (
                           <button
                             type="button"
@@ -1343,26 +1345,26 @@ if (isEditing && !savingSongRef.current) {
                         </div>
 
                         {/* In-Card Font Stepper A- / A+ */}
-                        <div className="flex h-8 shrink-0 items-center overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs">
+                        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
                           <button
                             type="button"
                             onClick={() => setInCardFontSize((prev) => Math.max(0, prev - 1))}
                             disabled={inCardFontSize <= 0}
-                            className="h-full w-8 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+                            className="song-reading-control rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 shadow-2xs cursor-pointer"
                             title={`Decrease font size (currently ${['15px', '18px', '22px', '28px'][inCardFontSize]})`}
                             aria-label="Decrease lyrics font size"
                           >
-                            A−
+                            <AArrowDown className="w-4 h-4" aria-hidden="true" />
                           </button>
                           <button
                             type="button"
                             onClick={() => setInCardFontSize((prev) => Math.min(3, prev + 1))}
                             disabled={inCardFontSize >= 3}
-                            className="h-full w-8 border-l border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 cursor-pointer"
+                            className="song-reading-control rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 shadow-2xs cursor-pointer"
                             title={`Increase font size (currently ${['15px', '18px', '22px', '28px'][inCardFontSize]})`}
                             aria-label="Increase lyrics font size"
                           >
-                            A+
+                            <AArrowUp className="w-4 h-4" aria-hidden="true" />
                           </button>
                         </div>
 

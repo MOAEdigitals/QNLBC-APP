@@ -10,7 +10,6 @@ import {
   AnniversaryCelebrant,
   Visitor,
   SpecialRecognition,
-  VisitorTier,
   SpecialRecognitionType,
 } from '../types';
 import {
@@ -25,11 +24,9 @@ import { generateUUID } from '../services/supabaseData';
 import {
   Cake,
   Heart,
-  Users,
   Award,
   Plus,
   Calendar,
-  MapPin,
   Sparkles,
   Trash2,
   Copy,
@@ -37,7 +34,6 @@ import {
   Pencil,
   X,
   Search,
-  CheckCircle2,
   GraduationCap,
   Baby,
   BookmarkCheck,
@@ -64,14 +60,11 @@ interface RecognitionsTabProps {
 export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   birthdays,
   anniversaries,
-  visitors,
   specialRecognitions,
   onSaveBirthday,
   onDeleteBirthday,
   onSaveAnniversary,
   onDeleteAnniversary,
-  onSaveVisitor,
-  onDeleteVisitor,
   onSaveSpecialRecognition,
   onDeleteSpecialRecognition,
   collapseSignal,
@@ -83,7 +76,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const [isAddingBirthday, setIsAddingBirthday] = useState(false);
   const [editingBirthday, setEditingBirthday] = useState<BirthdayCelebrant | null>(null);
   const [isAddingAnniversary, setIsAddingAnniversary] = useState(false);
-  const [isAddingVisitor, setIsAddingVisitor] = useState(false);
   const [isAddingSpecial, setIsAddingSpecial] = useState(false);
   const [birthdayMenuId, setBirthdayMenuId] = useState<string | null>(null);
 
@@ -91,15 +83,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
-      const hasOpenLayer = !!birthdayMenuId || isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial;
+      const hasOpenLayer = !!birthdayMenuId || isAddingBirthday || isAddingAnniversary || isAddingSpecial;
       setBirthdayMenuId(null);
       setIsAddingBirthday(false);
       setIsAddingAnniversary(false);
-      setIsAddingVisitor(false);
       setIsAddingSpecial(false);
       if (!hasOpenLayer) window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [collapseSignal, birthdayMenuId, isAddingBirthday, isAddingAnniversary, isAddingVisitor, isAddingSpecial]);
+  }, [collapseSignal, birthdayMenuId, isAddingBirthday, isAddingAnniversary, isAddingSpecial]);
 
   // Form states
   const [bdayForm, setBdayForm] = useState({
@@ -119,20 +110,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     anniversaryDate: getTodayStr(),
     type: 'Wedding',
     yearsCount: '',
-    notes: '',
-  });
-
-  const [visitorForm, setVisitorForm] = useState<{
-    name: string;
-    barangay: string;
-    tier: VisitorTier;
-    dateVisited: string;
-    notes: string;
-  }>({
-    name: '',
-    barangay: '',
-    tier: '1st timer',
-    dateVisited: getTodayStr(),
     notes: '',
   });
 
@@ -187,7 +164,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
   const recognitionQuery = birthdaySearchQuery.trim().toLowerCase();
   const filteredAnniversaries = [...currentAnniversaries, ...upcomingAnniversaries].filter(item => !recognitionQuery || `${item.title} ${item.type}`.toLowerCase().includes(recognitionQuery));
-  const filteredVisitors = visitors.filter(item => !recognitionQuery || `${item.name} ${item.barangay} ${item.tier}`.toLowerCase().includes(recognitionQuery));
 
   // Group Special Recognitions by Type
   const groupedSpecial: Record<string, SpecialRecognition[]> = {};
@@ -198,36 +174,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     }
     groupedSpecial[key].push(item);
   }
-
-  // Tier style helper
-  const getTierBadge = (tier: VisitorTier) => {
-    switch (tier) {
-      case '1st timer':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-950/70 text-sky-800 dark:text-sky-300 border border-sky-200 dark:border-sky-900">
-            ★ 1st Timer
-          </span>
-        );
-      case '2nd timer':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
-            2nd Timer
-          </span>
-        );
-      case '3rd timer':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900">
-            3rd Timer
-          </span>
-        );
-      case 'Regular attender':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
-            Regular Attender
-          </span>
-        );
-    }
-  };
 
   const handleAddBirthday = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,21 +217,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setIsAddingAnniversary(false);
   };
 
-  const handleAddVisitor = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!visitorForm.name.trim()) return;
-    onSaveVisitor({
-      id: generateUUID(),
-      name: visitorForm.name.trim(),
-      barangay: visitorForm.barangay.trim() || 'Quezon, Nueva Ecija',
-      tier: visitorForm.tier,
-      dateVisited: visitorForm.dateVisited,
-      notes: visitorForm.notes.trim() || undefined,
-    });
-    setVisitorForm({ name: '', barangay: '', tier: '1st timer', dateVisited: getTodayStr(), notes: '' });
-    setIsAddingVisitor(false);
-  };
-
   const handleAddSpecial = (e: React.FormEvent) => {
     e.preventDefault();
     if (!specialForm.name.trim()) return;
@@ -301,12 +232,12 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     setIsAddingSpecial(false);
   };
 
-  useBackLayer(isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial || !!birthdayMenuId, () => {
+  useBackLayer(isAddingBirthday || isAddingAnniversary || isAddingSpecial || !!birthdayMenuId, () => {
     if (isSavingBirthday) return;
     setBirthdayMenuId(null);
-    setIsAddingBirthday(false); setIsAddingAnniversary(false); setIsAddingVisitor(false); setIsAddingSpecial(false);
+    setIsAddingBirthday(false); setIsAddingAnniversary(false); setIsAddingSpecial(false);
   });
-  const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingVisitor || isAddingSpecial;
+  const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingSpecial;
 
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
@@ -361,23 +292,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           <span className={`${subTab === 'anniversaries' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Anniversaries</span>
         </button>
 
-        <button
-          type="button"
-          aria-label="Visitors"
-          aria-pressed={subTab === 'visitors'}
-          title="Visitors"
-          onClick={() => setSubTab('visitors')}
-          className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'visitors' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            subTab === 'visitors'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Users className="w-4 h-4 text-emerald-500" />
-          <span className={`${subTab === 'visitors' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Visitors</span>
-        </button>
-
-      </div>
+</div>
 
       {/* SUBTAB 1: BIRTHDAYS */}
       {subTab === 'birthdays' && (
@@ -518,51 +433,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* SUBTAB 3: VISITORS */}
-      {subTab === 'visitors' && (
-        <div className="space-y-6">
-          {filteredVisitors.length === 0 ? (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-              No visitors recorded yet. Click "Add Visitor" to log first-time attendees!
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-2.5">
-              {monthList(filteredVisitors, item => item.dateVisited, ['visitor', 'visitors']).render((item) => (
-                <div
-                  key={item.id}
-                  className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-xs"
-                >
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">{item.name}</h4>
-                      {getTierBadge(item.tier)}
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-slate-400" />
-                        {item.barangay}
-                      </span>
-                      <span>•</span>
-                      <span>Visited: {formatDateStr(item.dateVisited, { shortMonth: true })}</span>
-                    </div>
-
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      if (confirm(`Remove visitor entry for ${item.name}?`)) onDeleteVisitor(item.id);
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-rose-600 ml-2 cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
 
@@ -824,127 +694,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         </div>
       )}
 
-      {/* MODAL 3: ADD VISITOR */}
-      {isAddingVisitor && (
-        <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="w-4 h-4 text-emerald-600" />
-                <span>Log Church Visitor</span>
-              </h3>
-              <button onClick={() => setIsAddingVisitor(false)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAddVisitor} autoComplete="off" data-form-type="other" className="ui-modal-form">
-              <div className="ui-form-body">
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Visitor Name *
-                </label>
-                <input
-                  id="visitor-guest-name"
-                  name="visitor_guest_name"
-                  type="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="words"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  required
-                  value={visitorForm.name}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, name: e.target.value })}
-                  placeholder="Enter visitor's full name"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Barangay / Place of Origin *
-                </label>
-                <input
-                  id="visitor-place-origin"
-                  name="visitor_origin_locality"
-                  type="text"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="words"
-                  spellCheck={false}
-                  data-form-type="other"
-                  data-lpignore="true"
-                  required
-                  value={visitorForm.barangay}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, barangay: e.target.value })}
-                  placeholder="Barangay, town, or city of origin"
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-2">
-                  Visitor Tier (Tappable Option) *
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['1st timer', '2nd timer', '3rd timer', 'Regular attender'] as VisitorTier[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setVisitorForm({ ...visitorForm, tier: t })}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all text-left flex items-center justify-between ${
-                        visitorForm.tier === t
-                          ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-400'
-                      }`}
-                    >
-                      <span>{t}</span>
-                      {visitorForm.tier === t && <CheckCircle2 className="w-3.5 h-3.5" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Date Visited
-                </label>
-                <input
-                  id="visitor-date-attended"
-                  name="visitor_date_attended"
-                  type="date"
-                  required
-                  value={visitorForm.dateVisited}
-                  onChange={(e) => setVisitorForm({ ...visitorForm, dateVisited: e.target.value })}
-                  className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                />
-              </div>
-
-
-
-              </div>
-              <div className="ui-form-actions flex justify-end gap-3 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAddingVisitor(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold"
-                >
-                  Save Visitor
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* MODAL 4: ADD SPECIAL RECOGNITION */}
       {isAddingSpecial && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1085,7 +834,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         </div>
       )}
 
-      {/* Floating Action Button (FAB) for Add Celebrant / Anniversary / Visitor / Special */}
+      {/* Floating Action Button (FAB) for Add Celebrant / Anniversary / Special */}
       {!isAnyModalOpen && (
         <button
           type="button"
@@ -1097,7 +846,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               setIsAddingBirthday(true);
             }
             else if (subTab === 'anniversaries') setIsAddingAnniversary(true);
-            else if (subTab === 'visitors') setIsAddingVisitor(true);
             else if (subTab === 'special') setIsAddingSpecial(true);
           }}
           aria-label={
@@ -1105,8 +853,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               ? 'Add Celebrant'
               : subTab === 'anniversaries'
               ? 'Add Anniversary'
-              : subTab === 'visitors'
-              ? 'Add Visitor'
               : 'Add Recognition'
           }
           title={
@@ -1114,8 +860,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               ? 'Add Celebrant'
               : subTab === 'anniversaries'
               ? 'Add Anniversary'
-              : subTab === 'visitors'
-              ? 'Add Visitor'
               : 'Add Recognition'
           }
           className="app-fab fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2"

@@ -44,6 +44,10 @@
 }
 
 /* Shared application foundations. */
+.songs-screen :is(.song-reading-control, button[aria-label='Copy Song Title and Lyrics'], button[aria-label='Stage Prompter']) {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 44px; min-height: 44px; flex-shrink: 0; padding: 0;
+}
 /* Actions stay at the form bottom and return when the keyboard closes. */
 .keyboard-open .ui-form-actions,
 .keyboard-open .ui-viewport-screen form > footer,

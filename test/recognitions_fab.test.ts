@@ -40,10 +40,10 @@ test('RecognitionsTab replaces top full-width add button with floating + action 
     /else if \(subTab === 'anniversaries'\) setIsAddingAnniversary\(true\)/,
     'FAB must trigger Add Anniversary for anniversaries'
   );
-  assert.match(
+  assert.doesNotMatch(
     recognitions,
-    /else if \(subTab === 'visitors'\) setIsAddingVisitor\(true\)/,
-    'FAB must trigger Add Visitor for visitors'
+    /setIsAddingVisitor|aria-label="Visitors"|Log Church Visitor/,
+    'Visitors tab and add form are no longer available'
   );
   assert.match(
     recognitions,

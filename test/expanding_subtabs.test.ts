@@ -33,5 +33,6 @@ test('Recognitions keeps every subtab one tap away and labels only the selected 
   const source = read('src/components/RecognitionsTab.tsx');
   assert.match(source, /recognition-tabs flex gap-1\.5/);
   assert.match(source, /subTab === 'birthdays' \? 'flex-1' : 'w-11 shrink-0'/);
-  assert.match(source, /subTab === 'visitors' \? 'inline' : 'hidden'/);
+  assert.match(source, /subTab === 'anniversaries' \? 'inline' : 'hidden'/);
+  assert.doesNotMatch(source, /aria-label="Visitors"/);
 });
