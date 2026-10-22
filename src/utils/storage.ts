@@ -138,9 +138,9 @@ export function loadTheme(): 'light' | 'dark' {
   try {
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
     if (saved === 'dark' || saved === 'light') return saved;
-    return 'light';
+    return 'dark';
   } catch {
-    return 'light';
+    return 'dark';
   }
 }
 
