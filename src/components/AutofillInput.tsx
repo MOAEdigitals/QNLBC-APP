@@ -111,15 +111,39 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const pickerDragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const ignoreHandleClickRef = useRef(false);
   const pickerSearchRef = useRef<HTMLInputElement>(null);
-  const closePicker = () => {
-    pickerSearchRef.current?.blur();
+  const [isPickerClosing, setIsPickerClosing] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishClosePicker = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
     setIsOpen(false);
     setIsFocused(false);
     setIsBrowseOnly(true);
     setIsPickerFullscreen(false);
     setPickerDragY(0);
+    setIsPickerClosing(false);
     pickerDragRef.current = null;
   };
+  const closePicker = () => {
+    if (closeTimerRef.current) return;
+    pickerSearchRef.current?.blur();
+    pickerDragRef.current = null;
+    if (!isTouchPicker || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      finishClosePicker();
+      return;
+    }
+    // Keep the sheet mounted at its current height while it slides below the viewport.
+    setIsPickerClosing(true);
+    closeTimerRef.current = setTimeout(finishClosePicker, 260);
+  };
+  useEffect(() => {
+    if (!isOpen) {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+      setIsPickerClosing(false);
+    }
+    return () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); };
+  }, [isOpen]);
   const [mobilePickerPosition, setMobilePickerPosition] = useState<{
     top: number;
     left: number;
@@ -766,12 +790,15 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
             }
           }}
+          data-picker-closing={isPickerClosing || undefined}
+          onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === 'transform' && isPickerClosing) finishClosePicker(); }}
           data-picker-fullscreen={isTouchPicker ? isPickerFullscreen : undefined}
           className={`${isTouchPicker ? `relative w-full mx-auto ${isPickerFullscreen ? '' : 'max-w-xl rounded-t-2xl'} motion-reduce:transition-none` : 'fixed z-[200] rounded-2xl'} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
           style={isTouchPicker ? {
             height: isPickerFullscreen ? mobilePickerPosition.maxHeight : Math.min(mobilePickerPosition.maxHeight, Math.min(560, mobilePickerPosition.maxHeight - 16) + Math.max(0, -pickerDragY)),
-            transform: `translateY(${Math.max(0, pickerDragY)}px)`,
-            transition: pickerDragRef.current ? 'none' : 'height 180ms ease, transform 180ms ease',
+            transform: isPickerClosing ? 'translateY(100%)' : `translateY(${Math.max(0, pickerDragY)}px)`,
+            pointerEvents: isPickerClosing ? 'none' : undefined,
+            transition: pickerDragRef.current ? 'none' : 'height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 240ms cubic-bezier(0.22, 1, 0.36, 1)',
             maxHeight: '100%', paddingBottom: 'env(safe-area-inset-bottom)',
           } : mobilePickerPosition
             ? {
@@ -788,7 +815,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           {isTouchPicker && <div className="shrink-0 p-3 space-y-3">
             <div data-picker-drag-header className="touch-none select-none"
               onPointerDown={event => {
-                if (event.button !== 0) return;
+                if (event.button !== 0 || isPickerClosing) return;
                 pickerDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
                 ignoreHandleClickRef.current = false;
               }}
@@ -809,10 +836,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 const dy = event.clientY - drag.y;
                 const vertical = Math.abs(dy) > Math.abs(event.clientX - drag.x);
                 pickerDragRef.current = null;
-                setPickerDragY(0);
                 if (vertical && Math.abs(dy) > 8) ignoreHandleClickRef.current = true;
-                if (vertical && dy <= -60) setIsPickerFullscreen(true);
+                if (vertical && dy <= -60) { setIsPickerFullscreen(true); setPickerDragY(0); }
                 else if (vertical && dy >= 80) closePicker();
+                else setPickerDragY(0);
               }}
               onPointerCancel={() => { pickerDragRef.current = null; setPickerDragY(0); }}>
             <button type="button" aria-label={isPickerFullscreen ? 'Reduce picker' : 'Expand picker to full screen'} aria-expanded={isPickerFullscreen}
@@ -923,13 +950,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <div className="min-w-0 flex-1 text-[14px] font-medium text-slate-900 dark:text-white truncate">
-                    {item.title}
+                  <div className="min-w-0 flex-1 flex items-center gap-2 text-[14px] font-medium text-slate-900 dark:text-white">
+                    <span className="min-w-0 truncate">{item.title}</span>
+                    {selectedTitles.has(item.title.trim().toLowerCase()) && <span role="img" aria-label="Selected in this setlist" title="Selected in this setlist" className="shrink-0 text-emerald-600 dark:text-emerald-400"><Check className="h-4 w-4" aria-hidden="true" /></span>}
                   </div>
                   {item.songObj && Boolean(item.songObj.isStarred || (item.songObj as Song & { starred?: boolean }).starred) && (
                     <Star className="w-3.5 h-3.5 shrink-0 fill-yellow-400 text-yellow-500" aria-label="Starred" />
                   )}
-                  {selectedTitles.has(item.title.trim().toLowerCase()) && <span role="img" aria-label="Selected in this setlist" title="Selected in this setlist" className="shrink-0 text-emerald-600 dark:text-emerald-400"><Check className="h-4 w-4" aria-hidden="true" /></span>}
                 </div>
                 {item.matchedField === 'lyrics' && item.lyricSnippet && (
                   <div className="text-xs text-emerald-600 dark:text-emerald-400 italic truncate mt-0.5">

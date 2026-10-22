@@ -28,8 +28,9 @@ test('one setlist stays expanded across tab remounts until its header or another
     });
     return exports;
   };
+  const reorderHook = compile('src/hooks/useSetlistReorder.ts', { '../utils/initialSetlistCard': initialCard });
   const months = compile('src/components/MonthSeparators.tsx', {});
-  const component = compile('src/components/SetlistsTab.tsx', { './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
+  const component = compile('src/components/SetlistsTab.tsx', { '../hooks/useSetlistReorder': reorderHook, './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
   const rows = ['one', 'two'].map(id => ({ id, date: dates.getTodayStr(), type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
   const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], initialExpandedSetlistIds: fresh ? undefined : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
   const clickHeader = async (id: string) => act(() => document.querySelector<HTMLDivElement>(`#setlist-card-${id} > div`)!.click());

@@ -23,6 +23,7 @@ import { supabase } from './supabase';
 import {
   fetchSetlists,
   saveSetlist as supabaseSaveSetlist,
+  saveSetlistOrder as supabaseSaveSetlistOrder,
   deleteSetlist as supabaseDeleteSetlist,
   fetchSongs,
   saveSong as supabaseSaveSong,
@@ -628,6 +629,22 @@ export default function App() {
   };
 
   // Setlist Operations
+  const handleReorderSetlists = useCallback(async (date: string, orderedIds: string[], revisions: Record<string, number>) => {
+    if (!requirePermission('edit')) throw new Error('Setlist edit permission is required.');
+    try {
+      const saved = await supabaseSaveSetlistOrder(date, orderedIds, revisions);
+      const changes = new Map(saved.map(item => [item.id, item]));
+      setSetlists(previous => previous.map(item => {
+        const change = changes.get(item.id);
+        return change ? { ...item, ...change, display_order: change.displayOrder, updated_at: change.updatedAt } : item;
+      }));
+    } catch (error) {
+      const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
+      setSetlists(fresh);
+      throw error;
+    }
+  }, [currentUser]);
+
   const handleSaveSetlist = useCallback(async (newOrUpdated: Setlist) => {
     const isNew = !setlists.some((s) => s.id === newOrUpdated.id);
     if (!requirePermission(isNew ? 'add' : 'edit')) return false;
@@ -1265,6 +1282,8 @@ export default function App() {
             songs={songs}
             savedNames={savedNames}
             onSaveSetlist={handleSaveSetlist}
+            onReorderSetlists={handleReorderSetlists}
+            canReorder={hasPermission('edit')}
             onDeleteSetlist={handleDeleteSetlist}
             onOpenSongDetail={handleOpenSongDetail}
             onSubViewChange={(hasActive) => {

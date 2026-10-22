@@ -95,6 +95,8 @@ export type SetlistType = 'sunday' | 'prayer_meeting' | 'fellowship' | 'event';
 
 export interface Setlist {
   id: string;
+  displayOrder?: number;
+  display_order?: number | null;
   type?: SetlistType; // 'sunday' | 'prayer_meeting' | 'fellowship' | 'event'
   title?: string; // Custom title
   date: string; // YYYY-MM-DD

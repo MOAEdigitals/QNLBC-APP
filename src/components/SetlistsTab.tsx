@@ -1,5 +1,8 @@
 import { CardDate } from './CardDate';
-import { initialSetlistCardId } from '../utils/initialSetlistCard';
+import { initialSetlistCardId, orderSameDateSetlists } from '../utils/initialSetlistCard';
+import { useSetlistReorder } from '../hooks/useSetlistReorder';
+import type { SaveSetlistOrder } from '../hooks/useSetlistReorder';
+import { createPortal } from 'react-dom';
 import { monthList } from './MonthSeparators';
 import { SetlistEditorSection, setlistProgramSummary } from './SetlistEditorSection';
 import { useBackLayer } from '../hooks/useBackLayer';
@@ -42,6 +45,7 @@ import {
   Copy,
   Check,
   Search,
+  GripVertical,
 } from 'lucide-react';
 
 export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []): string {
@@ -166,6 +170,8 @@ interface SetlistsTabProps {
   songs: Song[];
   savedNames?: string[];
   onSaveSetlist: (setlist: Setlist) => Promise<boolean>;
+  onReorderSetlists?: SaveSetlistOrder;
+  canReorder?: boolean;
   onDeleteSetlist: (id: string) => void;
   onOpenSongDetail: (songId: string, returnSetlistId?: string) => void;
   onSubViewChange?: (hasActiveSubView: boolean) => void;
@@ -181,6 +187,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   songs,
   savedNames,
   onSaveSetlist,
+  onReorderSetlists,
+  canReorder = false,
   onDeleteSetlist,
   onOpenSongDetail,
   onSubViewChange,
@@ -247,6 +255,28 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
+  const songSlots = useMemo(() => (['sundaySchool', 'worshipService', 'program'] as const).flatMap(section =>
+    (editingSetlist?.[section]?.songs || []).map((song, index) => ({
+      id: `${section}:${song.id || index}`, date: section, displayOrder: index, song,
+    }))), [editingSetlist]);
+  const songReorder = useSetlistReorder(songSlots, async (section, ids) => {
+    const songs = ids.map(id => songSlots.find(slot => slot.id === id)!.song);
+    setEditingSetlist(previous => {
+      if (!previous) return previous;
+      const key = section as 'sundaySchool' | 'worshipService' | 'program';
+      const program = previous[key];
+      return program ? { ...previous, [key]: { ...program, songs } } : previous;
+    });
+  }, isEditing, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs' });
+  const songRowProps = (id: string) => ({
+    'data-song-slot-id': id,
+    className: `relative flex items-center gap-2 rounded-lg ${songReorder.drag?.id === id ? 'opacity-50' : ''} ${songReorder.target?.id === id ? songReorder.target.edge === 'before' ? 'border-t-2 border-blue-500' : 'border-b-2 border-blue-500' : ''}`,
+  });
+  const songDragHandle = (section: string, index: number) => {
+    const slot = songSlots.filter(slot => slot.date === section)[index];
+    if (!slot || !songReorder.canDrag(slot)) return null;
+    return <button {...songReorder.handleProps(slot)} aria-label={`Reorder song ${index + 1}. Hold and drag, or use arrow keys.`} title="Hold and drag to reorder songs" className="flex h-11 w-7 shrink-0 touch-none select-none items-center justify-center rounded-lg text-slate-400 cursor-grab active:cursor-grabbing"><GripVertical className="h-4 w-4" aria-hidden="true" /></button>;
+  };
   const selectedSetlistSongTitles = useMemo(() => {
     if (!editingSetlist) return [];
     const sunday = !editingSetlist.type || editingSetlist.type === 'sunday';
@@ -465,9 +495,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   // Sort upcoming soonest first, then past below
   const sortedSetlists = useMemo(
-    () => sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date),
+    () => orderSameDateSetlists(sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date)),
     [setlists]
   );
+  const reorder = useSetlistReorder(sortedSetlists, onReorderSetlists, canReorder);
   const searchableSetlists = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
     if (!query) return sortedSetlists;
@@ -871,6 +902,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen setlists-screen space-y-6">
+      {reorder.error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{reorder.error}</p>}
+      <span role="status" aria-live="polite" className="sr-only">{reorder.announcement || (reorder.busy ? 'Saving setlist order…' : '')}</span>
+      {reorder.drag && createPortal(<div aria-hidden="true" className="pointer-events-none fixed z-[220] max-w-[80vw] rounded-xl border border-blue-400 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-xl dark:bg-slate-800 dark:text-white" style={{ left: Math.max(8, Math.min(reorder.drag.x + 12, window.innerWidth - 220)), top: reorder.drag.y + 12 }}>
+        {setlists.find(item => item.id === reorder.drag!.id)?.title || 'Setlist'}
+      </div>, document.body)}
       {searchQuery.trim() && searchSummaries.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" aria-live="polite">
           {searchSummaries.map((summary) => (
@@ -903,6 +939,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 <div
                   key={item.id}
                   id={`setlist-card-${item.id}`}
+                  data-setlist-drag-id={item.id}
+                  aria-busy={reorder.busy || undefined}
+                  style={reorder.drag?.id === item.id ? { opacity: .5 } : undefined}
                   data-upcoming-card={isSoonest ? 'next-up' : !isPast && !today && item.id === followingUpcoming?.id ? 'upcoming' : undefined}
                   className={`app-date-card relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
@@ -918,8 +957,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'
                   }`}
                 >
+                  {reorder.target?.id === item.id && <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 z-50 h-1 rounded-full bg-blue-500 ${reorder.target.edge === 'before' ? '-top-2' : '-bottom-2'}`} />}
                   {/* Card Header Row with Far-Right 3-Dots / Actions */}
-                  <div onClick={(e) => handleSelectSetlist(item.id, e)} className="flex items-center justify-between min-w-0">
+                  <div data-setlist-card-header onClick={(e) => handleSelectSetlist(item.id, e)} className="flex items-center justify-between min-w-0">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       {/* Date Badge */}
                       <CardDate date={item.date} />
@@ -989,6 +1029,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {reorder.canDrag(item) && <button {...reorder.handleProps(item)} aria-label={`Reorder ${item.title || 'setlist'} on ${item.date}. Drag or use arrow keys.`} className="flex h-11 w-8 shrink-0 touch-none items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-grab active:cursor-grabbing disabled:opacity-50"><GripVertical className="h-4 w-4" aria-hidden="true" /></button>}
 
 
                       <button
@@ -1431,6 +1472,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             )}
 
             <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="ui-modal-form">
+              <span className="sr-only" role="status">{songReorder.announcement}</span>
+              {songReorder.error && <p role="alert" className="text-sm text-red-500">{songReorder.error}</p>}
+
               <div className="ui-form-body">
               <SetlistEditorSection title="Service Details" initialOpen colorClass={COLOR_PALETTE.sky.textBold}
                 summary={[editingSetlist.date ? formatDateStr(editingSetlist.date, { shortMonth: true }) : 'Choose a date', editingSetlist.type !== 'prayer_meeting' ? editingSetlist.presider?.trim() || 'Choose a presider' : editingSetlist.title?.trim()].filter(Boolean).join(' · ')}>
@@ -1708,7 +1752,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </div>
 
                       {(editingSetlist.sundaySchool?.songs || []).map((s, idx) => (
-                        <div key={s.id || idx} className="flex items-center gap-2">
+                        <div key={s.id || idx} {...songRowProps(`sundaySchool:${s.id || idx}`)}>
+                          {songDragHandle('sundaySchool', idx)}
                           <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
                             {idx + 1}.
                           </span>
@@ -1810,7 +1855,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </div>
 
                       {(editingSetlist.worshipService?.songs || []).map((s, idx) => (
-                        <div key={s.id || idx} className="flex items-center gap-2">
+                        <div key={s.id || idx} {...songRowProps(`worshipService:${s.id || idx}`)}>
+                          {songDragHandle('worshipService', idx)}
                           <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
                             {idx + 1}.
                           </span>
@@ -1912,7 +1958,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </div>
 
                     {(editingSetlist.program?.songs || []).map((s, idx) => (
-                      <div key={s.id || idx} className="flex items-center gap-2">
+                      <div key={s.id || idx} {...songRowProps(`program:${s.id || idx}`)}>
+                          {songDragHandle('program', idx)}
                         <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-5 shrink-0 text-right">
                           {idx + 1}.
                         </span>

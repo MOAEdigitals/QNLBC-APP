@@ -24,12 +24,13 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
     exports, document, window: dom.window, CustomEvent: dom.window.CustomEvent, setTimeout, clearTimeout,
     ResizeObserver: class { observe() {} disconnect() {} },
     // Geometry is tested separately in picker_placement.test.ts.
-    require: (name: string) => name === 'react' ? React : name === 'react-dom' ? require('react-dom') : name.includes('pickerPlacement') ? { pickerPlacement: () => ({ top: 144, maxHeight: 300 }) } : name.includes('songSearch') ? { fuzzyMatchString: () => ({ matches: false }), searchSong: () => ({ matches: true, score: 1 }), buildSongUsageMap: () => null } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => name === 'react' ? React : name === 'react-dom' ? require('react-dom') : name === 'lucide-react' ? new Proxy({}, { get: () => (props: any) => React.createElement('svg', props) }) : name.includes('pickerPlacement') ? { pickerPlacement: () => ({ top: 144, maxHeight: 300 }) } : name.includes('songSearch') ? { fuzzyMatchString: () => ({ matches: false }), searchSong: () => ({ matches: true, score: 1 }), buildSongUsageMap: () => null } : new Proxy({}, { get: () => () => null }),
   });
-  const songs = [{ id: 'z', title: 'Zion', category: 'Hymn' }, { id: 'a', title: 'Amazing Grace', category: 'Hymn' }, { id: 'b', title: 'Blessed', category: 'Choir' }];
+  const songs = [{ id: 'z', title: 'Zion', category: 'Hymn' }, { id: 'a', title: 'Amazing Grace', category: 'Hymn', isStarred: true }, { id: 'b', title: 'Blessed', category: 'Choir' }];
   const titles = () => [...document.querySelectorAll('[class*="text-[14px]"]')].map(e => e.textContent);
-  const markedTitles = () => [...document.querySelectorAll('[aria-label="Selected in this setlist"]')].map(element => element.parentElement!.querySelector('[class*="text-[14px]"]')!.textContent);
-  const click = async (button: Element) => act(() => (button as HTMLButtonElement).click());
+  const markedTitles = () => [...document.querySelectorAll('[aria-label="Selected in this setlist"]')].map(element => element.parentElement!.textContent);
+  const settleClose = async () => act(async () => { await new Promise(resolve => setTimeout(resolve, 280)); });
+  const click = async (button: Element) => { await act(() => (button as HTMLButtonElement).click()); if (document.querySelector('[data-picker-closing]')) await settleClose(); };
   try {
     const renderDesktop = (selectedSongTitles: string[]) => root.render(React.createElement(exports.AutofillInput, { value: '', onChange: (value: string) => { selected = value; }, songs, suggestions: songs.map(s => s.title), selectedSongTitles }));
     await act(() => renderDesktop([' amazing GRACE ']));
@@ -37,6 +38,9 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
     await act(() => document.querySelector('input')!.dispatchEvent(new dom.window.FocusEvent('focusin', { bubbles: true })));
     assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed']);
     assert.deepEqual(markedTitles(), ['Amazing Grace'], 'selected markers ignore case and surrounding spaces');
+    const checkedTitle = document.querySelector('[aria-label="Selected in this setlist"]')!.parentElement!;
+    assert.equal(checkedTitle.firstElementChild!.textContent, 'Amazing Grace');
+    assert.equal(checkedTitle.nextElementSibling!.getAttribute('aria-label'), 'Starred', 'check is beside the title, before the separate star');
     await act(() => renderDesktop(['Zion']));
     assert.deepEqual(markedTitles(), ['Zion'], 'unsaved changes in another field update open pickers');
     await act(() => renderDesktop([]));
@@ -125,6 +129,9 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       await touch(reopenedHeader, 'pointerdown', 100);
       await touch(reopenedHeader, 'pointermove', 220);
       await touch(reopenedHeader, 'pointerup', 220);
+      assert.ok(document.querySelector('[data-picker-closing]'), 'sheet stays mounted during its exit animation');
+      assert.equal((reopened as HTMLElement).style.transform, 'translateY(100%)');
+      await settleClose();
       assert.equal(document.querySelector('[role="dialog"]'), null, 'swipe down closes without changing the field');
       assert.equal(selected, 'Original');
       await touch(input, 'pointerdown');

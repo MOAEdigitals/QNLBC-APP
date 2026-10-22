@@ -531,6 +531,8 @@ function mapSavedSetlist(row: any, items: any[]): Setlist {
       title: row.title || undefined,
       date: row.service_date,
       service_date: row.service_date,
+      displayOrder: row.display_order ?? undefined,
+      display_order: row.display_order ?? null,
       presider: row.presider || undefined,
       welcomeSong: row.welcome_song || undefined,
       welcome_song: row.welcome_song || undefined,
@@ -614,6 +616,18 @@ export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Pro
 }
 export async function deleteSetlist(setlistId: string, expectedRevision: number): Promise<void> {
   await executeSoftDelete('setlists', setlistId, expectedRevision);
+}
+
+export async function saveSetlistOrder(date: string, orderedIds: string[], expectedRevisions: Record<string, number>) {
+  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const { data, error } = await supabase.rpc('reorder_setlist_cards', {
+    p_service_date: date, p_ordered_ids: orderedIds, p_expected_revisions: expectedRevisions,
+  });
+  if (error) throw new Error(error.message);
+  if (!Array.isArray(data) || data.length !== orderedIds.length || data.some((row, index) => row.id !== orderedIds[index] || row.display_order !== index || !Number.isFinite(Number(row.revision)))) {
+    throw new Error('The saved order could not be confirmed. Reload before trying again.');
+  }
+  return data.map(row => ({ id: row.id as string, displayOrder: Number(row.display_order), revision: Number(row.revision), updatedAt: row.updated_at as string }));
 }
 
 // -------------------------------------------------------------

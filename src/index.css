@@ -62,11 +62,11 @@
 /* Warm highlights distinguish upcoming services and celebrants from activity gradients. */
 .qnlbc-app [data-upcoming-card] { background-image: linear-gradient(115deg, #fff1d8, #fbe3e6); }
 .dark .qnlbc-app [data-upcoming-card] { background-image: linear-gradient(115deg, #302719, #35212c); }
-/* Green-to-plum highlights for upcoming programs/outlines and Sunday birthday greetings. */
+/* Blue-to-muted-green highlights for upcoming programs/outlines and Sunday birthday greetings. */
 .qnlbc-app :is(.setlists-screen, .outlines-screen) [data-upcoming-card],
-.qnlbc-app .recognitions-screen .birthday-card[data-upcoming-card='recognition'] { background-image: linear-gradient(115deg, #e3f2e9, #f1e5f0); }
+.qnlbc-app .recognitions-screen .birthday-card[data-upcoming-card='recognition'] { background-image: linear-gradient(115deg, #dfedff, #e7f1e8); }
 .dark .qnlbc-app :is(.setlists-screen, .outlines-screen) [data-upcoming-card],
-.dark .qnlbc-app .recognitions-screen .birthday-card[data-upcoming-card='recognition'] { background-image: linear-gradient(115deg, #19382d, #3a273d); }
+.dark .qnlbc-app .recognitions-screen .birthday-card[data-upcoming-card='recognition'] { background-image: linear-gradient(115deg, #192d46, #244033); }
 .qnlbc-app .birthday-card[data-past], .qnlbc-app .special-screen [data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; opacity: .6; }
 .dark .qnlbc-app .birthday-card[data-past], .dark .qnlbc-app .special-screen [data-past] { background-color: #0f172a; border-color: #1e293b; }
 .ui-revamp .setlist-names { font-size: 12px; font-weight: 400; line-height: 1.5; }
