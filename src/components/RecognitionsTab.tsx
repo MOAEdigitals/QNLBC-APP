@@ -1,6 +1,7 @@
 import { isBirthdayRecognitionWeek } from '../utils/dateUtils';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
+import { BIRTHDAY_MONTH_COLORS } from '../utils/birthdayMonthColors';
 import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect } from 'react';
 import {
@@ -42,20 +43,7 @@ import {
   BookmarkCheck,
 } from 'lucide-react';
 
-const BIRTHDAY_MONTH_COLORS = [
-  { text: 'text-blue-800 dark:text-blue-300', line: 'bg-blue-200 dark:bg-blue-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-blue-100 text-blue-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-violet-800 dark:text-violet-300', line: 'bg-violet-200 dark:bg-violet-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-violet-100 text-violet-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-emerald-800 dark:text-emerald-300', line: 'bg-emerald-200 dark:bg-emerald-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-emerald-100 text-emerald-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-rose-800 dark:text-rose-300', line: 'bg-rose-200 dark:bg-rose-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-rose-100 text-rose-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-amber-800 dark:text-amber-300', line: 'bg-amber-200 dark:bg-amber-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-amber-100 text-amber-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-cyan-800 dark:text-cyan-300', line: 'bg-cyan-200 dark:bg-cyan-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-cyan-100 text-cyan-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-orange-800 dark:text-orange-300', line: 'bg-orange-200 dark:bg-orange-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-orange-100 text-orange-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-fuchsia-800 dark:text-fuchsia-300', line: 'bg-fuchsia-200 dark:bg-fuchsia-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-teal-800 dark:text-teal-300', line: 'bg-teal-200 dark:bg-teal-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-teal-100 text-teal-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-indigo-800 dark:text-indigo-300', line: 'bg-indigo-200 dark:bg-indigo-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-indigo-100 text-indigo-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-lime-800 dark:text-lime-300', line: 'bg-lime-200 dark:bg-lime-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-lime-100 text-lime-800 dark:bg-slate-800 dark:text-slate-200' },
-  { text: 'text-red-800 dark:text-red-300', line: 'bg-red-200 dark:bg-red-800', card: 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800', badge: 'bg-red-100 text-red-800 dark:bg-slate-800 dark:text-slate-200' },
-];
+
 
 interface RecognitionsTabProps {
   birthdays: BirthdayCelebrant[];

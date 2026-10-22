@@ -46,6 +46,11 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   assert.equal(target.top, 600);
   assert.ok('minHeight' in sections.at(-1).props.style, 'last section reserves space to reach the viewport top');
   const nav = nodes.find(node => node.tag === 'nav');
-  assert.match(nav.props.className, /order-3/);
+  assert.match(nav.props.className, /order-2/);
+  assert.match(nav.props.className, /w-\[72px\]/, 'right rail has its own reserved column');
+  assert.match(main.props.className, /min-w-0 flex-1/, 'lyrics shrink and wrap beside the rail');
+  const close = nodes.find(node => node.props['aria-label'] === 'Close full-screen lyrics');
+  assert.ok(close);
+  assert.match(close.props.className, /bg-red-600/);
   assert.match(nav.props.style.paddingBottom, /safe-area-inset-bottom/);
 });

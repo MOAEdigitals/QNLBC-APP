@@ -402,29 +402,17 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
 
-          {/* Close Prompter */}
-          <button
-            type="button"
-            onClick={handleExit}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 transition-transform active:scale-95 shadow-md cursor-pointer"
-            title="Exit Stage Prompter (Esc)"
-          >
-            <X className="w-5 h-5" />
-            <span className="hidden sm:inline">Exit</span>
-          </button>
         </div>
       </header>
 
-      {/* SECTION JUMP PILLS (CHORUS, VERSE 1, BRIDGE) */}
-      {parsedSections.some((s) => s.type === 'section') && (
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* Separate rail column reserves its own space beside the lyrics. */}
         <nav
           aria-label="Lyrics sections"
           style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
-          className={`order-3 sm:order-none px-3 sm:px-4 pt-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${themeStyles.headerBg}`}
+          className="order-2 flex w-[72px] min-h-0 shrink-0 flex-col items-center justify-center gap-3 px-2 pt-4"
         >
-          <span className="hidden sm:block mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Jump To:
-          </span>
+          {parsedSections.some(s => s.type === 'section') && <div className="min-h-0 shrink overflow-y-auto overscroll-contain no-scrollbar rounded-[32px] bg-slate-100 p-1.5 dark:bg-black flex flex-col gap-2">
           {parsedSections
             .filter((s) => s.type === 'section')
             .map((s) => (
@@ -434,18 +422,19 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 aria-label={`Jump to ${s.title}`}
                 aria-current={activeSectionId === s.id ? 'location' : undefined}
                 onClick={() => jumpToSection(s.id)}
-                className={`min-h-11 min-w-11 flex-1 sm:flex-none px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer shrink-0 ${activeSectionId === s.id ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.jumpPill}`}
+                className={`h-11 min-h-11 w-11 rounded-full border-2 text-[11px] font-bold tracking-tight uppercase transition-colors cursor-pointer shrink-0 ${activeSectionId === s.id ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.jumpPill}`}
               >
                 {s.shortLabel || s.title}
               </button>
             ))}
+          </div>}
+          <button type="button" onClick={handleExit} aria-label="Close full-screen lyrics" title="Exit Stage Prompter (Esc)" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-400"><X className="h-5 w-5" aria-hidden="true" /></button>
         </nav>
-      )}
 
       {/* LYRICS STAGE DISPLAY VIEWPORT */}
       <main
         ref={scrollContainerRef}
-        className="order-2 sm:order-none min-h-0 flex-1 overflow-y-auto px-6 sm:px-12 md:px-20 lg:px-32 py-8 sm:py-12 select-text"
+        className="order-1 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-8 md:px-12 lg:px-20 py-8 sm:py-12 select-text"
       >
         {!song.lyrics?.trim() ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-60">
@@ -479,7 +468,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                   </div>
                 )}
                 <div
-                  className={`font-sans whitespace-pre-wrap font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass}`}
+                  className={`font-sans whitespace-pre-wrap [overflow-wrap:anywhere] font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass}`}
                 >
                   {section.lines.join('\n')}
                 </div>
@@ -488,6 +477,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           </div>
         )}
       </main>
+      </div>
 
     </div>
   );
