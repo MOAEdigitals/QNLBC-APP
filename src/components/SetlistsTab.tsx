@@ -189,9 +189,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   collapseSignal,
 }) => {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(
-    () => initialSelectedSetlistId || null
+    () => initialSelectedSetlistId || initialExpandedSetlistIds?.at(-1) || null
   );
-  const [expandedSetlistIds, setExpandedSetlistIds] = useState<string[]>(() => initialExpandedSetlistIds ?? (initialSelectedSetlistId ? [initialSelectedSetlistId] : []));
+  const [expandedSetlistIds, setExpandedSetlistIds] = useState<string[]>(() => {
+    const id = initialSelectedSetlistId || initialExpandedSetlistIds?.at(-1);
+    return id ? [id] : [];
+  });
   useEffect(() => { onExpandedSetlistsChange?.(expandedSetlistIds); }, [expandedSetlistIds, onExpandedSetlistsChange]);
 
   const handleOpenSong = (songId: string, setlistId: string) => {
@@ -243,6 +246,17 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   const [isEditing, setIsEditing] = useState(false);
   const [editingSetlist, setEditingSetlist] = useState<Partial<Setlist> | null>(null);
+  const selectedSetlistSongTitles = useMemo(() => {
+    if (!editingSetlist) return [];
+    const sunday = !editingSetlist.type || editingSetlist.type === 'sunday';
+    return [
+      ...(editingSetlist.type !== 'prayer_meeting' ? [editingSetlist.welcomeSong ?? 'Napakaligaya', editingSetlist.closingSong ?? 'Give Thanks'] : []),
+      editingSetlist.themeSong || '',
+      ...(sunday
+        ? [...(editingSetlist.sundaySchool?.songs || []), ...(editingSetlist.worshipService?.songs || [])]
+        : editingSetlist.program?.songs || []).map(song => song.title),
+    ].filter(title => title.trim());
+  }, [editingSetlist]);
   const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
@@ -341,7 +355,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   useEffect(() => {
     if (initialSelectedSetlistId) {
       setSelectedSetlistId(initialSelectedSetlistId);
-      setExpandedSetlistIds(ids => ids.includes(initialSelectedSetlistId) ? ids : [...ids, initialSelectedSetlistId]);
+      setExpandedSetlistIds([initialSelectedSetlistId]);
 
       // If scroll position was already restored to the exact position, do not override with scrollIntoView
       if (restoredScrollRef.current || initialScrollY != null) {
@@ -825,7 +839,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         setEditingSetlist(null);
         setEditPromptMsg(null);
         setSelectedSetlistId(finalSetlist.id);
-        setExpandedSetlistIds(ids => ids.includes(finalSetlist.id) ? ids : [...ids, finalSetlist.id]);
+        setExpandedSetlistIds([finalSetlist.id]);
       }
     } finally {
       saveInProgressRef.current = false;
@@ -834,8 +848,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   };
 
   const handleSelectSetlist = (id: string, e?: React.MouseEvent) => {
+    setOpenMenuSetlistId(null);
     if (expandedSetlistIds.includes(id)) {
-      setExpandedSetlistIds(ids => ids.filter(openId => openId !== id));
+      setExpandedSetlistIds([]);
       setSelectedSetlistId(null);
     } else {
       if (e) {
@@ -848,7 +863,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         }
       }
       setSelectedSetlistId(id);
-      setExpandedSetlistIds(ids => [...ids, id]);
+      setExpandedSetlistIds([id]);
       window.history.pushState({ tab: 'home', subView: 'detail', id }, '', '#home');
     }
   };
@@ -1565,6 +1580,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           allSuggestions={songTitleSuggestions}
                           defaultValue="Napakaligaya"
                           songs={songs}
+                          selectedSongTitles={selectedSetlistSongTitles}
                           setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select welcome song..."
@@ -1589,6 +1605,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           allSuggestions={songTitleSuggestions}
                           defaultValue="Give Thanks"
                           songs={songs}
+                          selectedSongTitles={selectedSetlistSongTitles}
                           setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select closing song..."
@@ -1614,6 +1631,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           suggestions={markedThemeSongs}
                           allSuggestions={songTitleSuggestions}
                           songs={songs}
+                          selectedSongTitles={selectedSetlistSongTitles}
                           setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select theme song..."
@@ -1699,6 +1717,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               onChange={(val) => handleUpdateSongSlot('sundaySchool', idx, val)}
                               suggestions={songTitleSuggestions}
                               songs={songs}
+                              selectedSongTitles={selectedSetlistSongTitles}
                               setlists={setlists}
                               showSongCategoryFilters
                               songFilter={songPickerFilter}
@@ -1800,6 +1819,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               onChange={(val) => handleUpdateSongSlot('worshipService', idx, val)}
                               suggestions={songTitleSuggestions}
                               songs={songs}
+                              selectedSongTitles={selectedSetlistSongTitles}
                               setlists={setlists}
                               showSongCategoryFilters
                               songFilter={songPickerFilter}
@@ -1901,6 +1921,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             onChange={(val) => handleUpdateSongSlot('program', idx, val)}
                             suggestions={songTitleSuggestions}
                             songs={songs}
+                            selectedSongTitles={selectedSetlistSongTitles}
                             setlists={setlists}
                             showSongCategoryFilters
                             songFilter={songPickerFilter}

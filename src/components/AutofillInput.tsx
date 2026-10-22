@@ -9,7 +9,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
@@ -48,6 +48,7 @@ interface AutofillInputProps {
   allSuggestions?: string[]; // Fallback full library suggestions when user types
   defaultValue?: string; // Default song (e.g. 'Napakaligaya' or 'Give Thanks')
   songs?: Song[]; // Full song library for lyrics search and metadata
+  selectedSongTitles?: string[]; // Songs currently used in the draft setlist, across sections
   setlists?: Setlist[]; // Setlists for last-sung history
   showLastSung?: boolean; // Defaults to true; set to false for Welcome Song, Closing Song, and Theme Song
   placeholder?: string;
@@ -72,6 +73,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   allSuggestions,
   defaultValue,
   songs,
+  selectedSongTitles = [],
   setlists,
   showLastSung = true,
   placeholder,
@@ -88,6 +90,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   onSongFilterChange: onControlledFilterChange,
 }) => {
   const showSongCategoryFilters = categoryFiltersRequested || songs !== undefined;
+  const selectedTitles = useMemo(() => new Set(selectedSongTitles.map(title => title.trim().toLowerCase()).filter(Boolean)), [selectedSongTitles]);
   const [localSongFilter, setLocalSongFilter] = useState<SongPickerFilter>('all');
   const songFilter = controlledSongFilter ?? localSongFilter;
   const onSongFilterChange = (filter: SongPickerFilter) => {
@@ -926,6 +929,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                   {item.songObj && Boolean(item.songObj.isStarred || (item.songObj as Song & { starred?: boolean }).starred) && (
                     <Star className="w-3.5 h-3.5 shrink-0 fill-yellow-400 text-yellow-500" aria-label="Starred" />
                   )}
+                  {selectedTitles.has(item.title.trim().toLowerCase()) && <span role="img" aria-label="Selected in this setlist" title="Selected in this setlist" className="shrink-0 text-emerald-600 dark:text-emerald-400"><Check className="h-4 w-4" aria-hidden="true" /></span>}
                 </div>
                 {item.matchedField === 'lyrics' && item.lyricSnippet && (
                   <div className="text-xs text-emerald-600 dark:text-emerald-400 italic truncate mt-0.5">

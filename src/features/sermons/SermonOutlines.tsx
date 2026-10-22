@@ -193,7 +193,7 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
       else if (!event.shiftKey && (document.activeElement === last || document.activeElement === surface.current)) { event.preventDefault(); first?.focus(); }
     }
   }
-  return <div className="space-y-4 text-slate-900 dark:text-white">
+  return <div className="outlines-screen space-y-4 text-slate-900 dark:text-white">
     {error && !fullScreen && <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-200">{error}</p>}
     {canAdd && !fullScreen && <button type="button" disabled={!ready} aria-label="Add outline" title="Add outline" className="app-fab fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2 disabled:opacity-40" onClick={startNew}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
     {loading && !ready && <p role="status" className="text-sm text-slate-500">Loading outlines…</p>}

@@ -72,10 +72,10 @@ test('Setlists start collapsed on first login or new session', () => {
   const setlistsTabFile = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SetlistsTab.tsx'), 'utf-8');
   const storageFile = fs.readFileSync(path.resolve(process.cwd(), 'src/utils/storage.ts'), 'utf-8');
 
-  // SetlistsTab must initialize selectedSetlistId to null when no initialSelectedSetlistId is passed
+  // A new session has neither an explicit selection nor a remembered open card.
   assert.ok(
-    setlistsTabFile.includes('() => initialSelectedSetlistId || null'),
-    'SetlistsTab must initialize selectedSetlistId to initialSelectedSetlistId || null'
+    setlistsTabFile.includes('() => initialSelectedSetlistId || initialExpandedSetlistIds?.at(-1) || null'),
+    'SetlistsTab restores the latest remembered card and otherwise starts collapsed'
   );
 
   // SetlistsTab must not persist setlist selection into localStorage

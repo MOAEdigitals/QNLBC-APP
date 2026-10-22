@@ -3,7 +3,6 @@ import { isBirthdayRecognitionWeek } from '../utils/dateUtils';
 import { isAnnualDatePast, orderAnnualBirthdays } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
-import { BIRTHDAY_MONTH_COLORS } from '../utils/birthdayMonthColors';
 import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect } from 'react';
 import {
@@ -313,10 +312,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {Array.from(birthdayMonths, ([month, items]) => (
                   <section key={month} aria-labelledby={`birthday-month-${month}`} className="space-y-3">
                     <div className="flex items-center gap-3 px-1">
-                      <h3 id={`birthday-month-${month}`} className={`shrink-0 text-sm font-bold ${BIRTHDAY_MONTH_COLORS[month].text}`}>
+                      <h3 id={`birthday-month-${month}`} className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
                         {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
                       </h3>
-                      <div aria-hidden="true" className={`h-px flex-1 ${BIRTHDAY_MONTH_COLORS[month].line}`} />
+                      <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {items.map((item) => (
@@ -324,7 +323,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           key={item.id}
                           data-upcoming-card={isBirthdayRecognitionWeek(item.birthDate) ? 'recognition' : undefined}
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
-                          className={`app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 ${BIRTHDAY_MONTH_COLORS[month].card}`}
+                          className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                         >
                           <div className="flex min-w-0 flex-1 items-center space-x-3">
                             <CardDate date={`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`} />

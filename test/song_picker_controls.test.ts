@@ -28,12 +28,19 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
   });
   const songs = [{ id: 'z', title: 'Zion', category: 'Hymn' }, { id: 'a', title: 'Amazing Grace', category: 'Hymn' }, { id: 'b', title: 'Blessed', category: 'Choir' }];
   const titles = () => [...document.querySelectorAll('[class*="text-[14px]"]')].map(e => e.textContent);
+  const markedTitles = () => [...document.querySelectorAll('[aria-label="Selected in this setlist"]')].map(element => element.parentElement!.querySelector('[class*="text-[14px]"]')!.textContent);
   const click = async (button: Element) => act(() => (button as HTMLButtonElement).click());
   try {
-    await act(() => root.render(React.createElement(exports.AutofillInput, { value: '', onChange: (value: string) => { selected = value; }, songs, suggestions: songs.map(s => s.title) })));
+    const renderDesktop = (selectedSongTitles: string[]) => root.render(React.createElement(exports.AutofillInput, { value: '', onChange: (value: string) => { selected = value; }, songs, suggestions: songs.map(s => s.title), selectedSongTitles }));
+    await act(() => renderDesktop([' amazing GRACE ']));
     document.querySelector('input')!.getBoundingClientRect = () => ({ top: 100, bottom: 144, left: 20, right: 370, width: 350, height: 44, x: 20, y: 100, toJSON() {} });
     await act(() => document.querySelector('input')!.dispatchEvent(new dom.window.FocusEvent('focusin', { bubbles: true })));
     assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed']);
+    assert.deepEqual(markedTitles(), ['Amazing Grace'], 'selected markers ignore case and surrounding spaces');
+    await act(() => renderDesktop(['Zion']));
+    assert.deepEqual(markedTitles(), ['Zion'], 'unsaved changes in another field update open pickers');
+    await act(() => renderDesktop([]));
+    assert.deepEqual(markedTitles(), [], 'removing the last use clears its marker');
     await click(document.querySelector('[aria-label^="Sort songs"]')!);
     assert.deepEqual(titles(), ['Amazing Grace', 'Blessed', 'Zion']);
     await click(document.querySelector('[aria-label^="Sort songs"]')!);
@@ -51,7 +58,7 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
     });
     for (const kind of ['songs', 'names']) {
       selected = 'Original';
-      await act(() => root.render(React.createElement(exports.AutofillInput, { key: kind, value: 'Original', onChange: (value: string) => { selected = value; }, ...(kind === 'songs' ? { songs, suggestions: songs.map(s => s.title) } : { suggestions: ['Bro Ronnie', 'Bro Joshua'] }) })));
+      await act(() => root.render(React.createElement(exports.AutofillInput, { key: kind, value: 'Original', onChange: (value: string) => { selected = value; }, ...(kind === 'songs' ? { songs, suggestions: songs.map(s => s.title), selectedSongTitles: [' Zion '] } : { suggestions: ['Bro Ronnie', 'Bro Joshua'] }) })));
       const input = document.querySelector('input')!;
       await touch(input, 'pointerdown');
       await touch(input, 'pointermove', 140);
@@ -66,6 +73,7 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       assert.notEqual(document.activeElement, search);
       assert.equal(selected, 'Original');
       assert.deepEqual(titles(), kind === 'songs' ? ['Zion', 'Amazing Grace', 'Blessed'] : ['Bro Ronnie', 'Bro Joshua']);
+      assert.deepEqual(markedTitles(), kind === 'songs' ? ['Zion'] : [], 'mobile song lists show markers without changing name pickers');
       if (kind === 'songs') {
         assert.ok(dialog.querySelector('[aria-label^="Sort songs"]')!.classList.contains('right-0'));
         await click(dialog.querySelector('[aria-label^="Sort songs"]')!);

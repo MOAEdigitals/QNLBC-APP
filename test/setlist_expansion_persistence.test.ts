@@ -8,7 +8,7 @@ import ts from 'typescript';
 import * as dates from '../src/utils/dateUtils.ts';
 import * as colors from '../src/utils/personColors.ts';
 
-test('setlists remain expanded through tab remounts, other cards and navigation reselect', async () => {
+test('one setlist stays expanded across tab remounts until its header or another card is tapped', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/#home' });
   const keys = ['window', 'document', 'navigator', 'HTMLElement', 'IS_REACT_ACT_ENVIRONMENT'];
   const saved = keys.map(k => Object.getOwnPropertyDescriptor(globalThis, k));
@@ -36,17 +36,22 @@ test('setlists remain expanded through tab remounts, other cards and navigation 
   try {
     await act(() => render());
     assert.ok(document.getElementById('setlist-card-one'), document.body.innerHTML.slice(0, 3000));
-    await clickHeader('one'); await clickHeader('two');
-    assert.equal(open('one'), true); assert.equal(open('two'), true);
-    await act(() => document.getElementById('setlist-card-one')!.click());
-    assert.equal(open('one'), true, 'only the header toggles expansion');
+    await clickHeader('one');
+    assert.equal(open('one'), true); assert.equal(open('two'), false);
+    await clickHeader('two');
+    assert.equal(open('one'), false); assert.equal(open('two'), true);
+    await act(() => document.getElementById('setlist-card-two')!.click());
+    assert.equal(open('two'), true, 'only the header toggles expansion');
     await act(() => root.render(null));
     await act(() => render(1));
-    assert.equal(open('one'), true); assert.equal(open('two'), true);
+    assert.equal(open('one'), false); assert.equal(open('two'), true);
     await act(() => render(2)); assert.equal(open('two'), true);
-    await clickHeader('one'); assert.equal(open('one'), false); assert.equal(open('two'), true);
+    await clickHeader('one'); assert.equal(open('one'), true); assert.equal(open('two'), false);
+    await clickHeader('one'); assert.equal(open('one'), false); assert.equal(open('two'), false);
     await act(() => root.render(null)); await act(() => render(0, true));
     assert.equal(open('one'), false); assert.equal(open('two'), false);
+    await act(() => root.render(null)); remembered = ['one', 'two']; await act(() => render());
+    assert.equal(open('one'), false); assert.equal(open('two'), true, 'legacy multiple-open state restores only its last card');
   } finally {
     await act(() => root.unmount()); dom.window.close();
     keys.forEach((k, i) => { if (saved[i]) Object.defineProperty(globalThis, k, saved[i]!); else delete (globalThis as any)[k]; });

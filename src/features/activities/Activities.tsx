@@ -13,20 +13,7 @@ import { activityBadge, activityKind, isPastActivity, orderActivityList, sortAct
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
-const monthColors = [
-  'bg-sky-50 border-sky-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-pink-50 border-pink-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-emerald-50 border-emerald-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-amber-50 border-amber-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-violet-50 border-violet-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-cyan-50 border-cyan-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-rose-50 border-rose-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-teal-50 border-teal-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-indigo-50 border-indigo-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-purple-50 border-purple-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-lime-50 border-lime-100 dark:bg-slate-900 dark:border-slate-800',
-  'bg-red-50 border-red-100 dark:bg-slate-900 dark:border-slate-800',
-];
+
 
 function localDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -243,8 +230,8 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {activityGroups.map(group => {
-        const monthIndex = Number(group.key.slice(5, 7)) - 1;
-        const color = monthColors[monthIndex] || monthColors[0];
+
+        const color = 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800';
         return <section key={group.key} className="space-y-2">
           <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>
           {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`app-date-card relative scroll-mt-4 rounded-2xl border px-3 py-2.5 text-slate-800 dark:text-slate-200 ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
