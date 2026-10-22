@@ -885,6 +885,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 <div
                   key={item.id}
                   id={`setlist-card-${item.id}`}
+                  data-upcoming-card={isSoonest ? 'next-up' : !isPast && !today && item.id === followingUpcoming?.id ? 'upcoming' : undefined}
                   className={`relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
                       ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 ${

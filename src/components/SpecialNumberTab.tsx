@@ -1,4 +1,6 @@
 import { CardActions } from './CardActions';
+import { UpcomingBadge } from './UpcomingBadge';
+import { upcomingCardStatuses } from '../utils/upcomingCards';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { ChoirMedia } from './ChoirMedia';
@@ -25,6 +27,7 @@ import {
   isToday,
   getNextSundayStr,
   sortUpcomingFirst,
+  getTodayStr,
 } from '../utils/dateUtils';
 import {
   getAllDirectoryNames,
@@ -983,6 +986,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   const soonestEntry = sortedEntries.find((e) => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate));
   const followingEntry = sortedEntries.find(e => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate) && e.id !== soonestEntry?.id);
+  const practiceUpcoming = upcomingCardStatuses(practiceEntries, entry => entry.practiceDate || entry.targetDate, getTodayStr(), entry => !entry.isDone);
+  const choirUpcoming = upcomingCardStatuses(choirEntries, entry => entry.date, getTodayStr(), entry => !entry.isDone);
 
   // Compute vacant fellowships or special events
   const vacantEvents = setlists.filter((s) => {
@@ -2063,6 +2068,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={item.id}
                       id={`schedule-card-${item.id}`}
+                      data-upcoming-card={isSoonest ? 'next-up' : !isPast && !today && item.id === followingEntry?.id ? 'upcoming' : undefined}
                       onClick={(e) => {
                         if (isSelected) {
                           setSelectedEntryId(null);
@@ -2373,6 +2379,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={group.id}
                       id={`practice-card-${group.id}`}
+                      data-upcoming-card={practiceUpcoming.get(group.id)}
                       onClick={() => {
                         if (!isSelected) setSelectedPracticeId(group.id);
                       }}
@@ -2400,6 +2407,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           >
                             {group.songTitle}
                           </h4>
+                          <UpcomingBadge status={practiceUpcoming.get(group.id)} />
 
                           <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                             {group.assignedEvent && (
@@ -2803,6 +2811,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   <div
                     key={entry.id}
                     id={`choir-card-${entry.id}`}
+                    data-upcoming-card={choirUpcoming.get(entry.id)}
                     onClick={() => {
                       const nextExpanded = !isLyricsExpanded;
                       setExpandedChoirLyricsIds((prev) => ({
@@ -2847,6 +2856,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           >
                             {entry.songTitle}
                           </h4>
+                          <UpcomingBadge status={choirUpcoming.get(entry.id)} />
                           <p
                             className={`text-xs mt-0.5 truncate ${
                               isElapsed

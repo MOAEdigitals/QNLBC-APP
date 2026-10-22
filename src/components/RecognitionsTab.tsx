@@ -1,4 +1,5 @@
 import { isBirthdayRecognitionWeek } from '../utils/dateUtils';
+import { isAnnualDatePast, orderAnnualBirthdays } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { BIRTHDAY_MONTH_COLORS } from '../utils/birthdayMonthColors';
@@ -146,7 +147,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     categorizeAnnualCelebrants<BirthdayCelebrant>(birthdays, (b: BirthdayCelebrant) => b.birthDate);
 
   const visibleBirthdays = [...currentBirthdays, ...upcomingBirthdays];
-  const filteredBirthdays = visibleBirthdays.filter((b: BirthdayCelebrant) => {
+  const birthdayToday = getTodayStr();
+  const filteredBirthdays = orderAnnualBirthdays(visibleBirthdays, b => b.birthDate, birthdayToday).filter((b: BirthdayCelebrant) => {
     if (!birthdaySearchQuery.trim()) return true;
     const q = birthdaySearchQuery.trim().toLowerCase();
     return b.name.toLowerCase().includes(q);
@@ -319,12 +321,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       {items.map((item) => (
                         <div
                           key={item.id}
+                          data-upcoming-card={isBirthdayRecognitionWeek(item.birthDate) ? 'recognition' : undefined}
+                          data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           className={`birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 ${BIRTHDAY_MONTH_COLORS[month].card}`}
                         >
                           <div className="flex min-w-0 flex-1 items-center space-x-3">
                             <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
                               <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                                {getNextAnnualOccurrence(item.birthDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
+                                {parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
                               </span>
                               <span className="text-base font-black leading-none mt-0.5">{Number(item.birthDate.split('-')[2])}</span>
                             </div>

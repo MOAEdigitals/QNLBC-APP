@@ -46,8 +46,6 @@ import {
   Star,
   Tv,
   Maximize2,
-  AArrowDown,
-  AArrowUp,
   ArrowLeft,
   ArrowUpDown,
 } from 'lucide-react';
@@ -1345,26 +1343,26 @@ if (isEditing && !savingSongRef.current) {
                         </div>
 
                         {/* In-Card Font Stepper A- / A+ */}
-                        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                        <div role="group" aria-label="Lyrics text size" className="flex shrink-0 items-center overflow-hidden rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xs">
                           <button
                             type="button"
                             onClick={() => setInCardFontSize((prev) => Math.max(0, prev - 1))}
-                            disabled={inCardFontSize <= 0}
-                            className="song-reading-control rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 shadow-2xs cursor-pointer"
+                            aria-disabled={inCardFontSize <= 0}
+                            className="song-reading-control text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
                             title={`Decrease font size (currently ${['15px', '18px', '22px', '28px'][inCardFontSize]})`}
                             aria-label="Decrease lyrics font size"
                           >
-                            <AArrowDown className="w-4 h-4" aria-hidden="true" />
+                            <span aria-hidden="true">A−</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setInCardFontSize((prev) => Math.min(3, prev + 1))}
-                            disabled={inCardFontSize >= 3}
-                            className="song-reading-control rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 shadow-2xs cursor-pointer"
+                            aria-disabled={inCardFontSize >= 3}
+                            className="song-reading-control text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
                             title={`Increase font size (currently ${['15px', '18px', '22px', '28px'][inCardFontSize]})`}
                             aria-label="Increase lyrics font size"
                           >
-                            <AArrowUp className="w-4 h-4" aria-hidden="true" />
+                            <span aria-hidden="true">A+</span>
                           </button>
                         </div>
 

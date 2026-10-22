@@ -1,4 +1,5 @@
 import { highlightActivityCards } from './highlight';
+import { compareMonthKeys } from '../../utils/recognitionOrder';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ChurchActivity, UserAccount } from '../../types';
@@ -7,7 +8,7 @@ import { groupByMonth } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
-import { activityBadge, isPastActivity, orderActivityList, sortActivities, isRoutineActivity } from './model';
+import { activityBadge, activityKind, isPastActivity, orderActivityList, sortActivities, isRoutineActivity } from './model';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -59,7 +60,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   const [showTime, setShowTime] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: true });
+  const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: true, other: true });
   const savingRef = useRef(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const lastProcessedSignalRef = useRef<number>(0);
@@ -71,7 +72,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
       <div ref={filterRef} className="relative">
         <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-5 w-5" /></button>
         {showFilters && <div className="absolute right-0 top-11 z-50 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-          {([['prayer', 'Wednesday prayer meeting'], ['sunday', 'Sunday service'], ['practice', 'Saturday practice']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
+          {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
         </div>}
       </div>
     ), [showFilters, gatheringFilters]);
@@ -114,26 +115,22 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [collapseSignal, editor, showFilters, openMenu, expandedActivity]);
 
-  const counts = useMemo(() => {
-    const result = new Map<string, number>();
-    for (const item of items) result.set(item.activityDate, (result.get(item.activityDate) || 0) + 1);
-    return result;
-  }, [items]);
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
     return orderActivityList(items.filter(item => {
-      const title = item.title.toLowerCase();
-      const kind = title.includes('wednesday') && title.includes('prayer') ? 'prayer'
-        : title.includes('sunday service') ? 'sunday'
-        : title.includes('saturday') && title.includes('practice') ? 'practice' : null;
-      if (kind && !gatheringFilters[kind]) return false;
+      if (!gatheringFilters[activityKind(item.title)]) return false;
       return !query || `${item.title} ${item.description || ''}`.toLowerCase().includes(query);
     }), today);
   }, [items, search, gatheringFilters, today]);
+  const counts = useMemo(() => {
+    const result = new Map<string, number>();
+    for (const item of filteredItems) result.set(item.activityDate, (result.get(item.activityDate) || 0) + 1);
+    return result;
+  }, [filteredItems]);
   const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today))?.id;
   const followingActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today) && item.id !== nextActivityId)?.id;
   // One separator per calendar month; individual cards retain their past/upcoming styling.
-  const activityGroups = groupByMonth(filteredItems, item => item.activityDate);
+  const activityGroups = groupByMonth(filteredItems, item => item.activityDate).sort((a, b) => compareMonthKeys(a.key, b.key, today.slice(0, 7)));
 
   useEffect(() => {
     if (!openMenu) return;

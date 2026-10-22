@@ -54,6 +54,11 @@
 .keyboard-open .ui-viewport-screen form > div:last-child:has(> button[type='submit']) { display: none; }
 .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #dfedff, #ebe7ff); border-color: #c7d2fe; }
 .dark .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #192d46, #332140); border-color: #3b4262; }
+/* Warm highlights distinguish upcoming services and celebrants from activity gradients. */
+.qnlbc-app [data-upcoming-card] { background-image: linear-gradient(115deg, #fff1d8, #fbe3e6); }
+.dark .qnlbc-app [data-upcoming-card] { background-image: linear-gradient(115deg, #302719, #35212c); }
+.qnlbc-app .birthday-card[data-past], .qnlbc-app .special-screen [data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; opacity: .6; }
+.dark .qnlbc-app .birthday-card[data-past], .dark .qnlbc-app .special-screen [data-past] { background-color: #0f172a; border-color: #1e293b; }
 .ui-revamp .setlist-names { font-size: 12px; font-weight: 400; line-height: 1.5; }
 .birthday-sunday-dot { display: inline-block; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: #15803d; box-shadow: 0 0 7px #15803d80; }
 .dark .birthday-sunday-dot { background: #86efac; box-shadow: 0 0 8px #86efac90; }

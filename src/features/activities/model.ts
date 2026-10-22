@@ -1,8 +1,16 @@
 import type { ChurchActivity } from '../../types';
 
+export type ActivityKind = 'prayer' | 'sunday' | 'practice' | 'other';
+export function activityKind(title: string): ActivityKind {
+  if (/(?:prayer\s*meeting|midweek\s*prayer)/i.test(title)) return 'prayer';
+  if (/sunday\s*service/i.test(title)) return 'sunday';
+  if (/(?:song\s*leaders?|choir).*practice|practice.*(?:song\s*leaders?|choir)|saturday.*practice/i.test(title)) return 'practice';
+  return 'other';
+}
+
 /** Routine weekly gatherings keep the neutral card treatment. */
 export function isRoutineActivity(title: string): boolean {
-  return /(?:prayer\s*meeting|midweek\s*prayer|sunday\s*service|(?:song\s*leaders?|choir).*practice|practice.*(?:song\s*leaders?|choir)|saturday.*practice)/i.test(title);
+  return activityKind(title) !== 'other';
 }
 
 /** Activities are dated occurrences, not annually recurring events. */
