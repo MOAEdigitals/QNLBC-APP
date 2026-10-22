@@ -1,7 +1,7 @@
 import { UpcomingBadge } from './UpcomingBadge';
 import { SetlistShareDialog } from './SetlistShareDialog';
 import { CardDate } from './CardDate';
-import { initialSetlistCardId, orderSameDateSetlists } from '../utils/initialSetlistCard';
+import { featuredSetlistCardId, initialSetlistCardId, orderSameDateSetlists } from '../utils/initialSetlistCard';
 import { useSetlistReorder } from '../hooks/useSetlistReorder';
 import type { SaveSetlistOrder } from '../hooks/useSetlistReorder';
 import { createPortal } from 'react-dom';
@@ -476,6 +476,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     () => orderSameDateSetlists(sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date)),
     [setlists]
   );
+  const featuredId = featuredSetlistCardId(setlists, getTodayStr());
   const reorder = useSetlistReorder(sortedSetlists, onReorderSetlists, canReorder);
   const searchableSetlists = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
@@ -879,7 +880,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen setlists-screen space-y-6">
-      {sharePreview && setlists.some(item => item.id === sharePreview.id) && <SetlistShareDialog item={setlists.find(item => item.id === sharePreview.id)!} songs={songs} badge={sharePreview.badge} onClose={() => { const id = sharePreview.id; setSharePreview(null); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-setlist-actions="${id}"] button[title="Setlist actions"]`)?.focus({ preventScroll: true })); }} />}
+      {sharePreview && setlists.some(item => item.id === sharePreview.id) && <SetlistShareDialog item={setlists.find(item => item.id === sharePreview.id)!} songs={songs} badge={sharePreview.badge} highlighted={sharePreview.id === featuredId} onClose={() => { const id = sharePreview.id; setSharePreview(null); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-setlist-actions="${id}"] button[title="Setlist actions"]`)?.focus({ preventScroll: true })); }} />}
       {reorder.error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{reorder.error}</p>}
       <span role="status" aria-live="polite" className="sr-only">{reorder.announcement || (reorder.busy ? 'Saving setlist order…' : '')}</span>
       {reorder.drag && createPortal(<div aria-hidden="true" className="pointer-events-none fixed z-[220] max-w-[80vw] rounded-xl border border-blue-400 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-xl dark:bg-slate-800 dark:text-white" style={{ left: Math.max(8, Math.min(reorder.drag.x + 12, window.innerWidth - 220)), top: reorder.drag.y + 12 }}>
@@ -920,7 +921,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   data-setlist-drag-id={item.id}
                   aria-busy={reorder.busy || undefined}
                   style={reorder.drag?.id === item.id ? { opacity: .5 } : undefined}
-                  data-upcoming-card={today ? 'today' : isSoonest ? 'next-up' : !isPast && !today && item.id === followingUpcoming?.id ? 'upcoming' : undefined}
+                  data-upcoming-card={item.id === featuredId ? 'featured' : undefined}
                   className={`app-date-card relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
                       ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 ${

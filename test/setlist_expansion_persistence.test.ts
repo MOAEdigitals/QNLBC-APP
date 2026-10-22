@@ -40,6 +40,8 @@ test('one setlist stays expanded across tab remounts until its header or another
     await act(() => render());
     assert.equal(document.querySelectorAll('[aria-label^="Reorder"]').length, 2, 'only today/future same-date cards have handles');
     assert.equal(document.querySelector('#setlist-card-old-one [aria-label^="Reorder"]'), null);
+    assert.equal(document.querySelectorAll('[data-upcoming-card]').length, 1, 'only the top card receives a gradient, including when several cards are Today');
+    assert.equal(document.querySelector('[data-upcoming-card]')?.id, 'setlist-card-one');
     assert.ok(document.getElementById('setlist-card-one'), document.body.innerHTML.slice(0, 3000));
     await clickHeader('one');
     assert.equal(open('one'), true); assert.equal(open('two'), false);

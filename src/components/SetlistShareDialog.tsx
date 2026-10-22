@@ -8,7 +8,7 @@ import { setlistShareUrl, setlistTitle } from '../utils/setlistSharing';
 import { shareSetlistContent, canShareSetlistImage } from '../services/setlistShare';
 import { useBackLayer } from '../hooks/useBackLayer';
 
-export function SetlistShareDialog({ item, songs, badge, onClose }: { item: Setlist; songs: Song[]; badge?: string; onClose: () => void }) {
+export function SetlistShareDialog({ item, songs, badge, highlighted, onClose }: { item: Setlist; songs: Song[]; badge?: string; highlighted?: boolean; onClose: () => void }) {
   const card = useRef<HTMLDivElement>(null), close = useRef<HTMLButtonElement>(null);
   const [image, setImage] = useState<{ file: File; url: string } | null>(null);
   const [preparing, setPreparing] = useState(true), [sharing, setSharing] = useState(false);
@@ -37,7 +37,7 @@ export function SetlistShareDialog({ item, songs, badge, onClose }: { item: Setl
     })().catch(() => { if (!cancelled) setMessage('Image unavailable. You can still share or copy the setlist link.'); })
       .finally(() => { if (!cancelled) setPreparing(false); });
     return () => { cancelled = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [item, songs, badge]);
+  }, [item, songs, badge, highlighted]);
   const share = async () => {
     setSharing(true); setMessage('');
     try {
@@ -68,6 +68,6 @@ export function SetlistShareDialog({ item, songs, badge, onClose }: { item: Setl
         <div className="flex gap-2"><button type="button" className="min-h-11 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-2 text-sm" onClick={async () => { try { await navigator.clipboard.writeText(url); setMessage('Link copied.'); } catch { setMessage('Select the link above and copy it.'); } }}><Copy className="h-4 w-4" />Copy link</button>{image && <a href={image.url} download={image.file.name} className="min-h-11 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-2 text-sm"><Download className="h-4 w-4" />Download image</a>}</div>
       </footer>
     </div>
-    <div aria-hidden="true" className="pointer-events-none fixed top-0 -left-[10000px]"><SetlistShareCard ref={card} item={item} songs={songs} badge={badge} /></div>
+    <div aria-hidden="true" className="pointer-events-none fixed top-0 -left-[10000px]"><SetlistShareCard ref={card} item={item} songs={songs} badge={badge} highlighted={highlighted} /></div>
   </div>, document.body);
 }

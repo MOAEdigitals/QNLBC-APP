@@ -38,6 +38,16 @@ export function sameDateSetlistMove<T extends OrderedSetlistCard>(items: T[], so
   return { date: source.date, orderedIds, expectedRevisions: Object.fromEntries(group.map(item => [item.id, item.revision || 1])) };
 }
 
+/** The first card in the list: nearest upcoming, or most recent past as a fallback. */
+export function featuredSetlistCardId(setlists: OrderedSetlistCard[], today: string): string | null {
+  const sorted = [...setlists].sort((a, b) => {
+    const aPast = a.date < today, bPast = b.date < today;
+    if (aPast !== bPast) return aPast ? 1 : -1;
+    return aPast ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+  });
+  return orderSameDateSetlists(sorted)[0]?.id || null;
+}
+
 /** Choose a startup default once; a remembered empty list means the user closed it. */
 export function initialSetlistCardId(
   setlists: OrderedSetlistCard[], today: string,
@@ -45,5 +55,5 @@ export function initialSetlistCardId(
 ): string | null {
   if (requestedId) return requestedId;
   if (rememberedIds !== undefined) return rememberedIds.at(-1) || null;
-  return orderSameDateSetlists(setlists).find(setlist => setlist.date === today)?.id || null;
+  return featuredSetlistCardId(setlists, today);
 }
