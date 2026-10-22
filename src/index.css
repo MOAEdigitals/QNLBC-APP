@@ -3,6 +3,7 @@
 
 /* Shared primary add action, anchored above navigation in every tab. */
 .qnlbc-app button.app-fab {
+  margin: 0;
   bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
   right: max(1rem, env(safe-area-inset-right, 0px));
   background: #1d4ed8;

@@ -1,4 +1,5 @@
 import { useBackLayer } from '../hooks/useBackLayer';
+import { useDoubleTap } from '../hooks/useDoubleTap';
 import { useLyricsScreenAwake } from './LyricsScreenAwake';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Song } from '../types';
@@ -72,6 +73,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     }
     onClose();
   }, [onClose]);
+  const lyricsDoubleTap = useDoubleTap(handleExit);
 
   // Clean up native fullscreen when unmounting
   useEffect(() => {
@@ -444,6 +446,8 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
       {/* LYRICS STAGE DISPLAY VIEWPORT */}
       <main
+        {...lyricsDoubleTap}
+        style={{ touchAction: 'pan-y pinch-zoom' }}
         ref={scrollContainerRef}
         className="order-2 sm:order-none min-h-0 flex-1 overflow-y-auto px-6 sm:px-12 md:px-20 lg:px-32 py-8 sm:py-12 select-text"
       >

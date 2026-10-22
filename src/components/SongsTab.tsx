@@ -50,6 +50,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { StagePrompterModal } from './StagePrompterModal';
+import { useDoubleTap } from '../hooks/useDoubleTap';
 import {
   searchSong,
   getSongUsageHistory,
@@ -204,6 +205,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   // Fullscreen Stage Prompter Modal for Stage Worship Leaders
   const [isStagePrompterOpen, setIsStagePrompterOpen] = useState(false);
   const [stagePrompterSong, setStagePrompterSong] = useState<Song | null>(null);
+  const lyricsDoubleTap = useDoubleTap(() => {
+    const song = songs.find(item => item.id === selectedSongId);
+    if (song) { setStagePrompterSong(song); setIsStagePrompterOpen(true); }
+  });
 
   // In-card lyrics reading font level (0: 15px, 1: 18px, 2: 22px, 3: 28px)
   const [inCardFontSize, setInCardFontSize] = useState<number>(() => {
@@ -1366,20 +1371,6 @@ if (isEditing && !savingSongRef.current) {
                           </button>
                         </div>
 
-                        {/* Stage Prompter / Fullscreen Stage View - One Icon Only */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setStagePrompterSong(song);
-                            setIsStagePrompterOpen(true);
-                          }}
-                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 hover:border-sky-300 dark:hover:border-sky-700 transition-colors shadow-2xs cursor-pointer flex items-center justify-center"
-                          title="Stage Prompter / Fullscreen Stage View"
-                          aria-label="Stage Prompter"
-                        >
-                          <Maximize2 className="w-4 h-4" />
-                        </button>
-
                         {/* Copy Song Title and Lyrics - Placed next to Fullscreen Stage View */}
                         <button
                           type="button"
@@ -1394,6 +1385,22 @@ if (isEditing && !savingSongRef.current) {
                             <Copy className="w-4 h-4" />
                           )}
                         </button>
+
+                        {/* Stage Prompter / Fullscreen Stage View - One Icon Only */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStagePrompterSong(song);
+                            setIsStagePrompterOpen(true);
+                          }}
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-sky-500 dark:hover:text-sky-400 hover:border-sky-300 dark:hover:border-sky-700 transition-colors shadow-2xs cursor-pointer flex items-center justify-center"
+                          title="Stage Prompter / Fullscreen Stage View"
+                          aria-label="Stage Prompter"
+                        >
+                          <Maximize2 className="w-4 h-4" />
+                        </button>
+
+
                       </div>
 
                       {/* 3-Dot Menu Button (Anchored at the far right) */}
@@ -1443,6 +1450,8 @@ if (isEditing && !savingSongRef.current) {
 
                     {/* Lyrics Block */}
                     <div
+                      {...lyricsDoubleTap}
+                      style={{ touchAction: 'pan-y pinch-zoom' }}
                       className={`border-t border-slate-200 dark:border-slate-700 pt-4 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
                         ['text-[15px] leading-relaxed', 'text-[18px] leading-relaxed', 'text-[22px] leading-relaxed', 'text-[28px] leading-relaxed'][inCardFontSize]
                       }`}

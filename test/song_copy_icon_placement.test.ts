@@ -18,7 +18,7 @@ test('SongsTab moves copy icon out of title bar and places it next to fullscreen
   // Verify copy button is positioned in the action bar directly next to Maximize2 (fullscreen stage view)
   assert.match(
     songsTab,
-    /<Maximize2 className="w-4 h-4" \/>[\s\S]*?<\/button>[\s\S]*?<button[\s\S]*?handleCopySong\(song, e\)[\s\S]*?<Copy className="w-4 h-4" \/>/,
-    'Copy button must be placed next to Maximize2 icon in the expanded action bar'
+    /handleCopySong\(song, e\)[\s\S]*?<Copy className="w-4 h-4" \/>[\s\S]*?<\/button>[\s\S]*?<button[\s\S]*?<Maximize2 className="w-4 h-4" \/>/,
+    'Copy must precede the adjacent fullscreen button in the expanded action bar'
   );
 });
