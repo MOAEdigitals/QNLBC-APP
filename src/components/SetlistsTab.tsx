@@ -1,4 +1,6 @@
+import { CardDate } from './CardDate';
 import { monthList } from './MonthSeparators';
+import { SetlistEditorSection, setlistProgramSummary } from './SetlistEditorSection';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
@@ -18,7 +20,7 @@ import {
   getThemeSongForMonth,
 } from '../utils/storage';
 import { generateUUID, isUUID } from '../services/supabaseData';
-import { getPersonColor } from '../utils/personColors';
+import { COLOR_PALETTE, getPersonColor } from '../utils/personColors';
 import { AutofillInput, SongPickerFilter } from './AutofillInput';
 import {
   Calendar,
@@ -886,7 +888,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   key={item.id}
                   id={`setlist-card-${item.id}`}
                   data-upcoming-card={isSoonest ? 'next-up' : !isPast && !today && item.id === followingUpcoming?.id ? 'upcoming' : undefined}
-                  className={`relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
+                  className={`app-date-card relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
                       ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 ${
                           isSelected
@@ -904,29 +906,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   <div onClick={(e) => handleSelectSetlist(item.id, e)} className="flex items-center justify-between min-w-0">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       {/* Date Badge */}
-                      <div
-                        className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center shrink-0 border ${
-                          today
-                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900'
-                            : isSoonest
-                            ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-800 dark:border-slate-200'
-                            : isPast
-                            ? 'bg-slate-200/70 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60'
-                            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                        }`}
-                      >
-                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                          {parseDate(item.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
-                        </span>
-                        <span className="text-base font-black leading-none mt-0.5">
-                          {Number(item.date.split('-')[2])}
-                        </span>
-                      </div>
+                      <CardDate date={item.date} />
 
                       <div className="min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <h4
-                            className={`min-w-0 truncate text-sm sm:text-base ${
+                            className={`app-card-title min-w-0 truncate text-sm sm:text-base ${
                               isPast
                                 ? 'font-bold text-slate-500 dark:text-slate-400'
                                 : 'font-black text-slate-900 dark:text-white'
@@ -957,7 +942,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                         {/* Compact role summary: balanced on the line directly below title */}
                         <div
-                          className="setlist-names mt-1 flex flex-wrap items-center gap-x-1.5 text-slate-500 dark:text-slate-400"
+                          className="setlist-names app-card-secondary mt-1 flex flex-wrap items-center gap-x-1.5 text-slate-500 dark:text-slate-400"
                         >
                           <span className="min-w-0">
                             {item.presider || 'TBD'}
@@ -1431,6 +1416,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
             <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="ui-modal-form">
               <div className="ui-form-body">
+              <SetlistEditorSection title="Service Details" initialOpen colorClass={COLOR_PALETTE.sky.textBold}
+                summary={[editingSetlist.date ? formatDateStr(editingSetlist.date, { shortMonth: true }) : 'Choose a date', editingSetlist.type !== 'prayer_meeting' ? editingSetlist.presider?.trim() || 'Choose a presider' : editingSetlist.title?.trim()].filter(Boolean).join(' · ')}>
               {/* Date & Title */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
@@ -1639,19 +1626,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               );
             })()}
 
+              </SetlistEditorSection>
               {/* Sunday School & Worship Service Forms (Sunday Setlist) */}
               {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
                 <>
                   {/* Sunday School Section */}
                   {(() => {
-                    const ssLeaderColor = getPersonColor(editingSetlist.sundaySchool?.songLeader);
+                    const ssSectionColor = COLOR_PALETTE.amber;
                     return (
-                      <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
-                        <div className="flex items-center justify-between">
-                          <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${ssLeaderColor.textBold}`}>
-                            Sunday School
-                          </h4>
-                        </div>
+                      <SetlistEditorSection title="Sunday School" colorClass={ssSectionColor.textBold} summary={setlistProgramSummary(editingSetlist.sundaySchool)}>
+
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1743,20 +1727,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </SetlistEditorSection>
                 );
               })()}
 
                   {/* Worship Service Section */}
                   {(() => {
-                    const wsLeaderColor = getPersonColor(editingSetlist.worshipService?.songLeader);
+                    const wsSectionColor = COLOR_PALETTE.indigo;
                     return (
-                      <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
-                        <div className="flex items-center justify-between">
-                          <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${wsLeaderColor.textBold}`}>
-                            Worship Service
-                          </h4>
-                        </div>
+                      <SetlistEditorSection title="Worship Service" colorClass={wsSectionColor.textBold} summary={setlistProgramSummary(editingSetlist.worshipService)}>
+
 
                         <div>
                           <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1848,7 +1828,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </SetlistEditorSection>
                 );
               })()}
                 </>
@@ -1856,14 +1836,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
               {/* Non-Sunday Program Editor (Prayer Meeting, Fellowship, Event) */}
               {editingSetlist.type && editingSetlist.type !== 'sunday' && (() => {
-                const progLeaderColor = getPersonColor(editingSetlist.program?.songLeader);
+
                 return (
-                  <div className="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <h4 className={`text-xs sm:text-sm font-extrabold uppercase tracking-wider ${progLeaderColor.textBold}`}>
-                        Program Songs
-                      </h4>
-                    </div>
+                  <SetlistEditorSection title="Program Songs" colorClass={COLOR_PALETTE.indigo.textBold} summary={setlistProgramSummary(editingSetlist.program)}>
+
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -1953,7 +1929,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       </div>
                     ))}
                   </div>
-                </div>
+                </SetlistEditorSection>
               );
             })()}
 

@@ -44,6 +44,11 @@
 }
 
 /* Shared application foundations. */
+.qnlbc-app .app-date-card { padding: .625rem .75rem; border-radius: 1rem; }
+.app-card-day { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+.app-card-weekday { margin-top: .125rem; font-size: .6875rem; line-height: 1.25; }
+.qnlbc-app .app-date-card .app-card-title { font-size: .875rem; font-weight: 600; line-height: 1.4; }
+.qnlbc-app .app-date-card .app-card-secondary { font-size: .75rem; font-weight: 400; line-height: 1.5; }
 .songs-screen :is(.song-reading-control, button[aria-label='Copy Song Title and Lyrics'], button[aria-label='Stage Prompter']) {
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 44px; min-height: 44px; flex-shrink: 0; padding: 0;

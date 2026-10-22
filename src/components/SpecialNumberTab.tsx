@@ -1,3 +1,4 @@
+import { CardDate } from './CardDate';
 import { CardActions } from './CardActions';
 import { UpcomingBadge } from './UpcomingBadge';
 import { upcomingCardStatuses } from '../utils/upcomingCards';
@@ -2081,7 +2082,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           setSelectedEntryId(item.id);
                         }
                       }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                      className={`app-date-card p-4 rounded-2xl border transition-all cursor-pointer ${
                         isPast
                           ? `bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 text-slate-500 opacity-60 ${
                               isSelected ? 'ring-2 ring-slate-400 dark:ring-slate-600' : ''
@@ -2095,32 +2096,15 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     >
                       {/* Card Header Row with Far-Right 3-Dots / Actions */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3.5 min-w-0">
+                        <div className="flex min-h-11 flex-1 items-center gap-3 min-w-0">
                           {/* Date Badge */}
-                          <div
-                            className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center shrink-0 border ${
-                              today
-                                ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900'
-                                : isSoonest
-                                ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-800 dark:border-slate-200'
-                                : isPast
-                                ? 'bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500 border-slate-300 dark:border-slate-700'
-                                : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                            }`}
-                          >
-                            <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                              {parseDate(item.scheduledDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
-                            </span>
-                            <span className="text-base font-black leading-none mt-0.5">
-                              {Number(item.scheduledDate.split('-')[2])}
-                            </span>
-                          </div>
+                          <CardDate date={item.scheduledDate} />
 
                           <div className="min-w-0">
                             {/* Performer Name */}
                             <div className="flex flex-wrap items-center gap-2">
                               <h4
-                                className={`text-base font-black truncate ${
+                                className={`app-card-title text-base font-black truncate ${
                                   isPast ? 'text-slate-600 dark:text-slate-400' : 'text-slate-900 dark:text-white'
                                 }`}
                               >
@@ -2147,7 +2131,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             </div>
 
                             {/* Song title or RED 'No Song Yet' badge */}
-                            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 flex items-center gap-1.5">
+                            <div className="app-card-secondary text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1.5">
                               {item.songTitle ? (
                                 <span className="italic font-medium">{item.songTitle}</span>
                               ) : (
@@ -2391,15 +2375,16 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       }}
                       role={isSelected ? undefined : 'button'}
                       tabIndex={isSelected ? undefined : 0}
-                      className={`practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4 ${
+                      className={`app-date-card practice-card rounded-xl border border-slate-200 dark:border-slate-800 p-4 ${
                         isSelected ? '' : 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-600'
                       }`}
                     >
                       {/* Card Header */}
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-                        <div className="min-w-0">
+                      <div className="grid grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3">
+                        <CardDate date={group.practiceDate || group.targetDate || ''} />
+                        <div className="min-w-0 flex-1">
                           <h4
-                            className={`line-clamp-2 break-words text-base font-black leading-tight ${
+                            className={`app-card-title line-clamp-2 break-words text-base font-black leading-tight ${
                               isDone
                                 ? 'line-through text-slate-500 dark:text-slate-400'
                                 : 'text-slate-900 dark:text-white'
@@ -2409,7 +2394,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           </h4>
                           <UpcomingBadge status={practiceUpcoming.get(group.id)} />
 
-                          <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
+                          <div className="app-card-secondary mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-slate-600 dark:text-slate-300">
                             {group.assignedEvent && (
                               <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                                 {group.assignedEvent}
@@ -2820,7 +2805,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       }));
                       setSelectedChoirId(nextExpanded ? entry.id : null);
                     }}
-                    className={`p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
+                    className={`app-date-card p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
                       isElapsed
                         ? 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 opacity-60'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
@@ -2830,25 +2815,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div className="flex items-center justify-between gap-3 min-w-0">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Date Badge */}
-                        <div
-                          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex flex-col items-center justify-center shrink-0 border text-center ${
-                            isElapsed
-                              ? 'bg-slate-200/70 text-slate-500 dark:bg-slate-800/80 dark:text-slate-500 border-slate-300/60 dark:border-slate-700/60'
-                              : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700'
-                          }`}
-                        >
-                          <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                            {entry.date ? parseDate(entry.date).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase() : ''}
-                          </span>
-                          <span className="text-base font-black leading-none mt-0.5">
-                            {entry.date ? Number(entry.date.split('-')[2]) : ''}
-                          </span>
-                        </div>
+                        <CardDate date={entry.date} />
 
                         {/* Title & Scheduled Date */}
                         <div className="min-w-0 flex-1">
                           <h4
-                            className={`text-sm sm:text-base font-bold truncate ${
+                            className={`app-card-title text-sm sm:text-base font-bold truncate ${
                               isElapsed
                                 ? 'text-slate-500 dark:text-slate-400'
                                 : 'text-slate-900 dark:text-white'
@@ -2857,15 +2829,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             {entry.songTitle}
                           </h4>
                           <UpcomingBadge status={choirUpcoming.get(entry.id)} />
-                          <p
-                            className={`text-xs mt-0.5 truncate ${
-                              isElapsed
-                                ? 'text-slate-400 dark:text-slate-500'
-                                : 'text-slate-500 dark:text-slate-400'
-                            }`}
-                          >
-                            {formatDateStr(entry.date)}
-                          </p>
                         </div>
                       </div>
 

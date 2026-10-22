@@ -1,3 +1,4 @@
+import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek } from '../utils/dateUtils';
 import { isAnnualDatePast, orderAnnualBirthdays } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
@@ -323,17 +324,12 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           key={item.id}
                           data-upcoming-card={isBirthdayRecognitionWeek(item.birthDate) ? 'recognition' : undefined}
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
-                          className={`birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 ${BIRTHDAY_MONTH_COLORS[month].card}`}
+                          className={`app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 ${BIRTHDAY_MONTH_COLORS[month].card}`}
                         >
                           <div className="flex min-w-0 flex-1 items-center space-x-3">
-                            <div className={`w-11 h-11 rounded-xl flex flex-col items-center justify-center font-bold text-sm shrink-0 shadow-xs ${BIRTHDAY_MONTH_COLORS[month].badge}`}>
-                              <span className="text-[10px] font-bold uppercase tracking-wider leading-none">
-                                {parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}
-                              </span>
-                              <span className="text-base font-black leading-none mt-0.5">{Number(item.birthDate.split('-')[2])}</span>
-                            </div>
+                            <CardDate date={`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`} />
                             <div className="min-w-0 flex-1">
-                              <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                              <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="app-card-title flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
                                 <span className="truncate">
                                 {item.name}
                                 </span>
@@ -407,18 +403,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {monthList(filteredAnniversaries, item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
                   <div
                     key={item.id}
-                    className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                    className="app-date-card p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-11 h-11 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex flex-col items-center justify-center font-bold shrink-0">
-                        <span className="text-[10px] font-bold uppercase tracking-wider leading-none">{getNextAnnualOccurrence(item.anniversaryDate).toLocaleDateString('en-US', { weekday: 'short' }).toUpperCase()}</span>
-                        <span className="text-base font-black leading-none mt-0.5">{Number(item.anniversaryDate.split('-')[2])}</span>
-                      </div>
+                      <CardDate date={`${getNextAnnualOccurrence(item.anniversaryDate).getFullYear()}-${item.anniversaryDate.slice(5)}`} />
                       <div>
-                        <h4 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        <h4 className="app-card-title text-sm font-semibold text-slate-900 dark:text-white">
                           {item.title}
                         </h4>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        <span className="app-card-secondary text-[11px] text-slate-500 dark:text-slate-400">
                           {item.type} {item.yearsCount ? `(${item.yearsCount} yrs)` : ''}
                         </span>
                       </div>
@@ -462,23 +455,23 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                     {monthList(items, item => item.date, ['recognition', 'recognitions']).render((item) => (
                       <div
                         key={item.id}
-                        className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-start justify-between"
+                        className="app-date-card p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between"
                       >
-                        <div className="space-y-1">
-                          <h5 className="text-sm font-bold text-slate-900 dark:text-white">{item.name}</h5>
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <CardDate date={item.date} />
+                          <div className="min-w-0 flex-1 space-y-1">
+                          <h5 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.name}</h5>
                           {item.customType && item.recognitionType !== 'Custom' && (
                             <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 block">
                               {item.customType}
                             </span>
                           )}
-                          <div className="text-[11px] text-slate-400">
-                            Date: {formatDateStr(item.date, { shortMonth: true })}
-                          </div>
                           {item.description && (
-                            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                            <p className="app-card-secondary text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
                               {item.description}
                             </p>
                           )}
+                          </div>
                         </div>
 
                         <button
