@@ -67,15 +67,15 @@ test('SetlistsTab and App.tsx preserve setlist state and scroll position when re
   );
 });
 
-test('Setlists start collapsed on first login or new session', () => {
+test('Setlists choose their Today default without persisting selection across sessions', () => {
   const appFile = fs.readFileSync(path.resolve(process.cwd(), 'src/App.tsx'), 'utf-8');
   const setlistsTabFile = fs.readFileSync(path.resolve(process.cwd(), 'src/components/SetlistsTab.tsx'), 'utf-8');
   const storageFile = fs.readFileSync(path.resolve(process.cwd(), 'src/utils/storage.ts'), 'utf-8');
 
-  // A new session has neither an explicit selection nor a remembered open card.
+  // The default applies only to the initial state, not on every data refresh.
   assert.ok(
-    setlistsTabFile.includes('() => initialSelectedSetlistId || initialExpandedSetlistIds?.at(-1) || null'),
-    'SetlistsTab restores the latest remembered card and otherwise starts collapsed'
+    setlistsTabFile.includes('() => initialSetlistCardId(setlists, getTodayStr(), initialSelectedSetlistId, initialExpandedSetlistIds)'),
+    'SetlistsTab initializes from Today or the current session’s explicit selection'
   );
 
   // SetlistsTab must not persist setlist selection into localStorage

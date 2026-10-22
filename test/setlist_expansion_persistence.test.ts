@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 import ts from 'typescript';
 import * as dates from '../src/utils/dateUtils.ts';
 import * as colors from '../src/utils/personColors.ts';
+import * as initialCard from '../src/utils/initialSetlistCard.ts';
 
 test('one setlist stays expanded across tab remounts until its header or another card is tapped', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/#home' });
@@ -28,9 +29,9 @@ test('one setlist stays expanded across tab remounts until its header or another
     return exports;
   };
   const months = compile('src/components/MonthSeparators.tsx', {});
-  const component = compile('src/components/SetlistsTab.tsx', { './MonthSeparators': months, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
-  const rows = ['one', 'two'].map((id, index) => ({ id, date: `2026-10-${25 + index}`, type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
-  const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], initialExpandedSetlistIds: fresh ? [] : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
+  const component = compile('src/components/SetlistsTab.tsx', { './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
+  const rows = ['one', 'two'].map(id => ({ id, date: dates.getTodayStr(), type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
+  const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], initialExpandedSetlistIds: fresh ? undefined : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
   const clickHeader = async (id: string) => act(() => document.querySelector<HTMLDivElement>(`#setlist-card-${id} > div`)!.click());
   const open = (id: string) => document.querySelector(`#setlist-card-${id}`)!.children.length > 1;
   try {
@@ -49,7 +50,14 @@ test('one setlist stays expanded across tab remounts until its header or another
     await clickHeader('one'); assert.equal(open('one'), true); assert.equal(open('two'), false);
     await clickHeader('one'); assert.equal(open('one'), false); assert.equal(open('two'), false);
     await act(() => root.render(null)); await act(() => render(0, true));
-    assert.equal(open('one'), false); assert.equal(open('two'), false);
+    assert.equal(open('one'), true); assert.equal(open('two'), false, 'refresh opens just the first Today');
+    await clickHeader('one');
+    await act(() => render());
+    assert.equal(open('one'), false, 'data rerenders do not reopen a manually closed card');
+    await act(() => root.render(null)); await act(() => render());
+    assert.equal(open('one'), false, 'tab navigation keeps the user’s collapsed state');
+    await act(() => root.render(null)); await act(() => render(0, true));
+    assert.equal(open('one'), true, 'a new session restores the Today default');
     await act(() => root.render(null)); remembered = ['one', 'two']; await act(() => render());
     assert.equal(open('one'), false); assert.equal(open('two'), true, 'legacy multiple-open state restores only its last card');
   } finally {

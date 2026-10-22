@@ -1,4 +1,5 @@
 import { CardDate } from './CardDate';
+import { initialSetlistCardId } from '../utils/initialSetlistCard';
 import { monthList } from './MonthSeparators';
 import { SetlistEditorSection, setlistProgramSummary } from './SetlistEditorSection';
 import { useBackLayer } from '../hooks/useBackLayer';
@@ -11,6 +12,7 @@ import {
   isPastDate,
   isToday,
   getNextSundayStr,
+  getTodayStr,
   sortUpcomingFirst,
 } from '../utils/dateUtils';
 import {
@@ -189,11 +191,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   collapseSignal,
 }) => {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(
-    () => initialSelectedSetlistId || initialExpandedSetlistIds?.at(-1) || null
+    () => initialSetlistCardId(setlists, getTodayStr(), initialSelectedSetlistId, initialExpandedSetlistIds)
   );
   const [expandedSetlistIds, setExpandedSetlistIds] = useState<string[]>(() => {
-    const id = initialSelectedSetlistId || initialExpandedSetlistIds?.at(-1);
-    return id ? [id] : [];
+    return selectedSetlistId ? [selectedSetlistId] : [];
   });
   useEffect(() => { onExpandedSetlistsChange?.(expandedSetlistIds); }, [expandedSetlistIds, onExpandedSetlistsChange]);
 
