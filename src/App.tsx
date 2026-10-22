@@ -1,3 +1,4 @@
+import { readSetlistShareId } from './utils/setlistSharing';
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
 import { initialAppTab } from './utils/tabNavigation';
 import { Capacitor } from '@capacitor/core';
@@ -129,7 +130,7 @@ export default function App() {
   }, [theme]);
 
   // Active Tab & Browser Navigation (Preserved)
-  const [currentTab, setCurrentTab] = useState<AppTab>(() => initialAppTab(window.location.hash));
+  const [currentTab, setCurrentTab] = useState<AppTab>(() => readSetlistShareId(window.location.href, window.location.href) ? 'home' : initialAppTab(window.location.hash));
 
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
@@ -149,7 +150,10 @@ export default function App() {
   // Deep linking and navigation helpers
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
   const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
-  const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
+  const pendingSharedSetlist = useRef(readSetlistShareId(window.location.href, window.location.href));
+  const [sharedLinkRequest, setSharedLinkRequest] = useState(0);
+  const [sharedSetlistError, setSharedSetlistError] = useState('');
+  const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(() => pendingSharedSetlist.current);
   // In-memory only: retained between tabs, reset by reload/reopening the app.
   const rememberedSetlists = useRef<{ ids: string[] } | null>(null);
   const returnSetlistIdRef = useRef<string | null>(null);
@@ -389,6 +393,40 @@ export default function App() {
     void loadTabData(currentTab);
   }, [currentTab, currentUser, isLoadingInitialData, loadTabData]);
 
+  // Resolve shared links only after normal authentication and authorized data loading.
+  useEffect(() => {
+    const id = pendingSharedSetlist.current;
+    if (!id || !currentUser || isLoadingInitialData || refreshError || !loadedSectionsRef.current.has('home')) return;
+    pendingSharedSetlist.current = null;
+    const found = setlists.some(item => item.id === id);
+    rememberedSetlists.current = { ids: found ? [id] : [] };
+    setInitialSelectedSetlistId(found ? id : null);
+    returnSetlistIdRef.current = null;
+    savedSetlistScrollPosRef.current = null;
+    setSetlistJourney(null);
+    setSharedSetlistError(found ? '' : 'This shared setlist is unavailable, or your account does not have access.');
+    setCurrentTab('home');
+    tabHistoryRef.current = ['home'];
+    const clean = new URL(window.location.href);
+    clean.searchParams.delete('setlist'); clean.hash = 'home';
+    window.history.replaceState({ tab: 'home' }, '', clean.href);
+  }, [currentUser, isLoadingInitialData, refreshError, setlists, sharedLinkRequest]);
+
+  useEffect(() => {
+    const receive = (url: string, native = false) => {
+      const id = readSetlistShareId(url, native ? undefined : window.location.href);
+      if (!id) return;
+      pendingSharedSetlist.current = id;
+      setSharedLinkRequest(value => value + 1);
+    };
+    const hashChanged = () => receive(window.location.href);
+    window.addEventListener('hashchange', hashChanged);
+    const listener = Capacitor.isNativePlatform()
+      ? NativeApp.addListener('appUrlOpen', event => receive(event.url, true)) : null;
+    if (Capacitor.isNativePlatform()) void NativeApp.getLaunchUrl().then(event => { if (event) receive(event.url, true); });
+    return () => { window.removeEventListener('hashchange', hashChanged); if (listener) void listener.then(handle => handle.remove()); };
+  }, []);
+
   // Reload data from Supabase
   const reloadAllData = async () => {
     try {
@@ -580,6 +618,8 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    pendingSharedSetlist.current = null;
+    setSharedSetlistError('');
     rememberedSetlists.current = null;
     setShowLogoutConfirmModal(false);
     setInitialSelectedSetlistId(null);
@@ -1274,6 +1314,7 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
+        {sharedSetlistError && currentTab === 'home' && <div role="alert" className="mb-4 rounded-xl border border-amber-300 p-3 text-sm">{sharedSetlistError}<button type="button" className="ml-3 underline" onClick={() => setSharedSetlistError('')}>Dismiss</button></div>}
         {refreshError && <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 p-3 text-sm"><span>{refreshError}</span><button type="button" className="ui-secondary" onClick={() => { setRefreshError(''); void reloadAllData(); }}>Retry</button></div>}
         <Suspense fallback={<TabLoadingSkeleton />}>
         {currentTab === 'home' && (
