@@ -166,6 +166,8 @@ interface SetlistsTabProps {
   onOpenSongDetail: (songId: string, returnSetlistId?: string) => void;
   onSubViewChange?: (hasActiveSubView: boolean) => void;
   initialSelectedSetlistId?: string | null;
+  initialExpandedSetlistIds?: string[];
+  onExpandedSetlistsChange?: (ids: string[]) => void;
   initialScrollY?: number | null;
   collapseSignal?: number;
 }
@@ -179,12 +181,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   onOpenSongDetail,
   onSubViewChange,
   initialSelectedSetlistId,
+  initialExpandedSetlistIds,
+  onExpandedSetlistsChange,
   initialScrollY,
   collapseSignal,
 }) => {
   const [selectedSetlistId, setSelectedSetlistId] = useState<string | null>(
     () => initialSelectedSetlistId || null
   );
+  const [expandedSetlistIds, setExpandedSetlistIds] = useState<string[]>(() => initialExpandedSetlistIds ?? (initialSelectedSetlistId ? [initialSelectedSetlistId] : []));
+  useEffect(() => { onExpandedSetlistsChange?.(expandedSetlistIds); }, [expandedSetlistIds, onExpandedSetlistsChange]);
 
   const handleOpenSong = (songId: string, setlistId: string) => {
     const currentY = window.scrollY || document.documentElement.scrollTop || 0;
@@ -333,6 +339,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   useEffect(() => {
     if (initialSelectedSetlistId) {
       setSelectedSetlistId(initialSelectedSetlistId);
+      setExpandedSetlistIds(ids => ids.includes(initialSelectedSetlistId) ? ids : [...ids, initialSelectedSetlistId]);
 
       // If scroll position was already restored to the exact position, do not override with scrollIntoView
       if (restoredScrollRef.current || initialScrollY != null) {
@@ -365,8 +372,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       }
 
       if (selectedSetlistId) {
-        // First reselect always collapses the open setlist, wherever it is.
-        setSelectedSetlistId(null);
+        // Reselecting the navigation tab does not collapse a program.
         setShowTypeSelector(false);
         return;
       }
@@ -508,6 +514,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     () => sortedSetlists.find((s) => !isPastDate(s.date) && !isToday(s.date)),
     [sortedSetlists]
   );
+  const followingUpcoming = sortedSetlists.find(s => !isPastDate(s.date) && !isToday(s.date) && s.id !== soonestUpcoming?.id);
   const selectedSetlist = useMemo(
     () => setlists.find((s) => s.id === selectedSetlistId),
     [setlists, selectedSetlistId]
@@ -540,18 +547,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   // Notify parent App whether there is an active subview (expanded setlist or editor modal)
   useEffect(() => {
-    const hasActive = !!selectedSetlistId || isEditing;
+    const hasActive = isEditing;
     if (onSubViewChange) {
       onSubViewChange(hasActive);
     }
   }, [selectedSetlistId, isEditing, onSubViewChange]);
 
-  useBackLayer(isEditing || !!selectedSetlistId, () => {
+  useBackLayer(isEditing, () => {
     if (saveInProgressRef.current) return;
-    if (!isEditing) {
-      setSelectedSetlistId(null);
-      return;
-    }
     if (!editingSetlist) return;
     const isDirty = JSON.stringify(editingSetlist) !== initialEditingJsonRef.current;
     if (!isDirty || backSwipeCountRef.current >= 1) {
@@ -820,6 +823,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         setEditingSetlist(null);
         setEditPromptMsg(null);
         setSelectedSetlistId(finalSetlist.id);
+        setExpandedSetlistIds(ids => ids.includes(finalSetlist.id) ? ids : [...ids, finalSetlist.id]);
       }
     } finally {
       saveInProgressRef.current = false;
@@ -828,7 +832,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   };
 
   const handleSelectSetlist = (id: string, e?: React.MouseEvent) => {
-    if (selectedSetlistId === id) {
+    if (expandedSetlistIds.includes(id)) {
+      setExpandedSetlistIds(ids => ids.filter(openId => openId !== id));
       setSelectedSetlistId(null);
     } else {
       if (e) {
@@ -841,6 +846,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         }
       }
       setSelectedSetlistId(id);
+      setExpandedSetlistIds(ids => [...ids, id]);
       window.history.pushState({ tab: 'home', subView: 'detail', id }, '', '#home');
     }
   };
@@ -872,14 +878,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             {monthList(searchableSetlists, item => item.date, ['setlist', 'setlists']).render((item) => {
               const isPast = isPastDate(item.date);
               const today = isToday(item.date);
-              const isSelected = selectedSetlistId === item.id;
+              const isSelected = expandedSetlistIds.includes(item.id);
               const isSoonest = !today && soonestUpcoming?.id === item.id;
 
               return (
                 <div
                   key={item.id}
                   id={`setlist-card-${item.id}`}
-                  onClick={(e) => handleSelectSetlist(item.id, e)}
                   className={`relative p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer ${openMenuSetlistId === item.id ? 'z-40' : 'z-0'} ${
                     isPast
                       ? `bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 ${
@@ -895,7 +900,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   }`}
                 >
                   {/* Card Header Row with Far-Right 3-Dots / Actions */}
-                  <div className="flex items-center justify-between min-w-0">
+                  <div onClick={(e) => handleSelectSetlist(item.id, e)} className="flex items-center justify-between min-w-0">
                     <div className="flex items-center space-x-3 min-w-0 flex-1">
                       {/* Date Badge */}
                       <div
@@ -931,11 +936,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                           {isSoonest && !today && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900">
-                              ★ Upcoming
+                              Next up
                             </span>
                           )}
 
-                          {!isPast && !isSoonest && !today && (
+                          {!isPast && !isSoonest && !today && item.id === followingUpcoming?.id && (
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                               Upcoming
                             </span>

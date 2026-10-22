@@ -7,7 +7,7 @@ import { groupByMonth } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
-import { activityBadge, isPastActivity, orderActivityList, sortActivities } from './model';
+import { activityBadge, isPastActivity, orderActivityList, sortActivities, isRoutineActivity } from './model';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -248,8 +248,8 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         const monthIndex = Number(group.key.slice(5, 7)) - 1;
         const color = monthColors[monthIndex] || monthColors[0];
         return <section key={group.key} className="space-y-2">
-          <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /><span className="text-xs font-semibold">{group.items.length}</span></div>
-          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 text-slate-800 dark:text-slate-200 ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
+          <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>
+          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 rounded-2xl border px-3 py-2.5 text-slate-800 dark:text-slate-200 ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
             <div className="flex min-h-11 items-center gap-3">
               <div className="flex w-10 shrink-0 flex-col items-center justify-center"><span className="text-2xl font-bold leading-none">{date.getDate()}</span><span className="mt-0.5 text-[11px] leading-none">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></div>
               <div aria-hidden="true" className="h-10 w-px shrink-0 bg-slate-300 dark:bg-slate-700" />

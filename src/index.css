@@ -43,6 +43,12 @@
 }
 
 /* Shared application foundations. */
+/* Actions stay at the form bottom and return when the keyboard closes. */
+.keyboard-open .ui-form-actions,
+.keyboard-open .ui-viewport-screen form > footer,
+.keyboard-open .ui-viewport-screen form > div:last-child:has(> button[type='submit']) { display: none; }
+.special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #eff6ff, #f5f3ff); border-color: #c7d2fe; }
+.dark .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #142238, #211c35); border-color: #3b4262; }
 .ui-revamp .setlist-names { font-size: 12px; font-weight: 400; line-height: 1.5; }
 .birthday-sunday-dot { display: inline-block; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: #15803d; box-shadow: 0 0 7px #15803d80; }
 .dark .birthday-sunday-dot { background: #86efac; box-shadow: 0 0 8px #86efac90; }

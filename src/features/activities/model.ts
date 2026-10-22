@@ -1,5 +1,10 @@
 import type { ChurchActivity } from '../../types';
 
+/** Routine weekly gatherings keep the neutral card treatment. */
+export function isRoutineActivity(title: string): boolean {
+  return /(?:prayer\s*meeting|midweek\s*prayer|sunday\s*service|(?:song\s*leaders?|choir).*practice|practice.*(?:song\s*leaders?|choir)|saturday.*practice)/i.test(title);
+}
+
 /** Activities are dated occurrences, not annually recurring events. */
 export function isPastActivity(activityDate: string, today: string): boolean {
   return activityDate < today;

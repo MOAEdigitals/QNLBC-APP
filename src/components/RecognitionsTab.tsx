@@ -411,9 +411,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                         {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
                       </h3>
                       <div aria-hidden="true" className={`h-px flex-1 ${BIRTHDAY_MONTH_COLORS[month].line}`} />
-                      <span className={`shrink-0 text-xs font-semibold ${BIRTHDAY_MONTH_COLORS[month].text}`}>
-                        {items.length} {items.length === 1 ? 'birthday' : 'birthdays'}
-                      </span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {items.map((item) => (

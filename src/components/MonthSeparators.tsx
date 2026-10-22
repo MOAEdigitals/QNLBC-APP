@@ -21,7 +21,6 @@ export function monthList<T>(items: T[], dateOf: (item: T) => string | undefined
       <div key={`month-${group.key}`} className="col-span-full flex items-center gap-3 px-1 pt-3 first:pt-0" role="heading" aria-level={3}>
         <span className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">{group.label}</span>
         <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-        <span className="shrink-0 text-xs font-semibold text-indigo-700 dark:text-indigo-300">{group.items.length} {noun[group.items.length === 1 ? 0 : 1]}</span>
       </div>, ...group.items.map(renderItem),
     ]);
   } };

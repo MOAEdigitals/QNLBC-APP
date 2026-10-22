@@ -69,6 +69,6 @@ test('section tabs do not hijack Back and full-screen views use one Back system'
   assert.doesNotMatch(recognitions, /useBackLayer\(subTab/);
   assert.doesNotMatch(songs, /addEventListener\('popstate'/);
   assert.doesNotMatch(setlists, /addEventListener\('popstate'/);
-  assert.match(setlists, /useBackLayer\(isEditing \|\| !!selectedSetlistId/);
+  assert.match(setlists, /useBackLayer\(isEditing,/);
   assert.match(settings, /useBackLayer\(showPromptModal \|\| !!selectedMemberId \|\| !!settingsSection/);
 });

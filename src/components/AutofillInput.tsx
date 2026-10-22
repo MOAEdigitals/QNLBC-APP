@@ -9,7 +9,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star, X } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
@@ -83,10 +83,20 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   id,
   name,
   autoComplete = 'off',
-  showSongCategoryFilters = false,
-  songFilter = 'all',
-  onSongFilterChange,
+  showSongCategoryFilters: categoryFiltersRequested = false,
+  songFilter: controlledSongFilter,
+  onSongFilterChange: onControlledFilterChange,
 }) => {
+  const showSongCategoryFilters = categoryFiltersRequested || songs !== undefined;
+  const [localSongFilter, setLocalSongFilter] = useState<SongPickerFilter>('all');
+  const songFilter = controlledSongFilter ?? localSongFilter;
+  const onSongFilterChange = (filter: SongPickerFilter) => {
+    setLocalSongFilter(filter);
+    onControlledFilterChange?.(filter);
+  };
+  const [songSort, setSongSort] = useState<'relevance' | 'az' | 'za'>('relevance');
+  const SortIcon = songSort === 'az' ? ArrowDownAZ : songSort === 'za' ? ArrowUpAZ : ListFilter;
+  const sortLabel = songSort === 'az' ? 'A–Z' : songSort === 'za' ? 'Z–A' : 'Relevance';
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -179,7 +189,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   }, [cleanVal, usageMap]);
 
   // Compute displayed suggestions ONLY when open to keep keyboard typing 100% instantaneous
-  const displayedItems: DisplaySuggestionItem[] = useMemo(() => {
+  const matchedItems: DisplaySuggestionItem[] = useMemo(() => {
     if (!isOpen) return [];
 
     // Lookup map for Song objects by lowercase title
@@ -216,7 +226,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         return filteredSuggestions.map((s) => buildItem(s, 'none', undefined, 100));
       }
       if (filteredSongs.length > 0) {
-        return filteredSongs.slice(0, 30).map((s) => buildItem(s.title, 'none', undefined, 100));
+        return filteredSongs.map((s) => buildItem(s.title, 'none', undefined, 100));
       }
       return [];
     }
@@ -260,7 +270,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
       // Sort by score descending
       scoredResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-      return scoredResults.slice(0, 30);
+      return scoredResults;
     }
 
     // 3. Fallback string-based fuzzy search for names or custom string lists
@@ -279,8 +289,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     }
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
-    return results.slice(0, 30);
+    return results;
   }, [isOpen, activeQuery, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap]);
+
+  const displayedItems = useMemo(() => {
+    const ordered = !showSongCategoryFilters || songSort === 'relevance' ? matchedItems : [...matchedItems].sort((a, b) => (songSort === 'az' ? 1 : -1) * a.title.localeCompare(b.title));
+    return activeQuery ? ordered.slice(0, 30) : ordered;
+  }, [matchedItems, songSort, showSongCategoryFilters, activeQuery]);
 
   // Keep exactly one autocomplete picker open across the entire setlist editor.
   useEffect(() => {
@@ -546,6 +561,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         <div
           onClick={handleAcceptPrefix}
           className="absolute inset-0 flex items-center px-3 py-2 text-sm select-none overflow-hidden pr-2 cursor-pointer pointer-events-none"
+          style={isOpen && showSongCategoryFilters ? { paddingLeft: 44 } : undefined}
         >
           <span className="opacity-0 whitespace-pre">{value}</span>
           <span className="text-slate-400/80 dark:text-slate-500 font-medium whitespace-pre">
@@ -566,6 +582,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       )}
 
       <div className="relative flex items-center w-full">
+        {isOpen && showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} title={`Sort: ${sortLabel}`} className="absolute left-0 z-10 flex h-11 w-11 items-center justify-center text-slate-500 dark:text-slate-400" onPointerDown={event => event.preventDefault()} onClick={() => { setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance'); setHighlightedIndex(-1); }}><SortIcon className="h-5 w-5" aria-hidden="true" /></button>}
         <input
           ref={inputRef}
           id={stableInputIdRef.current}
@@ -660,6 +677,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full bg-transparent [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden ${inputClassName}`}
+          style={isOpen && showSongCategoryFilters ? { paddingLeft: 44 } : undefined}
         />
       </div>
 

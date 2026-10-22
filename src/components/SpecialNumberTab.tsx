@@ -2143,7 +2143,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             {/* Song title or RED 'No Song Yet' badge */}
                             <div className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-0.5 flex items-center gap-1.5">
                               {item.songTitle ? (
-                                <span className="italic font-medium">Song: {item.songTitle}</span>
+                                <span className="italic font-medium">{item.songTitle}</span>
                               ) : (
                                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80">
                                   No song yet (TBD)
@@ -3797,6 +3797,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </label>
                 <AutofillInput
                   id="choir-song-title-input"
+                  songs={songs}
+                  setlists={setlists}
                   name="choir_song_title"
                   value={editingChoir.songTitle}
                   onChange={(val) => {

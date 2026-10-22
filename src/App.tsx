@@ -149,20 +149,17 @@ export default function App() {
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
   const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
   const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(null);
+  // In-memory only: retained between tabs, reset by reload/reopening the app.
+  const rememberedSetlists = useRef<{ ids: string[] } | null>(null);
   const returnSetlistIdRef = useRef<string | null>(null);
-  const savedSetlistScrollPosRef = useRef<{ setlistId: string; scrollY: number } | null>((() => {
+  const savedSetlistScrollPosRef = useRef<{ setlistId: string; scrollY: number } | null>(null);
+  const [setlistJourney, setSetlistJourney] = useState<{ setlistId: string; scrollY: number } | null>(null);
+  useEffect(() => {
     try {
-      const setlistId = sessionStorage.getItem('nlbc_saved_setlist_id');
-      return setlistId ? { setlistId, scrollY: Number(sessionStorage.getItem('nlbc_saved_setlist_scroll_y') || 0) } : null;
-    } catch { return null; }
-  })());
-  const [setlistJourney, setSetlistJourney] = useState<{ setlistId: string; scrollY: number } | null>(() => {
-    try {
-      const setlistId = sessionStorage.getItem('nlbc_saved_setlist_id');
-      const scrollY = Number(sessionStorage.getItem('nlbc_saved_setlist_scroll_y') || 0);
-      return setlistId ? { setlistId, scrollY } : null;
-    } catch { return null; }
-  });
+      sessionStorage.removeItem('nlbc_saved_setlist_id');
+      sessionStorage.removeItem('nlbc_saved_setlist_scroll_y');
+    } catch {}
+  }, []);
 
   // 3. Shared Collections: MUST start strictly as empty arrays - no localStorage loaders!
   const [setlists, setSetlists] = useState<Setlist[]>([]);
@@ -560,6 +557,7 @@ export default function App() {
 
   // Auth Handlers
   const handleSignInSuccess = async (user: UserAccount) => {
+    rememberedSetlists.current = null;
     setInitialSelectedSetlistId(null);
     returnSetlistIdRef.current = null;
     savedSetlistScrollPosRef.current = null;
@@ -581,6 +579,7 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    rememberedSetlists.current = null;
     setShowLogoutConfirmModal(false);
     setInitialSelectedSetlistId(null);
     returnSetlistIdRef.current = null;
@@ -1271,7 +1270,9 @@ export default function App() {
             onSubViewChange={(hasActive) => {
               hasActiveSubViewRef.current = hasActive;
             }}
-            initialSelectedSetlistId={initialSelectedSetlistId || returnSetlistIdRef.current || savedSetlistScrollPosRef.current?.setlistId || setlistJourney?.setlistId}
+            initialSelectedSetlistId={rememberedSetlists.current ? rememberedSetlists.current.ids.at(-1) || null : initialSelectedSetlistId || returnSetlistIdRef.current || savedSetlistScrollPosRef.current?.setlistId || setlistJourney?.setlistId}
+            initialExpandedSetlistIds={rememberedSetlists.current?.ids}
+            onExpandedSetlistsChange={ids => { rememberedSetlists.current = { ids }; }}
             initialScrollY={savedSetlistScrollPosRef.current?.scrollY}
             collapseSignal={collapseSignals.home}
           />

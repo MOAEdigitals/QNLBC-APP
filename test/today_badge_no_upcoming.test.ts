@@ -34,7 +34,7 @@ test('SetlistsTab: today setlist displays only Today badge and no upcoming badge
   // Upcoming badge must not render for today
   assert.match(
     setlistsSrc,
-    /\{!isPast\s*&&\s*!isSoonest\s*&&\s*!today\s*&&\s*\(/,
+    /\{!isPast\s*&&\s*!isSoonest\s*&&\s*!today\s*&&\s*item.id === followingUpcoming\?\.id\s*&&\s*\(/,
     'Upcoming badge in SetlistsTab must guard against today'
   );
 
