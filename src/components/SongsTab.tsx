@@ -50,7 +50,6 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { StagePrompterModal } from './StagePrompterModal';
-import { useDoubleTap } from '../hooks/useDoubleTap';
 import {
   searchSong,
   getSongUsageHistory,
@@ -205,10 +204,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   // Fullscreen Stage Prompter Modal for Stage Worship Leaders
   const [isStagePrompterOpen, setIsStagePrompterOpen] = useState(false);
   const [stagePrompterSong, setStagePrompterSong] = useState<Song | null>(null);
-  const lyricsDoubleTap = useDoubleTap(() => {
-    const song = songs.find(item => item.id === selectedSongId);
-    if (song) { setStagePrompterSong(song); setIsStagePrompterOpen(true); }
-  });
 
   // In-card lyrics reading font level (0: 15px, 1: 18px, 2: 22px, 3: 28px)
   const [inCardFontSize, setInCardFontSize] = useState<number>(() => {
@@ -1450,8 +1445,6 @@ if (isEditing && !savingSongRef.current) {
 
                     {/* Lyrics Block */}
                     <div
-                      {...lyricsDoubleTap}
-                      style={{ touchAction: 'pan-y pinch-zoom' }}
                       className={`border-t border-slate-200 dark:border-slate-700 pt-4 text-slate-900 dark:text-slate-100 whitespace-pre-wrap transition-all select-text font-sans font-medium ${
                         ['text-[15px] leading-relaxed', 'text-[18px] leading-relaxed', 'text-[22px] leading-relaxed', 'text-[28px] leading-relaxed'][inCardFontSize]
                       }`}
