@@ -1,33 +1,12 @@
 import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyleKit } from '@tiptap/extension-text-style';
-import { Bold, Italic, List, ListOrdered, Undo2, Redo2, WandSparkles, Underline } from 'lucide-react';
-import { formatOutlineEditor } from './formatEditor';
-import { outlineInkAttributes } from './ink';
+import { Bold, Italic, List, ListOrdered, Undo2, Redo2, WandSparkles, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { formatOutlineEditor, alignOutlineParagraphs } from './formatEditor';
+import { ParagraphStyle, ReadableInk } from './editorExtensions';
 import { plainTextHtml, sanitizeOutline } from './formatting';
 
-const ParagraphStyle = Extension.create({
-  name: 'paragraphStyle',
-  addGlobalAttributes() {
-    return [{ types: ['paragraph', 'heading'], attributes: Object.fromEntries(['margin-left', 'text-indent', 'text-align'].map(property => [property, {
-      default: null,
-      parseHTML: (element: HTMLElement) => element.style.getPropertyValue(property) || null,
-      renderHTML: (attributes: Record<string, string>) => attributes[property] ? { style: `${property}: ${attributes[property]}` } : {},
-    }])) }];
-  },
-});
-// TextStyle keeps the original color for round-tripping, while CSS supplies readable ink per theme.
-const ReadableInk = Extension.create({
-  name: 'readableInk',
-  addGlobalAttributes() {
-    return [{ types: ['textStyle'], attributes: { readableInk: {
-      default: true, parseHTML: () => true,
-      renderHTML: (attributes: Record<string, string>) => outlineInkAttributes(attributes.color),
-    } } }];
-  },
-});
 export default function RichOutlineEditor({ html, text, disabled, onChange }: { html?: string | null; text: string; disabled: boolean; onChange: (html: string, text: string) => void }) {
   const editor = useEditor({
     extensions: [StarterKit.configure({ link: false, trailingNode: false }), TextStyleKit, ParagraphStyle, ReadableInk],
@@ -75,6 +54,7 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
     { label: 'Undo', icon: Undo2, run: () => editor?.chain().focus().undo().run() },
     { label: 'Redo', icon: Redo2, run: () => editor?.chain().focus().redo().run() },
     { label: 'Format outline', icon: WandSparkles, run: formatOutline },
+    ...([{ alignment: 'left', label: 'Align left', icon: AlignLeft }, { alignment: 'center', label: 'Align center', icon: AlignCenter }, { alignment: 'right', label: 'Align right', icon: AlignRight }, { alignment: 'justify', label: 'Justify paragraphs', icon: AlignJustify }] as const).map(({ alignment, label, icon }) => ({ label, icon, active: editor?.isActive({ 'text-align': alignment }), run: () => { if (editor) alignOutlineParagraphs(editor, alignment); } })),
   ];
   return <div className="rounded-xl border border-slate-300 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-900">
     <div role="toolbar" aria-label="Outline formatting" className="flex flex-wrap gap-0.5 sm:gap-1 p-2 border-b border-slate-200 dark:border-slate-700">

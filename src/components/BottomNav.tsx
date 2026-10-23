@@ -41,7 +41,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-950 pb-[env(safe-area-inset-bottom)] no-print"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-950 pb-[var(--app-safe-bottom)] no-print"
     >
       <div className="max-w-4xl mx-auto flex items-center justify-around px-2 py-1.5">
         {tabs.map((tab) => {

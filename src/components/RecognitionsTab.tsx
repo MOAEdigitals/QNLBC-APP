@@ -1,3 +1,4 @@
+import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek } from '../utils/dateUtils';
 import { isAnnualDatePast, orderAnnualBirthdays } from '../utils/recognitionOrder';
@@ -70,7 +71,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   collapseSignal,
 }) => {
   const lastProcessedSignalRef = React.useRef<number | undefined>(collapseSignal);
-  const [subTab, setSubTab] = useState<RecognitionsSubTab>('birthdays');
+  const [subTab, setSubTab] = useSwipeSubtabs<RecognitionsSubTab>('recognitions', 'birthdays');
 
   // Modal States
   const [isAddingBirthday, setIsAddingBirthday] = useState(false);

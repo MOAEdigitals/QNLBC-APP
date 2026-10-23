@@ -18,6 +18,6 @@ test('event programs can remove their final song and replacement clears both lin
 test('all setlist song entry points retain the originating setlist',()=>{
  const source=read('src/components/SetlistsTab.tsx');
  const calls=source.match(/onClick=\{\(\) => \([^\n]*handleOpenSong[^\n]*/g)||[];
- assert.equal(calls.length,8);
+ assert.equal(calls.length,9);
  for(const call of calls) assert.match(call,/, item.id\)/);
 });

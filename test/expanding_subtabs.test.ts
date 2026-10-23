@@ -19,7 +19,7 @@ test('Schedules keeps every subtab one tap away and labels only the selected ite
 
 test('Schedules opens Activities as its default subtab', () => {
   const source = read('src/components/SpecialNumberTab.tsx');
-  assert.match(source, /useState<SpecialNumbersSubTab>\('activities'\)/);
+  assert.match(source, /useSwipeSubtabs<SpecialNumbersSubTab>\('special-numbers', 'activities'\)/);
 });
 
 test('main and recognition navigation do not render numeric bubbles', () => {

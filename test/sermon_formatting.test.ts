@@ -126,3 +126,15 @@ test('outline search prioritizes titles, then finds text across lines and rich-o
   assert.deepEqual(listSermons(rows, '2026-10-24', 'LASTING hope').map(row => row.id), ['title', 'body', 'rich']);
   assert.deepEqual(listSermons(rows, '2026-10-24', 'color').map(row => row.id), []);
 });
+
+
+test('yellow highlights keep dark contrast ink, including nested imported white text', () => {
+  const html = sanitizeOutline('<p><span style="background-color:#ffff00;color:white">Baptism <strong><span style="color:white">by immersion</span></strong></span></p>');
+  const root = document.createElement('div'); root.innerHTML = html;
+  const highlight = root.querySelector('[data-outline-highlight]') as HTMLElement;
+  assert.ok(highlight);
+  assert.equal(highlight.style.getPropertyValue('--outline-highlight-ink'), '#0f172a');
+  assert.equal(highlight.style.backgroundColor, 'rgb(255, 255, 0)');
+  assert.equal(root.textContent, 'Baptism by immersion');
+  assert.equal(sanitizeOutline(html), html);
+});

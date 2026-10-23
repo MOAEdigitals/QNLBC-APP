@@ -4,7 +4,7 @@
 /* Shared primary add action, anchored above navigation in every tab. */
 .qnlbc-app button.app-fab {
   margin: 0;
-  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(5rem + var(--app-safe-bottom));
   right: max(1rem, env(safe-area-inset-right, 0px));
   background: #1d4ed8;
   color: #fff;
@@ -53,10 +53,6 @@
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 44px; min-height: 44px; flex-shrink: 0; padding: 0;
 }
-/* Actions stay at the form bottom and return when the keyboard closes. */
-.keyboard-open .ui-form-actions,
-.keyboard-open .ui-viewport-screen form > footer,
-.keyboard-open .ui-viewport-screen form > div:last-child:has(> button[type='submit']) { display: none; }
 .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #dfedff, #ebe7ff); border-color: #c7d2fe; }
 .dark .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #192d46, #332140); border-color: #3b4262; }
 /* One shared highlight treatment for next-up, upcoming and today cards. */
@@ -79,14 +75,14 @@
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
   background:
-    radial-gradient(circle at 12px 4px, #7dd3fc 0 1.5px, transparent 2px) top left / 72px 8px repeat-x,
-    radial-gradient(circle at 49px 5px, #fbbf24 0 1.5px, transparent 2px) top left / 72px 8px repeat-x,
-    linear-gradient(55deg, transparent 46%, #c4b5fd 47% 53%, transparent 54%) top left / 72px 7px repeat-x,
-    radial-gradient(circle at 25px 4px, #fb7185 0 1.5px, transparent 2px) bottom left / 72px 8px repeat-x,
-    radial-gradient(circle at 60px 4px, #c4b5fd 0 1.5px, transparent 2px) bottom left / 72px 8px repeat-x,
-    linear-gradient(-55deg, transparent 46%, #7dd3fc 47% 53%, transparent 54%) bottom left / 72px 7px repeat-x,
-    radial-gradient(circle at 4px 22px, #c4b5fd 0 1.5px, transparent 2px) top left / 8px 40px repeat-y,
-    radial-gradient(circle at 4px 34px, #fbbf24 0 1.5px, transparent 2px) top right / 8px 40px repeat-y;
+    radial-gradient(circle at 12px 4px, #7dd3fc 0 1.5px, transparent 2px) top left / 144px 8px repeat-x,
+    radial-gradient(circle at 49px 5px, #fbbf24 0 1.5px, transparent 2px) top left / 144px 8px repeat-x,
+    linear-gradient(55deg, transparent 48%, #c4b5fd 48.5% 51.5%, transparent 52%) top left / 144px 7px repeat-x,
+    radial-gradient(circle at 25px 4px, #fb7185 0 1.5px, transparent 2px) bottom left / 144px 8px repeat-x,
+    radial-gradient(circle at 60px 4px, #c4b5fd 0 1.5px, transparent 2px) bottom left / 144px 8px repeat-x,
+    linear-gradient(-55deg, transparent 48%, #7dd3fc 48.5% 51.5%, transparent 52%) bottom left / 144px 7px repeat-x,
+    radial-gradient(circle at 4px 22px, #c4b5fd 0 1.5px, transparent 2px) top left / 8px 80px repeat-y,
+    radial-gradient(circle at 4px 34px, #fbbf24 0 1.5px, transparent 2px) top right / 8px 80px repeat-y;
   opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }
@@ -154,13 +150,13 @@ button.ui-settings-row { cursor: pointer; }
 .ui-form-screen { margin: 0 !important; }
 .ui-form-screen > div:has(.ui-modal-form) { display: flex; flex-direction: column; max-height: min(92dvh, calc(100dvh - 2rem)); margin: 0; }
 .ui-form-screen > div:has(.ui-modal-form) > div:first-child { flex-shrink: 0; }
-.ui-form-screen .ui-modal-form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow: hidden; max-height: none; padding: 0; gap: 0; }
+.ui-form-screen .ui-modal-form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; max-height: none; padding: 0; gap: 0; }
 .ui-form-screen > div:has(.ui-modal-form) > div:first-child h3 > svg { display: none; }
 .ui-form-screen form > fieldset { display: contents; }
-.ui-form-screen .ui-form-body { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; gap: 1rem; padding: 1.25rem; }
+.ui-form-screen .ui-form-body { display: flex; flex: 0 0 auto; flex-direction: column; min-height: 0; overflow: visible; gap: 1rem; padding: 1.25rem; }
 .ui-form-screen .ui-form-body > * { flex-shrink: 0; margin-block: 0; }
-.ui-form-screen .ui-form-actions { position: relative; z-index: 210; flex: 0 0 auto; order: 100; margin: 0; border-top: 1px solid var(--ui-border); background: var(--ui-surface); padding: 1rem 1.25rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
-.practice-screen [role="status"].fixed { bottom: calc(5.5rem + env(safe-area-inset-bottom)); width: max-content; max-width: calc(100vw - 2rem); }
+.ui-form-screen .ui-form-actions { position: static; flex: 0 0 auto; order: initial; margin: 0; border-top: 1px solid var(--ui-border); background: var(--ui-surface); padding: 1rem 1.25rem; padding-bottom: max(1rem, var(--app-safe-bottom)); }
+.practice-screen [role="status"].fixed { bottom: calc(5.5rem + var(--app-safe-bottom)); width: max-content; max-width: calc(100vw - 2rem); }
 @media (max-width: 639px) {
   body:has(.ui-form-screen) { overflow: hidden; }
   .ui-form-screen { padding: 0; align-items: stretch; background: var(--ui-surface); overflow: hidden; }
@@ -187,6 +183,12 @@ button.ui-settings-row { cursor: pointer; }
 .dark .sermon-prose { color: #e2e8f0; }
 .sermon-prose [data-outline-ink] { color: var(--outline-light-ink, inherit) !important; }
 .dark .sermon-prose [data-outline-ink] { color: var(--outline-dark-ink, inherit) !important; }
+/* Highlighted text uses the highlight's contrast color in both reader and editor. */
+.sermon-prose [data-outline-highlight],
+.sermon-prose [data-outline-highlight] [data-outline-ink],
+.dark .sermon-prose [data-outline-highlight],
+.dark .sermon-prose [data-outline-highlight] [data-outline-ink] { color: var(--outline-highlight-ink) !important; }
+
 .sermon-prose p { margin: 0 0 .35em; min-height: 1em; }
 .sermon-prose p:has(> br:only-child) { min-height: .5em; line-height: .5em; margin-bottom: .15em; }
 .sermon-prose p:last-child { margin-bottom: 0; }
@@ -206,8 +208,41 @@ button.ui-settings-row { cursor: pointer; }
 .sermon-prose hr { margin: 1em 0; border-color: #cbd5e1; }
 .sermon-prose .ProseMirror:focus { outline: none; }
 
-@media (max-width: 639px) {
-  .ui-form-screen, .ui-viewport-screen { top: var(--form-viewport-top, 0px); bottom: auto; height: var(--form-viewport-height, 100dvh); }
-  .ui-form-screen > div:has(.ui-modal-form) { height: 100%; max-height: 100%; }
-  .ui-form-screen .ui-form-body { padding: 1rem; }
+
+
+/* Capacitor's injected insets cover older Android WebViews; env() covers modern WebViews and browsers. */
+:root {
+  --app-safe-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+  --app-safe-left: max(env(safe-area-inset-left, 0px), var(--safe-area-inset-left, 0px));
+  --app-safe-right: max(env(safe-area-inset-right, 0px), var(--safe-area-inset-right, 0px));
 }
+html, body { background-color: #ffffff; }
+html.dark, html.dark body { background-color: #020617; }
+.qnlbc-app [data-app-header] { padding-top: var(--app-safe-top); }
+.qnlbc-app { padding-left: var(--app-safe-left); padding-right: var(--app-safe-right); }
+
+/* Opaque full-screen editing surfaces. Fields and actions share one form scroll. */
+body:has(.ui-form-screen, .ui-viewport-screen) { overflow: hidden; }
+.ui-form-screen, .ui-viewport-screen {
+  position: fixed; inset: auto 0 auto 0; top: var(--form-viewport-top, 0px);
+  width: 100%; height: var(--form-viewport-height, 100dvh); min-height: 0;
+  margin: 0 !important; padding: 0 var(--app-safe-right) 0 var(--app-safe-left); overflow: hidden; isolation: isolate;
+  align-items: stretch; justify-content: flex-start; background: var(--ui-surface);
+}
+.ui-form-screen::before, .ui-viewport-screen::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; background: var(--ui-surface); pointer-events: none;
+}
+.ui-form-screen > div:has(.ui-modal-form) {
+  display: flex; flex-direction: column; width: 100%; height: 100%; max-height: 100%;
+  max-width: none; margin: 0; border: 0; border-radius: 0; box-shadow: none;
+}
+.ui-form-screen > div:has(.ui-modal-form) > div:first-child { padding-top: calc(1rem + var(--app-safe-top)); }
+.ui-form-screen .ui-modal-form { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.ui-form-screen .ui-form-body { flex: 0 0 auto; overflow: visible; }
+.ui-form-screen .ui-form-actions { position: static; order: initial; }
+.ui-viewport-screen > form { flex: 1 1 auto; height: 100%; min-height: 0; max-height: none; width: 100%; max-width: none; border-radius: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+.ui-viewport-screen > form > :is(fieldset, div, footer) { flex: 0 0 auto; overflow: visible; }
+.ui-viewport-screen > form > header { flex: 0 0 auto; padding-top: calc(.75rem + var(--app-safe-top)); }
+.ui-viewport-screen > form > footer { position: static; }
+body:has(.ui-form-screen, .ui-viewport-screen) > #root nav.fixed { visibility: hidden; }

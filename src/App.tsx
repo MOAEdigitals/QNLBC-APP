@@ -1,7 +1,8 @@
+import { SwipeNavigationProvider } from './components/SwipeNavigation';
 import { readSetlistShareId } from './utils/setlistSharing';
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
 import { initialAppTab } from './utils/tabNavigation';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { isBackLayerMounted, useBackLayer } from './hooks/useBackLayer';
 import React, { lazy, Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -125,6 +126,7 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    if (Capacitor.isNativePlatform()) void SystemBars.setStyle({ style: theme === 'dark' ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
     saveTheme(theme);
     try { localStorage.removeItem('qnlbc_color_theme'); } catch {}
   }, [theme]);
@@ -1283,6 +1285,7 @@ export default function App() {
   }
 
   return (
+    <SwipeNavigationProvider currentTab={currentTab} onNavigate={handleNavigateTab}>
     <HeaderSearchProvider>
     <div className="qnlbc-app min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
       {/* Sticky Top Header */}
@@ -1499,5 +1502,6 @@ export default function App() {
       )}
     </div>
     </HeaderSearchProvider>
+    </SwipeNavigationProvider>
   );
 }

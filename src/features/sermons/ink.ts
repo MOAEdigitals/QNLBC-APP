@@ -25,8 +25,22 @@ export function outlineInk(color: string): { neutral: boolean; light: string; da
   if (!channels) return null;
   return { neutral: Math.max(...channels) - Math.min(...channels) < 24, light: readable(channels, [255, 255, 255], false), dark: readable(channels, [15, 23, 42], true) };
 }
-export function outlineInkAttributes(color?: string | null): Record<string, string> {
+export function outlineInkAttributes(color?: string | null, backgroundColor?: string | null): Record<string, string> {
   const ink = color && outlineInk(color);
-  if (!ink) return {};
-  return { 'data-outline-ink': '', style: ink.neutral ? '--outline-light-ink: inherit; --outline-dark-ink: inherit' : `--outline-light-ink: ${ink.light}; --outline-dark-ink: ${ink.dark}` };
+  const attributes: Record<string, string> = {};
+  const styles: string[] = [];
+  if (ink) {
+    attributes['data-outline-ink'] = '';
+    styles.push(ink.neutral ? '--outline-light-ink: inherit; --outline-dark-ink: inherit' : `--outline-light-ink: ${ink.light}; --outline-dark-ink: ${ink.dark}`);
+  }
+  const background = backgroundColor && rgb(backgroundColor);
+  if (background && Math.max(...background) - Math.min(...background) >= 24) {
+    attributes['data-outline-highlight'] = '';
+    // A highlight is a fixed surface: use its actual background, independent of app theme.
+    const darkContrast = (luminance(background) + .05) / .05;
+    const lightContrast = 1.05 / (luminance(background) + .05);
+    styles.push(`--outline-highlight-ink: ${darkContrast >= lightContrast ? '#0f172a' : '#ffffff'}`);
+  }
+  if (styles.length) attributes.style = styles.join('; ');
+  return attributes;
 }

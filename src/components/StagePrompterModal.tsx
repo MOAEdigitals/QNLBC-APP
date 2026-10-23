@@ -419,7 +419,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       {parsedSections.some((s) => s.type === 'section') && (
         <nav
           aria-label="Lyrics sections"
-          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+          style={{ paddingBottom: 'max(0.5rem, var(--app-safe-bottom))' }}
           className={`order-3 sm:order-none px-3 sm:px-4 pt-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${themeStyles.headerBg}`}
         >
           <span className="hidden sm:block mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">

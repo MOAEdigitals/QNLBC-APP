@@ -47,5 +47,5 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   assert.ok('minHeight' in sections.at(-1).props.style, 'last section reserves space to reach the viewport top');
   const nav = nodes.find(node => node.tag === 'nav');
   assert.match(nav.props.className, /order-3/);
-  assert.match(nav.props.style.paddingBottom, /safe-area-inset-bottom/);
+  assert.match(nav.props.style.paddingBottom, /--app-safe-bottom/);
 });

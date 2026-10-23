@@ -189,8 +189,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [collapseSignal, showPromptModal, showCreateMember, editingMemberId, selectedMemberId, settingsSection]);
 
-  useBackLayer(showPromptModal || !!selectedMemberId || !!settingsSection, () => {
-    if (showPromptModal) setShowPromptModal(false);
+  useBackLayer(showPromptModal || !!selectedMemberId || !!settingsSection || showCreateMember || !!editingMemberId, () => {
+    if (creatingMember || memberSaveLock.current) return;
+    if (showCreateMember) setShowCreateMember(false);
+    else if (editingMemberId) setEditingMemberId(null);
+    else if (showPromptModal) setShowPromptModal(false);
     else if (selectedMemberId) setSelectedMemberId(null);
     else setSettingsSection(null);
   });
@@ -960,13 +963,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               {memberNotice && <p role="status" className="text-sm text-slate-600 dark:text-slate-300">{memberNotice}</p>}
-              {!selectedMemberId && showCreateMember && <form onSubmit={handleCreateMember} className="space-y-3 rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+              {!selectedMemberId && showCreateMember && <div role="dialog" aria-modal="true" aria-labelledby="create-member-title" className="ui-form-screen fixed inset-0 z-50 flex flex-col">
+                <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4"><h3 id="create-member-title" className="font-bold">Create account</h3><button type="button" disabled={creatingMember} aria-label="Close create account" onClick={() => setShowCreateMember(false)} className="p-2"><X className="h-5 w-5" /></button></div>
+                  <form onSubmit={handleCreateMember} className="ui-modal-form">
+                    <div className="ui-form-body">
                 <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
                 <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={6} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                 {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
-                <button type="submit" disabled={creatingMember} className="ui-primary w-full">{creatingMember ? 'Creating…' : 'Create account'}</button>
-              </form>}
+                    </div>
+                    <div className="ui-form-actions flex justify-end gap-3"><button type="button" disabled={creatingMember} onClick={() => setShowCreateMember(false)} className="ui-secondary">Cancel</button><button type="submit" disabled={creatingMember} className="ui-primary">{creatingMember ? 'Creating…' : 'Create account'}</button></div>
+                  </form>
+                </div>
+              </div>}
 
               {credentialNotice && !selectedMemberId && <div role="status" className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                 <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Account credentials ready</p><button type="button" aria-label="Dismiss credentials" className="text-emerald-700 dark:text-emerald-300" onClick={() => setCredentialNotice(null)}><X className="h-4 w-4" /></button></div>
@@ -1013,13 +1023,20 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{u.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id]?.password || 'Set a new password to view and copy'}</dd></dl>
                     <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" onClick={() => void handleCopyMemberUsername(u)}><Copy className="h-4 w-4" /> Copy username</button>{memberCredentials[u.id] && <button type="button" className="ui-secondary" onClick={() => void handleCopyMemberCredentials(u.id, memberCredentials[u.id].username, memberCredentials[u.id].password)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>}</div>
                     {!selectedMemberId ? <div className="flex flex-wrap gap-2"><button type="button" disabled={isManaging} className="ui-secondary" onClick={() => { setSelectedMemberId(u.id); startEditingMember(u); }}><Pencil className="h-4 w-4" /> Edit account</button><button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button></div> : <>
-                      {editingMemberId === u.id && <form onSubmit={event => handleUpdateMember(event, u)} className="space-y-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/60">
+                      {editingMemberId === u.id && <div role="dialog" aria-modal="true" aria-labelledby="edit-member-title" className="ui-form-screen fixed inset-0 z-50 flex flex-col">
+                        <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4"><h3 id="edit-member-title" className="font-bold">Edit account</h3><button type="button" disabled={isManaging} aria-label="Close edit account" onClick={() => setEditingMemberId(null)} className="p-2"><X className="h-5 w-5" /></button></div>
+                          <form onSubmit={event => handleUpdateMember(event, u)} className="ui-modal-form">
+                            <div className="ui-form-body">
                         <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
                         <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={6} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
-                        <div className="flex gap-2"><button className="ui-primary" disabled={isManaging}>Save</button><button type="button" className="ui-secondary" onClick={() => setEditingMemberId(null)}>Cancel</button></div>
-                      </form>}
+                            </div>
+                            <div className="ui-form-actions flex justify-end gap-3"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => setEditingMemberId(null)}>Cancel</button><button type="submit" className="ui-primary" disabled={isManaging}>Save</button></div>
+                          </form>
+                        </div>
+                      </div>}
                       <p className="text-xs text-slate-500 dark:text-slate-400">{memberCredentials[u.id] ? 'This password is shown only in this admin session.' : 'Existing passwords cannot be retrieved. Use Edit account to set a new password, then you can view and copy it here during this admin session.'}</p>
                       {u.role === 'admin' ? <p>Administrators have full access.</p> : <div className="divide-y divide-slate-200 dark:divide-slate-800">
                         {([['canAdd', 'Add'], ['canEdit', 'Edit'], ['canDelete', 'Delete']] as const).map(([key, label]) => {

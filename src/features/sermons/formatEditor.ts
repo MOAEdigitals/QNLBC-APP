@@ -8,10 +8,16 @@ export function formatOutlineEditor(editor: Editor) {
     const transaction = closeHistory(state.tr);
     const bold = state.schema.marks.bold;
     const textStyle = state.schema.marks.textStyle;
+    // Reset imported typography before applying hierarchy; retain intentional ink/highlights and emphasis.
+    state.doc.descendants((node, position) => {
+      if (!node.isText) return;
+      const previous = node.marks.find(mark => mark.type === textStyle)?.attrs;
+      if (previous) transaction.addMark(position, position + node.nodeSize, textStyle.create({ ...previous, fontFamily: null, fontSize: null, lineHeight: null }));
+    });
     let first = true;
     let verseBlock = false;
-    function styleRange(from: number, to: number, attrs: Record<string, string>) {
-      state.doc.nodesBetween(from, to, (node, position) => {
+    function styleRange(from: number, to: number, attrs: Record<string, string | null>) {
+      transaction.doc.nodesBetween(from, to, (node, position) => {
         if (!node.isText) return;
         const previous = node.marks.find(mark => mark.type === textStyle)?.attrs || {};
         transaction.addMark(Math.max(from, position), Math.min(to, position + node.nodeSize), textStyle.create({ ...previous, ...attrs }));
@@ -29,7 +35,7 @@ export function formatOutlineEditor(editor: Editor) {
         if (trimmed) {
           const kind = outlineLineStyle(line, first, inList && index === 0);
           if (kind) transaction.addMark(from, to, bold.create());
-          if (kind === 'title') styleRange(from, to, { fontSize: '1.4em' });
+          if (kind === 'title') styleRange(from, to, { fontSize: node.type.name === 'heading' ? '1em' : '1.4em' });
           verseBlock = isVerseLine(line, verseBlock);
           if (verseBlock) styleRange(from, to, { color: '#197aa3' });
           bibleReferences(line).forEach(reference => {
@@ -42,6 +48,11 @@ export function formatOutlineEditor(editor: Editor) {
         offset = to + 1;
       });
     });
-    if (transaction.docChanged) view.dispatch(transaction);
+    if (transaction.docChanged && !transaction.doc.eq(state.doc)) view.dispatch(transaction);
     editor.commands.focus();
+}
+
+/** Set paragraph-level alignment over the entire selected range, including headings and list paragraphs. */
+export function alignOutlineParagraphs(editor: Editor, alignment: 'left' | 'center' | 'right' | 'justify') {
+  editor.chain().focus().updateAttributes('paragraph', { 'text-align': alignment }).updateAttributes('heading', { 'text-align': alignment }).run();
 }

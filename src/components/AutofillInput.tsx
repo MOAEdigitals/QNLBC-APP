@@ -181,8 +181,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const formRect = form?.getBoundingClientRect();
     const body = input.closest('.ui-form-body');
     const bodyRect = body?.getBoundingClientRect();
-    let usableTop = Math.max(viewportTop + 12, bodyRect?.top ?? formRect?.top ?? viewportTop + 12);
-    let usableBottom = Math.min(viewportBottom - 12, bodyRect?.bottom ?? formRect?.bottom ?? viewportBottom - 12);
+    let usableTop = Math.max(viewportTop + 12, formRect?.top ?? viewportTop, bodyRect?.top ?? viewportTop);
+    let usableBottom = Math.min(viewportBottom - 12, formRect?.bottom ?? viewportBottom, bodyRect?.bottom ?? viewportBottom);
     // Use the same action containers as the shared form styling.
     form?.querySelectorAll('.ui-form-actions, :scope > footer, :scope > div:last-child, :scope > fieldset > div:last-child').forEach(footer => {
       if (!footer.querySelector('button[type="submit"]')) return;
@@ -805,7 +805,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             transform: isPickerClosing ? 'translateY(100%)' : `translateY(${Math.max(0, pickerDragY)}px)`,
             pointerEvents: isPickerClosing ? 'none' : undefined,
             transition: pickerDragRef.current ? 'none' : 'height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 240ms cubic-bezier(0.22, 1, 0.36, 1)',
-            maxHeight: '100%', paddingBottom: 'env(safe-area-inset-bottom)',
+            maxHeight: '100%', paddingBottom: 'var(--app-safe-bottom)',
           } : mobilePickerPosition
             ? {
                 WebkitOverflowScrolling: 'touch',

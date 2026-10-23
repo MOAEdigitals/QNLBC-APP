@@ -31,8 +31,9 @@ test('one setlist stays expanded across tab remounts until its header or another
   const reorderHook = compile('src/hooks/useSetlistReorder.ts', { '../utils/initialSetlistCard': initialCard });
   const months = compile('src/components/MonthSeparators.tsx', {});
   const component = compile('src/components/SetlistsTab.tsx', { '../hooks/useSetlistReorder': reorderHook, './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
-  const rows = ['one', 'two'].map(id => ({ id, date: dates.getTodayStr(), type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
+  const rows: any[] = ['one', 'two'].map(id => ({ id, date: dates.getTodayStr(), type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
   rows.push(...['old-one', 'old-two'].map(id => ({ id, date: '2000-01-01', type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } })));
+  for (const [index, type] of ['prayer_meeting', 'fellowship', 'event'].entries()) rows.push({ id: type, type, date: `2099-01-0${index + 1}`, program: { songLeader: 'Bro Joshua', songs: [{ id: 'song-one', title: 'Grace hymn' }] }, themeSong: 'Theme hymn' });
   const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], canReorder: true, onReorderSetlists: async () => {}, initialExpandedSetlistIds: fresh ? undefined : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
   const clickHeader = async (id: string) => act(() => document.querySelector<HTMLDivElement>(`#setlist-card-${id} > div`)!.click());
   const open = (id: string) => document.querySelector(`#setlist-card-${id}`)!.children.length > 1;
@@ -66,6 +67,14 @@ test('one setlist stays expanded across tab remounts until its header or another
     assert.equal(open('one'), true, 'a new session restores the Today default');
     await act(() => root.render(null)); remembered = ['one', 'two']; await act(() => render());
     assert.equal(open('one'), false); assert.equal(open('two'), true, 'legacy multiple-open state restores only its last card');
+    for (const type of ['prayer_meeting', 'fellowship', 'event']) {
+      await clickHeader(type);
+      assert.equal(open(type), true);
+      assert.ok(document.querySelector(`#setlist-card-${type}`)!.textContent?.includes('Bro Joshua'));
+      assert.ok(document.querySelector(`#setlist-card-${type}`)!.textContent?.includes('Grace hymn'));
+      assert.ok(document.querySelector(`#setlist-card-${type}`)!.textContent?.includes('2. Theme hymn'));
+      assert.equal(rows.filter(row => open(row.id)).length, 1, 'every program type follows the same one-open accordion rule');
+    }
   } finally {
     await act(() => root.unmount()); dom.window.close();
     keys.forEach((k, i) => { if (saved[i]) Object.defineProperty(globalThis, k, saved[i]!); else delete (globalThis as any)[k]; });

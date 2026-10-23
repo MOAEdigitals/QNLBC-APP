@@ -1,3 +1,4 @@
+import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { CardActions } from './CardActions';
 import { UpcomingBadge } from './UpcomingBadge';
@@ -171,7 +172,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 }) => {
   // Schedules subtabs: Song Numbers (default), Practice, Choir, Outlines, Activities.
   // Keep the existing schedules key so saved selections and song data stay compatible.
-  const [activeSubTab, setActiveSubTab] = useState<SpecialNumbersSubTab>('activities');
+  const [activeSubTab, setActiveSubTab] = useSwipeSubtabs<SpecialNumbersSubTab>('special-numbers', 'activities');
 
   // Choir state
   const [selectedChoirId, setSelectedChoirId] = useState<string | null>(null);

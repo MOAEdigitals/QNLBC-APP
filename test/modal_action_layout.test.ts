@@ -4,25 +4,25 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
-test('all shared add/edit dialogs keep scrollable fields separate from bottom actions', () => {
+test('all shared add/edit dialogs place their actions after the fields inside the same form', () => {
   let checked = 0;
-  for (const file of ['SongsTab', 'SetlistsTab', 'SpecialNumberTab', 'RecognitionsTab']) {
+  for (const file of ['SongsTab', 'SetlistsTab', 'SpecialNumberTab', 'RecognitionsTab', 'SettingsTab']) {
     const path = `src/components/${file}.tsx`;
     const ast = ts.createSourceFile(path, readFileSync(path, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     const hasClass = (node: ts.Node, name: string) => ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attr => ts.isJsxAttribute(attr) && attr.name.getText(ast) === 'className' && attr.initializer && ts.isStringLiteral(attr.initializer) && attr.initializer.text.split(/\s+/).includes(name));
     function visit(node: ts.Node) {
       if (hasClass(node, 'ui-form-actions')) {
         checked++;
-        assert.ok(!hasClass(node.parent, 'ui-form-body'), `${file}: actions cannot scroll with fields`);
+        assert.ok(!hasClass(node.parent, 'ui-form-body'), `${file}: actions belong after the fields group`);
         assert.ok(ts.isJsxElement(node.parent));
-        assert.ok(node.parent.children.some(child => hasClass(child, 'ui-form-body')), `${file}: actions need a separate scrolling sibling`);
+        assert.ok(node.parent.children.some(child => hasClass(child, 'ui-form-body')), `${file}: actions need a preceding fields group`);
         for (let ancestor: ts.Node | undefined = node.parent; ancestor; ancestor = ancestor.parent) assert.ok(!hasClass(ancestor, 'ui-form-body'));
       }
       ts.forEachChild(node, visit);
     }
     visit(ast);
   }
-  assert.equal(checked, 12, 'covers setlist program variants and all song, schedule, practice, track, vocal, choir and recognition dialogs');
+  assert.equal(checked, 14, 'covers setlist program variants and all song, schedule, practice, track, vocal, choir and recognition dialogs');
 });
 
 test('suggestion placement stays above actions and hides when its input scrolls behind them', () => {

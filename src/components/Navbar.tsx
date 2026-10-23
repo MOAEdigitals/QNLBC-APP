@@ -45,7 +45,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [isSearching, search?.value]);
   return (
-    <header className="sticky top-0 z-30 bg-white dark:bg-slate-950 transition-colors">
+    <header data-app-header className="sticky top-0 z-30 bg-white dark:bg-slate-950 transition-colors">
       <div className="max-w-4xl mx-auto px-4 py-2 flex min-h-12 items-center justify-between gap-3">
         {isSearching && search ? (
           <div ref={searchRef} className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">

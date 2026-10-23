@@ -26,9 +26,9 @@ export function sanitizeOutline(html: string): string {
     // Pasted black/white page backgrounds should follow the app surface.
     const background = outlineInk(element.style.backgroundColor);
     if (background?.neutral) element.style.removeProperty('background-color');
-    const ink = outlineInkAttributes(element.style.color);
+    const ink = outlineInkAttributes(element.style.color, element.style.backgroundColor);
     if (ink.style) {
-      element.setAttribute('data-outline-ink', '');
+      for (const [name, value] of Object.entries(ink)) if (name !== 'style') element.setAttribute(name, value);
       element.style.cssText += ';' + ink.style;
     }
   });

@@ -1372,6 +1372,37 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 </div>
                               );
                             })}
+                                  {item.themeSong && (() => {
+                                    const matchedSong = songs.find(
+                                      (s) => s.title.trim().toLowerCase() === item.themeSong?.trim().toLowerCase()
+                                    );
+                                    const targetSongId = matchedSong ? matchedSong.id : undefined;
+                                    const songNumber = (item.program?.songs?.length || 0) + 1;
+
+                                    return (
+                                      <div
+                                        onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
+                                        className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
+                                          targetSongId
+                                            ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                            : ''
+                                        }`}
+                                        title={targetSongId ? 'Click to open in Song Library' : undefined}
+                                      >
+                                        <div className="min-w-0 pr-2">
+                                          <span
+                                            className={`text-xs font-semibold text-slate-900 dark:text-white ${
+                                              targetSongId
+                                                ? 'hover:underline hover:text-slate-600 dark:hover:text-slate-300 transition-colors'
+                                                : ''
+                                            }`}
+                                          >
+                                            {songNumber}. {matchedSong ? matchedSong.title : item.themeSong} <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">(Theme Song)</span>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                           </div>
                         </div>
                       )}
