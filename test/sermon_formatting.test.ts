@@ -101,3 +101,28 @@ test('verse coloring preserves asterisks and numbered continuation, and repeated
  assert.equal((doc.querySelectorAll('p')[1] as HTMLElement).style.color,'rgb(25, 122, 163)');
  assert.equal((doc.querySelectorAll('p')[3] as HTMLElement).style.color,'');
 });
+
+
+test('pasted black text and white page backgrounds follow the theme, while colored ink gets readable variants', () => {
+  const html = sanitizeOutline('<p style="background-color:white;color:black"><strong>Imported text</strong><span style="color:#197aa3">John 3:16</span></p>');
+  const root = document.createElement('div'); root.innerHTML = html;
+  const paragraph = root.querySelector('p')!, span = root.querySelector('span')!;
+  assert.equal(paragraph.style.backgroundColor, '');
+  assert.equal(paragraph.getAttribute('data-outline-ink'), '');
+  assert.equal(paragraph.style.getPropertyValue('--outline-dark-ink'), 'inherit');
+  assert.match(span.style.getPropertyValue('--outline-dark-ink'), /^rgb/);
+  assert.notEqual(span.style.getPropertyValue('--outline-dark-ink'), span.style.color);
+  assert.equal(sanitizeOutline(html), html, 'repeated edit/save does not accumulate style changes');
+});
+
+test('outline search prioritizes titles, then finds text across lines and rich-only legacy content', () => {
+  const base = { id: '', author_id: '', title: '', preacher: 'Bro Ronnie', outline: '', status: 'published' as const, revision: 1, created_at: '', updated_at: '' };
+  const rows = [
+    { ...base, id: 'body', title: 'Trials', service_date: '2026-10-25', outline: 'God gives\n  lasting hope.' },
+    { ...base, id: 'title', title: 'Lasting hope', service_date: '2026-11-01' },
+    { ...base, id: 'rich', title: 'Grace', service_date: '2026-11-02', outline_html: '<p>Lasting&nbsp;<b>hope</b></p>' },
+    { ...base, id: 'none', title: 'Prayer', service_date: '2026-10-26', outline: 'Different words' },
+  ];
+  assert.deepEqual(listSermons(rows, '2026-10-24', 'LASTING hope').map(row => row.id), ['title', 'body', 'rich']);
+  assert.deepEqual(listSermons(rows, '2026-10-24', 'color').map(row => row.id), []);
+});

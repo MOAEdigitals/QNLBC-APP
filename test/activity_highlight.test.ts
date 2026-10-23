@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { highlightActivityCards } from '../src/features/activities/highlight.ts';
+import { highlightActivityCards, scrollActivityBelowHeader } from '../src/features/activities/highlight.ts';
 
 test('all cards for a chosen date pulse three times over 1.5 seconds and repeated taps restart',()=>{
  let cancelled=0;
@@ -25,4 +25,19 @@ test('reduced motion uses one steady outline for the same duration',()=>{
  assert.deepEqual(frames[0],frames[1]);
  assert.equal(options.duration,1500);
  assert.equal(options.iterations,1);
+});
+
+
+test('calendar destinations stop below the measured sticky header, including tall safe-area headers', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  const calls: any[] = [];
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { scrollY: 300, scrollTo: (options: any) => calls.push(options) } });
+  try {
+    const card = { getBoundingClientRect: () => ({ top: 500 }) } as HTMLElement;
+    const header = { getBoundingClientRect: () => ({ bottom: 108 }) } as HTMLElement;
+    scrollActivityBelowHeader(card, header);
+    assert.deepEqual(calls[0], { top: 680, behavior: 'smooth' });
+    scrollActivityBelowHeader(card, null, true);
+    assert.deepEqual(calls[1], { top: 788, behavior: 'instant' });
+  } finally { if (original) Object.defineProperty(globalThis, 'window', original); else delete (globalThis as any).window; }
 });

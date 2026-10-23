@@ -1,5 +1,5 @@
 import { UpcomingBadge } from '../../components/UpcomingBadge';
-import { highlightActivityCards } from './highlight';
+import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import { CardDate } from '../../components/CardDate';
 import { compareMonthKeys } from '../../utils/recognitionOrder';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -165,10 +165,8 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     const matches = filteredItems.filter(item => item.activityDate === date);
     const first = matches[0];
     if (!first) return;
-    document.getElementById(`activity-card-${first.id}`)?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    });
+    const card = document.getElementById(`activity-card-${first.id}`);
+    if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     highlightActivityCards(matches.map(item => document.getElementById(`activity-card-${item.id}`)).filter((element): element is HTMLElement => !!element), window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   };
 

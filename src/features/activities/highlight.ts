@@ -9,3 +9,9 @@ export function highlightActivityCards(cards: HTMLElement[], reducedMotion = fal
     animation.id = 'activity-date-highlight';
   }
 }
+
+/** Align a calendar destination below the sticky app header, including its safe-area height. */
+export function scrollActivityBelowHeader(card: HTMLElement, header: HTMLElement | null, reducedMotion = false) {
+  const headerBottom = Math.max(0, header?.getBoundingClientRect().bottom || 0);
+  window.scrollTo({ top: Math.max(0, window.scrollY + card.getBoundingClientRect().top - headerBottom - 12), behavior: reducedMotion ? 'instant' : 'smooth' });
+}

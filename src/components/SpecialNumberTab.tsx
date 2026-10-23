@@ -2783,9 +2783,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         <CardDate date={entry.date} />
 
                         {/* Title & Scheduled Date */}
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1 flex items-center gap-1.5">
                           <h4
-                            className={`app-card-title text-sm sm:text-base font-bold truncate ${
+                            className={`app-card-title min-w-0 text-sm sm:text-base font-bold truncate ${
                               isElapsed
                                 ? 'text-slate-500 dark:text-slate-400'
                                 : 'text-slate-900 dark:text-white'

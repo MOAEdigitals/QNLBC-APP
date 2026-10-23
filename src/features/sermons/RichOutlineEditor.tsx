@@ -3,9 +3,9 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { TextStyleKit } from '@tiptap/extension-text-style';
-import { Bold, Italic, List, ListOrdered, Undo2, Redo2, WandSparkles } from 'lucide-react';
-import { closeHistory } from '@tiptap/pm/history';
-import { bibleReferences, outlineLineStyle } from './autoFormat';
+import { Bold, Italic, List, ListOrdered, Undo2, Redo2, WandSparkles, Underline } from 'lucide-react';
+import { formatOutlineEditor } from './formatEditor';
+import { outlineInkAttributes } from './ink';
 import { plainTextHtml, sanitizeOutline } from './formatting';
 
 const ParagraphStyle = Extension.create({
@@ -18,9 +18,19 @@ const ParagraphStyle = Extension.create({
     }])) }];
   },
 });
+// TextStyle keeps the original color for round-tripping, while CSS supplies readable ink per theme.
+const ReadableInk = Extension.create({
+  name: 'readableInk',
+  addGlobalAttributes() {
+    return [{ types: ['textStyle'], attributes: { readableInk: {
+      default: true, parseHTML: () => true,
+      renderHTML: (attributes: Record<string, string>) => outlineInkAttributes(attributes.color),
+    } } }];
+  },
+});
 export default function RichOutlineEditor({ html, text, disabled, onChange }: { html?: string | null; text: string; disabled: boolean; onChange: (html: string, text: string) => void }) {
   const editor = useEditor({
-    extensions: [StarterKit.configure({ link: false }), TextStyleKit, ParagraphStyle],
+    extensions: [StarterKit.configure({ link: false, trailingNode: false }), TextStyleKit, ParagraphStyle, ReadableInk],
     content: html ? sanitizeOutline(html) : plainTextHtml(text),
     // Preserve asterisk notation for the reader; toolbar formatting still works.
     enableInputRules: ['bulletList', 'orderedList', 'blockquote', 'heading', 'codeBlock', 'horizontalRule', 'strike', 'code'],
@@ -54,47 +64,12 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
   useEffect(() => { editor?.setEditable(!disabled); }, [disabled, editor]);
   function formatOutline() {
     if (!editor || disabled) return;
-    const { state, view } = editor;
-    const transaction = closeHistory(state.tr);
-    const bold = state.schema.marks.bold;
-    const textStyle = state.schema.marks.textStyle;
-    let first = true;
-    function styleRange(from: number, to: number, attrs: Record<string, string>) {
-      state.doc.nodesBetween(from, to, (node, position) => {
-        if (!node.isText) return;
-        const previous = node.marks.find(mark => mark.type === textStyle)?.attrs || {};
-        transaction.addMark(Math.max(from, position), Math.min(to, position + node.nodeSize), textStyle.create({ ...previous, ...attrs }));
-      });
-    }
-    state.doc.descendants((node, position) => {
-      if (!node.isTextblock || node.type.name === 'codeBlock') return;
-      const resolved = state.doc.resolve(position);
-      const inList = Array.from({ length: resolved.depth }, (_, i) => resolved.node(i + 1).type.name).includes('listItem');
-      const lines = node.textBetween(0, node.content.size, '\n', '\n').split('\n');
-      let offset = position + 1;
-      lines.forEach((line, index) => {
-        const trimmed = line.trim();
-        const from = offset, to = offset + line.length;
-        if (trimmed) {
-          const kind = outlineLineStyle(line, first, inList && index === 0);
-          if (kind) transaction.addMark(from, to, bold.create());
-          if (kind === 'title') styleRange(from, to, { fontSize: '1.4em' });
-          bibleReferences(line).forEach(reference => {
-            const start = from + reference.from, end = from + reference.to;
-            transaction.addMark(start, end, bold.create());
-            styleRange(start, end, { color: '#197aa3' });
-          });
-          first = false;
-        }
-        offset = to + 1;
-      });
-    });
-    if (transaction.docChanged) view.dispatch(transaction);
-    editor.commands.focus();
+    formatOutlineEditor(editor);
   }
   const commands = [
     { label: 'Bold', icon: Bold, active: editor?.isActive('bold'), run: () => editor?.chain().focus().toggleBold().run() },
     { label: 'Italic', icon: Italic, active: editor?.isActive('italic'), run: () => editor?.chain().focus().toggleItalic().run() },
+    { label: 'Underline', icon: Underline, active: editor?.isActive('underline'), run: () => editor?.chain().focus().toggleUnderline().run() },
     { label: 'Bullets', icon: List, active: editor?.isActive('bulletList'), run: () => editor?.chain().focus().toggleBulletList().run() },
     { label: 'Numbered list', icon: ListOrdered, active: editor?.isActive('orderedList'), run: () => editor?.chain().focus().toggleOrderedList().run() },
     { label: 'Undo', icon: Undo2, run: () => editor?.chain().focus().undo().run() },
@@ -102,7 +77,9 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
     { label: 'Format outline', icon: WandSparkles, run: formatOutline },
   ];
   return <div className="rounded-xl border border-slate-300 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-900">
-    <div className="flex gap-0.5 sm:gap-1 p-2 border-b border-slate-200 dark:border-slate-700">{commands.map(command => <button key={command.label} type="button" title={command.label} aria-label={command.label} aria-pressed={command.active} disabled={disabled || !editor} onClick={command.run} className={`w-9 sm:w-10 h-10 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40 ${command.active ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}><command.icon className="w-4 h-4" /></button>)}</div>
+    <div role="toolbar" aria-label="Outline formatting" className="flex flex-wrap gap-0.5 sm:gap-1 p-2 border-b border-slate-200 dark:border-slate-700">
+      <select aria-label="Paragraph style" disabled={disabled || !editor} value={editor?.isActive('heading', { level: 1 }) ? '1' : editor?.isActive('heading', { level: 2 }) ? '2' : editor?.isActive('heading', { level: 3 }) ? '3' : 'paragraph'} onChange={event => { const value = event.target.value; if (value === 'paragraph') editor?.chain().focus().setParagraph().run(); else editor?.chain().focus().setHeading({ level: Number(value) as 1 | 2 | 3 }).run(); }} className="h-10 max-w-32 rounded-lg bg-white dark:bg-slate-900 px-2 text-sm border border-slate-200 dark:border-slate-700"><option value="paragraph">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option></select>
+      {commands.map(command => <button key={command.label} type="button" title={command.label} aria-label={command.label} aria-pressed={command.active} disabled={disabled || !editor} onClick={command.run} className={`w-9 sm:w-10 h-10 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40 ${command.active ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}><command.icon className="w-4 h-4" /></button>)}</div>
     <EditorContent editor={editor} />
   </div>;
 }

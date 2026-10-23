@@ -62,19 +62,32 @@
 /* One shared highlight treatment for next-up, upcoming and today cards. */
 .qnlbc-app .app-date-card[data-upcoming-card] { background-image: linear-gradient(115deg, #dfedff, #e7f1e8); border-color: #94a3b8; }
 .dark .qnlbc-app .app-date-card[data-upcoming-card] { background-image: linear-gradient(115deg, #192d46, #244033); border-color: #64748b; }
-/* Decorative, static birthday confetti stays inside the frame and never intercepts taps. */
-.birthday-card[data-birthday-celebrant] { position: relative; }
+/* Keep birthday decoration in an 8px frame, outside the existing card content padding. */
+.qnlbc-app .birthday-card[data-birthday-celebrant] {
+  position: relative;
+  background-image: linear-gradient(115deg, #dfedff, #ebe7ff);
+}
+.dark .qnlbc-app .birthday-card[data-birthday-celebrant] {
+  background-image: linear-gradient(115deg, #192d46, #332140);
+}
 .birthday-card[data-birthday-celebrant]::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  padding: 8px;
+  /* Cut out the entire content area so decoration cannot sit under text or icons. */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
   background:
-    radial-gradient(circle at 3% 20%, #7dd3fc 0 2px, transparent 2.5px),
-    radial-gradient(circle at 97% 77%, #fbbf24 0 2px, transparent 2.5px),
-    radial-gradient(circle at 72% 10%, #c4b5fd 0 1.5px, transparent 2px),
-    radial-gradient(circle at 25% 90%, #fb7185 0 1.5px, transparent 2px),
-    linear-gradient(35deg, transparent 44%, #c4b5fd 45% 60%, transparent 61%) 8% 83% / 7px 8px no-repeat,
-    linear-gradient(-30deg, transparent 40%, #7dd3fc 41% 60%, transparent 61%) 90% 17% / 8px 8px no-repeat,
-    linear-gradient(20deg, transparent 40%, #fbbf24 41% 60%, transparent 61%) 47% 8% / 7px 6px no-repeat;
-  opacity: .75;
+    radial-gradient(circle at 12px 4px, #7dd3fc 0 1.5px, transparent 2px) top left / 72px 8px repeat-x,
+    radial-gradient(circle at 49px 5px, #fbbf24 0 1.5px, transparent 2px) top left / 72px 8px repeat-x,
+    linear-gradient(55deg, transparent 46%, #c4b5fd 47% 53%, transparent 54%) top left / 72px 7px repeat-x,
+    radial-gradient(circle at 25px 4px, #fb7185 0 1.5px, transparent 2px) bottom left / 72px 8px repeat-x,
+    radial-gradient(circle at 60px 4px, #c4b5fd 0 1.5px, transparent 2px) bottom left / 72px 8px repeat-x,
+    linear-gradient(-55deg, transparent 46%, #7dd3fc 47% 53%, transparent 54%) bottom left / 72px 7px repeat-x,
+    radial-gradient(circle at 4px 22px, #c4b5fd 0 1.5px, transparent 2px) top left / 8px 40px repeat-y,
+    radial-gradient(circle at 4px 34px, #fbbf24 0 1.5px, transparent 2px) top right / 8px 40px repeat-y;
+  opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }
 .qnlbc-app .birthday-card[data-past], .qnlbc-app .special-screen [data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; opacity: .6; }
@@ -169,6 +182,11 @@ button.ui-settings-row { cursor: pointer; }
 
 /* Sermon editor and reader: preserve indentation while wrapping to the screen. */
 .sermon-prose { font-family: var(--font-sans); line-height: 1.4; white-space: pre-wrap; tab-size: 4; overflow-wrap: anywhere; }
+/* Imported and generated ink retains its hue with readable contrast in both themes. */
+.sermon-prose { color: #0f172a; }
+.dark .sermon-prose { color: #e2e8f0; }
+.sermon-prose [data-outline-ink] { color: var(--outline-light-ink, inherit) !important; }
+.dark .sermon-prose [data-outline-ink] { color: var(--outline-dark-ink, inherit) !important; }
 .sermon-prose p { margin: 0 0 .35em; min-height: 1em; }
 .sermon-prose p:has(> br:only-child) { min-height: .5em; line-height: .5em; margin-bottom: .15em; }
 .sermon-prose p:last-child { margin-bottom: 0; }

@@ -16,3 +16,10 @@ export function outlineLineStyle(text: string, first: boolean, inList: boolean):
   if (first && trimmed.length <= 120 && !/[.!?]$/.test(trimmed) && !refs.length) return 'title';
   return null;
 }
+
+/** A reference-led verse and its numbered continuation use the same ink in editor and reader. */
+export function isVerseLine(value: string, previousVerse: boolean): boolean {
+  const references = bibleReferences(value), first = references[0];
+  const prefix = first ? value.slice(0, first.from).replace(/[\s*"“”'‘’()[\]—–-]/g, '') : '';
+  return !!((first && !prefix) || (/^\s*[*]*["“]/.test(value) && references.length) || (previousVerse && /^\s*\d{1,3}[.)]?\s+\S/.test(value)));
+}

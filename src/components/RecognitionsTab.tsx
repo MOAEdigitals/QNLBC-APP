@@ -18,7 +18,6 @@ import {
   getCurrentRecognitionWindow,
   categorizeAnnualCelebrants,
   getTodayStr,
-  getNextAnnualOccurrence,
   parseDate,
 } from '../utils/dateUtils';
 import { generateUUID } from '../services/supabaseData';
@@ -165,7 +164,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
     categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
   const recognitionQuery = birthdaySearchQuery.trim().toLowerCase();
-  const filteredAnniversaries = [...currentAnniversaries, ...upcomingAnniversaries].filter(item => !recognitionQuery || `${item.title} ${item.type}`.toLowerCase().includes(recognitionQuery));
+  const filteredAnniversaries = orderAnnualBirthdays([...currentAnniversaries, ...upcomingAnniversaries], item => item.anniversaryDate, birthdayToday).filter(item => !recognitionQuery || `${item.title} ${item.type}`.toLowerCase().includes(recognitionQuery));
 
   // Group Special Recognitions by Type
   const groupedSpecial: Record<string, SpecialRecognition[]> = {};
@@ -390,7 +389,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           {/* Upcoming Anniversaries Section */}
           <div className="space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block px-1">
-              Upcoming Anniversaries ({filteredAnniversaries.length})
+              Anniversaries
             </span>
 
             {filteredAnniversaries.length === 0 ? (
@@ -402,25 +401,25 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {monthList(filteredAnniversaries, item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
                   <div
                     key={item.id}
-                    className="app-date-card p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors"
+                    data-birthday-celebrant={isBirthdayRecognitionWeek(item.anniversaryDate) || undefined}
+                    data-past={isAnnualDatePast(item.anniversaryDate, birthdayToday) && !isBirthdayRecognitionWeek(item.anniversaryDate) || undefined}
+                    className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
                   >
-                    <div className="flex items-center space-x-3">
-                      <CardDate date={`${getNextAnnualOccurrence(item.anniversaryDate).getFullYear()}-${item.anniversaryDate.slice(5)}`} />
-                      <div>
-                        <h4 className="app-card-title text-sm font-semibold text-slate-900 dark:text-white">
+                    <div className="flex min-w-0 flex-1 items-center space-x-3">
+                      <CardDate date={`${birthdayToday.slice(0, 4)}-${item.anniversaryDate.slice(5)}`} />
+                      <div className="min-w-0 flex-1">
+                        <h4 title={[item.title, item.type, item.yearsCount ? `${item.yearsCount} yrs` : null].filter(Boolean).join(' · ')} className="app-card-title truncate text-sm font-bold text-slate-900 dark:text-white">
                           {item.title}
                         </h4>
-                        <span className="app-card-secondary text-[11px] text-slate-500 dark:text-slate-400">
-                          {item.type} {item.yearsCount ? `(${item.yearsCount} yrs)` : ''}
-                        </span>
                       </div>
                     </div>
 
                     <button
+                      aria-label={`Remove ${item.title}`}
                       onClick={() => {
                         if (confirm(`Remove ${item.title}?`)) onDeleteAnniversary(item.id);
                       }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="relative shrink-0 p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

@@ -1,4 +1,5 @@
-import { bibleReferences } from './autoFormat.ts';
+import { outlineInk, outlineInkAttributes } from './ink.ts';
+import { bibleReferences, isVerseLine } from './autoFormat.ts';
 import DOMPurify from 'dompurify';
 
 export function escapeText(text: string): string {
@@ -21,6 +22,14 @@ export function sanitizeOutline(html: string): string {
     element.removeAttribute('style');
     for (const [property, value] of values) {
       if (value && !/url\s*\(|expression\s*\(|var\s*\(/i.test(value)) element.style.setProperty(property, value);
+    }
+    // Pasted black/white page backgrounds should follow the app surface.
+    const background = outlineInk(element.style.backgroundColor);
+    if (background?.neutral) element.style.removeProperty('background-color');
+    const ink = outlineInkAttributes(element.style.color);
+    if (ink.style) {
+      element.setAttribute('data-outline-ink', '');
+      element.style.cssText += ';' + ink.style;
     }
   });
   return root.innerHTML;
@@ -67,11 +76,7 @@ export function colorOutlineVerses(html: string | null | undefined, text: string
     if (block.querySelector('p, h1, h2, h3, h4, li, div, blockquote') || block.closest('pre, code')) continue;
     const value = block.textContent || '';
     const references = bibleReferences(value);
-    const first = references[0];
-    const prefix = first ? value.slice(0, first.from).replace(/[\s*"“”'‘’()[\]—–-]/g, '') : '';
-    const quoted = /^\s*[*]*["“]/.test(value) && references.length > 0;
-    const numberedContinuation = verseBlock && /^\s*\d{1,3}[.)]?\s+\S/.test(value);
-    if ((first && !prefix) || quoted || numberedContinuation) {
+    if (isVerseLine(value, verseBlock)) {
       block.style.color = '#197aa3';
       // Existing inline colors must not override verse blue.
       block.querySelectorAll<HTMLElement>('[style]').forEach(child => child.style.removeProperty('color'));
@@ -108,5 +113,5 @@ export function colorOutlineVerses(html: string | null | undefined, text: string
       }
     }
   }
-  return root.innerHTML;
+  return sanitizeOutline(root.innerHTML);
 }
