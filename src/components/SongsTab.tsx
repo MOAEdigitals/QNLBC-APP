@@ -1,4 +1,5 @@
 import { getUpcomingSongSchedule } from '../utils/songSchedule';
+import { scheduledSongMedia, type SongNavigationRequest } from '../utils/songMediaNavigation';
 import { supabase } from '../supabase';
 import { saveAppSettings } from '../services/supabaseData';
 import { compareTracksFirst } from '../utils/songTracks';
@@ -103,7 +104,8 @@ interface SongsTabProps {
   onAddSongToNewSetlist: (song: Song) => void;
   onAddSongToExistingUpcomingSetlist: (song: Song, targetSetlistId: string, part: 'sundaySchool' | 'worshipService') => void;
   initialSelectedSongId?: string | null;
-  songNavigationTrigger?: { songId: string; timestamp: number } | null;
+  songNavigationTrigger?: SongNavigationRequest | null;
+  onSongMediaConsumed?: (timestamp: number) => void;
   onClearInitialSelectedSongId?: () => void;
   collapseSignal?: number;
   returnSetlistId?: string | null;
@@ -121,6 +123,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   onAddSongToExistingUpcomingSetlist,
   initialSelectedSongId,
   songNavigationTrigger,
+  onSongMediaConsumed,
   onClearInitialSelectedSongId,
   collapseSignal,
   returnSetlistId,
@@ -212,6 +215,19 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     url: string;
     type: 'link' | 'audio' | 'video' | 'image' | 'text' | 'file';
   } | null>(null);
+  const pendingPlayerScroll = useRef<string | null>(null);
+  useLayoutEffect(() => {
+    if (!activeMedia || !pendingPlayerScroll.current) return;
+    const id = pendingPlayerScroll.current;
+    pendingPlayerScroll.current = null;
+    const frame = requestAnimationFrame(() => {
+      const player = document.getElementById(`song-player-${id}`);
+      if (!player) return;
+      const headerHeight = document.querySelector('[data-app-header]')?.getBoundingClientRect().height || 56;
+      window.scrollTo({ top: window.scrollY + player.getBoundingClientRect().top - headerHeight - 8, behavior: 'smooth' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeMedia]);
 
   // Background Audio / MediaSession integration when BG play is enabled
   useEffect(() => {
@@ -476,6 +492,14 @@ if (isEditing && !savingSongRef.current) {
       setSearchQuery('');
       pendingInstantSongIdRef.current = songNavigationTrigger.songId;
       alignSongCardBelowHeader(songNavigationTrigger.songId);
+      if (songNavigationTrigger.mediaUrl) {
+        const song = songs.find(item => item.id === songNavigationTrigger.songId);
+        if (song) {
+          pendingPlayerScroll.current = song.id;
+          setActiveMedia(scheduledSongMedia(song, songNavigationTrigger.mediaUrl));
+          onSongMediaConsumed?.(songNavigationTrigger.timestamp);
+        }
+      }
     }
   }, [songNavigationTrigger, alignSongCardBelowHeader]);
 
@@ -1183,13 +1207,14 @@ if (isEditing && !savingSongRef.current) {
                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 flex-wrap mt-0.5">
                       {song.artist && <span className="truncate">{song.artist}</span>}
                       {song.artist && <span className="opacity-30">•</span>}
-                      <span className="text-slate-400 dark:text-slate-500 text-[11px]">
-                        {upcomingSchedule ? `Currently scheduled · ${formatDateStr(upcomingSchedule.date)}` : 'Not scheduled yet'}
-                      </span>
-                      {history.relativeTimeAgo && (
+                      {upcomingSchedule ? (
+                        <span className="text-slate-400 dark:text-slate-500 text-[11px]">Currently scheduled · {formatDateStr(upcomingSchedule.date)}</span>
+                      ) : history.relativeTimeAgo ? (
                         <span className="text-slate-400 dark:text-slate-500 flex items-center gap-1 text-[11px]">
                           <Clock className="w-3 h-3" />Last sung: {history.relativeTimeAgo}
                         </span>
+                      ) : (
+                        <span className="text-slate-400 dark:text-slate-500 text-[11px]">Not scheduled yet</span>
                       )}
                     </div>
 
@@ -1431,7 +1456,7 @@ if (isEditing && !savingSongRef.current) {
 
                     {/* VIDEO / SOUND PLAYER (Placed right after the lyrics with Repeat / Loop button) */}
                     {activeMedia && (
-                      <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
+                      <div id={`song-player-${song.id}`} className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                           <div className="flex items-center space-x-2 min-w-0">
                             <Volume2 className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />

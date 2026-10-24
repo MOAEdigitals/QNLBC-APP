@@ -77,7 +77,8 @@ test('practice header shows the song and optional group without an event or lead
 });
 
 test('opened practice keeps lyrics expanded and hides its new-practice FAB', () => {
-  assert.doesNotMatch(practiceTab, /View lyrics/);
+  const practiceSection = practiceTab.slice(practiceTab.indexOf("{activeSubTab === 'practice' && ("), practiceTab.indexOf("{activeSubTab === 'choir' && ("));
+  assert.doesNotMatch(practiceSection, /View lyrics/);
   assert.doesNotMatch(practiceTab, /expandedLyricsGroupIds/);
   assert.match(practiceTab, /max-h-none overflow-visible whitespace-pre-wrap/);
   assert.match(practiceTab, /!\(activeSubTab === 'practice' && selectedPracticeId\)/);

@@ -18,6 +18,7 @@ test('outline Back returns to the list and keeps the app tab; reopening and tool
   keys.forEach(key => Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[key] }));
   const row = { id: 'outline-one', title: 'Sunday preaching', service_date: '2026-10-25', preacher: 'Bro Ronnie', outline: 'Sermon text', attachments: [], status: 'published' };
   let headerSearch: any;
+  let loadRows = async () => [row];
   const dependencies: Record<string, any> = {
     '../../components/HeaderSearch': { useHeaderSearch: (config: any) => { headerSearch = config; } },
     '../../hooks/useBackLayer': { useBackLayer },
@@ -25,7 +26,7 @@ test('outline Back returns to the list and keeps the app tab; reopening and tool
     '../../utils/upcomingCards': { upcomingCardStatuses: () => new Map() },
     '../../utils/dateUtils': { ...dates, getTodayStr: () => '2026-10-22' },
     './model': { ...model, listSermons: (rows: any[]) => rows },
-    './data': { loadSermons: async () => [row] },
+    './data': { loadSermons: () => loadRows() },
     './formatting': { renderOutline: () => 'Sermon text', sanitizeOutline: (html: string) => html },
   };
   const exports: any = {};
@@ -60,6 +61,17 @@ test('outline Back returns to the list and keeps the app tab; reopening and tool
     await act(async () => { window.history.back(); await wait(); });
     assert.equal(document.querySelector('[role="dialog"]'), null);
     assert.equal(tabNavigations, 0);
+    // Returning to the tab paints the current session snapshot immediately,
+    // then replaces it with authoritative results without resetting the reader flow.
+    let finishRefresh: (rows: any[]) => void;
+    loadRows = () => new Promise(resolve => { finishRefresh = resolve; });
+    let cachedRows: any[] = [];
+    await act(async () => root.render(React.createElement(exports.default, { key: 'return-to-tab', currentUser: null, initialRows: [row], onRowsChange: (rows: any[]) => { cachedRows = rows; } })));
+    assert.ok(document.querySelector('.app-date-card'));
+    assert.doesNotMatch(document.body.textContent || '', /Loading outlines/);
+    await act(async () => { finishRefresh!([{ ...row, title: 'Updated on another device' }]); });
+    assert.match(document.body.textContent || '', /Updated on another device/);
+    assert.equal(cachedRows[0].title, 'Updated on another device');
   } finally {
     await act(async () => root.unmount()); window.removeEventListener('popstate', appBack); dom.window.close();
     keys.forEach((key, i) => { if (saved[i]) Object.defineProperty(globalThis, key, saved[i]!); else delete (globalThis as any)[key]; });

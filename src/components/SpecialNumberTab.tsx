@@ -127,6 +127,7 @@ interface SpecialNumberTabProps {
   onSaveChoirEntry?: (entry: ChoirEntry) => void;
   onDeleteChoirEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
+  onPlaySongMedia?: (songId: string, mediaUrl: string) => void;
   onSaveSong?: (song: Song) => Promise<Song | void> | Song | void;
   collapseSignal?: number;
   onPracticeDetailChange?: (isOpen: boolean) => void;
@@ -165,6 +166,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   onSaveChoirEntry,
   onDeleteChoirEntry,
   onOpenSongDetail,
+  onPlaySongMedia,
   onSaveSong,
   collapseSignal,
   onPracticeDetailChange,
@@ -2064,7 +2066,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   const today = isToday(item.scheduledDate);
                   const isSelected = selectedEntryId === item.id;
                   const isSoonest = !today && soonestEntry?.id === item.id;
-                  const matchedSong = item.songId ? songs.find((s) => s.id === item.songId) : null;
+                  const matchedSong = (item.songId ? songs.find(song => song.id === item.songId) : undefined)
+                    || songs.find(song => song.title.trim().toLowerCase() === item.songTitle?.trim().toLowerCase());
 
                   return (
                     <div
@@ -2127,9 +2130,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                               )}
                             </div>
 
-                            <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                              {item.minusOneLink && <span>Minus-one available</span>}
-                            </div>
                           </div>
                         </div>
 
@@ -2143,120 +2143,26 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
                       </div>
 
-                      {/* IN-PLACE EXPANDED ACCORDION CONTENT */}
+                      {/* Compact details: playback and lyrics both use the existing Song Library. */}
                       {isSelected && (
-                        <div
-                          className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-4 cursor-default"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-
-                            {/* Minus-One Link & Song Library Deep Link */}
-                            <div className="space-y-2">
-                              {item.minusOneLink && (
-                                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs flex items-center justify-between">
-                                  <div>
-                                    <span className="font-bold text-slate-700 dark:text-slate-300 block">
-                                      Minus-One Accompaniment
-                                    </span>
-                                    <span className="text-[11px] text-slate-500 truncate block max-w-xs">
-                                      {item.minusOneLink}
-                                    </span>
-                                  </div>
-                                  <a
-                                    href={item.minusOneLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="px-3 py-1.5 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-bold flex items-center gap-1 shrink-0"
-                                  >
-                                    <Play className="w-3 h-3" />
-                                    <span>Play Track</span>
-                                  </a>
-                                </div>
-                              )}
-
-                              {matchedSong && (
-                                <button
-                                  type="button"
-                                  onClick={() => onOpenSongDetail(matchedSong.id)}
-                                  className="w-full p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between cursor-pointer transition-colors"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <Music className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                                    <span>View "{matchedSong.title}" in Song Library</span>
-                                  </div>
-                                  <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Performance Lyrics / Text with Expand / Collapse Option */}
-                          {(item.lyrics || matchedSong?.lyrics) && (
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                                  <Music className="w-3.5 h-3.5 text-sky-500" />
-                                  <span>Performance Lyrics</span>
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => toggleScheduleLyricsExpand(item.id, e)}
-                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                                    title={expandedScheduleLyricsIds[item.id] ? 'Collapse' : 'Expand'}
-                                  >
-                                    {expandedScheduleLyricsIds[item.id] ? (
-                                      <>
-                                        <ChevronUp className="w-3 h-3" />
-                                        <span>Collapse</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ChevronDown className="w-3 h-3" />
-                                        <span>Expand</span>
-                                      </>
-                                    )}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) =>
-                                      handleCopyScheduleLyrics(
-                                        item.id,
-                                        item.lyrics || matchedSong?.lyrics || '',
-                                        item.songTitle || '',
-                                        e
-                                      )
-                                    }
-                                    className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 cursor-pointer transition-colors border border-slate-200 dark:border-slate-700"
-                                    title="Copy lyrics"
-                                  >
-                                    {copiedScheduleLyricsId === item.id ? (
-                                      <>
-                                        <Check className="w-3 h-3 text-emerald-500" />
-                                        <span className="text-emerald-500">Copied!</span>
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="w-3 h-3" />
-                                        <span>Copy</span>
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                              <div
-                                className={`p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap leading-relaxed transition-all ${
-                                  expandedScheduleLyricsIds[item.id]
-                                    ? 'max-h-none overflow-visible'
-                                    : 'max-h-40 overflow-y-auto'
-                                }`}
-                              >
-                                {item.lyrics || matchedSong?.lyrics}
-                              </div>
+                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2 min-w-0" onClick={event => event.stopPropagation()}>
+                          {item.minusOneLink && (
+                            <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 p-2.5">
+                              <button type="button" disabled={!matchedSong || !onPlaySongMedia} onClick={() => { if (matchedSong) onPlaySongMedia?.(matchedSong.id, item.minusOneLink!); }} title={item.minusOneLink} aria-label={`Play minus-one link for ${item.songTitle || item.performerName}`} className="flex-1 min-w-0 text-left cursor-pointer disabled:cursor-default">
+                                <span className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Minus-one</span>
+                                <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{item.minusOneLink}</span>
+                              </button>
+                              <button type="button" disabled={!matchedSong || !onPlaySongMedia} onClick={() => { if (matchedSong) onPlaySongMedia?.(matchedSong.id, item.minusOneLink!); }} className="min-h-11 shrink-0 inline-flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-2.5 py-2 text-xs font-semibold text-white dark:bg-slate-100 dark:text-slate-900 disabled:opacity-40 cursor-pointer">
+                                <Play className="h-4 w-4 shrink-0" /><span className="whitespace-nowrap">Play now</span>
+                              </button>
                             </div>
                           )}
+                          {matchedSong && (
+                            <button type="button" onClick={() => onOpenSongDetail(matchedSong.id)} className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
+                              <Music className="h-4 w-4 shrink-0 text-slate-500" /><span className="min-w-0 flex-1">View lyrics in Song Library</span><ExternalLink className="h-4 w-4 shrink-0 text-slate-400" />
+                            </button>
+                          )}
+                          {item.minusOneLink && !matchedSong && <p className="text-xs text-slate-500 dark:text-slate-400">Choose a song from the library in Edit to enable playback.</p>}
                         </div>
                       )}
                     </div>

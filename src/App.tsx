@@ -4,6 +4,9 @@ import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
 import { initialAppTab } from './utils/tabNavigation';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
+import { SplashScreen } from '@capacitor/splash-screen';
+import type { SermonOutline } from './features/sermons/model';
+import type { SongNavigationRequest } from './utils/songMediaNavigation';
 import { isBackLayerMounted, useBackLayer } from './hooks/useBackLayer';
 import React, { lazy, Suspense, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
@@ -151,13 +154,24 @@ export default function App() {
 
   // Deep linking and navigation helpers
   const [selectedSongIdForTab, setSelectedSongIdForTab] = useState<string | null>(null);
-  const [songNavigationTrigger, setSongNavigationTrigger] = useState<{ songId: string; timestamp: number } | null>(null);
+  const [songNavigationTrigger, setSongNavigationTrigger] = useState<SongNavigationRequest | null>(null);
   const pendingSharedSetlist = useRef(readSetlistShareId(window.location.href, window.location.href));
   const [sharedLinkRequest, setSharedLinkRequest] = useState(0);
   const [sharedSetlistError, setSharedSetlistError] = useState('');
   const [initialSelectedSetlistId, setInitialSelectedSetlistId] = useState<string | null>(() => pendingSharedSetlist.current);
   // In-memory only: retained between tabs, reset by reload/reopening the app.
   const rememberedSetlists = useRef<{ ids: string[] } | null>(null);
+  const outlineCache = useRef<{ userId: string; rows: SermonOutline[] } | null>(null);
+  const [nativeSplashVisible, setNativeSplashVisible] = useState(() => Capacitor.isNativePlatform());
+  useEffect(() => {
+    if (isLoadingInitialData || !nativeSplashVisible) return;
+    // Reveal the ready app directly, without a second React splash in between.
+    void SplashScreen.hide().catch(error => console.warn('Unable to hide launch splash', error))
+      .finally(() => setNativeSplashVisible(false));
+  }, [isLoadingInitialData, nativeSplashVisible]);
+  useEffect(() => {
+    if (outlineCache.current?.userId !== currentUser?.id) outlineCache.current = null;
+  }, [currentUser?.id]);
   const returnSetlistIdRef = useRef<string | null>(null);
   const savedSetlistScrollPosRef = useRef<{ setlistId: string; scrollY: number } | null>(null);
   const [setlistJourney, setSetlistJourney] = useState<{ setlistId: string; scrollY: number } | null>(null);
@@ -598,6 +612,7 @@ export default function App() {
 
   // Auth Handlers
   const handleSignInSuccess = async (user: UserAccount) => {
+    outlineCache.current = null;
     rememberedSetlists.current = null;
     setInitialSelectedSetlistId(null);
     returnSetlistIdRef.current = null;
@@ -620,6 +635,7 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    outlineCache.current = null;
     pendingSharedSetlist.current = null;
     setSharedSetlistError('');
     rememberedSetlists.current = null;
@@ -1184,6 +1200,11 @@ export default function App() {
     handleNavigateTab('home', { instantScroll: true });
   };
 
+  const handlePlayScheduledSong = (songId: string, mediaUrl: string) => {
+    handleOpenSongDetail(songId);
+    setSongNavigationTrigger({ songId, mediaUrl, timestamp: Date.now() });
+  };
+
   const handleAddSongToNewSetlist = (song: Song) => {
     const nextSunday = getNextSundayStr();
     const newSetlist: Setlist = {
@@ -1252,29 +1273,11 @@ export default function App() {
     setSavedNames(names);
   };
 
-  // Requirement 2: Show loading/skeleton screen until Supabase authentication and the first authoritative query finish.
-  // Do not render stale shared records during startup.
+  // Native launch stays on its single OS splash; the web uses the same logo-only treatment.
   if (isLoadingInitialData) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-800 dark:text-slate-100 transition-colors">
-        <div className="w-full max-w-sm flex flex-col items-center text-center space-y-6">
-          <div className="w-36 h-36 rounded-2xl bg-white overflow-hidden flex items-center justify-center">
-            <ChurchLogo className="w-full h-full object-contain" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
-              New Life Baptist Church
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Connecting to church sanctuary portal & music library...
-            </p>
-          </div>
-          <div className="w-full space-y-3 pt-2">
-            <div className="h-10 bg-slate-200 dark:bg-slate-800/60 rounded-xl w-full" />
-            <div className="h-28 bg-slate-200/80 dark:bg-slate-800/40 rounded-2xl w-full" />
-            <div className="h-20 bg-slate-200/60 dark:bg-slate-800/30 rounded-2xl w-full" />
-          </div>
-        </div>
+      <div role="status" aria-label="Loading QNLBC" className="min-h-dvh bg-white dark:bg-slate-950 flex items-center justify-center">
+        {!nativeSplashVisible && <ChurchLogo className="w-36 h-36 object-contain" />}
       </div>
     );
   }
@@ -1386,6 +1389,7 @@ export default function App() {
             onOpenSongDetail={handleOpenSongDetail}
             onSaveSong={handleSaveSong}
             collapseSignal={collapseSignals['special-numbers']}
+            onPlaySongMedia={handlePlayScheduledSong}
             onPracticeDetailChange={handlePracticeDetailChange}
             practiceCloseSignal={practiceCloseSignal}
           />
@@ -1403,6 +1407,7 @@ export default function App() {
             onAddSongToExistingUpcomingSetlist={handleAddSongToExistingUpcomingSetlist}
             initialSelectedSongId={selectedSongIdForTab}
             songNavigationTrigger={songNavigationTrigger}
+            onSongMediaConsumed={timestamp => setSongNavigationTrigger(request => request?.timestamp === timestamp ? { ...request, mediaUrl: undefined } : request)}
             onClearInitialSelectedSongId={() => setSelectedSongIdForTab(null)}
             collapseSignal={collapseSignals.songs}
             returnSetlistId={returnSetlistIdRef.current}
@@ -1410,7 +1415,9 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'outlines' && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines} />}
+        {currentTab === 'outlines' && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines}
+          initialRows={outlineCache.current?.userId === currentUser.id ? outlineCache.current.rows : undefined}
+          onRowsChange={rows => { outlineCache.current = { userId: currentUser.id, rows }; }} />}
         {currentTab === 'settings' && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
           <SettingsTab
             currentUser={currentUser}

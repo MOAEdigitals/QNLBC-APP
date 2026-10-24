@@ -11,6 +11,7 @@ const config: CapacitorConfig = {
     SystemBars: { style: 'DARK', insetsHandling: 'css', initialViewportFitValueHint: 'cover' },
     SplashScreen: {
       launchShowDuration: 1200,
+      launchAutoHide: false,
       backgroundColor: '#020617',
       showSpinner: false,
     },

@@ -24,11 +24,11 @@ const primary = 'min-h-11 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm 
 interface OutlineEditor { input: SermonInput; original?: SermonOutline; newId: string }
 interface PendingFile { id: string; file: File }
 
-export default function SermonOutlines({ currentUser, collapseSignal }: { currentUser: UserAccount | null; collapseSignal?: number }) {
-  const [rows, setRows] = useState<SermonOutline[]>([]);
+export default function SermonOutlines({ currentUser, collapseSignal, initialRows, onRowsChange }: { currentUser: UserAccount | null; collapseSignal?: number; initialRows?: SermonOutline[]; onRowsChange?: (rows: SermonOutline[]) => void }) {
+  const [rows, setRows] = useState<SermonOutline[]>(() => initialRows || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(initialRows !== undefined);
   const [search, setSearch] = useState('');
   useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search sermons', label: 'Search outlines' });
   const [today, setToday] = useState(getTodayStr);
@@ -58,6 +58,7 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
   const attachments = selected?.attachments || [];
   const activeAttachment = attachments.find(item => item.id === source);
   const fullScreen = !!selected || !!editor;
+  useEffect(() => { if (ready) onRowsChange?.(rows); }, [ready, rows, onRowsChange]);
 
   async function refresh() {
     if (loadingLock.current) return;
