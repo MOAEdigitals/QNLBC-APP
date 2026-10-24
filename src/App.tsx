@@ -1273,11 +1273,11 @@ export default function App() {
     setSavedNames(names);
   };
 
-  // Native launch stays on its single OS splash; the web uses the same logo-only treatment.
+  // Native launch stays on its single OS splash; web uses the same logo and church name.
   if (isLoadingInitialData) {
     return (
-      <div role="status" aria-label="Loading QNLBC" className="min-h-dvh bg-white dark:bg-slate-950 flex items-center justify-center">
-        {!nativeSplashVisible && <ChurchLogo className="w-36 h-36 object-contain" />}
+      <div role="status" aria-label="Loading QNLBC" className="min-h-dvh bg-white dark:bg-slate-950 flex flex-col gap-3 items-center justify-center">
+        {!nativeSplashVisible && <><ChurchLogo className="w-36 h-36 object-contain" /><p className="text-sm font-medium text-slate-600 dark:text-slate-300">New Life Baptist Church</p></>}
       </div>
     );
   }

@@ -29,7 +29,7 @@ The nested Choir conflict comes from the older parent listener consuming `popsta
 ## Changes delivered alongside the audit
 
 - Use the supplied transparent logo for web and Android brand assets.
-- Keep the single Android launch splash visible until initial app loading finishes, then reveal the ready app directly. Remove the second React splash, heading, connection message and skeletons. Web startup is logo-only.
+- Keep the single Android launch splash visible until initial app loading finishes, then reveal the ready app directly. Remove the second React splash, connection message and skeletons. Both native and web startup show the transparent logo with “New Life Baptist Church” underneath.
 - Keep the last authorized outline list in memory for the signed-in account. Re-entry renders it immediately while refreshing from the server in the background. Sign-out/sign-in resets this cache; reload starts fresh. Reader/editor state still resets as before on tab changes.
 - Song Numbers now uses compact playback/library controls instead of inline performance lyrics; its attached link opens the existing Song Library player.
 - Song subtitle priority is now **Currently scheduled → Last sung → Not scheduled yet**, with only one of those three visible at a time.
