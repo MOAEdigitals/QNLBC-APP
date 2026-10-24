@@ -195,7 +195,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Practice state
   const [selectedPracticeId, setSelectedPracticeId] = useState<string | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     onPracticeDetailChange?.(activeSubTab === 'practice' && Boolean(selectedPracticeId));
   }, [activeSubTab, selectedPracticeId, onPracticeDetailChange]);
 
@@ -1943,7 +1943,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* The selected section expands to show its label; the others remain one-tap icons. */}
       <div role="group" aria-label="Schedules sections" className="flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
         <button type="button" onClick={() => setActiveSubTab('activities')} aria-pressed={activeSubTab === 'activities'} aria-label="Activities" title="Activities"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${activeSubTab === 'activities' ? 'flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'w-11 shrink-0 text-slate-600 dark:text-slate-400'} sm:flex-1 sm:w-auto`}>
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${activeSubTab === 'activities' ? 'flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'w-11 shrink-0 text-slate-600 dark:text-slate-400'} sm:flex-1 sm:w-auto`}>
           <Calendar className="w-5 h-5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
           <span className={`${activeSubTab === 'activities' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Activities</span>
         </button>
@@ -1954,7 +1954,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           aria-pressed={activeSubTab === 'schedules'}
           aria-label="Song Numbers"
           title="Song Numbers"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'schedules' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeSubTab === 'schedules' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             activeSubTab === 'schedules'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -1970,7 +1970,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           aria-pressed={activeSubTab === 'choir'}
           aria-label="Choir"
           title="Choir"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'choir' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeSubTab === 'choir' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             activeSubTab === 'choir'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -1986,7 +1986,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           aria-pressed={activeSubTab === 'practice'}
           aria-label="Practice"
           title="Practice"
-          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeSubTab === 'practice' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+          className={`relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeSubTab === 'practice' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             activeSubTab === 'practice'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

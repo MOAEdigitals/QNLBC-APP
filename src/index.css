@@ -4,8 +4,8 @@
 /* Shared primary add action, anchored above navigation in every tab. */
 .qnlbc-app button.app-fab {
   margin: 0;
-  bottom: calc(5rem + var(--app-safe-bottom));
-  right: max(1rem, env(safe-area-inset-right, 0px));
+  bottom: calc(var(--app-bottom-nav-height, calc(4.25rem + var(--app-safe-bottom))) + 12px);
+  right: max(1rem, var(--app-safe-right));
   background: #1d4ed8;
   color: #fff;
   border-color: #1d4ed8;
@@ -13,6 +13,12 @@
   --tw-ring-color: #1d4ed8;
 }
 .qnlbc-app button.app-fab:hover { background: #1e40af; }
+.app-bottom-nav { padding-left: var(--app-safe-left); padding-right: var(--app-safe-right); }
+.app-nav-label { font-size: clamp(10px, 2.65vw, 12px); letter-spacing: -.02em; }
+.qnlbc-app > main { padding-bottom: calc(var(--app-bottom-nav-height, calc(4.25rem + var(--app-safe-bottom))) + 5rem); }
+/* Avoid scroll anchoring to cards that disappear during section switches. */
+.special-screen { overflow-anchor: none; }
+.special-screen [aria-label="Schedules sections"] { height: 58px; flex-shrink: 0; }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -74,15 +80,7 @@
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
-  background:
-    radial-gradient(circle at 12px 4px, #7dd3fc 0 1.5px, transparent 2px) top left / 144px 8px repeat-x,
-    radial-gradient(circle at 49px 5px, #fbbf24 0 1.5px, transparent 2px) top left / 144px 8px repeat-x,
-    linear-gradient(55deg, transparent 48%, #c4b5fd 48.5% 51.5%, transparent 52%) top left / 144px 7px repeat-x,
-    radial-gradient(circle at 25px 4px, #fb7185 0 1.5px, transparent 2px) bottom left / 144px 8px repeat-x,
-    radial-gradient(circle at 60px 4px, #c4b5fd 0 1.5px, transparent 2px) bottom left / 144px 8px repeat-x,
-    linear-gradient(-55deg, transparent 48%, #7dd3fc 48.5% 51.5%, transparent 52%) bottom left / 144px 7px repeat-x,
-    radial-gradient(circle at 4px 22px, #c4b5fd 0 1.5px, transparent 2px) top left / 8px 80px repeat-y,
-    radial-gradient(circle at 4px 34px, #fbbf24 0 1.5px, transparent 2px) top right / 8px 80px repeat-y;
+  background: var(--celebration-confetti, none);
   opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }

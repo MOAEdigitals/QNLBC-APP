@@ -9,7 +9,7 @@ import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Trash2 }
 import type { UserAccount } from '../../types';
 import { parseDate, formatDateStr, getNextSundayStr, getTodayStr } from '../../utils/dateUtils';
 import { generateUUID } from '../../services/supabaseData';
-import { listSermons, sermonPayload } from './model';
+import { listSermons, sermonPayload, sermonSearchSnippet } from './model';
 import type { SermonOutline, SermonInput, SermonAttachment } from './model';
 import { loadSermons, saveSermon, deleteSermon } from './data';
 import { uploadSermonFile, validateSermonFile, removeUnusedSermonFiles } from './attachments';
@@ -200,10 +200,11 @@ export default function SermonOutlines({ currentUser, collapseSignal }: { curren
     {ready && visible.length === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}
     <div className="space-y-2.5">{monthList(visible, row => row.service_date, ['outline', 'outlines']).render(row => {
       const past = row.service_date < today;
+      const snippet = sermonSearchSnippet(row, search);
       return <div key={row.id} data-upcoming-card={row.service_date === today ? 'today' : upcoming.get(row.id)} className={`app-date-card relative w-full text-left p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
         <button type="button" onClick={() => openSermon(row)} className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer">
         <CardDate date={row.service_date} />
-        <div className="flex-1 min-w-0"><div className="flex min-w-0 items-center gap-1.5"><h3 className={`app-card-title min-w-0 truncate text-sm sm:text-base ${past ? 'font-bold text-slate-500 dark:text-slate-400' : 'font-black text-slate-900 dark:text-white'}`}>{row.title}</h3><UpcomingBadge status={row.service_date === today ? 'today' : upcoming.get(row.id)} />{row.status === 'draft' && <span className="text-[10px] font-semibold shrink-0 text-amber-600">Draft</span>}</div><div className="app-card-secondary mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><span className="min-w-0 truncate font-semibold">{row.preacher}</span></div></div>
+        <div className="flex-1 min-w-0"><div className="flex min-w-0 items-center gap-1.5"><h3 className={`app-card-title min-w-0 truncate text-sm sm:text-base ${past ? 'font-bold text-slate-500 dark:text-slate-400' : 'font-black text-slate-900 dark:text-white'}`}>{row.title}</h3><UpcomingBadge status={row.service_date === today ? 'today' : upcoming.get(row.id)} />{row.status === 'draft' && <span className="text-[10px] font-semibold shrink-0 text-amber-600">Draft</span>}</div><div className="app-card-secondary mt-1 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400"><span className="min-w-0 truncate font-semibold">{row.preacher}</span></div>{snippet && <p className="outline-search-snippet mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400 line-clamp-2">{snippet.before}<mark className="rounded bg-amber-100 text-slate-950 dark:bg-amber-200">{snippet.match}</mark>{snippet.after}</p>}</div>
         {!!row.attachments?.length && <span className="flex items-center gap-1 text-xs text-slate-400 shrink-0" aria-label={`${row.attachments.length} attachments`}><Paperclip className="w-3 h-3" />{row.attachments.length}</span>}
         </button>
         <CardActions label="Outline" disabled={saving} onEdit={canEdit(row) ? () => startEdit(row) : undefined} onDelete={canDelete(row) ? () => void removeSelected(row) : undefined} />

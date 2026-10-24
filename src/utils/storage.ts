@@ -136,6 +136,12 @@ export function saveCurrentSession(_user: UserAccount | null, _rememberMe: boole
 
 export function loadTheme(): 'light' | 'dark' {
   try {
+    // Reset once for this release, then honor subsequent personal choices.
+    if (localStorage.getItem('qnlbc_dark_defaults_2026_10_24') !== '1') {
+      localStorage.setItem(STORAGE_KEYS.THEME, 'dark');
+      localStorage.setItem('qnlbc_dark_defaults_2026_10_24', '1');
+      return 'dark';
+    }
     const saved = localStorage.getItem(STORAGE_KEYS.THEME);
     if (saved === 'dark' || saved === 'light') return saved;
     return 'dark';

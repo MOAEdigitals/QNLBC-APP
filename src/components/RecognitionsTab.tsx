@@ -1,3 +1,4 @@
+import { celebrationConfetti } from '../utils/celebrationConfetti';
 import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek } from '../utils/dateUtils';
@@ -321,6 +322,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       {items.map((item) => (
                         <div
                           key={item.id}
+                          style={celebrationConfetti(item.id)}
                           data-birthday-celebrant={isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
@@ -402,6 +404,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 {monthList(filteredAnniversaries, item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
                   <div
                     key={item.id}
+                    style={celebrationConfetti(item.id)}
                     data-birthday-celebrant={isBirthdayRecognitionWeek(item.anniversaryDate) || undefined}
                     data-past={isAnnualDatePast(item.anniversaryDate, birthdayToday) && !isBirthdayRecognitionWeek(item.anniversaryDate) || undefined}
                     className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"

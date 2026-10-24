@@ -32,13 +32,28 @@ export function sermonPayload(input: SermonInput): SermonInput {
 function searchText(value: string): string {
   return value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 }
+function sermonBody(row: SermonOutline): string {
+  return row.outline.trim() ? row.outline : (row.outline_html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&#(\d+);/g, (_, value) => String.fromCodePoint(Math.min(Number(value), 0x10ffff)));
+}
+/** Short, readable context around a body match; rendered as text, never as HTML. */
+export function sermonSearchSnippet(row: SermonOutline, search: string): { before: string; match: string; after: string } | null {
+  const query = searchText(search);
+  if (!query) return null;
+  const body = sermonBody(row).normalize('NFKC').replace(/\s+/g, ' ').trim();
+  const index = body.toLocaleLowerCase().indexOf(query);
+  if (index < 0) return null;
+  let start = Math.max(0, index - 60), end = Math.min(body.length, index + query.length + 95);
+  // Prefer whole words when an excerpt starts or ends mid-sentence.
+  if (start > 0) { const space = body.indexOf(' ', start); if (space < index && space >= 0) start = space + 1; }
+  if (end < body.length) { const space = body.lastIndexOf(' ', end); if (space > index + query.length) end = space; }
+  return { before: `${start > 0 ? '…' : ''}${body.slice(start, index)}`, match: body.slice(index, index + query.length), after: `${body.slice(index + query.length, end)}${end < body.length ? '…' : ''}` };
+}
 /** Prefer title/preacher matches, then search the preaching's editable text. */
 export function sermonSearchRank(row: SermonOutline, search: string): number {
   const query = searchText(search);
   if (!query) return 0;
   if (searchText(`${row.title} ${row.preacher}`).includes(query)) return 0;
-  const richFallback = (row.outline_html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&#(\d+);/g, (_, value) => String.fromCodePoint(Math.min(Number(value), 0x10ffff)));
-  return searchText(row.outline || richFallback).includes(query) ? 1 : -1;
+  return searchText(sermonBody(row)).includes(query) ? 1 : -1;
 }
 export function filterSermons(rows: SermonOutline[], filter: 'upcoming' | 'past', today: string, search: string): SermonOutline[] {
   return rows.filter(row => (filter === 'past' ? row.service_date < today : row.service_date >= today)

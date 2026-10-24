@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import * as dates from '../src/utils/dateUtils.ts';
+import * as model from '../src/features/sermons/model.ts';
 import { useBackLayer } from '../src/hooks/useBackLayer.ts';
 
 // Exercise the actual reader with browser history, the same path used by Android Back.
@@ -16,12 +17,14 @@ test('outline Back returns to the list and keeps the app tab; reopening and tool
   const saved = keys.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
   keys.forEach(key => Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[key] }));
   const row = { id: 'outline-one', title: 'Sunday preaching', service_date: '2026-10-25', preacher: 'Bro Ronnie', outline: 'Sermon text', attachments: [], status: 'published' };
+  let headerSearch: any;
   const dependencies: Record<string, any> = {
+    '../../components/HeaderSearch': { useHeaderSearch: (config: any) => { headerSearch = config; } },
     '../../hooks/useBackLayer': { useBackLayer },
     '../../components/MonthSeparators': { monthList: (rows: any[]) => ({ render: (fn: any) => rows.map(fn) }) },
     '../../utils/upcomingCards': { upcomingCardStatuses: () => new Map() },
     '../../utils/dateUtils': { ...dates, getTodayStr: () => '2026-10-22' },
-    './model': { listSermons: (rows: any[]) => rows },
+    './model': { ...model, listSermons: (rows: any[]) => rows },
     './data': { loadSermons: async () => [row] },
     './formatting': { renderOutline: () => 'Sermon text', sanitizeOutline: (html: string) => html },
   };
@@ -39,6 +42,10 @@ test('outline Back returns to the list and keeps the app tab; reopening and tool
   const open = async () => act(async () => { document.querySelector<HTMLButtonElement>('.app-date-card > button')!.click(); });
   try {
     await act(async () => root.render(React.createElement(exports.default, { currentUser: null })));
+    await act(async () => headerSearch.onChange('text'));
+    assert.equal(document.querySelector('.outline-search-snippet mark')?.textContent, 'text');
+    await act(async () => headerSearch.onChange(''));
+    assert.equal(document.querySelector('.outline-search-snippet'), null);
     await open(); assert.ok(document.querySelector('[role="dialog"]'));
     await act(async () => { window.history.back(); await wait(); });
     assert.equal(document.querySelector('[role="dialog"]'), null);

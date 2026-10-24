@@ -14,7 +14,7 @@
     <script>
       // Apply the preferred theme before React starts to avoid a light flash.
       try {
-        document.documentElement.classList.toggle('dark', localStorage.getItem('nlbc_theme_v1') !== 'light');
+        document.documentElement.classList.toggle('dark', localStorage.getItem('qnlbc_dark_defaults_2026_10_24') !== '1' || localStorage.getItem('nlbc_theme_v1') !== 'light');
       } catch {
         document.documentElement.classList.add('dark');
       }

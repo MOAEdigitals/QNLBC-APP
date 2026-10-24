@@ -1257,8 +1257,8 @@ export default function App() {
   if (isLoadingInitialData) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 text-slate-800 dark:text-slate-100 transition-colors">
-        <div className="w-full max-w-sm flex flex-col items-center text-center space-y-6 animate-pulse">
-          <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm p-2 flex items-center justify-center">
+        <div className="w-full max-w-sm flex flex-col items-center text-center space-y-6">
+          <div className="w-36 h-36 rounded-2xl bg-white overflow-hidden flex items-center justify-center">
             <ChurchLogo className="w-full h-full object-contain" />
           </div>
           <div className="space-y-2">
