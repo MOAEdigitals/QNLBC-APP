@@ -1,16 +1,14 @@
 import { UpcomingBadge } from '../../components/UpcomingBadge';
 import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import { CardDate } from '../../components/CardDate';
-import { compareMonthKeys } from '../../utils/recognitionOrder';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
-import { groupByMonth } from '../../components/MonthSeparators';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
-import { activityKind, isPastActivity, orderActivityList, sortActivities, isRoutineActivity } from './model';
+import { activityKind, isPastActivity, orderActivityList, sortActivities, isRoutineActivity, groupActivityMonths } from './model';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -118,8 +116,8 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   }, [filteredItems]);
   const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today))?.id;
   const followingActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today) && item.id !== nextActivityId)?.id;
-  // One separator per calendar month; individual cards retain their past/upcoming styling.
-  const activityGroups = groupByMonth(filteredItems, item => item.activityDate).sort((a, b) => compareMonthKeys(a.key, b.key, today.slice(0, 7)));
+  // Completed dates stay at the end of their year, after every upcoming month.
+  const activityGroups = groupActivityMonths(filteredItems, today);
 
   useEffect(() => {
     if (!openMenu) return;

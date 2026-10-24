@@ -34,4 +34,4 @@ The nested Choir conflict comes from the older parent listener consuming `popsta
 - Song Numbers now uses compact playback/library controls instead of inline performance lyrics; its attached link opens the existing Song Library player.
 - Song subtitle priority is now **Currently scheduled → Last sung → Not scheduled yet**, with only one of those three visible at a time.
 
-Validation: 213 automated tests passed, including actual outline Back/search and deferred background-refresh coverage. Web production build passed. No production records were created, edited or deleted during the audit. Full physical Android gesture/keyboard testing remains unverified.
+Validation: 214 automated tests passed, including actual outline Back/search and deferred background-refresh coverage. Web production build passed. No production records were created, edited or deleted during the audit. Full physical Android gesture/keyboard testing remains unverified.

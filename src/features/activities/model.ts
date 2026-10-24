@@ -25,13 +25,38 @@ export function sortActivities(items: ChurchActivity[]): ChurchActivity[] {
   });
 }
 
-/** Upcoming dates ascend; past dates follow, most recent first. */
+/** Keep each year's upcoming dates first, followed by that year's completed dates. */
 export function orderActivityList(items: ChurchActivity[], today: string): ChurchActivity[] {
-  const sorted = sortActivities(items);
-  return [
-    ...sorted.filter(item => !isPastActivity(item.activityDate, today)),
-    ...sorted.filter(item => isPastActivity(item.activityDate, today)).reverse(),
-  ];
+  const years = new Map<string, ChurchActivity[]>();
+  for (const item of sortActivities(items)) {
+    const year = item.activityDate.slice(0, 4);
+    if (!years.has(year)) years.set(year, []);
+    years.get(year)!.push(item);
+  }
+  return [...years].sort(([aYear, a], [bYear, b]) => {
+    const aUpcoming = a.some(item => !isPastActivity(item.activityDate, today));
+    const bUpcoming = b.some(item => !isPastActivity(item.activityDate, today));
+    if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
+    return aUpcoming ? aYear.localeCompare(bYear) : bYear.localeCompare(aYear);
+  }).flatMap(([, entries]) => [
+    ...entries.filter(item => !isPastActivity(item.activityDate, today)),
+    ...entries.filter(item => isPastActivity(item.activityDate, today)).reverse(),
+  ]);
+}
+
+/** Month headings must not merge completed cards back into an upcoming month. */
+export function groupActivityMonths(items: ChurchActivity[], today: string): { key: string; label: string; items: ChurchActivity[] }[] {
+  const groups: { key: string; label: string; items: ChurchActivity[] }[] = [];
+  for (const item of orderActivityList(items, today)) {
+    const month = item.activityDate.slice(0, 7);
+    const key = `${month}-${isPastActivity(item.activityDate, today) ? 'past' : 'upcoming'}`;
+    if (groups.at(-1)?.key !== key) {
+      const label = new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      groups.push({ key, label, items: [] });
+    }
+    groups.at(-1)!.items.push(item);
+  }
+  return groups;
 }
 
 export function activityBadge(activityDate: string, today: string, isNext: boolean): string | null {
