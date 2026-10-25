@@ -978,7 +978,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
 
         // Keep the picker in the dialog's stacking context, below its action bar.
-        if (isTouchPicker) return createPortal(<div className="fixed z-[200] inset-x-0 flex flex-col justify-end" style={{ top: mobilePickerPosition.top, height: mobilePickerPosition.maxHeight }}>
+        // Keep even the expanded drag handle below the system notification gesture area.
+        // Subtract only the inset still visible above the visual viewport (e.g. with a keyboard).
+        if (isTouchPicker) return createPortal(<div className="fixed z-[200] inset-x-0 flex flex-col justify-end" style={{
+          top: `max(${mobilePickerPosition.top}px, calc(var(--app-safe-top, 0px) + 12px))`,
+          height: `calc(${mobilePickerPosition.maxHeight}px - max(0px, calc(var(--app-safe-top, 0px) + 12px - ${mobilePickerPosition.top}px)))`,
+        }}>
           <button type="button" aria-label="Dismiss picker" onClick={closePicker} className="absolute inset-0 bg-black/50" />
           {dropdown}
         </div>, document.body);
