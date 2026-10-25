@@ -145,10 +145,10 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       assert.equal(selected, 'Original');
       await touch(input, 'pointerdown');
       await touch(input, 'pointerup');
-      const endDialog = document.querySelector('[role="dialog"]')!;
-      const list = endDialog.querySelector('.overflow-y-auto') as HTMLElement;
+      const topDialog = document.querySelector('[role="dialog"]')!;
+      const list = topDialog.querySelector('.overflow-y-auto') as HTMLElement;
       Object.defineProperties(list, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 300 } });
-      const swipeList = async (endY: number, endX = 40, reachBottom = false) => {
+      const swipeList = async (endY: number, endX = 40, reachTop = false) => {
         const emit = async (name: string, x: number, y: number) => act(() => {
           const point = { clientX: x, clientY: y };
           const event = new dom.window.Event(name, { bubbles: true, cancelable: true });
@@ -156,24 +156,28 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
           list.dispatchEvent(event);
         });
         await emit('touchstart', 40, 200);
-        if (reachBottom) list.scrollTop = 700;
+        if (reachTop) list.scrollTop = 0;
         await emit('touchmove', endX, endY);
         await emit('touchend', endX, endY);
       };
-      list.scrollTop = 0;
-      await swipeList(100, 40, true);
-      assert.equal(document.querySelector('[data-picker-closing]'), null, 'the gesture that reaches the end does not dismiss the list');
-      await swipeList(180);
-      assert.equal(document.querySelector('[data-picker-closing]'), null, 'a short overscroll does not dismiss the list');
-      await swipeList(100, 200);
-      assert.equal(document.querySelector('[data-picker-closing]'), null, 'horizontal swipes do not dismiss the list');
-      await swipeList(300);
-      assert.equal(document.querySelector('[data-picker-closing]'), null, 'scrolling back toward earlier songs does not dismiss the list');
+      list.scrollTop = 700;
       await swipeList(100);
-      assert.ok(document.querySelector('[data-picker-closing]'), 'the next deliberate scroll down at the end slides the list closed');
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'scrolling past the bottom no longer dismisses the list');
+      await swipeList(300);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'pulling down away from the top scrolls normally');
+      await swipeList(300, 40, true);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'the gesture that reaches the top does not dismiss the list');
+      await swipeList(220);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'a short downward pull does not dismiss the list');
+      await swipeList(300, 200);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'horizontal swipes do not dismiss the list');
+      await swipeList(100);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'scrolling toward later songs does not dismiss the list');
+      await swipeList(300);
+      assert.ok(document.querySelector('[data-picker-closing]'), 'the next deliberate downward pull at the top slides the list closed');
       await settleClose();
       assert.equal(document.querySelector('[role="dialog"]'), null);
-      assert.equal(selected, 'Original', 'scrolling past the end does not select a song or name');
+      assert.equal(selected, 'Original', 'pulling down at the top does not select a song or name');
       await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
       await touch(input, 'pointerdown');
       await touch(input, 'pointerup');
