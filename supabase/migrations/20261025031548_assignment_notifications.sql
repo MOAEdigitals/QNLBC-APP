@@ -41,9 +41,9 @@ grant select on public.directory_members to authenticated;
 revoke insert,update,delete on public.directory_members from anon, authenticated;
 
 create function public.list_directory_members()
-returns table(id uuid,name text,active boolean,linked_user_id uuid)
+returns table(id uuid,name text,active boolean,linked_user_id uuid,account_active boolean)
 language sql stable security definer set search_path='' as $$
-  select d.id,d.name,d.active,p.id from public.directory_members d
+  select d.id,d.name,d.active,p.id,coalesce(p.active,false) from public.directory_members d
   left join public.profiles p on p.directory_member_id=d.id
   where qnlbc_private.is_active_account() order by lower(d.name);
 $$;

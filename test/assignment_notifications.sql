@@ -6,6 +6,11 @@ update public.profiles set role='admin' where username='admin';
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001',true);
 select public.save_directory_member(null,'Bro. Juan',true) as person1 \gset
 select public.save_directory_member(null,'Bro. Pedro',true) as person2 \gset
+select public.save_directory_member(null,'Bro. Legacy',true) as person3 \gset
+insert into auth.users(id,raw_user_meta_data) values('00000000-0000-0000-0000-000000000004','{"username":"legacy.login","display_name":"Bro. Legacy"}');
+select pg_temp.check_result((select directory_member_id is null from public.profiles where username='legacy.login'),'Matching display names must not automatically claim a directory identity');
+update auth.users set raw_app_meta_data=jsonb_build_object('directory_member_id',:'person3') where id='00000000-0000-0000-0000-000000000004';
+select pg_temp.check_result((select directory_member_id=:'person3'::uuid and display_name='Bro. Legacy' and username='legacy.login' from public.profiles where id='00000000-0000-0000-0000-000000000004'),'Admin account linking must retain username and update canonical identity atomically');
 insert into auth.users(id,raw_user_meta_data,raw_app_meta_data) values
  ('00000000-0000-0000-0000-000000000002','{"username":"juan.login","display_name":"Wrong name"}',jsonb_build_object('directory_member_id',:'person1')),
  ('00000000-0000-0000-0000-000000000003','{"username":"pedro.login","display_name":"Pedro"}',jsonb_build_object('directory_member_id',:'person2'));
@@ -60,4 +65,11 @@ select public.finish_assignment_push(id,lease_id,'retry') from qnlbc_private.pus
 select pg_temp.check_result((select count(*)=2 from qnlbc_private.push_deliveries where state='pending'),'Failed deliveries are queued for retry');
 select public.unregister_push_device('00000000-0000-0000-0000-000000000011');
 select pg_temp.check_result((select count(*)=0 from qnlbc_private.push_deliveries),'Logout removes outstanding device deliveries');
+select count(*) as before_inactive from public.assignment_notifications \gset
+update public.profiles set active=false where id='00000000-0000-0000-0000-000000000003';
+insert into public.setlists(service_date,presider) values(:'saturday'::date+1,'Bro. Pedro');
+select pg_temp.check_result((select count(*)=:'before_inactive'::int from public.assignment_notifications),'Inactive accounts must not receive assignments');
+set local role authenticated;
+select pg_temp.check_result((select count(*)=0 from public.assignment_notifications),'Inactive accounts must not read notification history');
+reset role;
 rollback;
