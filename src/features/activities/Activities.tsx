@@ -9,6 +9,7 @@ import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { useHeaderSearch } from '../../components/HeaderSearch';
 import { activityKind, isPastActivity, orderActivityList, sortActivities, isRoutineActivity, groupActivityMonths } from './model';
+import { useCalendarSwipe } from './useCalendarSwipe';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
@@ -33,6 +34,7 @@ function todayKey() {
 export default function Activities({ currentUser, collapseSignal }: { currentUser: UserAccount | null; collapseSignal?: number }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
+  const calendarRef = useCalendarSwipe(direction => setMonth(value => new Date(value.getFullYear(), value.getMonth() + direction, 1)));
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [today, setToday] = useState(todayKey);
   const [items, setItems] = useState<ChurchActivity[]>([]);
@@ -202,7 +204,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   };
 
   return <div className="relative space-y-4 pb-16" onClick={() => setOpenMenu(null)}>
-    <section aria-label="Activity calendar" className="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-900">
+    <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-900">
       <header className="mb-3 flex items-center justify-between">
         <button type="button" className={action} aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-5 w-5" /></button>
         <h2 className="text-base font-bold">{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>

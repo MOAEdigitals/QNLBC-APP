@@ -16,9 +16,9 @@ def centered(canvas_size, logo_size, background):
 def branded_splash(canvas_size, scale, system_icon=False):
     canvas = Image.new('RGBA', canvas_size, (0, 0, 0, 0) if system_icon else '#020617')
     logo_size = round((120 if system_icon else 160) * scale)
-    font = ImageFont.truetype(str(root / 'public/fonts/plus-jakarta-sans-500.ttf'), round((11 if system_icon else 13) * scale))
+    font = ImageFont.truetype(str(root / 'public/fonts/plus-jakarta-sans-500.ttf'), round((13 if system_icon else 15) * scale))
     gap = round((8 if system_icon else 12) * scale)
-    top = round(76 * scale) if system_icon else (canvas.height - logo_size - gap - round(17 * scale)) // 2
+    top = round(66 * scale) if system_icon else (canvas.height - logo_size - gap - round(20 * scale)) // 2
     scaled = logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS)
     canvas.alpha_composite(scaled, ((canvas.width - logo_size) // 2, top))
     ImageDraw.Draw(canvas).text((canvas.width / 2, top + logo_size + gap), 'New Life Baptist Church', font=font, fill='#e2e8f0', anchor='mt')

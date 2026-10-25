@@ -1302,7 +1302,7 @@ export default function App() {
   if (isLoadingInitialData) {
     return (
       <div role="status" aria-label="Loading QNLBC" className="min-h-dvh bg-white dark:bg-slate-950 flex flex-col gap-3 items-center justify-center">
-        {!nativeSplashVisible && <><ChurchLogo className="w-36 h-36 object-contain" /><p className="text-sm font-medium text-slate-600 dark:text-slate-300">New Life Baptist Church</p></>}
+        {!nativeSplashVisible && <><ChurchLogo className="w-36 h-36 object-contain" /><p className="text-base font-medium text-slate-600 dark:text-slate-300">New Life Baptist Church</p></>}
       </div>
     );
   }
