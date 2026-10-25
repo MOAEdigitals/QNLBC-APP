@@ -1,0 +1,28 @@
+name: Check assignment notifications
+on:
+  push:
+    branches: ["feature/android-assignment-notifications"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Resolve Android notification dependency
+        run: |
+          npm install --package-lock-only --save-exact @capacitor/push-notifications@8.0.1
+          node -e 'const p=require("./package-lock.json"); console.log("QNLBC_LOCK_ENTRY="+JSON.stringify(p.packages["node_modules/@capacitor/push-notifications"]));'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Generate notification migration
+        run: |
+          supabase --help >/dev/null
+          supabase migration --help >/dev/null
+          supabase migration new assignment_notifications
+          node -e 'const fs=require("fs"); console.log("QNLBC_MIGRATION_FILE="+fs.readdirSync("supabase/migrations").find(n=>n.endsWith("_assignment_notifications.sql")));'
