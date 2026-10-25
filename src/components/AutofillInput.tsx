@@ -9,7 +9,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check, ChevronDown } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
@@ -110,9 +110,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [desktopBrowsing, setDesktopBrowsing] = useState(false);
   const [isPickerFullscreen, setIsPickerFullscreen] = useState(false);
   const [pickerDragY, setPickerDragY] = useState(0);
-  const pickerDragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
+  const [isPickerDragging, setIsPickerDragging] = useState(false);
+  const [pickerCloseMs, setPickerCloseMs] = useState(240);
+  const closeDurationRef = useRef(240);
+  const pickerListRef = useRef<HTMLDivElement>(null);
+  const pickerDragRef = useRef<{ pointerId: number; x: number; y: number; lastY: number; lastTime: number; velocity: number } | null>(null);
   const ignoreHandleClickRef = useRef(false);
-  const listTopGestureRef = useRef<{ x: number; y: number; startedAtTop: boolean } | null>(null);
   const pickerSearchRef = useRef<HTMLInputElement>(null);
   const [isPickerClosing, setIsPickerClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,19 +129,23 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setPickerDragY(0);
     setIsPickerClosing(false);
     pickerDragRef.current = null;
-    listTopGestureRef.current = null;
+    setIsPickerDragging(false);
   };
   const closePicker = () => {
     if (closeTimerRef.current) return;
     pickerSearchRef.current?.blur();
     pickerDragRef.current = null;
+    setIsPickerDragging(false);
+    const duration = closeDurationRef.current;
+    closeDurationRef.current = 240;
+    setPickerCloseMs(duration);
     if (!isTouchPicker || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       finishClosePicker();
       return;
     }
     // Keep the sheet mounted at its current height while it slides below the viewport.
     setIsPickerClosing(true);
-    closeTimerRef.current = setTimeout(finishClosePicker, 260);
+    closeTimerRef.current = setTimeout(finishClosePicker, duration + 20);
   };
   useEffect(() => {
     if (!isOpen) {
@@ -168,6 +175,81 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const hasMovedRef = useRef<boolean>(false);
   const lastScrollTimeRef = useRef<number>(0);
   const scrollTimeoutRef = useRef<any>(null);
+
+  const releasePickerPull = (distance: number, velocity: number) => {
+    setIsPickerDragging(false);
+    // A deliberate pull closes; a short flick needs downward momentum.
+    // Reversing upward or pausing after a small pull returns the sheet to its place.
+    if (velocity >= 0 && (distance >= 80 || (distance >= 24 && velocity >= 0.55))) {
+      const height = dropdownRef.current?.getBoundingClientRect().height || mobilePickerPosition?.maxHeight || 560;
+      const remaining = Math.max(0, height - distance);
+      closeDurationRef.current = Math.round(Math.max(100, Math.min(240, remaining / Math.max(velocity, 0.6))));
+      closePicker();
+    } else {
+      setPickerDragY(0);
+    }
+  };
+
+  useEffect(() => {
+    const list = pickerListRef.current;
+    if (!isOpen || !isTouchPicker || isPickerClosing || !list) return;
+    let pull: { x: number; y: number; lastY: number; lastTime: number; velocity: number; dragging: boolean; rejected: boolean } | null = null;
+    const cancel = () => {
+      if (pull?.dragging) { setIsPickerDragging(false); setPickerDragY(0); }
+      pull = null;
+    };
+    const start = (event: TouchEvent) => {
+      cancel();
+      if (event.touches.length !== 1 || list.scrollTop > 2) return;
+      const touch = event.touches[0];
+      pull = { x: touch.clientX, y: touch.clientY, lastY: touch.clientY, lastTime: event.timeStamp, velocity: 0, dragging: false, rejected: false };
+    };
+    const move = (event: TouchEvent) => {
+      if (!pull || pull.rejected) return;
+      if (event.touches.length !== 1) { cancel(); return; }
+      const touch = event.touches[0];
+      const dy = touch.clientY - pull.y;
+      const dx = Math.abs(touch.clientX - pull.x);
+      if (!pull.dragging) {
+        if (Math.max(Math.abs(dy), dx) <= 8) return;
+        if (dy <= 0 || dy <= dx * 1.5 || !event.cancelable) { pull.rejected = true; return; }
+        pull.dragging = true;
+        setIsPickerDragging(true);
+      }
+      // A non-passive listener lets the sheet own this downward pull while
+      // all other gestures retain normal native list scrolling.
+      if (event.cancelable) event.preventDefault();
+      const elapsed = Math.max(1, event.timeStamp - pull.lastTime);
+      pull.velocity = (touch.clientY - pull.lastY) / elapsed;
+      pull.lastY = touch.clientY;
+      pull.lastTime = event.timeStamp;
+      lastScrollTimeRef.current = Date.now();
+      hasMovedRef.current = true;
+      setPickerDragY(Math.max(0, dy));
+    };
+    const end = (event: TouchEvent) => {
+      const gesture = pull;
+      if (!gesture?.dragging) { pull = null; return; }
+      if (event.touches.length || event.changedTouches.length !== 1) { cancel(); return; }
+      pull = null;
+      const distance = Math.max(0, event.changedTouches[0].clientY - gesture.y);
+      const velocity = event.timeStamp - gesture.lastTime > 100 ? 0 : gesture.velocity;
+      lastScrollTimeRef.current = Date.now();
+      releasePickerPull(distance, velocity);
+    };
+    list.addEventListener('touchstart', start, { passive: true });
+    list.addEventListener('touchmove', move, { passive: false });
+    list.addEventListener('touchend', end);
+    list.addEventListener('touchcancel', cancel);
+    return () => {
+      list.removeEventListener('touchstart', start);
+      list.removeEventListener('touchmove', move);
+      list.removeEventListener('touchend', end);
+      list.removeEventListener('touchcancel', cancel);
+      cancel();
+    };
+  }, [isOpen, isTouchPicker, isPickerClosing, mobilePickerPosition]);
+
 
   const positionMobilePicker = (_ensureSpace = false) => {
     const input = inputRef.current;
@@ -806,7 +888,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             height: isPickerFullscreen ? mobilePickerPosition.maxHeight : Math.min(mobilePickerPosition.maxHeight, Math.min(560, mobilePickerPosition.maxHeight - 16) + Math.max(0, -pickerDragY)),
             transform: isPickerClosing ? 'translateY(100%)' : `translateY(${Math.max(0, pickerDragY)}px)`,
             pointerEvents: isPickerClosing ? 'none' : undefined,
-            transition: pickerDragRef.current ? 'none' : 'height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 240ms cubic-bezier(0.22, 1, 0.36, 1)',
+            transition: isPickerDragging ? 'none' : `height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform ${isPickerClosing ? pickerCloseMs : 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
             // Keep the drag header below Android's status-bar pull-down area, even when expanded.
             maxHeight: 'max(0px, calc(100% - var(--app-safe-top, 0px) - 24px))', paddingBottom: 'var(--app-safe-bottom)',
           } : mobilePickerPosition
@@ -825,7 +907,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             <div data-picker-drag-header className="touch-none select-none"
               onPointerDown={event => {
                 if (event.button !== 0 || isPickerClosing) return;
-                pickerDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+                pickerDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, lastY: event.clientY, lastTime: event.timeStamp, velocity: 0 };
                 ignoreHandleClickRef.current = false;
               }}
               onPointerMove={event => {
@@ -835,8 +917,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 if (Math.abs(event.clientX - drag.x) > Math.abs(dy)) return;
                 if (Math.abs(dy) > 8) {
                   ignoreHandleClickRef.current = true;
+                  setIsPickerDragging(true);
                   event.currentTarget.setPointerCapture?.(event.pointerId);
                 }
+                drag.velocity = (event.clientY - drag.lastY) / Math.max(1, event.timeStamp - drag.lastTime);
+                drag.lastY = event.clientY;
+                drag.lastTime = event.timeStamp;
                 setPickerDragY(dy);
               }}
               onPointerUp={event => {
@@ -845,24 +931,19 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 const dy = event.clientY - drag.y;
                 const vertical = Math.abs(dy) > Math.abs(event.clientX - drag.x);
                 pickerDragRef.current = null;
+                setIsPickerDragging(false);
                 if (vertical && Math.abs(dy) > 8) ignoreHandleClickRef.current = true;
                 if (vertical && dy <= -60) { setIsPickerFullscreen(true); setPickerDragY(0); }
-                else if (vertical && dy >= 80) closePicker();
+                else if (vertical && dy > 0) releasePickerPull(dy, event.timeStamp - drag.lastTime > 100 ? 0 : drag.velocity);
                 else setPickerDragY(0);
               }}
-              onPointerCancel={() => { pickerDragRef.current = null; setPickerDragY(0); }}>
+              onPointerCancel={() => { pickerDragRef.current = null; setIsPickerDragging(false); setPickerDragY(0); }}>
             <button type="button" aria-label={isPickerFullscreen ? 'Reduce picker' : 'Expand picker to full screen'} aria-expanded={isPickerFullscreen}
               onClick={() => { if (ignoreHandleClickRef.current) { ignoreHandleClickRef.current = false; return; } setIsPickerFullscreen(current => !current); }}
               className="flex h-11 w-full items-center justify-center cursor-grab active:cursor-grabbing"><span className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" /></button>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-900 dark:text-white">{showSongCategoryFilters ? 'Songs' : 'Names and options'}</h2>
-              <div className="flex items-center gap-1">
-                {isPickerFullscreen && <button type="button" aria-label="Reduce list" onPointerDown={event => event.stopPropagation()} onClick={() => { ignoreHandleClickRef.current = false; setIsPickerFullscreen(false); setPickerDragY(0); }}
-                  className="h-11 px-3 flex items-center gap-1 rounded-full text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
-                  <ChevronDown className="h-5 w-5" aria-hidden="true" /><span>Reduce</span>
-                </button>}
-                <button type="button" aria-label="Close picker" onPointerDown={event => event.stopPropagation()} onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
-              </div>
+              <button type="button" aria-label="Close picker" onPointerDown={event => event.stopPropagation()} onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
             </div>
             </div>
             <div className="relative">
@@ -932,28 +1013,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          <div className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
-            onTouchStart={event => {
-              listTopGestureRef.current = null;
-              if (!isTouchPicker || isPickerClosing || event.touches.length !== 1) return;
-              const list = event.currentTarget;
-              const touch = event.touches[0];
-              // Only a NEW downward pull after reaching the top can dismiss the sheet.
-              listTopGestureRef.current = {
-                x: touch.clientX, y: touch.clientY,
-                startedAtTop: list.scrollTop <= 2,
-              };
-            }}
-            onTouchEnd={event => {
-              const gesture = listTopGestureRef.current;
-              listTopGestureRef.current = null;
-              if (!gesture?.startedAtTop || event.touches.length || event.changedTouches.length !== 1) return;
-              const touch = event.changedTouches[0];
-              const pullDown = touch.clientY - gesture.y;
-              const sideways = Math.abs(touch.clientX - gesture.x);
-              if (pullDown >= 64 && pullDown > sideways * 1.5) closePicker();
-            }}
-            onTouchCancel={() => { listTopGestureRef.current = null; }}>
+          <div ref={pickerListRef} className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
           {isTouchPicker && pickerQuery.trim() && !matchedItems.some(item => item.title.toLowerCase() === activeQuery) && <button type="button" onClick={event => handleSelect({ title: pickerQuery.trim() }, event)} className="w-full min-h-11 px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400">Use “{pickerQuery.trim()}”</button>}
           {displayedItems.length === 0 && (
             <div className="px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
