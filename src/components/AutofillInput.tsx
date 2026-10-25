@@ -112,6 +112,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const [pickerDragY, setPickerDragY] = useState(0);
   const pickerDragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
   const ignoreHandleClickRef = useRef(false);
+  const listEndGestureRef = useRef<{ x: number; y: number; startedAtEnd: boolean } | null>(null);
   const pickerSearchRef = useRef<HTMLInputElement>(null);
   const [isPickerClosing, setIsPickerClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,6 +126,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setPickerDragY(0);
     setIsPickerClosing(false);
     pickerDragRef.current = null;
+    listEndGestureRef.current = null;
   };
   const closePicker = () => {
     if (closeTimerRef.current) return;
@@ -930,7 +932,28 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          <div className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
+          <div className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y"
+            onTouchStart={event => {
+              listEndGestureRef.current = null;
+              if (!isTouchPicker || isPickerClosing || event.touches.length !== 1) return;
+              const list = event.currentTarget;
+              const touch = event.touches[0];
+              // Only a NEW gesture after reaching the bottom can dismiss the sheet.
+              listEndGestureRef.current = {
+                x: touch.clientX, y: touch.clientY,
+                startedAtEnd: list.scrollHeight > list.clientHeight + 2 && list.scrollTop + list.clientHeight >= list.scrollHeight - 2,
+              };
+            }}
+            onTouchEnd={event => {
+              const gesture = listEndGestureRef.current;
+              listEndGestureRef.current = null;
+              if (!gesture?.startedAtEnd || event.touches.length || event.changedTouches.length !== 1) return;
+              const touch = event.changedTouches[0];
+              const scrollDown = gesture.y - touch.clientY;
+              const sideways = Math.abs(touch.clientX - gesture.x);
+              if (scrollDown >= 64 && scrollDown > sideways * 1.5) closePicker();
+            }}
+            onTouchCancel={() => { listEndGestureRef.current = null; }}>
           {isTouchPicker && pickerQuery.trim() && !matchedItems.some(item => item.title.toLowerCase() === activeQuery) && <button type="button" onClick={event => handleSelect({ title: pickerQuery.trim() }, event)} className="w-full min-h-11 px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400">Use “{pickerQuery.trim()}”</button>}
           {displayedItems.length === 0 && (
             <div className="px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
