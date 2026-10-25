@@ -2,7 +2,7 @@ import { supabase } from '../supabase';
 import { getAudioFromStorage } from '../utils/audioStorage';
 
 // Preserve database IDs and relationships, including records in tabs never opened.
-export const BACKUP_TABLES = ['profiles', 'songs', 'setlists', 'setlist_items',
+export const BACKUP_TABLES = ['profiles', 'directory_members', 'songs', 'setlists', 'setlist_items',
   'special_numbers', 'choir_entries', 'practice_entries', 'vocal_parts',
   'vocal_part_assignments', 'media', 'attachments', 'birthdays', 'anniversaries',
   'visitors', 'recognitions', 'app_settings', 'church_activities', 'sermon_outlines'] as const;
@@ -91,3 +91,4 @@ export async function createFullBackup(progress: (message: string) => void) {
     externalLinks: [...externalLinks],
     scope: 'Database records and referenced R2 recordings/legacy recordings/sermon files. External links are preserved as links. Auth passwords and provider configuration are excluded.' };
 }
+

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UserAccount, AppTab } from '../types';
-import { Search, X } from 'lucide-react';
+import { Search, X, Bell } from 'lucide-react';
 import { useHeaderSearchContext } from './HeaderSearch';
 
 const TAB_LABELS: Record<AppTab, string> = {
@@ -17,12 +17,16 @@ interface NavbarProps {
   users?: UserAccount[];
   currentTab: AppTab;
   onNavigateToSettings: () => void;
+  onOpenNotifications?: () => void;
+  unreadNotifications?: number;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   currentTab,
   onNavigateToSettings,
+  onOpenNotifications,
+  unreadNotifications = 0,
 }) => {
   const { search } = useHeaderSearchContext();
   const [isSearchOpened, setIsSearching] = useState(false);
@@ -70,6 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>}
 
         {!isSearching && <div className="flex items-center space-x-2">
+          {onOpenNotifications && <button type="button" onClick={onOpenNotifications} aria-label={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><Bell className="h-5 w-5" />{unreadNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>}
           {search?.beforeSearch}
           {search && <button type="button" onClick={() => { focusRequestedRef.current = true; setIsSearching(true); }} aria-label="Search" title="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Search className="h-5 w-5" /></button>}
           {currentUser && (
@@ -97,3 +102,4 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+

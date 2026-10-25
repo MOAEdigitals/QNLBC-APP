@@ -1,0 +1,57 @@
+name: Check assignment notifications
+on:
+  push:
+    branches: ['feature/android-assignment-notifications']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+  database:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: notifications-test-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: notifications-test-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify migration and assignment flows in isolated PostgreSQL
+        run: |
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/assignment_schema_fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025031548_assignment_notifications.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/assignment_notifications.sql
+  android:
+    needs: [app, database]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npm ci
+      - run: npm run build:android
+      - name: Compile Android notification integration
+        working-directory: android
+        run: chmod +x ./gradlew && ./gradlew assembleDebug

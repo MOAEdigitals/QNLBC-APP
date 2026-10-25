@@ -1,3 +1,4 @@
+import { AssignmentRecipients } from './AssignmentRecipients';
 import { UpcomingBadge } from './UpcomingBadge';
 import { SetlistShareDialog } from './SetlistShareDialog';
 import { CardDate } from './CardDate';
@@ -1448,6 +1449,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
               </button>
             </div>
 
+            <div className="px-4 pt-3"><AssignmentRecipients names={[editingSetlist.presider, ...((!editingSetlist.type || editingSetlist.type === 'sunday') ? [editingSetlist.sundaySchool?.songLeader, editingSetlist.worshipService?.songLeader] : [editingSetlist.program?.songLeader])]} /></div>
+
             {/* Back swipe warning toast/banner */}
             {editPromptMsg && (
               <div
@@ -2054,3 +2057,4 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     </div>
   );
 };
+
