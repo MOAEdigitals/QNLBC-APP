@@ -9,7 +9,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check, ChevronDown } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
@@ -799,13 +799,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           data-picker-closing={isPickerClosing || undefined}
           onTransitionEnd={event => { if (event.target === event.currentTarget && event.propertyName === 'transform' && isPickerClosing) finishClosePicker(); }}
           data-picker-fullscreen={isTouchPicker ? isPickerFullscreen : undefined}
-          className={`${isTouchPicker ? `relative w-full mx-auto ${isPickerFullscreen ? '' : 'max-w-xl rounded-t-2xl'} motion-reduce:transition-none` : 'fixed z-[200] rounded-2xl'} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
+          className={`${isTouchPicker ? `relative w-full mx-auto rounded-t-2xl ${isPickerFullscreen ? '' : 'max-w-xl'} motion-reduce:transition-none` : 'fixed z-[200] rounded-2xl'} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
           style={isTouchPicker ? {
             height: isPickerFullscreen ? mobilePickerPosition.maxHeight : Math.min(mobilePickerPosition.maxHeight, Math.min(560, mobilePickerPosition.maxHeight - 16) + Math.max(0, -pickerDragY)),
             transform: isPickerClosing ? 'translateY(100%)' : `translateY(${Math.max(0, pickerDragY)}px)`,
             pointerEvents: isPickerClosing ? 'none' : undefined,
             transition: pickerDragRef.current ? 'none' : 'height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform 240ms cubic-bezier(0.22, 1, 0.36, 1)',
-            maxHeight: '100%', paddingBottom: 'var(--app-safe-bottom)',
+            // Keep the drag header below Android's status-bar pull-down area, even when expanded.
+            maxHeight: 'max(0px, calc(100% - var(--app-safe-top, 0px) - 24px))', paddingBottom: 'var(--app-safe-bottom)',
           } : mobilePickerPosition
             ? {
                 WebkitOverflowScrolling: 'touch',
@@ -850,10 +851,16 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               onPointerCancel={() => { pickerDragRef.current = null; setPickerDragY(0); }}>
             <button type="button" aria-label={isPickerFullscreen ? 'Reduce picker' : 'Expand picker to full screen'} aria-expanded={isPickerFullscreen}
               onClick={() => { if (ignoreHandleClickRef.current) { ignoreHandleClickRef.current = false; return; } setIsPickerFullscreen(current => !current); }}
-              className="flex h-6 w-full items-center justify-center cursor-grab active:cursor-grabbing"><span className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" /></button>
+              className="flex h-11 w-full items-center justify-center cursor-grab active:cursor-grabbing"><span className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" /></button>
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-base font-semibold text-slate-900 dark:text-white">{showSongCategoryFilters ? 'Songs' : 'Names and options'}</h2>
-              <button type="button" aria-label="Close picker" onPointerDown={event => event.stopPropagation()} onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
+              <div className="flex items-center gap-1">
+                {isPickerFullscreen && <button type="button" aria-label="Reduce list" onPointerDown={event => event.stopPropagation()} onClick={() => { ignoreHandleClickRef.current = false; setIsPickerFullscreen(false); setPickerDragY(0); }}
+                  className="h-11 px-3 flex items-center gap-1 rounded-full text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                  <ChevronDown className="h-5 w-5" aria-hidden="true" /><span>Reduce</span>
+                </button>}
+                <button type="button" aria-label="Close picker" onPointerDown={event => event.stopPropagation()} onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
+              </div>
             </div>
             </div>
             <div className="relative">

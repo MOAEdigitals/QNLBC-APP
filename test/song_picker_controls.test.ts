@@ -105,6 +105,15 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'true');
       assert.equal((dialog as HTMLElement).style.height, `${window.innerHeight}px`);
       assert.equal(search.readOnly, true, 'expanding does not activate the keyboard');
+      await click(dialog.querySelector('[aria-label="Reduce list"]')!);
+      assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'false', 'a reachable button reduces the sheet without a top-edge gesture');
+      assert.ok(document.querySelector('[role="dialog"]'), 'reducing keeps the song list open');
+      assert.equal(selected, 'Original', 'reducing does not change the selected song or name');
+      assert.equal(search.readOnly, true, 'reducing does not activate the keyboard');
+      assert.equal(dialog.querySelector('[aria-label="Reduce list"]'), null);
+      await click(dialog.querySelector('[aria-label="Expand picker to full screen"]')!);
+      assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'true');
+
       const top = (dialog.parentElement as HTMLElement).style.top;
       await act(() => window.dispatchEvent(new dom.window.Event('resize')));
       assert.equal((dialog.parentElement as HTMLElement).style.top, top, 'sheet does not flip around the field');
