@@ -112,6 +112,8 @@ function TabLoadingSkeleton() {
 export default function App() {
   // 1. Auth and Loading States
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const signedInUserIdRef = useRef<string | null>(null);
+  signedInUserIdRef.current = currentUser?.id || null;
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState<boolean>(true);
 
@@ -450,9 +452,17 @@ export default function App() {
 
   const [isNotificationInboxOpen, setNotificationInboxOpen] = useState(false);
   const openAssignedSetlist = useCallback((id: string) => {
-    pendingSharedSetlist.current = id;
-    setSharedLinkRequest(value => value + 1);
+    const userId = signedInUserIdRef.current;
+    if (!userId) return;
     setCurrentTab('home');
+    void fetchSetlists().then(rows => {
+      if (signedInUserIdRef.current !== userId) return;
+      setSetlists(rows);
+      pendingSharedSetlist.current = id;
+      setSharedLinkRequest(value => value + 1);
+    }).catch(() => {
+      if (signedInUserIdRef.current === userId) setSharedSetlistError('Unable to open the latest setlist. Please try again.');
+    });
   }, []);
   const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist);
 
@@ -1330,7 +1340,7 @@ export default function App() {
           users={users}
           currentTab={currentTab}
           onNavigateToSettings={() => handleNavigateTab('settings')}
-          onOpenNotifications={() => setNotificationInboxOpen(true)}
+          onOpenNotifications={() => { setNotificationInboxOpen(true); void notifications.refresh(); }}
           unreadNotifications={notifications.items.filter(item => !item.read_at).length}
         />
       )}

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import { fetchAssignmentNotifications, listenForAssignmentPush, enableAssignmentPush, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
+import { fetchAssignmentNotifications, listenForAssignmentPush, enableAssignmentPush, refreshAssignmentPushPermission, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
 export function useAssignmentNotifications(userId: string | undefined, onOpen: (id: string) => void) {
   const [items, setItems] = useState<AssignmentNotification[]>([]);
   const [error, setError] = useState('');
@@ -27,9 +27,9 @@ export function useAssignmentNotifications(userId: string | undefined, onOpen: (
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60000);
     const visible = () => { if (document.visibilityState === 'visible') void refresh(); };
     document.addEventListener('visibilitychange', visible);
-    const native = Capacitor.isNativePlatform() ? NativeApp.addListener('appStateChange', state => { if (state.isActive) void refresh(); }) : null;
+    const native = Capacitor.isNativePlatform() ? NativeApp.addListener('appStateChange', state => { if (state.isActive) { void refresh(); void refreshAssignmentPushPermission().then(status => { if (!disposed && status) setPushStatus(status); }).catch(() => { if (!disposed) setPushStatus('error'); }); } }) : null;
     return () => { disposed = true; epoch.current++; stopPush?.(); clearInterval(timer); document.removeEventListener('visibilitychange', visible); if (native) void native.then(handle => handle.remove()); };
   }, [userId, onOpen, refresh]);
   const enable = async () => { try { const status = await enableAssignmentPush(); if (status !== 'prompt') setPushStatus(status); } catch { setPushStatus('error'); } };
-  return { items, error, loading, refresh, pushStatus, enable };
+  return { items: items.filter(item => item.user_id === userId), error, loading, refresh, pushStatus, enable };
 }

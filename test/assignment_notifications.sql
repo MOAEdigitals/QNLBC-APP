@@ -49,6 +49,9 @@ select pg_temp.check_result((select count(*)=2 from public.assignment_notificati
 select set_config('request.jwt.claim.role','service_role',true);
 select count(*) as claimed from public.claim_assignment_pushes(50) \gset
 select pg_temp.check_result(:'claimed'::int=2,'Only current assignment/date deliveries should be claimed');
+update public.push_devices set token='refreshed-token-for-pedro-device-1234567890' where user_id='00000000-0000-0000-0000-000000000003';
+select public.finish_assignment_push(id,lease_id,'invalid') from qnlbc_private.push_deliveries where state='leased' limit 1;
+select pg_temp.check_result((select count(*)=1 from public.push_devices where token='refreshed-token-for-pedro-device-1234567890'),'Invalid old token response must not delete a refreshed token');
 select public.finish_assignment_push(id,lease_id,'retry') from qnlbc_private.push_deliveries where state='leased';
 select pg_temp.check_result((select count(*)=2 from qnlbc_private.push_deliveries where state='pending'),'Failed deliveries are queued for retry');
 select public.unregister_push_device('00000000-0000-0000-0000-000000000011');

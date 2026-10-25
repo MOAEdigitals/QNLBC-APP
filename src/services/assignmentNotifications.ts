@@ -39,6 +39,13 @@ export async function enableAssignmentPush(): Promise<PushStatus> {
   // 'enabled' is set only when the registration token has been persisted.
   return 'prompt';
 }
+export async function refreshAssignmentPushPermission(): Promise<PushStatus | undefined> {
+  if (!android()) return 'web';
+  if (!configured()) return 'setup';
+  const permission = await PushNotifications.checkPermissions();
+  if (permission.receive === 'granted') { await PushNotifications.register(); return undefined; }
+  return permission.receive === 'denied' ? 'denied' : 'prompt';
+}
 export async function disableAssignmentPush(): Promise<void> {
   generation++;
   await registrationWork.catch(() => {});

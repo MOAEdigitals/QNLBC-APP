@@ -13,6 +13,7 @@ function clientHarness() {
   const listeners = new Map<string, (...args: any[]) => void>();
   const calls: { name: string; args?: any }[] = [];
   let permission = 'prompt';
+  let registrationGate: Promise<void> | undefined;
   const pushes = {
     addListener: async (name: string, callback: any) => { listeners.set(name, callback); return { remove: async () => { if (listeners.get(name) === callback) listeners.delete(name); } }; },
     checkPermissions: async () => ({ receive: permission }),
@@ -21,7 +22,7 @@ function clientHarness() {
     unregister: async () => { calls.push({ name: 'native-unregister' }); },
     removeAllDeliveredNotifications: async () => {}, createChannel: async () => {},
   };
-  const db = { auth: { getUser: async () => ({ data: { user: { id: currentUser } } }) }, rpc: async (name: string, args: any) => { calls.push({ name, args }); return { error: null }; } };
+  const db = { auth: { getUser: async () => ({ data: { user: { id: currentUser } } }) }, rpc: async (name: string, args: any) => { calls.push({ name, args }); if (name === 'register_push_device') await registrationGate; return { error: null }; } };
   const storage = new Map<string, string>();
   const exports: any = {};
   const source = fs.readFileSync('src/services/assignmentNotifications.ts', 'utf8').replace("import.meta.env.VITE_ANDROID_PUSH_CONFIGURED", "'true'");
@@ -29,7 +30,7 @@ function clientHarness() {
     exports, crypto: webcrypto, localStorage: { getItem: (key: string) => storage.get(key) || null, setItem: (key: string, value: string) => storage.set(key, value) },
     require: (name: string) => name === '@capacitor/core' ? { Capacitor: { getPlatform: () => 'android' } } : name === '@capacitor/push-notifications' ? { PushNotifications: pushes } : { supabase: db },
   });
-  return { exports, listeners, calls, setUser: (id: string) => { currentUser = id; }, setPermission: (value: string) => { permission = value; } };
+  return { exports, listeners, calls, blockRegistration: () => { let release: () => void; registrationGate = new Promise<void>(resolve => { release = resolve; }); return () => release!(); }, setUser: (id: string) => { currentUser = id; }, setPermission: (value: string) => { permission = value; } };
 }
 test('Android registration requires permission and successful account-bound persistence; wrong-account taps are ignored', async () => {
   const h = clientHarness(); const opened: string[] = []; const statuses: string[] = [];
@@ -53,6 +54,18 @@ test('Android registration requires permission and successful account-bound pers
   await h.exports.disableAssignmentPush();
   assert.ok(h.calls.some(call => call.name === 'unregister_push_device'));
   assert.ok(h.calls.some(call => call.name === 'native-unregister'));
+});
+test('logout waits for an in-flight registration before revoking the installation', async () => {
+  const h = clientHarness();
+  const release = h.blockRegistration();
+  const stop = await h.exports.listenForAssignmentPush(user1, () => {}, () => {}, () => {});
+  await h.exports.enableAssignmentPush(); await flush();
+  const logout = h.exports.disableAssignmentPush(); await flush();
+  assert.equal(h.calls.some(call => call.name === 'unregister_push_device'), false, 'revocation must follow an already-started registration');
+  release(); await logout;
+  const names = h.calls.map(call => call.name);
+  assert.ok(names.indexOf('unregister_push_device') > names.indexOf('register_push_device'));
+  stop();
 });
 test('denied notification permission never registers a token', async () => {
   const h = clientHarness(); h.setPermission('denied');

@@ -16,8 +16,9 @@ test('only confirmed password updates are exposed for account handoff', async ()
     const user = { id: 'member', username: 'oldname' };
     const code = handler('handleUpdateMember', 'handleCopyMemberCredentials');
     const save = runInNewContext(ts.transpileModule(`${code}\nhandleUpdateMember;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
-      memberSaveLock: { current: false }, memberEdit: { displayName: 'Name', username: ' NewName ', password: 'new-password' }, users: [user],
+      memberSaveLock: { current: false }, memberEdit: { displayName: 'Name', directoryMemberId: 'directory-person-id', username: ' NewName ', password: 'new-password' }, users: [user],
       updateManagedUser: async () => { if (fail) throw new Error('Save failed'); },
+      refreshDirectory: async () => {},
       fetchAllProfiles: async () => [], onUpdateUsers() {}, setMemberNotice() {}, setManagingUserId() {}, setEditingMemberId() {},
       setMemberEdit: (value: any) => { draft = value; },
       setMemberEditError: (value: string) => { error = value; },
@@ -48,3 +49,4 @@ test('copy credentials uses exact username and password without sending a messag
   await copy('member', 'sample_user', 'new-password');
   assert.equal(copied, 'Username: sample_user\nPassword: new-password');
 });
+

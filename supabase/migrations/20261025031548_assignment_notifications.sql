@@ -241,6 +241,7 @@ create table qnlbc_private.push_deliveries (
   attempts int not null default 0,
   available_at timestamptz not null default now(),
   lease_id uuid,
+  leased_token text,
   unique(notification_id,device_id)
 );
 create index push_deliveries_due_idx on qnlbc_private.push_deliveries(available_at) where state in ('pending','leased');
@@ -362,10 +363,10 @@ begin
     where q.state in ('pending','leased') and q.available_at<=now() and q.attempts<8
     order by q.available_at for update skip locked limit least(greatest(batch_size,1),100)
   ), claimed as (
-    update qnlbc_private.push_deliveries q set state='leased',attempts=q.attempts+1,available_at=now()+interval '2 minutes',lease_id=gen_random_uuid()
+    update qnlbc_private.push_deliveries q set state='leased',attempts=q.attempts+1,available_at=now()+interval '2 minutes',lease_id=gen_random_uuid(),leased_token=(select token from public.push_devices where id=q.device_id)
     from due where q.id=due.id returning q.*
   )
-  select c.id,c.lease_id,n.id,d.token,n.user_id,n.setlist_id,n.title,n.body
+  select c.id,c.lease_id,n.id,c.leased_token,n.user_id,n.setlist_id,n.title,n.body
     from claimed c join public.assignment_notifications n on n.id=c.notification_id join public.push_devices d on d.id=c.device_id
     where d.user_id=n.user_id;
 end; $$;
@@ -375,7 +376,11 @@ begin
   if coalesce(auth.role(),'')<>'service_role' then raise exception 'Service access required' using errcode='42501'; end if;
   if result not in ('sent','retry','invalid') then raise exception 'Invalid delivery result'; end if;
   if result='invalid' then
-    delete from public.push_devices where id in (select device_id from qnlbc_private.push_deliveries where id=delivery and lease_id=lease and state='leased');
+    delete from public.push_devices d where exists(select 1 from qnlbc_private.push_deliveries q
+      where q.id=delivery and q.lease_id=lease and q.state='leased' and q.device_id=d.id and q.leased_token=d.token);
+    -- A token refreshed while the old request was in flight must remain registered.
+    update qnlbc_private.push_deliveries set state=case when attempts>=8 then 'failed' else 'pending' end,available_at=now()
+      where id=delivery and lease_id=lease and state='leased';
   else
     update qnlbc_private.push_deliveries set
       state=case when result='sent' then 'sent' when attempts>=8 then 'failed' else 'pending' end,
