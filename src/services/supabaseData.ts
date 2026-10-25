@@ -95,6 +95,7 @@ export async function fetchCurrentUserProfile(userId: string): Promise<UserAccou
   return {
     id: data.id,
     username: data.username,
+    directoryMemberId: data.directory_member_id || null,
     displayName: data.display_name || data.username,
     display_name: data.display_name || data.username,
     role: data.role as 'admin' | 'user',
@@ -130,6 +131,7 @@ export async function fetchAllProfiles(): Promise<UserAccount[]> {
   return data.map((d) => ({
     id: d.id,
     username: d.username,
+    directoryMemberId: d.directory_member_id || null,
     displayName: d.display_name || d.username,
     display_name: d.display_name || d.username,
     role: d.role as 'admin' | 'user',
@@ -212,6 +214,7 @@ export async function updateUserProfile(
   return {
     id: data.id,
     username: data.username,
+    directoryMemberId: data.directory_member_id || null,
     displayName: data.display_name || data.username,
     display_name: data.display_name || data.username,
     role: data.role as 'admin' | 'user',
@@ -231,11 +234,11 @@ export async function updateUserProfile(
   };
 }
 
-export async function createManagedUser(input: { username: string; password: string; displayName: string }): Promise<{ id: string }> {
+export async function createManagedUser(input: { username: string; password: string; displayName: string; directoryMemberId: string }): Promise<{ id: string }> {
   return await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
 }
 
-export async function updateManagedUser(input: { userId: string; username: string; displayName: string; password?: string }): Promise<void> {
+export async function updateManagedUser(input: { userId: string; username: string; displayName: string; directoryMemberId: string; password?: string }): Promise<void> {
   await invokeAdminFunction('admin-update-user', input, 'Could not update account.');
 }
 
@@ -1849,7 +1852,8 @@ export async function fetchMinistrySavedNames(): Promise<string[]> {
 }
 
 export async function saveMinistrySavedNames(names: string[]): Promise<void> {
-  return saveAppSettings('ministry_saved_names', names);
+  const { error } = await supabase.rpc('save_directory_names', { names });
+  if (error) throw new Error(error.message);
 }
 
 export function getDatabaseConnectionStatus(): DatabaseStatusInfo {
@@ -2088,3 +2092,4 @@ export function subscribeSupabaseRealtime(callbacks: RealtimeSyncCallbacks): () 
     supabase.removeChannel(channel);
   };
 }
+

@@ -1,3 +1,5 @@
+import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
+import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
 import { CardActions } from './CardActions';
 import { APP_FONTS, type AppFont } from '../utils/appFont';
 import { useBackLayer } from '../hooks/useBackLayer';
@@ -71,6 +73,7 @@ interface SettingsTabProps {
   users: UserAccount[];
   onUpdateUsers: (users: UserAccount[]) => void;
   savedNames?: string[];
+  onDirectoryChanged?: (members: DirectoryMember[]) => void;
   onUpdateSavedNames?: (names: string[]) => void | Promise<void>;
   theme: 'light' | 'dark';
   appFont: AppFont;
@@ -104,6 +107,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   users,
   onUpdateUsers,
   savedNames: propSavedNames = [],
+  onDirectoryChanged,
   onUpdateSavedNames,
   theme,
   appFont,
@@ -137,14 +141,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'admin' | 'user'>('all');
   const [managingUserId, setManagingUserId] = useState<string | null>(null);
   const [showCreateMember, setShowCreateMember] = useState(false);
-  const [newMember, setNewMember] = useState({ displayName: '', username: '', password: '' });
+  const [newMember, setNewMember] = useState({ displayName: '', directoryMemberId: '', username: '', password: '' });
   const [showNewMemberPassword, setShowNewMemberPassword] = useState(false);
   const [memberCreateError, setMemberCreateError] = useState('');
   const [memberNotice, setMemberNotice] = useState('');
   const memberSaveLock = useRef(false);
   const [creatingMember, setCreatingMember] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-  const [memberEdit, setMemberEdit] = useState({ displayName: '', username: '', password: '' });
+  const [memberEdit, setMemberEdit] = useState({ displayName: '', directoryMemberId: '', username: '', password: '' });
   const [showMemberEditPassword, setShowMemberEditPassword] = useState(false);
   const [memberEditError, setMemberEditError] = useState('');
   const [visibleCredentialId, setVisibleCredentialId] = useState<string | null>(null);
@@ -158,6 +162,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setSavedNames(propSavedNames);
   }, [propSavedNames]);
 
+  const [directoryMembers, setDirectoryMembers] = useState<DirectoryMember[]>([]);
+  const [directoryLoadError, setDirectoryLoadError] = useState('');
+  const refreshDirectory = async () => {
+    try { const members = await fetchDirectoryMembers(); setDirectoryMembers(members); onDirectoryChanged?.(members); setDirectoryLoadError(''); }
+    catch (error) { setDirectoryLoadError((error as Error).message); throw error; }
+  };
+  useEffect(() => { if (isAdmin) void refreshDirectory().catch(() => {}); }, [isAdmin]);
   const [newNameInput, setNewNameInput] = useState('');
   const [directorySaving, setDirectorySaving] = useState(false);
   const [directoryNotice, setDirectoryNotice] = useState<{ error: boolean; message: string } | null>(null);
@@ -203,8 +214,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setMemberCredentials({});
     setVisibleCredentialId(null);
     setCredentialNotice(null);
-    setMemberEdit({ displayName: '', username: '', password: '' });
-    setNewMember({ displayName: '', username: '', password: '' });
+    setMemberEdit({ displayName: '', directoryMemberId: '', username: '', password: '' });
+    setNewMember({ displayName: '', directoryMemberId: '', username: '', password: '' });
   }, [currentUser.id, isAdmin]);
   const statusObj = databaseStatus || firestoreStatus;
   const handleOpenStatusModal = onOpenDatabaseStatusModal || onOpenFirestoreStatusModal;
@@ -359,13 +370,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       setMemberCredentials(current => ({ ...current, [createdUser.id]: createdCredentials }));
       setCredentialNotice({ userId: createdUser.id, ...createdCredentials });
       setMemberNotice('Account created.');
+      await refreshDirectory().catch(() => {});
       // A refresh failure must not invite a second account creation.
       try { onUpdateUsers(await fetchAllProfiles()); }
       catch (error) {
         console.warn('Account created, but member refresh failed:', error);
         setMemberNotice('Account created. Reopen Members to refresh the list.');
       }
-      setNewMember({ displayName: '', username: '', password: '' });
+      setNewMember({ displayName: '', directoryMemberId: '', username: '', password: '' });
       setShowNewMemberPassword(false);
       setShowCreateMember(false);
     } catch (error: any) {
@@ -379,7 +391,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const startEditingMember = (user: UserAccount) => {
     setMemberEditError('');
     setShowMemberEditPassword(false);
-    setMemberEdit({ displayName: user.displayName || user.name || user.username, username: user.username, password: '' });
+    setMemberEdit({ displayName: user.displayName || user.name || user.username, directoryMemberId: user.directoryMemberId || '', username: user.username, password: '' });
     setEditingMemberId(user.id);
   };
 
@@ -393,10 +405,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     try {
       const nextUsername = memberEdit.username.trim().toLowerCase();
       const nextPassword = memberEdit.password;
-      await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), username: nextUsername, password: nextPassword || undefined });
+      await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), directoryMemberId: memberEdit.directoryMemberId, username: nextUsername, password: nextPassword || undefined });
       setMemberNotice('Account saved.');
+      await refreshDirectory().catch(() => {});
       onUpdateUsers(users.map(item => item.id === user.id
-        ? { ...item, username: nextUsername, displayName: memberEdit.displayName.trim() || nextUsername } : item));
+        ? { ...item, directoryMemberId: memberEdit.directoryMemberId, username: nextUsername, displayName: memberEdit.displayName.trim() || nextUsername } : item));
       try { onUpdateUsers(await fetchAllProfiles()); }
       catch (error) {
         console.warn('Account saved, but member refresh failed:', error);
@@ -413,7 +426,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         setCredentialNotice(current => current?.userId === user.id ? { ...current, username: nextUsername } : current);
       }
       setEditingMemberId(null);
-      setMemberEdit({ displayName: '', username: '', password: '' });
+      setMemberEdit({ displayName: '', directoryMemberId: '', username: '', password: '' });
     } catch (error: any) {
       setMemberEditError(error.message || 'Could not update account.');
     } finally { memberSaveLock.current = false; setManagingUserId(null); }
@@ -968,7 +981,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4"><h3 id="create-member-title" className="font-bold">Create account</h3><button type="button" disabled={creatingMember} aria-label="Close create account" onClick={() => setShowCreateMember(false)} className="p-2"><X className="h-5 w-5" /></button></div>
                   <form onSubmit={handleCreateMember} className="ui-modal-form">
                     <div className="ui-form-body">
-                <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>
+                <DirectoryAccountSelect members={directoryMembers} value={newMember.directoryMemberId} onChange={(directoryMemberId, displayName) => setNewMember({ ...newMember, directoryMemberId, displayName })} />
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
                 <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={6} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                 {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
@@ -1028,7 +1041,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                           <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4"><h3 id="edit-member-title" className="font-bold">Edit account</h3><button type="button" disabled={isManaging} aria-label="Close edit account" onClick={() => setEditingMemberId(null)} className="p-2"><X className="h-5 w-5" /></button></div>
                           <form onSubmit={event => handleUpdateMember(event, u)} className="ui-modal-form">
                             <div className="ui-form-body">
-                        <label className="block text-sm font-medium">Name<input required className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
+                        <DirectoryAccountSelect members={directoryMembers} value={memberEdit.directoryMemberId} accountId={u.id} onChange={(directoryMemberId, displayName) => setMemberEdit({ ...memberEdit, directoryMemberId, displayName })} />
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
                         <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={6} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
@@ -1065,88 +1078,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       )}
 
-      {/* Container 4: Church directory Suggestions (Admin Only) */}
-      {isAdmin && (
-        <div hidden={settingsSection !== 'directory'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
-          <div
+      {isAdmin && <div hidden={settingsSection !== 'directory'}><DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} /></div>}
 
-            className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
-                <Users className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
-                    Church directory
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                    {savedNames.length} {savedNames.length === 1 ? 'Name' : 'Names'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Autofill suggestions across Presiders, Song Leaders, and Special Numbers.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-1 rounded-lg text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-all">
-              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isChurchDirectoryCollapsed ? '' : 'rotate-180'}`} />
-            </div>
-          </div>
-
-          {!isChurchDirectoryCollapsed && (
-            <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              <form onSubmit={handleAddDirectoryName} className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-center">
-                <input
-                  type="text"
-                  value={newNameInput}
-                  onChange={(e) => setNewNameInput(e.target.value)}
-                  placeholder="Enter church member name (e.g. Bro. Juan Dela Cruz)..."
-                  className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs sm:text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
-                <button
-                  type="submit"
-                  disabled={directorySaving || !newNameInput.trim()}
-                  className="min-h-11 px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 shrink-0 hover:bg-slate-800 cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Name</span>
-                </button>
-              </form>
-
-              {directoryNotice && <p role={directoryNotice.error ? 'alert' : 'status'} className={`text-sm ${directoryNotice.error ? 'text-rose-600' : 'text-emerald-600'}`}>{directoryNotice.message}</p>}
-
-              {savedNames.length > 0 ? (
-                <div className="flex flex-wrap gap-2 pt-2 max-h-56 overflow-y-auto p-1">
-                  {savedNames.map((name) => (
-                    <span
-                      key={name}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 shadow-2xs"
-                    >
-                      <span>{name}</span>
-                      <button
-                        type="button"
-                        disabled={directorySaving}
-                        onClick={() => void handleDeleteDirectoryName(name)}
-                        className="text-slate-400 hover:text-rose-500 p-0.5 cursor-pointer transition-colors"
-                        title={`Remove ${name}`}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 text-center rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400">
-                  Church directory is empty. Add names above to enable autofill across all forms.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+      {directoryLoadError && isAdmin && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}
 
       {/* Container 5: Data management (Admin Only) */}
       {isAdmin && (
@@ -1534,3 +1468,4 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     </div>
   );
 };
+

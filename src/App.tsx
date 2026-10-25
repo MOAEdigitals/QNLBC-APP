@@ -1,3 +1,6 @@
+import { useAssignmentNotifications } from './hooks/useAssignmentNotifications';
+import { NotificationInbox } from './components/NotificationInbox';
+import { disableAssignmentPush } from './services/assignmentNotifications';
 import { SwipeNavigationProvider } from './components/SwipeNavigation';
 import { readSetlistShareId } from './utils/setlistSharing';
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
@@ -279,7 +282,9 @@ export default function App() {
         const profile = await fetchCurrentUserProfile(userId);
 
         if (!profile || !profile.active) {
-          await supabase.auth.signOut();
+          setNotificationInboxOpen(false);
+    await disableAssignmentPush().catch(error => console.warn(error.message));
+    await supabase.auth.signOut();
           if (isMounted) {
             setCurrentUser(null);
             setIsLoadingInitialData(false);
@@ -442,6 +447,14 @@ export default function App() {
     if (Capacitor.isNativePlatform()) void NativeApp.getLaunchUrl().then(event => { if (event) receive(event.url, true); });
     return () => { window.removeEventListener('hashchange', hashChanged); if (listener) void listener.then(handle => handle.remove()); };
   }, []);
+
+  const [isNotificationInboxOpen, setNotificationInboxOpen] = useState(false);
+  const openAssignedSetlist = useCallback((id: string) => {
+    pendingSharedSetlist.current = id;
+    setSharedLinkRequest(value => value + 1);
+    setCurrentTab('home');
+  }, []);
+  const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist);
 
   // Reload data from Supabase
   const reloadAllData = async () => {
@@ -648,6 +661,8 @@ export default function App() {
       sessionStorage.removeItem('nlbc_saved_setlist_scroll_y');
       localStorage.removeItem('nlbc_selected_setlist_id_v1');
     } catch {}
+    setNotificationInboxOpen(false);
+    await disableAssignmentPush().catch(error => console.warn(error.message));
     await supabase.auth.signOut();
     loadedSectionsRef.current.clear();
     sectionLoadPromisesRef.current = {};
@@ -1315,8 +1330,12 @@ export default function App() {
           users={users}
           currentTab={currentTab}
           onNavigateToSettings={() => handleNavigateTab('settings')}
+          onOpenNotifications={() => setNotificationInboxOpen(true)}
+          unreadNotifications={notifications.items.filter(item => !item.read_at).length}
         />
       )}
+
+      {isNotificationInboxOpen && <NotificationInbox key={currentUser.id} {...notifications} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onClose={() => setNotificationInboxOpen(false)} />}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
@@ -1426,6 +1445,7 @@ export default function App() {
             onUpdateUsers={setUsers}
             savedNames={savedNames}
             onUpdateSavedNames={handleUpdateSavedNames}
+            onDirectoryChanged={members => setSavedNames(members.filter(member => member.active).map(member => member.name))}
             theme={theme}
             appFont={appFont}
             onChangeAppFont={setAppFont}
@@ -1512,3 +1532,4 @@ export default function App() {
     </SwipeNavigationProvider>
   );
 }
+

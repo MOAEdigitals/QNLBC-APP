@@ -10,6 +10,7 @@ export interface UserPermissions {
 export interface UserAccount {
   id: string;
   username: string;
+  directoryMemberId?: string | null;
   name?: string;
   displayName?: string;
   display_name?: string;
@@ -361,3 +362,4 @@ export interface DatabaseStatusInfo {
   errorMessage?: string;
   quotaResetMessage?: string;
 }
+

@@ -29,6 +29,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Configure Android push when available
+        env:
+          ANDROID_GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$ANDROID_GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$ANDROID_GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo 'VITE_ANDROID_PUSH_CONFIGURED=true' >> "$GITHUB_ENV"
+          else
+            echo 'VITE_ANDROID_PUSH_CONFIGURED=false' >> "$GITHUB_ENV"
+          fi
+
       - name: Build and sync Android
         run: npm run build:android
         env:
@@ -66,3 +77,4 @@ jobs:
       - name: Remove temporary signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/qnlbc-release.jks"
+
