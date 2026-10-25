@@ -890,7 +890,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             pointerEvents: isPickerClosing ? 'none' : undefined,
             transition: isPickerDragging ? 'none' : `height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform ${isPickerClosing ? pickerCloseMs : 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
             // Keep the drag header below Android's status-bar pull-down area, even when expanded.
-            maxHeight: 'max(0px, calc(100% - var(--app-safe-top, 0px) - 24px))', paddingBottom: 'var(--app-safe-bottom)',
+            maxHeight: '100%', paddingBottom: 'var(--app-safe-bottom)',
           } : mobilePickerPosition
             ? {
                 WebkitOverflowScrolling: 'touch',
