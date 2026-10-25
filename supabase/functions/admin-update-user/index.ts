@@ -13,18 +13,23 @@ Deno.serve(async (request) => {
     const body = await request.json();
     const userId = String(body.userId || '');
     const username = String(body.username || '').trim().toLowerCase();
-    const directoryMemberId = String(body.directoryMemberId || '');
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(directoryMemberId)) throw new Error('Choose a church directory person.');
-    const { data: person, error: personError } = await admin.from('directory_members').select('id,name,active').eq('id', directoryMemberId).maybeSingle();
-    if (personError || !person?.active) throw new Error('Choose an active church directory person.');
-    const displayName = person.name;
+    if (!userId) throw new Error('User is required.');
+    const { data: target } = await admin.auth.admin.getUserById(userId);
+    if (!target.user) throw new Error('Account not found.');
+    const hasDirectorySelection = Object.prototype.hasOwnProperty.call(body, 'directoryMemberId');
+    const directoryMemberId = String(hasDirectorySelection ? body.directoryMemberId || '' : target.user.app_metadata?.directory_member_id || '');
+    let displayName = String(body.displayName || username).trim();
+    if (hasDirectorySelection || directoryMemberId) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(directoryMemberId)) throw new Error('Choose a church directory person.');
+      const { data: person, error: personError } = await admin.from('directory_members').select('id,name,active').eq('id', directoryMemberId).maybeSingle();
+      if (personError || !person?.active) throw new Error('Choose an active church directory person.');
+      displayName = person.name;
+    }
     const password = String(body.password || '');
     if (!userId) throw new Error('User is required.');
     if (!/^[a-z0-9_.-]{3,40}$/.test(username)) throw new Error('Username must be 3–40 letters, numbers, dots, dashes, or underscores.');
     if (password && password.length < 6) throw new Error('Password must contain at least 6 characters.');
-    const { data: target } = await admin.auth.admin.getUserById(userId);
-    if (!target.user) throw new Error('Account not found.');
-    const updates = { app_metadata: { ...target.user.app_metadata, directory_member_id: directoryMemberId }, email: `${username}@qnlbc.local`, user_metadata: { username, display_name: displayName }, ...(password ? { password } : {}) };
+    const updates = { app_metadata: { ...target.user.app_metadata, ...(directoryMemberId ? { directory_member_id: directoryMemberId } : {}) }, email: `${username}@qnlbc.local`, user_metadata: { username, display_name: displayName }, ...(password ? { password } : {}) };
     const { error } = await admin.auth.admin.updateUserById(userId, updates);
     if (error) throw error;
     // The Auth trigger updates profile identity in the same transaction.

@@ -110,3 +110,41 @@ test('dispatcher sends only claimed device deliveries and acknowledges provider 
     assert.equal(response.status, 200); assert.equal(acknowledgements[0].result, outcome);
   }
 });
+
+function accountHandler(kind: 'create' | 'update') {
+  let handler: (request: Request) => Promise<Response>;
+  const recorded: any[] = [];
+  const personId = '00000000-0000-0000-0000-000000000010';
+  const admin = {
+    auth: { getUser: async () => ({ data: { user: { id: user1 } } }), admin: {
+      getUserById: async () => ({ data: { user: { id: user2, app_metadata: { directory_member_id: personId, provider: 'email' } } } }),
+      createUser: async (payload: any) => { recorded.push(payload); return { data: { user: { id: user2 } }, error: null }; },
+      updateUserById: async (_id: string, payload: any) => { recorded.push(payload); return { error: null }; },
+    } },
+    from: (table: string) => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: table === 'profiles' ? { active: true, role: 'admin' } : { id: personId, name: 'Canonical directory name', active: true }, error: null }) }),
+  };
+  const source = fs.readFileSync(`supabase/functions/admin-${kind}-user/index.ts`, 'utf8');
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
+    exports: {}, Request, Response, Deno: { env: { get: () => 'test-value' }, serve: (callback: any) => { handler = callback; } }, require: () => ({ createClient: () => admin }),
+  });
+  return { personId, recorded, call: (body: any) => handler!(new Request('https://example.test', { method: 'POST', headers: { Authorization: 'Bearer test-token', 'Content-Type': 'application/json' }, body: JSON.stringify(body) })) };
+}
+test('older Android APKs can create unlinked accounts without guessing directory identity', async () => {
+  const h = accountHandler('create');
+  assert.equal((await h.call({ username: 'legacy_user', displayName: 'Legacy name', password: 'test-password' })).status, 200);
+  assert.equal(h.recorded[0].user_metadata.display_name, 'Legacy name');
+  assert.equal(h.recorded[0].app_metadata.directory_member_id, undefined);
+});
+test('new account requests use the canonical directory identity', async () => {
+  const h = accountHandler('create');
+  assert.equal((await h.call({ username: 'new_user', displayName: 'Ignored guess', directoryMemberId: h.personId, password: 'test-password' })).status, 200);
+  assert.equal(h.recorded[0].user_metadata.display_name, 'Canonical directory name');
+  assert.equal(h.recorded[0].app_metadata.directory_member_id, h.personId);
+});
+test('older APK account edits preserve existing directory links and provider metadata', async () => {
+  const h = accountHandler('update');
+  assert.equal((await h.call({ userId: user2, username: 'updated_user', displayName: 'Ignored old-client name' })).status, 200);
+  assert.equal(h.recorded[0].app_metadata.directory_member_id, h.personId);
+  assert.equal(h.recorded[0].app_metadata.provider, 'email');
+  assert.equal(h.recorded[0].user_metadata.display_name, 'Canonical directory name');
+});
