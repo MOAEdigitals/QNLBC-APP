@@ -105,6 +105,8 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'true');
       assert.equal((dialog as HTMLElement).style.height, `${window.innerHeight}px`);
       assert.equal(search.readOnly, true, 'expanding does not activate the keyboard');
+      assert.equal(dialog.querySelector('[aria-label="Reduce list"]'), null, 'the separate Reduce button is removed');
+
       const top = (dialog.parentElement as HTMLElement).style.top;
       assert.equal(top, 'max(0px, calc(var(--app-safe-top, 0px) + 12px))', 'expanded drag header stays below the system status bar with an extra gesture gap');
       assert.equal((dialog.parentElement as HTMLElement).style.height, `calc(${window.innerHeight}px - max(0px, calc(var(--app-safe-top, 0px) + 12px - 0px)))`, 'safe top clearance is removed from available height so the bottom stays in view');
@@ -136,6 +138,83 @@ test('uncontrolled song pickers offer categories, cycle sorting and retain selec
       await settleClose();
       assert.equal(document.querySelector('[role="dialog"]'), null, 'swipe down closes without changing the field');
       assert.equal(selected, 'Original');
+      await touch(input, 'pointerdown');
+      await touch(input, 'pointerup');
+      let activeDialog = document.querySelector('[role="dialog"]')! as HTMLElement;
+      let list = activeDialog.querySelector('.overflow-y-auto') as HTMLElement;
+      const setGeometry = () => Object.defineProperties(list, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 300 } });
+      setGeometry();
+      let gestureTime = 1000;
+      const emitListTouch = async (name: string, x: number, y: number, time: number) => {
+        const point = { clientX: x, clientY: y };
+        const event = new dom.window.Event(name, { bubbles: true, cancelable: true });
+        Object.defineProperties(event, { timeStamp: { value: time }, touches: { value: name === 'touchend' || name === 'touchcancel' ? [] : [point] }, changedTouches: { value: [point] } });
+        await act(() => list.dispatchEvent(event));
+        return event;
+      };
+      const swipeList = async (endY: number, endX = 40, reachTop = false, duration = 300, inspect?: () => void, pause = 10) => {
+        gestureTime += 1000;
+        await emitListTouch('touchstart', 40, 200, gestureTime);
+        if (reachTop) list.scrollTop = 0;
+        await emitListTouch('touchmove', endX, endY, gestureTime + duration);
+        inspect?.();
+        await emitListTouch('touchend', endX, endY, gestureTime + duration + pause);
+      };
+      list.scrollTop = 700;
+      await swipeList(100);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'scrolling past the bottom does not dismiss the list');
+      await swipeList(300);
+      assert.equal(activeDialog.style.transform, 'translateY(0px)', 'pulling down away from the top scrolls the list normally');
+      await swipeList(300, 40, true);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'the gesture that reaches the top does not dismiss the list');
+      await swipeList(220, 40, false, 300, () => {
+        assert.equal(activeDialog.style.transform, 'translateY(20px)', 'a slow pull follows the finger before release');
+        assert.equal(activeDialog.style.transition, 'none', 'dragging has no lagging CSS transition');
+      });
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'a short slow pull snaps back');
+      assert.equal(activeDialog.style.transform, 'translateY(0px)');
+      assert.match(activeDialog.style.transition, /transform 220ms/, 'snap-back animates after release');
+      await swipeList(300, 200);
+      assert.equal(activeDialog.style.transform, 'translateY(0px)', 'horizontal gestures do not move the panel');
+      await swipeList(100);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'scrolling toward later songs stays native');
+      await swipeList(240, 40, false, 5, undefined, 150);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'holding a short pull before release cancels flick momentum');
+      // Cancellation and reversing upward must restore the sheet, without selecting.
+      gestureTime += 1000;
+      await emitListTouch('touchstart', 40, 200, gestureTime);
+      const claimedMove = await emitListTouch('touchmove', 40, 300, gestureTime + 100);
+      assert.equal(claimedMove.defaultPrevented, true, 'the non-passive listener owns a downward pull at the top');
+      assert.equal(activeDialog.style.transform, 'translateY(100px)');
+      await emitListTouch('touchcancel', 40, 300, gestureTime + 110);
+      assert.equal(activeDialog.style.transform, 'translateY(0px)', 'interrupted pulls snap back');
+      gestureTime += 1000;
+      await emitListTouch('touchstart', 40, 200, gestureTime);
+      await emitListTouch('touchmove', 40, 320, gestureTime + 100);
+      await emitListTouch('touchmove', 40, 290, gestureTime + 150);
+      await emitListTouch('touchend', 40, 290, gestureTime + 160);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'reversing upward cancels dismissal even after a long pull');
+      assert.equal(activeDialog.style.transform, 'translateY(0px)');
+      await swipeList(300, 40, false, 300, () => {
+        assert.equal(activeDialog.style.transform, 'translateY(100px)', 'a long slow pull tracks its distance');
+      });
+      assert.ok(document.querySelector('[data-picker-closing]'), 'a deliberate slow pull closes');
+      assert.match(activeDialog.style.transition, /transform 240ms/, 'a slow release has a smooth settling animation');
+      await settleClose();
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+      assert.equal(selected, 'Original', 'pulling down does not select a song or name');
+      await touch(input, 'pointerdown'); await touch(input, 'pointerup');
+      activeDialog = document.querySelector('[role="dialog"]')! as HTMLElement;
+      list = activeDialog.querySelector('.overflow-y-auto') as HTMLElement;
+      setGeometry();
+      await swipeList(240, 40, false, 5, () => {
+        assert.equal(activeDialog.style.transform, 'translateY(40px)', 'a quick flick also tracks the finger');
+      });
+      assert.ok(document.querySelector('[data-picker-closing]'), 'a short fast downward flick closes with momentum');
+      assert.match(activeDialog.style.transition, /transform 100ms/, 'a fast release finishes faster than a slow pull');
+      await settleClose();
+      assert.equal(selected, 'Original');
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
       await touch(input, 'pointerdown');
       await touch(input, 'pointerup');
       await click(document.querySelector('[class*="text-[14px]"]')!);
