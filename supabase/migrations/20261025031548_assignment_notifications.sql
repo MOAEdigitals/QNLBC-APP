@@ -363,7 +363,7 @@ begin
     where q.state in ('pending','leased') and q.available_at<=now() and q.attempts<8
     order by q.available_at for update skip locked limit least(greatest(batch_size,1),100)
   ), claimed as (
-    update qnlbc_private.push_deliveries q set state='leased',attempts=q.attempts+1,available_at=now()+interval '2 minutes',lease_id=gen_random_uuid(),leased_token=(select token from public.push_devices where id=q.device_id)
+    update qnlbc_private.push_deliveries q set state='leased',attempts=q.attempts+1,available_at=now()+interval '2 minutes',lease_id=gen_random_uuid(),leased_token=(select pd.token from public.push_devices pd where pd.id=q.device_id)
     from due where q.id=due.id returning q.*
   )
   select c.id,c.lease_id,n.id,c.leased_token,n.user_id,n.setlist_id,n.title,n.body

@@ -11,6 +11,8 @@ insert into auth.users(id,raw_user_meta_data,raw_app_meta_data) values
  ('00000000-0000-0000-0000-000000000003','{"username":"pedro.login","display_name":"Pedro"}',jsonb_build_object('directory_member_id',:'person2'));
 select pg_temp.check_result((select display_name='Bro. Juan' from public.profiles where username='juan.login'),'Directory name must override supplied account name');
 select ((now() at time zone 'Asia/Manila')::date + ((6-extract(dow from now() at time zone 'Asia/Manila')::int+7)%7)+7)::text as saturday \gset
+insert into public.setlists(service_date,presider) values(:'saturday'::date+1,'juan.login');
+select pg_temp.check_result((select count(*)=0 from public.assignment_notifications),'Username text must never substitute for a directory identity');
 insert into public.setlists(service_date,presider,worship_leader) values(:'saturday'::date+1,'Bro. Juan','Bro. Pedro') returning id as setlist \gset
 select pg_temp.check_result((select count(*)=2 from public.assignment_notifications),'Both assignees should receive notifications');
 update public.setlists set title='Updated songs only' where id=:'setlist';
@@ -26,6 +28,7 @@ select pg_temp.check_result((select count(*)=1 from public.assignment_notificati
 select pg_temp.check_result((select count(*)=2 from public.assignment_notifications where kind='assigned' and user_id='00000000-0000-0000-0000-000000000003'),'New assignee must receive assignment');
 update auth.users set raw_user_meta_data=raw_user_meta_data||jsonb_build_object('directory_member_id',:'person2') where id='00000000-0000-0000-0000-000000000002';
 select pg_temp.check_result((select directory_member_id=:'person1'::uuid from public.profiles where id='00000000-0000-0000-0000-000000000002'),'User metadata cannot change notification identity');
+select id as other_notification from public.assignment_notifications where user_id='00000000-0000-0000-0000-000000000003' limit 1 \gset
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',true);
 select pg_temp.check_result((select count(*)=0 from public.assignment_notifications where user_id<>'00000000-0000-0000-0000-000000000002'),'Inbox must enforce recipient ownership');
@@ -39,6 +42,7 @@ do $$ declare blocked boolean:=false; begin
   if not blocked then raise exception 'Direct profile writes must not unlink notification identity'; end if;
 end; $$;
 select public.mark_assignment_notification_read((select id from public.assignment_notifications limit 1));
+select public.mark_assignment_notification_read(:'other_notification');
 select pg_temp.check_result((select count(*)>=1 from public.assignment_notifications where read_at is not null),'Own notifications can be marked read');
 reset role;
 select pg_temp.check_result((select count(*)=0 from public.assignment_notifications where read_at is not null and user_id<>'00000000-0000-0000-0000-000000000002'),'Mark read must not affect another account');
