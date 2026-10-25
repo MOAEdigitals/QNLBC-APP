@@ -2,6 +2,8 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+  push:
+    branches: ["build/android-smooth-9e0c7f2"]
 
 permissions:
   contents: read
@@ -28,6 +30,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Validate latest app
+        run: npm run lint && npm test
 
       - name: Build and sync Android
         run: npm run build:android
