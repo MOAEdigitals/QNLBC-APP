@@ -200,11 +200,23 @@ export function categorizeAnnualCelebrants<T>(items: T[], getDateStr: (item: T) 
   };
 }
 
-/** Coming Sunday (including today if Sunday) through the following Saturday. */
+/**
+ * Birthdays recognized on the coming Sunday (today when Sunday):
+ * Thursday through Wednesday, including all three days on either side.
+ */
 export function isBirthdayRecognitionWeek(dateStr: string, now = new Date()): boolean {
+  return isSundayRecognitionWindow(dateStr, now, 3);
+}
+
+/** Preserve the Sunday-through-Saturday window used by anniversary cards. */
+export function isAnniversaryRecognitionWeek(dateStr: string, now = new Date()): boolean {
+  return isSundayRecognitionWindow(dateStr, now, 0);
+}
+
+function isSundayRecognitionWindow(dateStr: string, now: Date, daysBeforeSunday: number): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0);
-  start.setDate(start.getDate() + (7 - start.getDay()) % 7);
+  start.setDate(start.getDate() + (7 - start.getDay()) % 7 - daysBeforeSunday);
   const end = new Date(start);
   end.setDate(start.getDate() + 7);
   const [, month, day] = dateStr.split('-').map(Number);
