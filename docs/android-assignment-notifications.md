@@ -4,7 +4,11 @@ This feature adds stable links between church directory people and Supabase acco
 
 ## Current deployment requirements
 
-The feature branch is tested against an isolated PostgreSQL database and mocked notification transport. Live activation requires access to the **QNLBC Supabase project**, which is not the connected Remindful project. No changes should be applied to Remindful.
+The feature branch is tested against an isolated PostgreSQL database and mocked notification transport. The **QNLBC Supabase project** (`gprarwhcvqxjguswmkbe`) is accessible through the MOAEdigitals connection. No changes should be applied to Remindful.
+
+Verified on October 25, 2026: the additive notification migration and account Edge Functions are deployed, notification tables have RLS, and `qnlbc-saturday-practice` is active at `0 1 * * 6` UTC. No accounts are linked to directory identities yet. Android package `com.qnlbc.churchapp` is registered in the existing Firebase project `gen-lang-client-0962729018`, and FCM HTTP v1 is enabled. The server FCM credential, Vault dispatch secrets and minute-by-minute push dispatcher activation remain pending. Registration alone does not establish delivery.
+
+The local/mobile integration includes Thursday–Wednesday birthday recognition, removal of the separate Reduce button, and velocity-sensitive pull-down dismissal from the top of the song list. Safe-area clearance is applied once at the picker viewport. All 224 app tests, TypeScript and the production build pass for this integration. Physical-device notification delivery is still unverified.
 
 Android background delivery uses Firebase Cloud Messaging (FCM). Firestore is not used or restored. Church data and the notification queue remain in Supabase, and existing media remains in Cloudflare R2. FCM receives a device token and the notification payload for delivery.
 
