@@ -348,6 +348,7 @@ returns table(delivery_id bigint,lease_id uuid,notification_id uuid,token text,u
 language plpgsql security definer set search_path='' as $$
 begin
   if coalesce(auth.role(),'')<>'service_role' then raise exception 'Service access required' using errcode='42501'; end if;
+  update qnlbc_private.push_deliveries set state='failed' where state='leased' and attempts>=8 and available_at<=now();
   -- Discard messages made obsolete by account switches, deactivation, reassignment or rescheduling.
   update qnlbc_private.push_deliveries q set state='cancelled'
   from public.assignment_notifications n,public.push_devices d,public.profiles p,public.setlists s

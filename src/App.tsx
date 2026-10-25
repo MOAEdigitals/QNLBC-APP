@@ -283,8 +283,8 @@ export default function App() {
 
         if (!profile || !profile.active) {
           setNotificationInboxOpen(false);
-    await disableAssignmentPush().catch(error => console.warn(error.message));
-    await supabase.auth.signOut();
+          await disableAssignmentPush().catch(error => console.warn(error.message));
+          await supabase.auth.signOut();
           if (isMounted) {
             setCurrentUser(null);
             setIsLoadingInitialData(false);

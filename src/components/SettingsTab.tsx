@@ -168,7 +168,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     try { const members = await fetchDirectoryMembers(); setDirectoryMembers(members); onDirectoryChanged?.(members); setDirectoryLoadError(''); }
     catch (error) { setDirectoryLoadError((error as Error).message); throw error; }
   };
-  useEffect(() => { if (isAdmin) void refreshDirectory().catch(() => {}); }, [isAdmin]);
+  useEffect(() => { if (currentUser.role === 'admin') void refreshDirectory().catch(() => {}); }, [currentUser.id, currentUser.role]);
   const [newNameInput, setNewNameInput] = useState('');
   const [directorySaving, setDirectorySaving] = useState(false);
   const [directoryNotice, setDirectoryNotice] = useState<{ error: boolean; message: string } | null>(null);
@@ -456,6 +456,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setManagingUserId(user.id);
     try {
       await deleteManagedUser(user.id);
+      await refreshDirectory().catch(() => {});
       onUpdateUsers(users.filter(item => item.id !== user.id));
       setSelectedMemberId(null);
     } catch (error: any) {
