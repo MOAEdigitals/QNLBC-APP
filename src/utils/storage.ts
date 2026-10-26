@@ -377,30 +377,7 @@ export function importChurchDataJSON(_jsonStr: string): {
   };
 }
 
-export async function importBatchLyricsTxt(files: FileList | File[] | string): Promise<{
-  success: boolean;
-  addedCount: number;
-  updatedCount: number;
-  importedCount: number;
-  totalSongs: number;
-  message: string;
-}> {
-  if (typeof files === 'string') {
-    return {
-      success: true,
-      addedCount: 1,
-      updatedCount: 0,
-      importedCount: 1,
-      totalSongs: 1,
-      message: 'Processed text file',
-    };
-  }
-  return {
-    success: true,
-    addedCount: files.length,
-    updatedCount: 0,
-    importedCount: files.length,
-    totalSongs: files.length,
-    message: `Processed ${files.length} text file(s)`,
-  };
+export async function importBatchLyricsTxt(files: FileList | File[] | string, progress?: (message: string) => void) {
+  const importer = await import('../services/batchLyricsImport');
+  return importer.importBatchLyricsTxt(files, progress);
 }

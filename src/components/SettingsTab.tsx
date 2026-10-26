@@ -178,6 +178,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [directoryNotice, setDirectoryNotice] = useState<{ error: boolean; message: string } | null>(null);
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [lyricsImportStatus, setLyricsImportStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const lyricsImportLock = useRef(false);
+  const [lyricsImporting, setLyricsImporting] = useState(false);
   const [cleanStorageStatus, setCleanStorageStatus] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -641,18 +643,19 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Batch Lyrics Import
   const handleBatchLyricsImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
+    const input = e.currentTarget;
+    const files = Array.from(input.files || []);
+    if (!files.length || lyricsImportLock.current) return;
+    lyricsImportLock.current = true; setLyricsImporting(true);
     try {
-      const res = await importBatchLyricsTxt(files);
-      const msg = `Successfully processed ${files.length} file(s): added ${res.importedCount} new song(s), updated ${res.updatedCount} existing song(s). Total songs: ${res.totalSongs}.`;
-      setLyricsImportStatus({ success: true, message: msg });
+      const res = await importBatchLyricsTxt(files, message => setLyricsImportStatus({ success: true, message }));
+      setLyricsImportStatus({ success: true, message: res.message });
       onDataReset();
     } catch (err: any) {
       setLyricsImportStatus({ success: false, message: 'Failed to process files: ' + err.message });
+    } finally {
+      input.value = ''; lyricsImportLock.current = false; setLyricsImporting(false);
     }
-    e.target.value = '';
   };
 
   // AI Studio Migration prompt helpers
@@ -1148,7 +1151,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                   <div className="flex-1">
                     <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                      Select Multiple .txt Files
+                      {lyricsImporting ? 'Importing songs…' : 'Select Multiple .txt Files'}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
                       Choose multiple .txt files (1 text file = 1 song). The file name becomes the song title and text becomes the lyrics.
@@ -1157,6 +1160,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       type="file"
                       multiple
                       accept=".txt,text/plain"
+                      disabled={lyricsImporting}
                       onChange={handleBatchLyricsImport}
                       className="hidden"
                     />
