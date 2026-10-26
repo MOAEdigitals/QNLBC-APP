@@ -1,7 +1,7 @@
 name: Check assignment notifications
 on:
   push:
-    branches: ['feature/android-assignment-notifications']
+    branches: ['main', 'feature/android-assignment-notifications']
   workflow_dispatch:
 permissions:
   contents: read
@@ -35,7 +35,10 @@ jobs:
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/assignment_schema_fixture.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025031548_assignment_notifications.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025162229_admin_announcements.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025162408_private_announcement_operations.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/assignment_notifications.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/admin_announcements.sql
   android:
     needs: [app, database]
     runs-on: ubuntu-latest

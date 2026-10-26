@@ -2,8 +2,8 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { supabase } from '../supabase';
 export interface AssignmentNotification {
-  id: string; user_id: string; setlist_id: string; kind: 'assigned' | 'updated' | 'removed' | 'practice';
-  title: string; body: string; service_date: string; read_at: string | null; created_at: string;
+  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement';
+  title: string; body: string; service_date: string | null; read_at: string | null; created_at: string;
 }
 export type PushStatus = 'web' | 'setup' | 'prompt' | 'denied' | 'enabled' | 'error';
 const android = () => Capacitor.getPlatform() === 'android';
@@ -19,6 +19,11 @@ export function notificationSetlist(data: unknown, userId: string): string | nul
   if (!data || typeof data !== 'object') return null;
   const value = data as Record<string, unknown>;
   return value.userId === userId && typeof value.setlistId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.setlistId) ? value.setlistId : null;
+}
+export function isAnnouncementPush(data: unknown, userId: string): boolean {
+  if (!data || typeof data !== 'object') return false;
+  const value = data as Record<string, unknown>;
+  return value.userId === userId && value.kind === 'announcement' && typeof value.notificationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.notificationId);
 }
 export async function fetchAssignmentNotifications(): Promise<AssignmentNotification[]> {
   const { data, error } = await supabase.from('assignment_notifications').select('*').order('created_at', { ascending: false }).limit(100);
@@ -56,7 +61,7 @@ export async function disableAssignmentPush(): Promise<void> {
   const results = await Promise.allSettled(tasks);
   if (results.some(result => result.status === 'rejected')) throw new Error('Could not fully disconnect Android notifications.');
 }
-export async function listenForAssignmentPush(userId: string, onOpen: (id: string) => void, onRefresh: () => void, onStatus: (status: PushStatus) => void): Promise<() => void> {
+export async function listenForAssignmentPush(userId: string, onOpen: (id: string) => void, onRefresh: () => void, onStatus: (status: PushStatus) => void, onAnnouncement?: () => void): Promise<() => void> {
   const ownGeneration = ++generation;
   let stopped = false;
   const handles: PluginListenerHandle[] = [];
@@ -76,12 +81,12 @@ export async function listenForAssignmentPush(userId: string, onOpen: (id: strin
     }));
     handles.push(await PushNotifications.addListener('registrationError', () => { if (live()) onStatus('error'); }));
     handles.push(await PushNotifications.addListener('pushNotificationReceived', notification => {
-      if (live() && notificationSetlist(notification.data, userId)) onRefresh();
+      if (live() && (notificationSetlist(notification.data, userId) || isAnnouncementPush(notification.data, userId))) onRefresh();
     }));
     handles.push(await PushNotifications.addListener('pushNotificationActionPerformed', action => {
       if (!live()) return;
       const id = notificationSetlist(action.notification.data, userId);
-      if (id) { onRefresh(); onOpen(id); }
+      if (id) { onRefresh(); onOpen(id); } else if (isAnnouncementPush(action.notification.data, userId)) { onRefresh(); onAnnouncement?.(); }
     }));
     if (!live()) { stop(); return stop; }
     await PushNotifications.createChannel({ id: 'assignments', name: 'Assignments & practice', description: 'Setlist assignments and Saturday practice reminders', importance: 4, sound: 'default' });

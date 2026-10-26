@@ -72,6 +72,18 @@ test('denied notification permission never registers a token', async () => {
   assert.equal(await h.exports.enableAssignmentPush(), 'denied');
   assert.equal(h.calls.some(call => call.name === 'native-register'), false);
 });
+test('announcement pushes refresh and open the inbox only for their own account', async () => {
+  const h = clientHarness(); let refreshed = 0, opened = 0;
+  const stop = await h.exports.listenForAssignmentPush(user1, () => assert.fail('An announcement has no setlist'), () => refreshed++, () => {}, () => opened++);
+  const data = { userId: user1, kind: 'announcement', notificationId: setlistId };
+  h.listeners.get('pushNotificationReceived')!({ data });
+  assert.equal(refreshed, 1);
+  h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { ...data, userId: user2 } } });
+  h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { ...data, notificationId: 'bad-id' } } });
+  assert.equal(opened, 0);
+  h.listeners.get('pushNotificationActionPerformed')!({ notification: { data } });
+  assert.equal(opened, 1); assert.equal(refreshed, 2); stop();
+});
 function workerHarness(secrets: Record<string, string>, rpc: (name: string, args: any) => Promise<any>, fetcher: typeof fetch) {
   let handler: (request: Request) => Promise<Response>;
   const source = fs.readFileSync('supabase/functions/assignment-notifications/index.ts', 'utf8');
@@ -93,15 +105,16 @@ test('dispatcher sends only claimed device deliveries and acknowledges provider 
   const keys = await webcrypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
   const privateKey = Buffer.from(await webcrypto.subtle.exportKey('pkcs8', keys.privateKey)).toString('base64');
   const account = { client_email: 'test@example.test', project_id: 'test-project', private_key: `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----` };
-  for (const outcome of ['sent', 'retry', 'invalid']) {
+  for (const outcome of ['sent', 'retry', 'invalid']) for (const standalone of [false, true]) {
     const acknowledgements: any[] = [];
     const handler = workerHarness({ NOTIFICATIONS_CRON_SECRET: 'test-server-secret', FCM_SERVICE_ACCOUNT_JSON: JSON.stringify(account) }, async (name, args) => {
-      if (name === 'claim_assignment_pushes') return { data: [{ delivery_id: 1, lease_id: setlistId, notification_id: setlistId, token: 'test-device-token', user_id: user1, setlist_id: setlistId, title: 'Assignment', body: 'Assigned for Sunday' }], error: null };
+      if (name === 'claim_assignment_pushes') return { data: [{ delivery_id: 1, lease_id: setlistId, notification_id: setlistId, token: 'test-device-token', user_id: user1, setlist_id: standalone ? null : setlistId, title: 'Assignment', body: 'Assigned for Sunday' }], error: null };
       acknowledgements.push(args); return { error: null };
     }, (async (url: any, options: any) => {
       if (String(url).includes('oauth2.googleapis.com')) return Response.json({ access_token: 'test-access-token', expires_in: 3600 });
       const payload = JSON.parse(options.body);
-      assert.equal(payload.message.data.userId, user1); assert.equal(payload.message.data.setlistId, setlistId);
+      assert.equal(payload.message.data.userId, user1); assert.equal(payload.message.data.setlistId, standalone ? undefined : setlistId);
+      if (standalone) assert.equal(payload.message.data.kind, 'announcement');
       assert.equal(payload.message.android.notification.tag, setlistId);
       if (outcome === 'sent') return Response.json({ name: 'messages/test' });
       return Response.json({ error: { details: outcome === 'invalid' ? [{ errorCode: 'UNREGISTERED' }] : [] } }, { status: outcome === 'invalid' ? 404 : 503 });

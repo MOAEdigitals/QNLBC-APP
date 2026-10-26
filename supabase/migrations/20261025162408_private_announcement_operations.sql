@@ -1,0 +1,10 @@
+begin;
+alter function public.list_announcement_recipients() set schema qnlbc_private;
+alter function public.send_admin_announcement(uuid,text,text,uuid[]) set schema qnlbc_private;
+alter function public.list_admin_announcements() set schema qnlbc_private;
+create function public.list_announcement_recipients() returns table(id uuid,name text,username text,push_enabled boolean) language sql security invoker set search_path='' as $$ select * from qnlbc_private.list_announcement_recipients(); $$;
+create function public.send_admin_announcement(request_id uuid,message_title text,message_body text,recipient_ids uuid[]) returns uuid language sql security invoker set search_path='' as $$ select qnlbc_private.send_admin_announcement(request_id,message_title,message_body,recipient_ids); $$;
+create function public.list_admin_announcements() returns jsonb language sql security invoker set search_path='' as $$ select qnlbc_private.list_admin_announcements(); $$;
+revoke all on function public.list_announcement_recipients(),public.send_admin_announcement(uuid,text,text,uuid[]),public.list_admin_announcements() from public,anon,authenticated;
+grant execute on function public.list_announcement_recipients(),public.send_admin_announcement(uuid,text,text,uuid[]),public.list_admin_announcements() to authenticated;
+commit;

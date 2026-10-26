@@ -1,3 +1,5 @@
+import { SongExport } from './SongExport';
+import { AdminAnnouncements } from './AdminAnnouncements';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
 import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
 import { CardActions } from './CardActions';
@@ -124,7 +126,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 }) => {
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details' };
+  const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details', announcements: 'Admin announcements' };
   // Existing section content remains mounted while navigating settings.
   const isAccountCollapsed = false;
   const isAppearanceCollapsed = false;
@@ -709,7 +711,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         <h2 className="text-2xl font-semibold">{selectedMemberId ? 'Member account' : settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
       </header>
       {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
-        {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'data'] : [])].map(section => (
+        {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'announcements', 'data'] : [])].map(section => (
           <button key={section} type="button" className="ui-settings-row" onClick={() => setSettingsSection(section)}>
             <span>{sectionLabels[section]}</span><span aria-hidden="true">›</span>
           </button>
@@ -1079,6 +1081,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       )}
 
+      {isAdmin && settingsSection === 'announcements' && <AdminAnnouncements key={currentUser.id} />}
       {isAdmin && <div hidden={settingsSection !== 'directory'}><DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} /></div>}
 
       {directoryLoadError && isAdmin && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}
@@ -1111,6 +1114,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {!isDataBackupCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-5 border-t border-slate-100 dark:border-slate-800">
+              <SongExport />
               {/* Batch Lyrics Import */}
               <div className="space-y-3 pt-2">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -1469,4 +1473,3 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     </div>
   );
 };
-

@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
+import React, { act } from 'react';
+import { createRoot } from 'react-dom/client';
+import { JSDOM } from 'jsdom';
+import { webcrypto } from 'node:crypto';
+
+test('admin announcements preview recipients, lock rapid sends and reuse the request on uncertain errors', async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'https://example.com' });
+  const keys = ['window','document','navigator','HTMLElement','IS_REACT_ACT_ENVIRONMENT'];
+  const previous = keys.map(key => Object.getOwnPropertyDescriptor(globalThis,key));
+  for (const key of keys) Object.defineProperty(globalThis,key,{configurable:true,value:key==='IS_REACT_ACT_ENVIRONMENT'?true:(dom.window as any)[key]});
+  const people = [{id:'one',name:'Roger',username:'qnlbcroger',push_enabled:true},{id:'two',name:'Eric',username:'qnlbceric',push_enabled:false}];
+  const calls: any[][]=[]; let release: (()=>void)|undefined; let fail=true;
+  const service={loadAnnouncementAdmin:async()=>({recipients:people,history:[]}),sendAnnouncement:async(...args:any[])=>{calls.push(args); await new Promise<void>(resolve=>{release=resolve;}); if(fail)throw new Error('Connection interrupted');}};
+  const exports:any={};
+  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>name==='react'?React:name.includes('adminAnnouncements')?service:{useBackLayer:()=>{}}});
+  const root=createRoot(document.getElementById('root')!);
+  const click=async(element:Element)=>{await act(async()=>element.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true})));};
+  const button=(name:string)=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent===name)!;
+  const input=async(element:HTMLInputElement|HTMLTextAreaElement,value:string)=>{await act(async()=>{Object.getOwnPropertyDescriptor(element.tagName==='TEXTAREA'?dom.window.HTMLTextAreaElement.prototype:dom.window.HTMLInputElement.prototype,'value')!.set!.call(element,value);element.dispatchEvent(new dom.window.Event('input',{bubbles:true}));element.dispatchEvent(new dom.window.Event('change',{bubbles:true}));});};
+  try{
+    await act(async()=>root.render(React.createElement(exports.AdminAnnouncements)));
+    // Native change handling is covered below with React props, avoiding JSDOM's input-event polyfill differences.
+    const setValue=async(selector:string,value:string)=>{const el=document.querySelector(selector)!;const propsKey=Object.keys(el).find(k=>k.startsWith('__reactProps$'))!;await act(async()=>(el as any)[propsKey].onChange({target:{value}}));};
+    await setValue('input[maxlength="120"]','Practice update'); await setValue('textarea','Please arrive at 3 PM.');
+    await click(button('Select all active users'));
+    assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length,2);
+    await setValue('input[type="search"]','Roger');
+    assert.equal(document.querySelectorAll('input[type="checkbox"]').length,1,'search filters the list without changing selected recipients');
+    await act(async()=>document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
+    assert.match(document.querySelector('[role="dialog"]')!.textContent!,/Send to 2 accounts/);
+    assert.equal(calls.length,0,'preview does not send');
+    const send=button('Send to 2 accounts');
+    await act(async()=>{send.click();send.click();}); assert.equal(calls.length,1,'rapid taps send once');
+    await act(async()=>release!());
+    assert.match(document.querySelector('[role="alert"]')!.textContent!,/Connection interrupted/);
+    fail=false; await click(button('Send to 2 accounts')); assert.equal(calls.length,2);
+    assert.equal(calls[0][0],calls[1][0],'uncertain retry retains idempotency ID');
+    assert.deepEqual(calls[1][3],['one','two']);
+    await act(async()=>release!());
+    assert.equal(document.querySelector('[role="dialog"]'),null);
+    assert.match(document.querySelector('[role="status"]')!.textContent!,/Sent to 2 accounts/);
+    assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length,0);
+  } finally {await act(async()=>root.unmount());dom.window.close();keys.forEach((key,i)=>{if(previous[i])Object.defineProperty(globalThis,key,previous[i]!);else delete (globalThis as any)[key];});}
+});

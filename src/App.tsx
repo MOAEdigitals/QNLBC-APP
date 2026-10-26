@@ -464,7 +464,8 @@ export default function App() {
       if (signedInUserIdRef.current === userId) setSharedSetlistError('Unable to open the latest setlist. Please try again.');
     });
   }, []);
-  const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist);
+  const openAnnouncementInbox = useCallback(() => setNotificationInboxOpen(true), []);
+  const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist, openAnnouncementInbox);
 
   // Reload data from Supabase
   const reloadAllData = async () => {
@@ -1542,4 +1543,3 @@ export default function App() {
     </SwipeNavigationProvider>
   );
 }
-
