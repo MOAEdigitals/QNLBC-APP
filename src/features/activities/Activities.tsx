@@ -49,7 +49,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   const [showTime, setShowTime] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: true, other: true });
+  const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: false, other: true });
   const savingRef = useRef(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const lastProcessedSignalRef = useRef<number>(0);
