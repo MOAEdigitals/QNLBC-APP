@@ -19,10 +19,12 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const items = ['Midweek Prayer Meeting', 'Sunday Service', 'Song Leaders & Choir Practice', 'Church Anniversary'].map((title, index) => ({ id: String(index), title, activityDate: day }));
   let updateHeader: (node: any) => void;
+  let searchConfig: any;
+  const scrollTargets: HTMLElement[] = [];
   const exports: any = {};
   runInNewContext(ts.transpileModule(readFileSync('src/features/activities/Activities.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document, window: dom.window, console,
-    require: (name: string) => name === 'react' ? React : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]) } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
   });
   function Harness() {
     const [header, setHeader] = React.useState(null); updateHeader = setHeader;
@@ -54,6 +56,13 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.ok(document.querySelector(`[aria-label="${day}"]`), 'calendar has no dots for filtered-out cards');
     await act(() => checkbox('Prayer meetings').click());
     assert.deepEqual(cards(), ['Midweek Prayer Meeting']);
+    assert.equal(scrollTargets.length, 0, 'ordinary calendar/filter use does not scroll to search results');
+    await act(() => searchConfig.onOpen());
+    assert.equal(scrollTargets.at(-1), document.querySelector('[data-activity-results]'));
+    await act(() => searchConfig.onChange('No such activity'));
+    assert.equal(cards().length, 0);
+    assert.equal(scrollTargets.length, 2, 'typing aligns the filtered or empty results instead of the calendar');
+    assert.equal(scrollTargets.at(-1), document.querySelector('[data-activity-results]'));
   } finally {
     await act(() => root.unmount()); dom.window.close();
     keys.forEach((key, index) => { if (saved[index]) Object.defineProperty(globalThis, key, saved[index]!); else delete (globalThis as any)[key]; });

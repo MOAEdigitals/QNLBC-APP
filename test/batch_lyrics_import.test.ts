@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 import { runInNewContext } from 'node:vm';
 import { webcrypto } from 'node:crypto';
-import { cleanLeadingSongTitle, cleanEmptySectionLabels } from '../src/utils/songLyrics.ts';
+import { cleanLeadingSongTitle, cleanEmptySectionLabels, cleanDuplicateChorusSections } from '../src/utils/songLyrics.ts';
 import { songTitleCase } from '../src/utils/songTitleCase.ts';
 function harness(initial: any[] = []) {
   const rows = initial.map(row => ({...row})); let failAt = -1, lost = false; let attempts = 0;
@@ -52,7 +52,7 @@ test('song library loads all pages after a large import instead of stopping at t
   const rows=Array.from({length:1658},(_,i)=>({id:String(i),title:`Song ${i}`,lyrics:'Verse 1\nLyrics'}));const pages:number[]=[];
   const db={from:()=>({select(){return this;},is(){return this;},order(){return this;},range:async(start:number,end:number)=>{pages.push(start);return {data:rows.slice(start,end+1),error:null};}})};
   const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
-    exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptySectionLabels}:new Proxy({},{get:()=>()=>null}),
+    exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptySectionLabels,cleanDuplicateChorusSections}:new Proxy({},{get:()=>()=>null}),
   });
   assert.equal((await exports.fetchSongs()).length,1658);assert.deepEqual(pages,[0,500,1000,1500]);
 });
@@ -65,7 +65,7 @@ test('counted library pages load concurrently, retain every lyric, and reject in
     return {data:rows.slice(start,end+1),error:fail&&start===1000?Error('Read failed'):null,count:start===0?rows.length:null};
   }})};
   const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
-    exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptySectionLabels}:new Proxy({},{get:()=>()=>null}),
+    exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptySectionLabels,cleanDuplicateChorusSections}:new Proxy({},{get:()=>()=>null}),
   });
   const loading=exports.fetchSongs();await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(starts,[0,500,1000],'remaining pages start together rather than waiting for each other');

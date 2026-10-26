@@ -19,6 +19,10 @@ test('header search keeps filters visible outside, clears on Escape, and preserv
   const exports: any = {};
   let search: any;
   let currentTab = 'songs';
+  let resultScrolls = 0;
+  const scrollResults = () => resultScrolls++;
+  const viewport = new dom.window.EventTarget();
+  Object.defineProperty(dom.window, 'visualViewport', { configurable: true, value: viewport });
   const root = createRoot(document.getElementById('root'));
   const render = () => root.render(React.createElement(exports.Navbar, { currentUser: null, currentTab, onNavigateToSettings() {} }));
   const config = (value: string, label = 'Search songs'): any => ({ value, label, placeholder: label, onChange: (next: string) => { search = config(next, label); render(); } });
@@ -80,6 +84,14 @@ test('header search keeps filters visible outside, clears on Escape, and preserv
     assert.equal(search.value, ''); assert.equal(input(), null);
     assert.equal(navigationPops, 0, 'closing search must not navigate to another tab');
     window.removeEventListener('popstate', parent);
+    await act(() => { currentTab = 'special-numbers'; search = { ...config('', 'Search activities'), onOpen: scrollResults }; render(); });
+    await click('Search');
+    assert.equal(resultScrolls, 1, 'opening Activities search scrolls to its cards before typing');
+    await act(() => viewport.dispatchEvent(new dom.window.Event('resize')));
+    assert.equal(resultScrolls, 2, 'opening the keyboard keeps the cards aligned');
+    await escape();
+    await act(() => viewport.dispatchEvent(new dom.window.Event('resize')));
+    assert.equal(resultScrolls, 2, 'closing search removes keyboard scroll handling');
   } finally {
     await act(() => root.unmount());
     dom.window.close();

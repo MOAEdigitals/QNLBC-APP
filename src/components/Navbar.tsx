@@ -42,6 +42,14 @@ export const Navbar: React.FC<NavbarProps> = ({
   useBackLayer(isSearching, closeSearch);
   useEffect(() => { setIsSearching(false); }, [currentTab, search?.label]);
   useEffect(() => {
+    if (!isSearching || !search?.onOpen) return;
+    const scrollToResults = search.onOpen;
+    scrollToResults();
+    const viewport = window.visualViewport;
+    viewport?.addEventListener('resize', scrollToResults);
+    return () => viewport?.removeEventListener('resize', scrollToResults);
+  }, [isSearching, search?.onOpen]);
+  useEffect(() => {
     if (isSearchOpened && focusRequestedRef.current) inputRef.current?.focus();
     focusRequestedRef.current = false;
   }, [isSearchOpened]);

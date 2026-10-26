@@ -1,7 +1,7 @@
 import { UpcomingBadge } from '../../components/UpcomingBadge';
 import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import { CardDate } from '../../components/CardDate';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
@@ -41,6 +41,11 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const scrollToResults = useCallback(() => {
+    if (resultsRef.current) scrollActivityBelowHeader(resultsRef.current, document.querySelector<HTMLElement>('[data-app-header]'), true);
+  }, []);
+  useEffect(() => { if (search.trim()) scrollToResults(); }, [search, scrollToResults]);
   const [editor, setEditor] = useState<{ item: ChurchActivity; isNew: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -66,7 +71,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
       </div>
     ), [showFilters, gatheringFilters]);
   useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities',
-    label: 'Search activities', beforeSearch: activityFilter });
+    label: 'Search activities', beforeSearch: activityFilter, onOpen: scrollToResults });
 
   const load = async () => {
     try {
@@ -226,6 +231,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
       </div>
     </section>
 
+    <div ref={resultsRef} data-activity-results>
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {activityGroups.map(group => {
@@ -244,6 +250,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         </section>;
       })}
     </div>}
+    </div>
 
     {canAdd && <button type="button" aria-label="Add activity" title="Add activity" className="app-fab fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2" onClick={() => openNew()}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
 

@@ -22,6 +22,8 @@
 /* Avoid scroll anchoring to cards that disappear during section switches. */
 .special-screen { overflow-anchor: none; }
 .special-screen [aria-label="Schedules sections"] { height: 58px; flex-shrink: 0; }
+/* Leave enough room to align even one result below the header while searching. */
+.qnlbc-app:has(input[aria-label="Search activities"]) [data-activity-results] { min-height: 100dvh; }
 
 @custom-variant dark (&:where(.dark, .dark *));
 
