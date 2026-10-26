@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useBackLayer } from '../hooks/useBackLayer';
 import { loadAnnouncementAdmin, sendAnnouncement, type AnnouncementRecipient, type AnnouncementHistory } from '../services/adminAnnouncements';
 const field = 'mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 dark:border-slate-700';
 const statusLabel = { accepted: 'Push accepted by provider', queued: 'Push queued', failed: 'Push unsuccessful', inbox_only: 'Inbox only — no enabled device' };
@@ -15,6 +16,7 @@ export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChang
   const [notice, setNotice] = useState('');
   const [preview, setPreview] = useState(false);
   const lock = useRef(false);
+  useBackLayer(!!search && !preview, () => { (document.activeElement as HTMLElement | null)?.blur(); setSearch(''); });
   // Retain the same request ID on uncertain responses; edits create a new request.
   const request = useRef<{ fingerprint: string; id: string } | null>(null);
   const refresh = async () => {

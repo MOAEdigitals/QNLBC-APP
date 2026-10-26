@@ -9,3 +9,5 @@ coverage/
 uploads/
 .env*
 !.env.example
+
+/supabase/.temp/

@@ -18,7 +18,7 @@ test('major tabs are lazy-loaded and only the active tab is mounted', () => {
 });
 
 test('initial login loads core data and secondary tabs load on demand', () => {
-  assert.match(app, /await loadCoreData\(\)/);
+  assert.match(app, /void loadCoreData\(\)/);
   assert.match(app, /loadTabData\(currentTab\)/);
   assert.match(app, /if \(tab === 'recognitions'\)/);
   assert.match(app, /else if \(tab === 'special-numbers'\)/);

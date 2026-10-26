@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
+    PushNotifications: { presentationOptions: ['badge', 'sound', 'alert'] },
     SystemBars: { style: 'DARK', insetsHandling: 'css', initialViewportFitValueHint: 'cover' },
     SplashScreen: {
       launchShowDuration: 1200,

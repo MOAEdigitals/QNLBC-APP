@@ -56,3 +56,19 @@ test('song library loads all pages after a large import instead of stopping at t
   });
   assert.equal((await exports.fetchSongs()).length,1658);assert.deepEqual(pages,[0,500,1000,1500]);
 });
+
+test('counted library pages load concurrently, retain every lyric, and reject incomplete loads', async()=>{
+  const rows=Array.from({length:1491},(_,i)=>({id:String(i),title:`Song ${i}`,lyrics:`Full lyrics ${i}`}));
+  const starts:number[]=[], release:Array<()=>void>=[];let fail=false;
+  const db={from:()=>({select(){return this;},is(){return this;},order(){return this;},range:async(start:number,end:number)=>{
+    starts.push(start);if(start>0)await new Promise<void>(resolve=>release.push(resolve));
+    return {data:rows.slice(start,end+1),error:fail&&start===1000?Error('Read failed'):null,count:start===0?rows.length:null};
+  }})};
+  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
+    exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptyChorusLabels}:new Proxy({},{get:()=>()=>null}),
+  });
+  const loading=exports.fetchSongs();await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(starts,[0,500,1000],'remaining pages start together rather than waiting for each other');
+  release.splice(0).forEach(fn=>fn());const songs=await loading;assert.equal(songs.length,1491);assert.equal(songs[1490].lyrics,'Full lyrics 1490');
+  fail=true;const failed=exports.fetchSongs();await new Promise(resolve=>setImmediate(resolve));release.splice(0).forEach(fn=>fn());await assert.rejects(()=>failed,/Read failed/);
+});

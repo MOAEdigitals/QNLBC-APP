@@ -217,6 +217,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   });
 
   const isAdmin = currentUser.role === 'admin';
+  useBackLayer(settingsSection === 'members' && !!userSearchQuery && !selectedMemberId && !showCreateMember && !editingMemberId, () => { (document.activeElement as HTMLElement | null)?.blur(); setUserSearchQuery(''); });
   useEffect(() => {
     setMemberCredentials({});
     setVisibleCredentialId(null);

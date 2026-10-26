@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UserAccount, AppTab } from '../types';
-import { Search, X, Bell } from 'lucide-react';
+import { Search, X, Bell, NotebookPen } from 'lucide-react';
 import { useHeaderSearchContext } from './HeaderSearch';
+import { useBackLayer } from '../hooks/useBackLayer';
 
 const TAB_LABELS: Record<AppTab, string> = {
   home: 'Setlists',
@@ -18,6 +19,7 @@ interface NavbarProps {
   currentTab: AppTab;
   onNavigateToSettings: () => void;
   onOpenNotifications?: () => void;
+  onOpenNotepad?: () => void;
   unreadNotifications?: number;
 }
 
@@ -26,6 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentTab,
   onNavigateToSettings,
   onOpenNotifications,
+  onOpenNotepad,
   unreadNotifications = 0,
 }) => {
   const { search } = useHeaderSearchContext();
@@ -35,6 +38,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const focusRequestedRef = useRef(false);
+  const closeSearch = () => { inputRef.current?.blur(); search?.onChange(''); setIsSearching(false); };
+  useBackLayer(isSearching, closeSearch);
   useEffect(() => { setIsSearching(false); }, [currentTab, search?.label]);
   useEffect(() => {
     if (isSearchOpened && focusRequestedRef.current) inputRef.current?.focus();
@@ -58,8 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               if (event.key !== 'Escape') return;
               // Prevent native search inputs from silently clearing the active query.
               event.preventDefault();
-              if (search.value.length) inputRef.current?.blur();
-              else setIsSearching(false);
+              closeSearch();
             }} placeholder={search.placeholder} aria-label={search.label} className="min-h-11 min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 dark:text-white [&::-webkit-search-cancel-button]:hidden" />
             <button type="button" onPointerDown={(event) => event.preventDefault()} onClick={() => { setIsSearching(true); search.onChange(''); }} aria-label="Clear search" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button>
           </div>
@@ -74,8 +78,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>}
 
         {!isSearching && <div className="flex items-center space-x-2">
-          {onOpenNotifications && <button type="button" onClick={onOpenNotifications} aria-label={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><Bell className="h-5 w-5" />{unreadNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>}
           {search?.beforeSearch}
+          {currentTab === 'home' && onOpenNotepad && <button type="button" onClick={onOpenNotepad} aria-label="Notepad" title="Notepad" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><NotebookPen className="h-5 w-5" /></button>}
+          {['home', 'recognitions', 'special-numbers'].includes(currentTab) && onOpenNotifications && <button type="button" onClick={onOpenNotifications} aria-label={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><Bell className="h-5 w-5" />{unreadNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>}
           {search && <button type="button" onClick={() => { focusRequestedRef.current = true; setIsSearching(true); }} aria-label="Search" title="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Search className="h-5 w-5" /></button>}
           {currentUser && (
             <button

@@ -388,8 +388,24 @@ export function mapSongFromDB(row: any): Song {
 
 export async function fetchSongs(): Promise<Song[]> {
   if (!isSupabaseConfigured()) return [];
-  const rows: any[] = [];
-  for (let offset = 0; ; offset += 500) {
+  const first = await supabase.from('songs').select('*', { count: 'exact' }).is('deleted_at', null)
+    .order('title', { ascending: true }).order('id', { ascending: true }).range(0, 499);
+  if (first.error) throw first.error;
+  const initialRows: any[] = first.data || [];
+  if (typeof first.count === 'number') {
+    const rows: any[] = [...(first.data || [])];
+    for (let offset = 500; offset < first.count; offset += 2000) {
+      const starts = Array.from({ length: Math.min(4, Math.ceil((first.count - offset) / 500)) }, (_, i) => offset + i * 500);
+      const pages = await Promise.all(starts.map(start => supabase.from('songs').select('*').is('deleted_at', null)
+        .order('title', { ascending: true }).order('id', { ascending: true }).range(start, start + 499)));
+      for (const page of pages) { if (page.error) throw page.error; rows.push(...(page.data || [])); }
+    }
+    if (rows.length < first.count || new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Song library changed while loading. Please refresh.');
+    return rows.map(mapSongFromDB);
+  }
+  const rows: any[] = [...initialRows];
+  if (initialRows.length < 500) return rows.map(mapSongFromDB);
+  for (let offset = 500; ; offset += 500) {
     const { data, error } = await supabase.from('songs').select('*').is('deleted_at', null)
       .order('title', { ascending: true }).order('id', { ascending: true }).range(offset, offset + 499);
     if (error) throw error;

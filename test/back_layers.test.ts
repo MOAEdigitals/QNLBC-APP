@@ -59,6 +59,24 @@ test('schedule subtabs do not become Back layers that reset to Song Numbers', ()
   assert.match(source, /useBackLayer\(isEditingSchedule/);
 });
 
+test('closing a child manually does not close an earlier-mounted parent; unmount consumes its history', async () => {
+  const root = createRoot(document.getElementById('root')!);
+  let state: any;
+  function ParentFirst() {
+    const [parent,setParent]=React.useState(true),[child,setChild]=React.useState(false);
+    useBackLayer(parent,()=>setParent(false));
+    useBackLayer(child,()=>setChild(false));
+    state={parent,child,setChild};return null;
+  }
+  window.history.replaceState({tab:'songs'},'');
+  await act(async()=>root.render(React.createElement(ParentFirst)));
+  await act(()=>state.setChild(true));
+  await act(async()=>{state.setChild(false);await wait();});
+  assert.equal(state.parent,true);assert.equal(state.child,false);
+  await act(async()=>{window.history.back();await wait();});assert.equal(state.parent,false);
+  await act(async()=>root.unmount());
+});
+
 test('section tabs do not hijack Back and full-screen views use one Back system', () => {
   const special = fs.readFileSync(path.join(process.cwd(), 'src/components/SpecialNumberTab.tsx'), 'utf8').replace(/\r\n/g, '\n');
   const recognitions = fs.readFileSync(path.join(process.cwd(), 'src/components/RecognitionsTab.tsx'), 'utf8').replace(/\r\n/g, '\n');

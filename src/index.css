@@ -14,6 +14,9 @@
 }
 .qnlbc-app button.app-fab:hover { background: #1e40af; }
 .app-bottom-nav { padding-left: var(--app-safe-left); padding-right: var(--app-safe-right); }
+/* Android SystemBars resizes the WebView above the IME. Keep tabs out of that
+   smaller viewport while preserving their measured height for layout. */
+.keyboard-open .app-bottom-nav { visibility: hidden; pointer-events: none; }
 .app-nav-label { font-size: clamp(10px, 2.65vw, 12px); letter-spacing: -.02em; }
 .qnlbc-app > main { padding-bottom: calc(var(--app-bottom-nav-height, calc(4.25rem + var(--app-safe-bottom))) + 5rem); }
 /* Avoid scroll anchoring to cards that disappear during section switches. */

@@ -1,6 +1,6 @@
 import { useAssignmentNotifications } from './hooks/useAssignmentNotifications';
 import { NotificationInbox } from './components/NotificationInbox';
-import { disableAssignmentPush } from './services/assignmentNotifications';
+import { disableAssignmentPush, requestInitialPushPermission } from './services/assignmentNotifications';
 import { SwipeNavigationProvider } from './components/SwipeNavigation';
 import { readSetlistShareId } from './utils/setlistSharing';
 import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
@@ -97,6 +97,7 @@ const RecognitionsTab = lazy(() => import('./components/RecognitionsTab').then((
 const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then((module) => ({ default: module.SpecialNumberTab })));
 const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
 const SermonOutlines = React.lazy(() => import('./features/sermons/SermonOutlines'));
+const Notepad = React.lazy(() => import('./features/notepad/Notepad'));
 const SettingsTab = lazy(() => import('./components/SettingsTab').then((module) => ({ default: module.SettingsTab })));
 
 function TabLoadingSkeleton() {
@@ -110,12 +111,15 @@ function TabLoadingSkeleton() {
 }
 
 export default function App() {
+  useEffect(() => { void requestInitialPushPermission().catch(() => {}); }, []);
   // 1. Auth and Loading States
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const signedInUserIdRef = useRef<string | null>(null);
   signedInUserIdRef.current = currentUser?.id || null;
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState<boolean>(true);
+  const [isLoadingCoreData, setIsLoadingCoreData] = useState(true);
+  const coreLoadEpoch = useRef(0);
 
   // Connection Status
   const [dbStatus, setDbStatus] = useState<DatabaseStatusInfo>(() =>
@@ -215,16 +219,20 @@ export default function App() {
   const sectionLoadPromisesRef = useRef<Partial<Record<AppTab, Promise<void>>>>({});
 
   const loadCoreData = useCallback(async () => {
+    const own = ++coreLoadEpoch.current;
+    setIsLoadingCoreData(true);
     const [serverSetlists, serverSongs, serverSavedNames] = await Promise.all([
       fetchSetlists().catch(() => preserveOnRefreshFailure('setlists')),
       fetchSongs().catch(() => preserveOnRefreshFailure('songs')),
       fetchMinistrySavedNames().catch(() => preserveOnRefreshFailure('savedNames')),
     ]);
+    if (own !== coreLoadEpoch.current) return;
     setSetlists(serverSetlists);
     setSongs(serverSongs);
     setSavedNames(serverSavedNames);
     loadedSectionsRef.current.add('home');
     loadedSectionsRef.current.add('songs');
+    setIsLoadingCoreData(false);
   }, []);
 
   const loadTabData = useCallback((tab: AppTab): Promise<void> => {
@@ -300,10 +308,9 @@ export default function App() {
 
         // Load only the shared data required by the primary Setlists and Songs views.
         // Secondary sections fetch their authoritative data when first opened.
-        await loadCoreData();
-
         if (isMounted) {
           setIsLoadingInitialData(false);
+          void loadCoreData();
         }
       } catch (err) {
         console.error('Failed to initialize authoritative data:', err);
@@ -316,9 +323,11 @@ export default function App() {
     initSessionAndData();
 
     // Listen to Supabase Auth changes
-    const { data: authSub } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         if (isMounted) {
+          coreLoadEpoch.current++;
+          setIsLoadingCoreData(false);
           loadedSectionsRef.current.clear();
           sectionLoadPromisesRef.current = {};
           setCurrentUser(null);
@@ -335,10 +344,14 @@ export default function App() {
           setIsLoadingInitialData(false);
         }
       } else if (event === 'SIGNED_IN' && session) {
-        const profile = await fetchCurrentUserProfile(session.user.id);
-        if (isMounted && profile && profile.active) {
-          setCurrentUser(profile);
-        }
+        // Auth callbacks run under Supabase's session lock; defer database calls.
+        window.setTimeout(() => { void (async () => {
+          const epoch = coreLoadEpoch.current;
+          const { data } = await supabase.auth.getSession();
+          if (!isMounted || data.session?.user.id !== session.user.id) return;
+          const profile = await fetchCurrentUserProfile(session.user.id);
+          if (isMounted && epoch === coreLoadEpoch.current && profile?.active) setCurrentUser(profile);
+        })().catch(() => {}); }, 0);
       }
     });
 
@@ -419,7 +432,7 @@ export default function App() {
   // Resolve shared links only after normal authentication and authorized data loading.
   useEffect(() => {
     const id = pendingSharedSetlist.current;
-    if (!id || !currentUser || isLoadingInitialData || refreshError || !loadedSectionsRef.current.has('home')) return;
+    if (!id || !currentUser || isLoadingInitialData || isLoadingCoreData || refreshError || !loadedSectionsRef.current.has('home')) return;
     pendingSharedSetlist.current = null;
     const found = setlists.some(item => item.id === id);
     rememberedSetlists.current = { ids: found ? [id] : [] };
@@ -433,7 +446,7 @@ export default function App() {
     const clean = new URL(window.location.href);
     clean.searchParams.delete('setlist'); clean.hash = 'home';
     window.history.replaceState({ tab: 'home' }, '', clean.href);
-  }, [currentUser, isLoadingInitialData, refreshError, setlists, sharedLinkRequest]);
+  }, [currentUser, isLoadingInitialData, isLoadingCoreData, refreshError, setlists, sharedLinkRequest]);
 
   useEffect(() => {
     const receive = (url: string, native = false) => {
@@ -451,6 +464,8 @@ export default function App() {
   }, []);
 
   const [isNotificationInboxOpen, setNotificationInboxOpen] = useState(false);
+  const [isNotepadOpen, setNotepadOpen] = useState(false);
+  useEffect(() => { setNotepadOpen(false); }, [currentUser?.id]);
   const openAssignedSetlist = useCallback((id: string) => {
     const userId = signedInUserIdRef.current;
     if (!userId) return;
@@ -465,7 +480,12 @@ export default function App() {
     });
   }, []);
   const openAnnouncementInbox = useCallback(() => setNotificationInboxOpen(true), []);
-  const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist, openAnnouncementInbox);
+  const openCalendarNotification = useCallback((kind: 'birthday' | 'event') => {
+    const tab = kind === 'birthday' ? 'recognitions' : 'special-numbers';
+    setNotificationInboxOpen(false);
+    window.history.pushState({ tab }, '', `#${tab}`); setCurrentTab(tab);
+  }, []);
+  const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist, openAnnouncementInbox, openCalendarNotification);
 
   // Reload data from Supabase
   const reloadAllData = async () => {
@@ -648,11 +668,10 @@ export default function App() {
       localStorage.removeItem('nlbc_selected_setlist_id_v1');
     } catch {}
     setCurrentUser(user);
-    setIsLoadingInitialData(true);
+    setIsLoadingInitialData(false);
     loadedSectionsRef.current.clear();
     sectionLoadPromisesRef.current = {};
-    await loadCoreData();
-    setIsLoadingInitialData(false);
+    void loadCoreData();
     setCurrentTab('special-numbers');
     tabHistoryRef.current = ['special-numbers'];
     window.history.replaceState({ tab: 'special-numbers' }, '', '#special-numbers');
@@ -1342,18 +1361,20 @@ export default function App() {
           currentTab={currentTab}
           onNavigateToSettings={() => handleNavigateTab('settings')}
           onOpenNotifications={() => { setNotificationInboxOpen(true); void notifications.refresh(); }}
+          onOpenNotepad={() => setNotepadOpen(true)}
           unreadNotifications={notifications.items.filter(item => !item.read_at).length}
         />
       )}
 
-      {isNotificationInboxOpen && <NotificationInbox key={currentUser.id} {...notifications} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onClose={() => setNotificationInboxOpen(false)} />}
+      {isNotificationInboxOpen && <NotificationInbox key={currentUser.id} {...notifications} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
+      {isNotepadOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
         {sharedSetlistError && currentTab === 'home' && <div role="alert" className="mb-4 rounded-xl border border-amber-300 p-3 text-sm">{sharedSetlistError}<button type="button" className="ml-3 underline" onClick={() => setSharedSetlistError('')}>Dismiss</button></div>}
         {refreshError && <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 p-3 text-sm"><span>{refreshError}</span><button type="button" className="ui-secondary" onClick={() => { setRefreshError(''); void reloadAllData(); }}>Retry</button></div>}
         <Suspense fallback={<TabLoadingSkeleton />}>
-        {currentTab === 'home' && (
+        {currentTab === 'home' && (isLoadingCoreData ? <TabLoadingSkeleton /> : (
           <SetlistsTab
             setlists={linkedSetlists}
             songs={songs}
@@ -1372,7 +1393,7 @@ export default function App() {
             initialScrollY={savedSetlistScrollPosRef.current?.scrollY}
             collapseSignal={collapseSignals.home}
           />
-        )}
+        ))}
 
         {currentTab === 'recognitions' && (!loadedSectionsRef.current.has('recognitions') ? <TabLoadingSkeleton /> : (
           <RecognitionsTab
@@ -1392,7 +1413,7 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'special-numbers' && (!loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
+        {currentTab === 'special-numbers' && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
             currentUser={currentUser}
             specialNumbers={linkedSpecialNumbers}
@@ -1425,7 +1446,7 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'songs' && (
+        {currentTab === 'songs' && (isLoadingCoreData ? <TabLoadingSkeleton /> : (
           <SongsTab
               canManageCategories={currentUser?.role === 'admin'}
             songs={songs}
@@ -1443,7 +1464,7 @@ export default function App() {
             returnSetlistId={returnSetlistIdRef.current}
             onBackToSetlist={handleBackToSetlist}
           />
-        )}
+        ))}
 
         {currentTab === 'outlines' && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines}
           initialRows={outlineCache.current?.userId === currentUser.id ? outlineCache.current.rows : undefined}

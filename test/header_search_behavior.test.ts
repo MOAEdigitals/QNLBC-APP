@@ -5,8 +5,9 @@ import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { JSDOM } from 'jsdom';
 import ts from 'typescript';
+import { useBackLayer } from '../src/hooks/useBackLayer.ts';
 
-test('header search keeps active filters visible through outside taps, Escape, clear and tab changes', async () => {
+test('header search keeps filters visible outside, clears on Escape, and preserves tab searches until dismissed', async () => {
   const dom = new JSDOM('<div id="root"></div><button id="outside">Outside</button>', { url: 'http://localhost' });
   const globals = ['window', 'document', 'navigator', 'HTMLElement', 'IS_REACT_ACT_ENVIRONMENT'];
   const saved = globals.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
@@ -24,8 +25,8 @@ test('header search keeps active filters visible through outside taps, Escape, c
   runInNewContext(ts.transpileModule(readFileSync('src/components/Navbar.tsx', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
   }).outputText, {
-    exports, document,
-    require: (name: string) => name === 'react' ? React : name === './HeaderSearch' ? { useHeaderSearchContext: () => ({ search }) } : { ChurchLogo: () => null, Search: () => null, X: () => null },
+    exports, document, window: dom.window,
+    require: (name: string) => name === 'react' ? React : name === '../hooks/useBackLayer' ? { useBackLayer } : name === './HeaderSearch' ? { useHeaderSearchContext: () => ({ search }) } : { ChurchLogo: () => null, Search: () => null, X: () => null },
   });
   const input = () => document.querySelector('input');
   const click = async (label: string) => act(() => document.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
@@ -48,7 +49,9 @@ test('header search keeps active filters visible through outside taps, Escape, c
     await outside();
     assert.equal(input()!.value, 'Basics');
     await escape();
-    assert.equal(input()!.value, 'Basics', 'Escape preserves the visible active query');
+    assert.equal(input(), null, 'Escape clears and collapses search');
+    assert.equal(search.value, '');
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 50)); });
     await act(() => { currentTab = 'settings'; search = null; render(); });
     assert.equal(input(), null);
     assert.equal(document.querySelector('[aria-label="Search"]'), null);
@@ -67,6 +70,16 @@ test('header search keeps active filters visible through outside taps, Escape, c
     assert.equal(input()!.value, 'Choir', 'subtab query is visible without an extra search tap');
     await outside();
     assert.equal(input()!.value, 'Choir');
+    // IME dismissal leaves the query intact; the next browser/native Back owns search.
+    await act(() => input()!.blur());
+    assert.equal(search.value, 'Choir');
+    let navigationPops = 0;
+    const parent = () => navigationPops++;
+    window.addEventListener('popstate', parent);
+    await act(async () => { window.history.back(); await new Promise(resolve => setTimeout(resolve, 60)); });
+    assert.equal(search.value, ''); assert.equal(input(), null);
+    assert.equal(navigationPops, 0, 'closing search must not navigate to another tab');
+    window.removeEventListener('popstate', parent);
   } finally {
     await act(() => root.unmount());
     dom.window.close();

@@ -1,4 +1,5 @@
 import { pickerPlacement } from '../utils/pickerPlacement';
+import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Song, Setlist } from '../types';
@@ -147,6 +148,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setIsPickerClosing(true);
     closeTimerRef.current = setTimeout(finishClosePicker, duration + 20);
   };
+  useBackLayer(isOpen && isTouchPicker, () => { setPickerQuery(''); closePicker(); });
   useEffect(() => {
     if (!isOpen) {
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current);

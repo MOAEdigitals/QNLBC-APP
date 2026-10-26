@@ -12,12 +12,12 @@ function clientHarness() {
   let currentUser = user1;
   const listeners = new Map<string, (...args: any[]) => void>();
   const calls: { name: string; args?: any }[] = [];
-  let permission = 'prompt';
+  let permission = 'prompt'; let promptResult = 'granted';
   let registrationGate: Promise<void> | undefined;
   const pushes = {
     addListener: async (name: string, callback: any) => { listeners.set(name, callback); return { remove: async () => { if (listeners.get(name) === callback) listeners.delete(name); } }; },
     checkPermissions: async () => ({ receive: permission }),
-    requestPermissions: async () => { calls.push({ name: 'permission' }); permission = 'granted'; return { receive: permission }; },
+    requestPermissions: async () => { calls.push({ name: 'permission' }); permission = promptResult; return { receive: permission }; },
     register: async () => { calls.push({ name: 'native-register' }); listeners.get('registration')?.({ value: 'test-token-for-installation-123456789' }); },
     unregister: async () => { calls.push({ name: 'native-unregister' }); },
     removeAllDeliveredNotifications: async () => {}, createChannel: async () => {},
@@ -30,13 +30,12 @@ function clientHarness() {
     exports, crypto: webcrypto, localStorage: { getItem: (key: string) => storage.get(key) || null, setItem: (key: string, value: string) => storage.set(key, value) },
     require: (name: string) => name === '@capacitor/core' ? { Capacitor: { getPlatform: () => 'android' } } : name === '@capacitor/push-notifications' ? { PushNotifications: pushes } : { supabase: db },
   });
-  return { exports, listeners, calls, blockRegistration: () => { let release: () => void; registrationGate = new Promise<void>(resolve => { release = resolve; }); return () => release!(); }, setUser: (id: string) => { currentUser = id; }, setPermission: (value: string) => { permission = value; } };
+  return { exports, listeners, calls, blockRegistration: () => { let release: () => void; registrationGate = new Promise<void>(resolve => { release = resolve; }); return () => release!(); }, setUser: (id: string) => { currentUser = id; }, setPermission: (value: string) => { permission = value; }, setPromptResult: (value: string) => { promptResult = value; } };
 }
 test('Android registration requires permission and successful account-bound persistence; wrong-account taps are ignored', async () => {
   const h = clientHarness(); const opened: string[] = []; const statuses: string[] = [];
   const stop = await h.exports.listenForAssignmentPush(user1, (id: string) => opened.push(id), () => {}, (status: string) => statuses.push(status));
-  assert.deepEqual(statuses, ['prompt']);
-  assert.equal(h.calls.some(call => call.name === 'permission'), false, 'opening the app must not auto-prompt');
+  assert.equal(h.calls.filter(call => call.name === 'permission').length, 1, 'first launch asks for Android notification permission');
   await h.exports.enableAssignmentPush(); await flush(); await flush();
   assert.ok(h.calls.some(call => call.name === 'register_push_device'));
   assert.equal(statuses.at(-1), 'enabled');
@@ -72,6 +71,37 @@ test('denied notification permission never registers a token', async () => {
   assert.equal(await h.exports.enableAssignmentPush(), 'denied');
   assert.equal(h.calls.some(call => call.name === 'native-register'), false);
 });
+
+test('first-launch permission is requested once and does not register a signed-out device', async () => {
+  const h = clientHarness();
+  await Promise.all([h.exports.requestInitialPushPermission(), h.exports.requestInitialPushPermission()]);
+  assert.equal(h.calls.filter(call => call.name === 'permission').length, 1);
+  assert.equal(h.calls.some(call => call.name === 'native-register'), false);
+  const stop = await h.exports.listenForAssignmentPush(user1, () => {}, () => {}, () => {});
+  await flush(); await flush();
+  assert.ok(h.calls.some(call => call.name === 'register_push_device'));
+  assert.equal(h.calls.filter(call => call.name === 'permission').length, 1); stop();
+});
+
+test('declining the launch prompt is respected on subsequent launches', async () => {
+  const h = clientHarness(); h.setPromptResult('denied');
+  assert.equal(await h.exports.requestInitialPushPermission(), 'denied');
+  await h.exports.requestInitialPushPermission();
+  const stop = await h.exports.listenForAssignmentPush(user1, () => {}, () => {}, () => {});
+  assert.equal(h.calls.filter(call => call.name === 'permission').length, 1);
+  assert.equal(h.calls.some(call => call.name === 'native-register'), false); stop();
+});
+
+test('birthday and event push taps route only the matching signed-in account', async () => {
+  const h = clientHarness(), opened: string[] = [];
+  const stop = await h.exports.listenForAssignmentPush(user1, () => {}, () => {}, () => {}, undefined, (kind: string) => opened.push(kind));
+  for (const kind of ['birthday','event']) {
+    h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { userId: user2, kind, notificationId: setlistId } } });
+    h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { userId: user1, kind, notificationId: 'bad-id' } } });
+    h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { userId: user1, kind, notificationId: setlistId } } });
+  }
+  assert.deepEqual(opened, ['birthday','event']); stop();
+});
 test('announcement pushes refresh and open the inbox only for their own account', async () => {
   const h = clientHarness(); let refreshed = 0, opened = 0;
   const stop = await h.exports.listenForAssignmentPush(user1, () => assert.fail('An announcement has no setlist'), () => refreshed++, () => {}, () => opened++);
@@ -105,16 +135,19 @@ test('dispatcher sends only claimed device deliveries and acknowledges provider 
   const keys = await webcrypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
   const privateKey = Buffer.from(await webcrypto.subtle.exportKey('pkcs8', keys.privateKey)).toString('base64');
   const account = { client_email: 'test@example.test', project_id: 'test-project', private_key: `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----` };
-  for (const outcome of ['sent', 'retry', 'invalid']) for (const standalone of [false, true]) {
+  for (const outcome of ['sent', 'retry', 'invalid']) for (const kind of ['assigned', 'announcement', 'birthday', 'event']) {
+    const standalone = kind !== 'assigned';
     const acknowledgements: any[] = [];
     const handler = workerHarness({ NOTIFICATIONS_CRON_SECRET: 'test-server-secret', FCM_SERVICE_ACCOUNT_JSON: JSON.stringify(account) }, async (name, args) => {
-      if (name === 'claim_assignment_pushes') return { data: [{ delivery_id: 1, lease_id: setlistId, notification_id: setlistId, token: 'test-device-token', user_id: user1, setlist_id: standalone ? null : setlistId, title: 'Assignment', body: 'Assigned for Sunday' }], error: null };
+      if (name === 'claim_assignment_pushes') return { data: [{ delivery_id: 1, lease_id: setlistId, notification_id: setlistId, token: 'test-device-token', user_id: user1, setlist_id: standalone ? null : setlistId, title: 'Assignment', body: 'Assigned for Sunday', kind }], error: null };
       acknowledgements.push(args); return { error: null };
     }, (async (url: any, options: any) => {
       if (String(url).includes('oauth2.googleapis.com')) return Response.json({ access_token: 'test-access-token', expires_in: 3600 });
       const payload = JSON.parse(options.body);
       assert.equal(payload.message.data.userId, user1); assert.equal(payload.message.data.setlistId, standalone ? undefined : setlistId);
-      if (standalone) assert.equal(payload.message.data.kind, 'announcement');
+      if (standalone) assert.equal(payload.message.data.kind, kind);
+      assert.equal(payload.message.android.priority, 'high');
+      assert.ok(payload.message.notification.title);
       assert.equal(payload.message.android.notification.tag, setlistId);
       if (outcome === 'sent') return Response.json({ name: 'messages/test' });
       return Response.json({ error: { details: outcome === 'invalid' ? [{ errorCode: 'UNREGISTERED' }] : [] } }, { status: outcome === 'invalid' ? 404 : 503 });

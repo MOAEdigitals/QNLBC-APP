@@ -47,7 +47,7 @@ Deno.serve(async request => {
         try {
           const response = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(account.project_id)}/messages:send`, {
             method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000),
-            body: JSON.stringify({ message: { token: delivery.token, notification: { title: delivery.title, body: pushBody }, data: { userId: delivery.user_id, ...(delivery.setlist_id ? { setlistId: delivery.setlist_id } : { kind: 'announcement' }), notificationId: delivery.notification_id }, android: { priority: 'high', ttl: '3600s', notification: { channel_id: 'assignments', tag: delivery.notification_id, icon: 'ic_notification' } } } }),
+            body: JSON.stringify({ message: { token: delivery.token, notification: { title: delivery.title, body: pushBody }, data: { userId: delivery.user_id, ...(delivery.setlist_id ? { setlistId: delivery.setlist_id } : { kind: delivery.kind || 'announcement' }), notificationId: delivery.notification_id }, android: { priority: 'high', ttl: '3600s', notification: { channel_id: 'assignments', tag: delivery.notification_id, icon: 'ic_notification' } } } }),
           });
           if (response.ok) result = 'sent';
           else {

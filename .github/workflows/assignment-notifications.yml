@@ -40,6 +40,10 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261026012319_narrow_announcement_admin_endpoints.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/assignment_notifications.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/admin_announcements.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/personal_notes_ci_fixture.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261026065130_personal_notepad.sql
+          sed '/^select cron.schedule/d' supabase/migrations/20261026065759_calendar_notification_reminders.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/personal_notes_and_reminders.sql
   android:
     needs: [app, database]
     runs-on: ubuntu-latest
