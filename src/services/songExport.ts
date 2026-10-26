@@ -4,6 +4,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { supabase } from '../supabase';
 import { mapSongFromDB } from './supabaseData';
+import { cleanLeadingSongTitle } from '../utils/songLyrics';
 
 async function readSongs(): Promise<Record<string, any>[]> {
   const songs: Record<string, any>[] = [];
@@ -22,7 +23,9 @@ export async function buildSongsArchive(rows: Record<string, any>[]): Promise<Ui
     let name = title;
     for (let copy = 2; used.has(name.toLowerCase()); copy++) name = `${title} (${copy})`;
     used.add(name.toLowerCase());
-    zip.file(`lyrics/${name}.txt`, String(song.lyrics || ''));
+    // Match the text-file import format: title in the filename, sections and lyrics inside.
+    // Only strip a confirmed duplicate title heading, never a matching sung first line.
+    zip.file(`lyrics/${name}.txt`, cleanLeadingSongTitle(String(song.title || ''), String(song.lyrics || '')).replace(/\r\n/g, '\n'));
   }
   zip.file('songs-backup.json', JSON.stringify({ format: 'qnlbc-songs-backup', version: 1, exportedAt: new Date().toISOString(),
     songs: rows.map(row => ({ ...mapSongFromDB(row), lyrics: row.lyrics || '' })), rawSongs: rows,
