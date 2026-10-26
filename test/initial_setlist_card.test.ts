@@ -10,6 +10,9 @@ test('the first displayed card opens: Today, nearest future, then most recent pa
   assert.equal(initialSetlistCardId(rows.filter(row => row.date !== today), today), 'future');
   assert.equal(initialSetlistCardId([{ id: 'older', date: '2026-10-01' }, { id: 'recent', date: '2026-10-21' }], today), 'recent');
   assert.equal(initialSetlistCardId([], today), null);
+  const pastOnly = [{ id: 'older', date: '2026-10-01' }, { id: 'recent', date: '2026-10-21' }];
+  assert.equal(featuredSetlistCardId(pastOnly, today), null, 'a past top card never receives a gradient');
+  assert.equal(initialSetlistCardId(pastOnly, today), 'recent', 'past top card can still open by default');
 });
 
 test('manual selection and collapse survive the session, while a fresh session reapplies the featured card', () => {
