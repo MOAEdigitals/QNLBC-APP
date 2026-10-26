@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { loadAnnouncementAdmin, sendAnnouncement, type AnnouncementRecipient, type AnnouncementHistory } from '../services/adminAnnouncements';
-import { useBackLayer } from '../hooks/useBackLayer';
 const field = 'mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 dark:border-slate-700';
 const statusLabel = { accepted: 'Push accepted by provider', queued: 'Push queued', failed: 'Push unsuccessful', inbox_only: 'Inbox only — no enabled device' };
-export function AdminAnnouncements() {
+export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChange?: (handler: (() => void) | null) => void }) {
   const [people, setPeople] = useState<AnnouncementRecipient[]>([]);
   const [history, setHistory] = useState<AnnouncementHistory[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -26,7 +25,11 @@ export function AdminAnnouncements() {
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
   };
   useEffect(() => { void refresh(); }, []);
-  useBackLayer(preview, () => { if (!lock.current) setPreview(false); });
+  // Settings owns the history layer. A nested history listener would consume its Back event.
+  useEffect(() => {
+    onBackHandlerChange?.(preview ? () => { if (!lock.current) setPreview(false); } : null);
+    return () => onBackHandlerChange?.(null);
+  }, [preview, onBackHandlerChange]);
   const recipients = people.filter(person => selected.includes(person.id));
   const send = async () => {
     if (lock.current) return;

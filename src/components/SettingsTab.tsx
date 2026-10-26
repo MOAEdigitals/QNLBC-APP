@@ -5,7 +5,7 @@ import { fetchDirectoryMembers, type DirectoryMember } from '../services/directo
 import { CardActions } from './CardActions';
 import { APP_FONTS, type AppFont } from '../utils/appFont';
 import { useBackLayer } from '../hooks/useBackLayer';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
 import {
   cleanupLegacyStorage,
@@ -125,6 +125,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   collapseSignal,
 }) => {
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
+  const announcementBack = useRef<(() => void) | null>(null);
+  const registerAnnouncementBack = useCallback((handler: (() => void) | null) => { announcementBack.current = handler; }, []);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details', announcements: 'Admin announcements' };
   // Existing section content remains mounted while navigating settings.
@@ -204,6 +206,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   useBackLayer(showPromptModal || !!selectedMemberId || !!settingsSection || showCreateMember || !!editingMemberId, () => {
     if (creatingMember || memberSaveLock.current) return;
+    if (announcementBack.current) { announcementBack.current(); return; }
     if (showCreateMember) setShowCreateMember(false);
     else if (editingMemberId) setEditingMemberId(null);
     else if (showPromptModal) setShowPromptModal(false);
@@ -1081,7 +1084,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         </div>
       )}
 
-      {isAdmin && settingsSection === 'announcements' && <AdminAnnouncements key={currentUser.id} />}
+      {isAdmin && settingsSection === 'announcements' && <AdminAnnouncements key={currentUser.id} onBackHandlerChange={registerAnnouncementBack} />}
       {isAdmin && <div hidden={settingsSection !== 'directory'}><DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} /></div>}
 
       {directoryLoadError && isAdmin && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}

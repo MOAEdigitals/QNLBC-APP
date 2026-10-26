@@ -23,7 +23,8 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   const button=(name:string)=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent===name)!;
   const input=async(element:HTMLInputElement|HTMLTextAreaElement,value:string)=>{await act(async()=>{Object.getOwnPropertyDescriptor(element.tagName==='TEXTAREA'?dom.window.HTMLTextAreaElement.prototype:dom.window.HTMLInputElement.prototype,'value')!.set!.call(element,value);element.dispatchEvent(new dom.window.Event('input',{bubbles:true}));element.dispatchEvent(new dom.window.Event('change',{bubbles:true}));});};
   try{
-    await act(async()=>root.render(React.createElement(exports.AdminAnnouncements)));
+    let backHandler: (() => void) | null = null;
+    await act(async()=>root.render(React.createElement(exports.AdminAnnouncements,{onBackHandlerChange:(handler:(()=>void)|null)=>{backHandler=handler;}})));
     // Native change handling is covered below with React props, avoiding JSDOM's input-event polyfill differences.
     const setValue=async(selector:string,value:string)=>{const el=document.querySelector(selector)!;const propsKey=Object.keys(el).find(k=>k.startsWith('__reactProps$'))!;await act(async()=>(el as any)[propsKey].onChange({target:{value}}));};
     await setValue('input[maxlength="120"]','Practice update'); await setValue('textarea','Please arrive at 3 PM.');
@@ -34,6 +35,11 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
     await act(async()=>document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
     assert.match(document.querySelector('[role="dialog"]')!.textContent!,/Send to 2 accounts/);
     assert.equal(calls.length,0,'preview does not send');
+    assert.ok(backHandler, 'preview delegates Android Back to Settings');
+    await act(async()=>backHandler!());
+    assert.equal(document.querySelector('[role="dialog"]'),null);
+    assert.equal((document.querySelector('textarea') as HTMLTextAreaElement).value,'Please arrive at 3 PM.','Back preserves the message');
+    await act(async()=>document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
     const send=button('Send to 2 accounts');
     await act(async()=>{send.click();send.click();}); assert.equal(calls.length,1,'rapid taps send once');
     await act(async()=>release!());
