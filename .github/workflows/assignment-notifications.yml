@@ -37,6 +37,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025031548_assignment_notifications.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025162229_admin_announcements.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261025162408_private_announcement_operations.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261026012319_narrow_announcement_admin_endpoints.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/assignment_notifications.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/admin_announcements.sql
   android:
