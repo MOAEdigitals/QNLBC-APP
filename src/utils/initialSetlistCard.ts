@@ -61,5 +61,5 @@ export function initialSetlistCardId(
 ): string | null {
   if (requestedId) return requestedId;
   if (rememberedIds !== undefined) return rememberedIds.at(-1) || null;
-  return firstSetlistCard(setlists, today)?.id || null;
+  return featuredSetlistCardId(setlists, today);
 }

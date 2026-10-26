@@ -5,14 +5,15 @@ import { featuredSetlistCardId, initialSetlistCardId } from '../src/utils/initia
 const today = '2026-10-22';
 const rows = [{ id: 'future', date: '2026-10-25' }, { id: 'first-today', date: today }, { id: 'second-today', date: today }, { id: 'past', date: '2026-10-21' }];
 
-test('the first displayed card opens: Today, nearest future, then most recent past', () => {
+test('only Today or the nearest future card opens by default; past-only lists stay collapsed', () => {
   assert.equal(initialSetlistCardId(rows, today), 'first-today');
   assert.equal(initialSetlistCardId(rows.filter(row => row.date !== today), today), 'future');
-  assert.equal(initialSetlistCardId([{ id: 'older', date: '2026-10-01' }, { id: 'recent', date: '2026-10-21' }], today), 'recent');
+  assert.equal(initialSetlistCardId([{ id: 'older', date: '2026-10-01' }, { id: 'recent', date: '2026-10-21' }], today), null);
   assert.equal(initialSetlistCardId([], today), null);
   const pastOnly = [{ id: 'older', date: '2026-10-01' }, { id: 'recent', date: '2026-10-21' }];
   assert.equal(featuredSetlistCardId(pastOnly, today), null, 'a past top card never receives a gradient');
-  assert.equal(initialSetlistCardId(pastOnly, today), 'recent', 'past top card can still open by default');
+  assert.equal(initialSetlistCardId(pastOnly, today), null, 'past top card stays collapsed by default');
+  assert.equal(initialSetlistCardId(pastOnly, today, 'recent'), 'recent', 'explicitly opening a past card still works');
 });
 
 test('manual selection and collapse survive the session, while a fresh session reapplies the featured card', () => {
