@@ -72,3 +72,12 @@ export function listSermons(rows: SermonOutline[], today: string, search: string
       return (aPast ? b.service_date.localeCompare(a.service_date) : a.service_date.localeCompare(b.service_date)) || a.title.localeCompare(b.title);
     });
 }
+
+/** The church's own outline collection starts in 2026; future years stay in it. */
+export function groupSermonArchive(rows: SermonOutline[], today: string, search: string): { current: SermonOutline[]; archive: SermonOutline[] } {
+  const visible = listSermons(rows, today, search);
+  return {
+    current: visible.filter(row => row.service_date >= '2026-01-01'),
+    archive: visible.filter(row => row.service_date < '2026-01-01'),
+  };
+}

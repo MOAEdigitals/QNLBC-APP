@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sermonPayload, filterSermons, listSermons } from '../src/features/sermons/model.ts';
+import { sermonPayload, filterSermons, listSermons, groupSermonArchive } from '../src/features/sermons/model.ts';
 import type { SermonOutline } from '../src/features/sermons/model.ts';
 
 test('sermon persistence preserves literal whitespace, tabs, bullets, asterisks and line endings', () => {
@@ -20,6 +20,23 @@ test('blank outlines are rejected without mutating the input', () => {
 function row(date: string, title = date): SermonOutline {
   return { id: title, service_date: date, title, preacher: 'Marius', outline: '\t• John 3:16', author_id: 'author', status: 'published', revision: 1, created_at: '', updated_at: '' };
 }
+test('archive separates pre-2026 references while retaining past and future church outlines in the main collection', () => {
+  const rows = [row('2025-12-31'), row('2026-01-01'), row('2026-10-25'), row('2027-01-03'), row('2024-05-12')];
+  const groups = groupSermonArchive(rows, '2026-10-26', '');
+  assert.deepEqual(groups.current.map(r => r.service_date), ['2027-01-03', '2026-10-25', '2026-01-01']);
+  assert.deepEqual(groups.archive.map(r => r.service_date), ['2025-12-31', '2024-05-12']);
+  assert.equal(groupSermonArchive(rows, '2028-01-01', '').current.length, 3);
+  assert.equal(rows.length, 5);
+});
+
+test('archive remains searchable by teaching text and does not mix its matches into current outlines', () => {
+  const rows = [row('2025-05-22', 'Fish For The Lost'), row('2026-10-25', 'Faith')];
+  rows[0].outline = 'Matthew 4:18-22: The fish, the lost, the net';
+  const groups = groupSermonArchive(rows, '2026-10-26', 'the net');
+  assert.equal(groups.current.length, 0);
+  assert.equal(groups.archive[0].title, 'Fish For The Lost');
+  assert.equal(groupSermonArchive(rows, '2026-10-26', 'missing').archive.length, 0);
+});
 test('outline ordering uses only service dates, even for previously marked-done records', () => {
   const rows = [{ ...row('2026-10-25'), is_done: true }, row('2026-10-18'), row('2026-10-22')];
   assert.deepEqual(listSermons(rows, '2026-10-22', '').map(r => r.service_date), ['2026-10-22', '2026-10-25', '2026-10-18']);

@@ -9,7 +9,7 @@ import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Trash2 }
 import type { UserAccount } from '../../types';
 import { parseDate, formatDateStr, getNextSundayStr, getTodayStr } from '../../utils/dateUtils';
 import { generateUUID } from '../../services/supabaseData';
-import { listSermons, sermonPayload, sermonSearchSnippet } from './model';
+import { groupSermonArchive, sermonPayload, sermonSearchSnippet } from './model';
 import type { SermonOutline, SermonInput, SermonAttachment } from './model';
 import { loadSermons, saveSermon, deleteSermon } from './data';
 import { uploadSermonFile, validateSermonFile, removeUnusedSermonFiles } from './attachments';
@@ -53,7 +53,9 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
   const canEdit = (row: SermonOutline) => !!currentUser?.active && (isAdmin || (row.author_id === currentUser.id && !!currentUser.permissions?.canEdit));
   const canDelete = (row: SermonOutline) => !!currentUser?.active && (isAdmin || (row.author_id === currentUser.id && !!currentUser.permissions?.canDelete));
   const selected = rows.find(row => row.id === selectedId);
-  const visible = listSermons(rows, today, search);
+  const { current, archive } = groupSermonArchive(rows, today, search);
+  const visibleCount = current.length + archive.length;
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const upcoming = upcomingCardStatuses(rows, row => row.service_date, today);
   const attachments = selected?.attachments || [];
   const activeAttachment = attachments.find(item => item.id === source);
@@ -183,6 +185,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
     lastProcessedSignalRef.current = collapseSignal;
     if (editor) { closeEditor(); return; }
     if (selected) { if (!saveLock.current) closeReader(); return; }
+    setArchiveOpen(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [collapseSignal, editor, selected]);
   function screenKeys(event: React.KeyboardEvent) {
@@ -194,12 +197,8 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
       else if (!event.shiftKey && (document.activeElement === last || document.activeElement === surface.current)) { event.preventDefault(); first?.focus(); }
     }
   }
-  return <div className="outlines-screen space-y-4 text-slate-900 dark:text-white">
-    {error && !fullScreen && <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-200">{error}</p>}
-    {canAdd && !fullScreen && <button type="button" disabled={!ready} aria-label="Add outline" title="Add outline" className="app-fab fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2 disabled:opacity-40" onClick={startNew}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
-    {loading && !ready && <p role="status" className="text-sm text-slate-500">Loading outlines…</p>}
-    {ready && visible.length === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}
-    <div className="space-y-2.5">{monthList(visible, row => row.service_date, ['outline', 'outlines']).render(row => {
+  function renderCards(items: SermonOutline[]) {
+    return <div className="space-y-2.5">{monthList(items, row => row.service_date, ['outline', 'outlines']).render(row => {
       const past = row.service_date < today;
       const snippet = sermonSearchSnippet(row, search);
       return <div key={row.id} data-upcoming-card={row.service_date === today ? 'today' : upcoming.get(row.id)} className={`app-date-card relative w-full text-left p-3 min-w-0 rounded-2xl border transition-colors cursor-pointer flex gap-3 items-center ${past ? 'bg-slate-100/70 dark:bg-slate-900/40 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-800/70' : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-400'}`}>
@@ -210,7 +209,18 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
         </button>
         <CardActions label="Outline" disabled={saving} onEdit={canEdit(row) ? () => startEdit(row) : undefined} onDelete={canDelete(row) ? () => void removeSelected(row) : undefined} />
       </div>;
-    })}</div>
+    })}</div>;
+  }
+  return <div className="outlines-screen space-y-4 text-slate-900 dark:text-white">
+    {error && !fullScreen && <p role="alert" className="rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-200">{error}</p>}
+    {canAdd && !fullScreen && <button type="button" disabled={!ready} aria-label="Add outline" title="Add outline" className="app-fab fixed bottom-20 sm:bottom-22 right-4 sm:right-6 md:right-8 z-30 w-14 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 dark:bg-slate-100 dark:hover:bg-white text-white dark:text-slate-900 shadow-xl shadow-slate-900/30 dark:shadow-black/50 border border-slate-700/20 dark:border-slate-200/30 flex items-center justify-center transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-900 dark:focus:ring-white focus:ring-offset-2 disabled:opacity-40" onClick={startNew}><Plus className="w-6 h-6 stroke-[2.5]" /></button>}
+    {loading && !ready && <p role="status" className="text-sm text-slate-500">Loading outlines…</p>}
+    {ready && visibleCount === 0 && <div className="rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center text-slate-500"><FileText className="w-8 h-8 mx-auto mb-2" /><p>{search ? 'No matching sermons.' : 'No sermons yet.'}</p></div>}
+    {current.length > 0 && <div className="space-y-2.5">{renderCards(current)}</div>}
+    {archive.length > 0 && <details open={archiveOpen || !!search.trim()} onToggle={event => { if (!search.trim()) setArchiveOpen(event.currentTarget.open); }} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/30">
+      <summary className="min-h-12 cursor-pointer rounded-2xl px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500">Imported / Older Outlines <span className="ml-1 text-slate-500 dark:text-slate-400">({archive.length})</span><span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">Before 2026</span></summary>
+      <div className="space-y-2.5 px-3 pb-3"><p className="px-1 pb-1 text-xs text-slate-500 dark:text-slate-400">Reference material from earlier collections. Imported notes use assigned archive dates.</p>{renderCards(archive)}</div>
+    </details>}
     {selected && !editor && <div ref={surface} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="sermon-reader-title" className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 outline-none" onKeyDown={screenKeys}>
       <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 sm:px-5 pt-[var(--app-safe-top)]">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-1 py-1"><button type="button" className={readerAction} aria-label="Back to sermons" onClick={closeReader} disabled={saving}><ArrowLeft className="w-5 h-5" /></button><div className="flex gap-1">
