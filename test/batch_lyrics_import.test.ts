@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import ts from 'typescript';
 import { runInNewContext } from 'node:vm';
 import { webcrypto } from 'node:crypto';
-import { cleanLeadingSongTitle } from '../src/utils/songLyrics.ts';
+import { cleanLeadingSongTitle, cleanEmptyChorusLabels } from '../src/utils/songLyrics.ts';
 import { songTitleCase } from '../src/utils/songTitleCase.ts';
 function harness(initial: any[] = []) {
   const rows = initial.map(row => ({...row})); let failAt = -1, lost = false; let attempts = 0;
@@ -47,4 +47,12 @@ test('Title Case preserves apostrophes and Unicode names',()=>{
   assert.equal(songTitleCase("i'LL PRAISE THE LORD"),"I'll Praise The Lord");
   assert.equal(songTitleCase('ANG DIYOS AY PAG-IBIG'),'Ang Diyos Ay Pag-Ibig');
   assert.equal(songTitleCase('JESUS LOVES THE CHURCH (ENGLISH & TAGALOG)'),'Jesus Loves The Church (English & Tagalog)');
+});
+test('song library loads all pages after a large import instead of stopping at the API row limit',async()=>{
+  const rows=Array.from({length:1658},(_,i)=>({id:String(i),title:`Song ${i}`,lyrics:'Verse 1\nLyrics'}));const pages:number[]=[];
+  const db={from:()=>({select(){return this;},is(){return this;},order(){return this;},range:async(start:number,end:number)=>{pages.push(start);return {data:rows.slice(start,end+1),error:null};}})};
+  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
+    exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptyChorusLabels}:new Proxy({},{get:()=>()=>null}),
+  });
+  assert.equal((await exports.fetchSongs()).length,1658);assert.deepEqual(pages,[0,500,1000,1500]);
 });

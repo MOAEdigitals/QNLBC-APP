@@ -388,19 +388,14 @@ export function mapSongFromDB(row: any): Song {
 
 export async function fetchSongs(): Promise<Song[]> {
   if (!isSupabaseConfigured()) return [];
-
-  const { data, error } = await supabase
-    .from('songs')
-    .select('*')
-    .is('deleted_at', null)
-    .order('title', { ascending: true });
-
-  if (error) {
-    console.error('Error fetching songs from Supabase:', error);
-    throw error;
+  const rows: any[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await supabase.from('songs').select('*').is('deleted_at', null)
+      .order('title', { ascending: true }).order('id', { ascending: true }).range(offset, offset + 499);
+    if (error) throw error;
+    rows.push(...(data || []));
+    if (!data || data.length < 500) return rows.map(mapSongFromDB);
   }
-
-  return (data || []).map(mapSongFromDB);
 }
 
 export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song> {
