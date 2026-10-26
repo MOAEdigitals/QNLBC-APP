@@ -1,4 +1,4 @@
-import { cleanLeadingSongTitle, cleanEmptyChorusLabels } from '../utils/songLyrics';
+import { cleanLeadingSongTitle, cleanEmptySectionLabels } from '../utils/songLyrics';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import {
   Song,
@@ -361,7 +361,7 @@ export function mapSongFromDB(row: any): Song {
     title: row.title,
     previousTitles: Array.isArray(metadata.previousTitles) ? metadata.previousTitles.filter((title: unknown) => typeof title === 'string') : [],
     artist: row.artist || undefined,
-    lyrics: cleanEmptyChorusLabels(cleanLeadingSongTitle(row.title || '', row.lyrics || '')),
+    lyrics: cleanEmptySectionLabels(cleanLeadingSongTitle(row.title || '', row.lyrics || '')),
     attachments: Array.isArray(metadata.attachments) ? metadata.attachments : [],
     category: row.category || undefined,
     categories: Array.isArray(row.categories) ? row.categories : [],
@@ -434,7 +434,7 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
   const payload = {
     title: song.title?.trim() || 'Untitled Song',
     artist: song.artist?.trim() || null,
-    lyrics: cleanEmptyChorusLabels(cleanLeadingSongTitle(song.title || '', song.lyrics || '')),
+    lyrics: cleanEmptySectionLabels(cleanLeadingSongTitle(song.title || '', song.lyrics || '')),
     category: song.category?.trim() || null,
     categories: song.categories || [],
     minus_one_link: (song.minusOneLink || song.minus_one_link)?.trim() || null,

@@ -1,18 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanLeadingSongTitle, cleanEmptyChorusLabels } from '../src/utils/songLyrics.ts';
+import { cleanLeadingSongTitle, cleanEmptySectionLabels } from '../src/utils/songLyrics.ts';
 
 test('removes empty chorus repeats before a bridge and at the end', () => {
   const lyrics = 'Verse 1\nFirst verse\n\nChorus\nActual chorus\n\nVerse 2\nSecond verse\n\nChorus\n\nBridge\nBridge lyrics\n\nChorus';
   const expected = 'Verse 1\nFirst verse\n\nChorus\nActual chorus\n\nVerse 2\nSecond verse\n\nBridge\nBridge lyrics';
-  assert.equal(cleanEmptyChorusLabels(lyrics), expected);
-  assert.equal(cleanEmptyChorusLabels(expected), expected);
+  assert.equal(cleanEmptySectionLabels(lyrics), expected);
+  assert.equal(cleanEmptySectionLabels(expected), expected);
 });
 
 test('preserves chorus lyrics and inline mentions, handles CRLF and consecutive empty headings', () => {
   const lyrics = '[Chorus]:\r\n\r\nSing the chorus\r\n\r\nCHORUS\r\n\r\nChorus 2:\r\n\r\n[Verse 2]\r\nNext verse';
-  assert.equal(cleanEmptyChorusLabels(lyrics), '[Chorus]:\r\n\r\nSing the chorus\r\n\r\n[Verse 2]\r\nNext verse');
-  assert.equal(cleanEmptyChorusLabels('Chorus\n\nActual lyrics\n'), 'Chorus\n\nActual lyrics\n');
+  assert.equal(cleanEmptySectionLabels(lyrics), '[Chorus]:\r\n\r\nSing the chorus\r\n\r\n[Verse 2]\r\nNext verse');
+  assert.equal(cleanEmptySectionLabels('Chorus\n\nActual lyrics\n'), 'Chorus\n\nActual lyrics\n');
 });
 
 test('removes only a matching title directly before verse one, retaining formatting', () => {
@@ -27,4 +27,18 @@ test('preserves lyrics, unmatched headings and title lines without a first-verse
 test('title cleanup is idempotent', () => {
   const result = cleanLeadingSongTitle('Dakila', 'Dakila\nVerse 1\nLine');
   assert.equal(cleanLeadingSongTitle('Dakila', result), result);
+});
+
+test('removes the consecutive empty verse tags shown in Above All, preserving its actual verse and chorus', () => {
+  const lyrics = 'VERSE 1\nAbove all powers,\n\nAbove all kingdoms,\n\nVERSE 1\n\nVERSE 1\n\nCHORUS\nCrucified, Laid behind the stone,\n\nENDING\nAbove all';
+  const expected = 'VERSE 1\nAbove all powers,\n\nAbove all kingdoms,\n\nCHORUS\nCrucified, Laid behind the stone,\n\nENDING\nAbove all';
+  assert.equal(cleanEmptySectionLabels(lyrics), expected);
+  assert.equal(cleanEmptySectionLabels(expected), expected);
+});
+
+test('removes empty verse, bridge and ending labels, keeping real lyrics and unlabeled songs intact', () => {
+  assert.equal(cleanEmptySectionLabels('VERSE 1\n\nVERSE 2\nActual lyric\n\nBRIDGE\n\nENDING'), 'VERSE 2\nActual lyric');
+  const plain = 'Above all powers,\n\nAbove all kings,\n';
+  assert.equal(cleanEmptySectionLabels(plain), plain);
+  assert.equal(cleanEmptySectionLabels('VERSE 1\n\n'), '');
 });
