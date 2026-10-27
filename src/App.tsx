@@ -287,6 +287,8 @@ export default function App() {
 
     async function initSessionAndData() {
       try {
+        // Offline song playback must not turn a failed profile request into a sign-out.
+        if (!navigator.onLine) { if (isMounted) setIsLoadingInitialData(false); return; }
         const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
         if (sessionErr || !sessionData?.session?.user) {
           if (isMounted) {
