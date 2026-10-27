@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { saveDirectoryMember, type DirectoryMember } from '../services/directory';
 export function DirectoryAccountSelect({ members, value, accountId, onChange }: { members: DirectoryMember[]; value: string; accountId?: string; onChange: (id: string, name: string) => void }) {
-  return <label className="block text-sm font-medium">Church directory name<select required value={value} onChange={event => { const member = members.find(person => person.id === event.target.value); onChange(member?.id || '', member?.name || ''); }} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
-    <option value="">Choose a person from the directory</option>{members.filter(member => member.active || member.id === value).map(member => <option key={member.id} value={member.id} disabled={!!member.linked_user_id && member.linked_user_id !== accountId}>{member.name}{member.linked_user_id && member.linked_user_id !== accountId ? ' — already linked to an account' : ''}</option>)}
-  </select><span className="mt-1 block text-xs font-normal text-slate-500">This is their name on setlists. Their username below is for signing in.</span></label>;
+  return <label className="block text-sm font-medium">Church directory name (optional)<select value={value} onChange={event => { const member = members.find(person => person.id === event.target.value); onChange(member?.id || '', member?.name || ''); }} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+    <option value="">No directory link</option>{members.filter(member => member.active || member.id === value).map(member => <option key={member.id} value={member.id} disabled={!!member.linked_user_id && member.linked_user_id !== accountId}>{member.name}{member.linked_user_id && member.linked_user_id !== accountId ? ' — already linked to an account' : ''}</option>)}
+  </select><span className="mt-1 block text-xs font-normal text-slate-500">Link only people who can be assigned as song leader or presider. All active accounts can receive birthdays, events and custom notifications without a directory link.</span></label>;
 }
 export function DirectoryManagement({ members, onRefresh }: { members: DirectoryMember[]; onRefresh: () => Promise<void> }) {
   const [name, setName] = useState('');

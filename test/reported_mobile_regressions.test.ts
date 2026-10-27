@@ -5,8 +5,8 @@ import fs from 'node:fs';
 const read = (path: string) => fs.readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 
 test('Android branding and keyboard behavior stay app-like', () => {
-  assert.match(read('capacitor.config.ts'), /appName: 'QNLBC App'/);
-  assert.match(read('android/app/src/main/res/values/strings.xml'), /<string name="app_name">QNLBC App<\/string>/);
+  assert.match(read('capacitor.config.ts'), /appName: 'QNLBC Team'/);
+  assert.match(read('android/app/src/main/res/values/strings.xml'), /<string name="app_name">QNLBC Team<\/string>/);
   assert.match(read('android/app/src/main/AndroidManifest.xml'), /android:windowSoftInputMode="adjustNothing"/);
   assert.match(read('index.html'), /interactive-widget=overlays-content/);
 });

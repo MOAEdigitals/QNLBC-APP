@@ -1,4 +1,5 @@
 import { pickerPlacement } from '../utils/pickerPlacement';
+import { PICKER_SORTS, comparePickerSongs, matchesPickerCategory, type PickerSort } from '../utils/songPicker';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -12,7 +13,7 @@ import {
 } from '../utils/songSearch';
 import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check } from 'lucide-react';
 
-export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
+export type SongPickerFilter = 'all' | 'starred' | 'uncategorized' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
 
 const SONG_PICKER_FILTERS: Array<{ value: SongPickerFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -22,15 +23,11 @@ const SONG_PICKER_FILTERS: Array<{ value: SongPickerFilter; label: string }> = [
   { value: 'Contemporary', label: 'Contemporary' },
   { value: 'Choir', label: 'Choir' },
   { value: 'Tagalog', label: 'Tagalog' },
+  { value: 'uncategorized', label: 'Uncategorized' },
 ];
 
 function songMatchesPickerFilter(song: Song, filter: SongPickerFilter): boolean {
-  if (filter === 'all') return true;
-  if (filter === 'starred') return Boolean(song.isStarred || (song as Song & { starred?: boolean }).starred);
-  const categories = Array.isArray(song.categories)
-    ? song.categories
-    : (song.category || '').split(',').map((category) => category.trim());
-  return categories.includes(filter);
+  return matchesPickerCategory(song, filter);
 }
 
 export interface DisplaySuggestionItem {
@@ -99,9 +96,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setLocalSongFilter(filter);
     onControlledFilterChange?.(filter);
   };
-  const [songSort, setSongSort] = useState<'relevance' | 'az' | 'za'>('relevance');
+  const [songSort, setSongSort] = useState<PickerSort>('relevance');
   const SortIcon = songSort === 'az' ? ArrowDownAZ : songSort === 'za' ? ArrowUpAZ : ListFilter;
-  const sortLabel = songSort === 'az' ? 'A–Z' : songSort === 'za' ? 'Z–A' : 'Relevance';
+  const sortControl = <label className="flex min-h-11 items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><SortIcon className="h-4 w-4 shrink-0" /><select aria-label="Sort songs" value={songSort} onChange={event => { setSongSort(event.target.value as PickerSort); setHighlightedIndex(-1); }} className="min-h-11 max-w-44 rounded-lg bg-white px-1 text-xs dark:bg-slate-900">{PICKER_SORTS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -423,7 +420,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   }, [isOpen, activeQuery, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap]);
 
   const displayedItems = useMemo(() => {
-    const ordered = !showSongCategoryFilters || songSort === 'relevance' ? matchedItems : [...matchedItems].sort((a, b) => (songSort === 'az' ? 1 : -1) * a.title.localeCompare(b.title));
+    const ordered = !showSongCategoryFilters ? matchedItems : [...matchedItems].sort((a, b) => comparePickerSongs(a, b, songSort));
     return activeQuery ? ordered.slice(0, 30) : ordered;
   }, [matchedItems, songSort, showSongCategoryFilters, activeQuery]);
 
@@ -733,7 +730,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       )}
 
       <div className="relative flex items-center w-full">
-        {isOpen && !isTouchPicker && showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} title={`Sort: ${sortLabel}`} className="absolute right-0 z-10 flex h-11 w-11 items-center justify-center text-slate-500 dark:text-slate-400" onPointerDown={event => event.preventDefault()} onClick={() => { setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance'); setHighlightedIndex(-1); }}><SortIcon className="h-5 w-5" aria-hidden="true" /></button>}
         <input
           ref={inputRef}
           id={stableInputIdRef.current}
@@ -822,7 +818,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full bg-transparent [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden ${inputClassName}`}
-          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 44 } : undefined}
         />
       </div>
 
@@ -949,7 +944,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
             </div>
             <div className="relative">
-              {showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} onPointerDown={event => event.preventDefault()} onClick={() => setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance')} className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-slate-500"><SortIcon className="h-5 w-5" /></button>}
+              {showSongCategoryFilters && <div className="flex justify-end">{sortControl}</div>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
                 onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
@@ -987,6 +982,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
           {showSongCategoryFilters && !isTouchPicker && (
             <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 px-2 py-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex justify-end">{sortControl}</div>
               <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
                 {SONG_PICKER_FILTERS.map((filter) => (
                   <button

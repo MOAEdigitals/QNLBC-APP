@@ -48,7 +48,7 @@ export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChang
     finally { lock.current = false; setBusy(false); }
   };
   const form = <>
-    <p className="text-sm text-slate-500">Send a message to notification inboxes and enabled Android devices. Only active accounts are listed.</p>
+    <p className="text-sm text-slate-500">Send a message to notification inboxes and enabled Android devices. All active accounts are listed, including accounts without a directory link.</p>
     <label className="block text-sm font-medium">Title<input required maxLength={120} className={field} value={title} onChange={e => { setTitle(e.target.value); setNotice(''); }} /></label>
     <label className="block text-sm font-medium">Message<textarea required maxLength={2000} rows={5} className={field} value={body} onChange={e => { setBody(e.target.value); setNotice(''); }} /><span className="text-xs text-slate-500">{body.length}/2000</span></label>
     <fieldset className="space-y-3"><legend className="font-semibold">Recipients · {recipients.length} selected</legend>

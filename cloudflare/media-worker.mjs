@@ -1,4 +1,5 @@
 // R2 binding: AUDIO_BUCKET -> worship-audio. No storage credentials in the app.
+import { handleSetlistShare } from './setlist-share.mjs';
 const ORIGINS = new Set(['https://moaedigitals.github.io', 'http://localhost:5173',
   'http://127.0.0.1:5173', 'https://localhost', 'http://localhost', 'capacitor://localhost']);
 const MAX_BYTES = 50 * 1024 * 1024;
@@ -14,10 +15,15 @@ export default {
     if (origin && !ORIGINS.has(origin)) return reply(403, { error: 'Origin not allowed.' });
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: {
       ...headers, 'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-File-Name',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-File-Name, X-Setlist-Id',
       'Access-Control-Max-Age': '600',
     } });
-    if (new URL(request.url).pathname !== '/api/upload-media' || request.method !== 'POST') {
+    const path = new URL(request.url).pathname;
+    if (path.startsWith('/share/') || path === '/api/share-setlist') {
+      try { return await handleSetlistShare(request, env, reply); }
+      catch { return reply(503, { error: 'Share preview unavailable. Please retry.' }); }
+    }
+    if (path !== '/api/upload-media' || request.method !== 'POST') {
       return reply(404, { error: 'Not found.' });
     }
     const authorization = request.headers.get('Authorization') || '';

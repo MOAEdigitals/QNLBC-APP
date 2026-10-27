@@ -499,11 +499,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     const names = new Map<string, { label: string; sundays: Set<string>; presided: number; led: number; upcoming: number }>();
     const titles = new Map<string, { label: string; sundays: Set<string>; upcoming: number }>();
     for (const setlist of setlists) {
-      if (setlist.type && setlist.type !== 'sunday') continue;
       const people = [
         { value: setlist.presider, role: 'presider' },
         { value: setlist.sundaySchool?.songLeader, role: 'leader' },
         { value: setlist.worshipService?.songLeader, role: 'leader' },
+        { value: setlist.program?.songLeader, role: 'leader' },
       ];
       for (const { value, role } of people) {
         const label = value?.trim();
@@ -520,7 +520,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       }
       const songTitles = [setlist.welcomeSong, setlist.closingSong, setlist.themeSong,
         ...(setlist.sundaySchool?.songs || []).map((song) => song.title),
-        ...(setlist.worshipService?.songs || []).map((song) => song.title)];
+        ...(setlist.worshipService?.songs || []).map((song) => song.title),
+        ...(setlist.program?.songs || []).map((song) => song.title)];
       for (const value of songTitles) {
         const label = value?.trim();
         if (!label || !label.toLocaleLowerCase().includes(query)) continue;
@@ -534,8 +535,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       }
     }
     return [
-      ...[...names.values()].map((entry) => ({ label: entry.label, detail: `${entry.sundays.size} Sunday${entry.sundays.size === 1 ? '' : 's'} • ${entry.presided} presided • ${entry.led} song leader assignment${entry.led === 1 ? '' : 's'} • ${entry.upcoming} upcoming`, kind: 'Person' })),
-      ...[...titles.values()].map((entry) => ({ label: entry.label, detail: `${entry.sundays.size} Sunday${entry.sundays.size === 1 ? '' : 's'} • ${entry.upcoming} upcoming`, kind: 'Song' })),
+      ...[...names.values()].map((entry) => ({ label: entry.label, detail: `${entry.sundays.size} setlist${entry.sundays.size === 1 ? '' : 's'} • ${entry.presided} presided • ${entry.led} song leader assignment${entry.led === 1 ? '' : 's'} • ${entry.upcoming} upcoming`, kind: 'Person' })),
+      ...[...titles.values()].map((entry) => ({ label: entry.label, detail: `${entry.sundays.size} setlist${entry.sundays.size === 1 ? '' : 's'} • ${entry.upcoming} upcoming`, kind: 'Song' })),
     ];
   }, [setlists, searchQuery]);
   const soonestUpcoming = useMemo(
@@ -1659,8 +1660,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                     </div>
                   </div>
 
-                  {/* Theme Song (Sunday Setlist) */}
-                  {(!editingSetlist.type || editingSetlist.type === 'sunday') && (
+                </div>
+              );
+            })()}
+
+                  {/* Theme song is available for every program type. */}
                     <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1">
@@ -1684,10 +1688,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         />
                       </div>
                     </div>
-                  )}
-                </div>
-              );
-            })()}
 
               </SetlistEditorSection>
               {/* Sunday School & Worship Service Forms (Sunday Setlist) */}

@@ -1,4 +1,5 @@
 import { SongExport } from './SongExport';
+import { songTitleCase } from '../utils/songTitleCase';
 import { AdminAnnouncements } from './AdminAnnouncements';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
 import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
@@ -26,6 +27,7 @@ import {
   setProfileRole,
   toggleProfileActive,
   updateUserProfile,
+  updateMyAvatar,
   createManagedUser,
   updateManagedUser,
   deleteManagedUser,
@@ -139,6 +141,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Profile avatar feedback
   const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const avatarLock = useRef(false);
+  const avatarInput = useRef<HTMLInputElement>(null);
 
   // User management filtering
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -230,9 +235,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Handle avatar upload for current user
   const handleAvatarChange = async (file: File) => {
+    if (avatarLock.current) return;
+    avatarLock.current = true; setAvatarSaving(true); setAvatarNoticeMsg(null);
     try {
       const avatarBase64 = await compressImageToAvatar(file);
-      const updated = await updateUserProfile(currentUser.id, { avatar_url: avatarBase64 });
+      const updated = await updateMyAvatar(avatarBase64);
       onUpdateCurrentUser(updated);
       onUpdateUsers(users.map(user => user.id === updated.id ? updated : user));
       setAvatarNoticeMsg('Profile picture updated.');
@@ -240,7 +247,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     } catch (err: any) {
       setAvatarNoticeMsg('Could not update profile picture. Please try again.');
       setTimeout(() => setAvatarNoticeMsg(null), 5000);
-    }
+    } finally { avatarLock.current = false; setAvatarSaving(false); }
   };
 
   // Directory Name Management
@@ -533,7 +540,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             const draft = existingSong
               ? { ...existingSong, ...sourceSong, id: existingSong.id, revision: existingSong.revision }
               : sourceSong;
-            const saved = await supabaseSaveSong(draft, !existingSong);
+            const saved = await supabaseSaveSong({ ...draft, title: songTitleCase(draft.title || '') }, !existingSong);
             if (sourceSong.id) songIdMap.set(sourceSong.id, saved.id);
             const currentIndex = restoredSongs.findIndex((song) => song.id === saved.id);
             if (currentIndex >= 0) restoredSongs[currentIndex] = saved;
@@ -783,6 +790,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 >
                   <Camera className="w-3 h-3" />
                   <input
+                    ref={avatarInput}
+                    disabled={avatarSaving}
+                    aria-label="Choose profile picture"
                     type="file"
                     accept="image/*"
                     className="hidden"
@@ -796,6 +806,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               <div className="flex-1 space-y-1">
+                <button type="button" className="ui-secondary" disabled={avatarSaving} onClick={() => avatarInput.current?.click()}>{avatarSaving ? 'Saving picture…' : 'Change profile picture'}</button>
                 <div className="flex items-center gap-2">
                   <h4 className="text-base font-bold text-slate-900 dark:text-white">
                     {currentUser.name || currentUser.username}
@@ -991,7 +1002,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4"><h3 id="create-member-title" className="font-bold">Create account</h3><button type="button" disabled={creatingMember} aria-label="Close create account" onClick={() => setShowCreateMember(false)} className="p-2"><X className="h-5 w-5" /></button></div>
                   <form onSubmit={handleCreateMember} className="ui-modal-form">
                     <div className="ui-form-body">
-                <DirectoryAccountSelect members={directoryMembers} value={newMember.directoryMemberId} onChange={(directoryMemberId, displayName) => setNewMember({ ...newMember, directoryMemberId, displayName })} />
+                <DirectoryAccountSelect members={directoryMembers} value={newMember.directoryMemberId} onChange={(directoryMemberId, displayName) => setNewMember({ ...newMember, directoryMemberId, displayName: displayName || newMember.displayName })} />
+                {!newMember.directoryMemberId && <label className="block text-sm font-medium">Display name<input required maxLength={160} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 dark:border-slate-700" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>}
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
                 <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={6} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                 {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
@@ -1051,7 +1063,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                           <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 p-4"><h3 id="edit-member-title" className="font-bold">Edit account</h3><button type="button" disabled={isManaging} aria-label="Close edit account" onClick={() => setEditingMemberId(null)} className="p-2"><X className="h-5 w-5" /></button></div>
                           <form onSubmit={event => handleUpdateMember(event, u)} className="ui-modal-form">
                             <div className="ui-form-body">
-                        <DirectoryAccountSelect members={directoryMembers} value={memberEdit.directoryMemberId} accountId={u.id} onChange={(directoryMemberId, displayName) => setMemberEdit({ ...memberEdit, directoryMemberId, displayName })} />
+                        <DirectoryAccountSelect members={directoryMembers} value={memberEdit.directoryMemberId} accountId={u.id} onChange={(directoryMemberId, displayName) => setMemberEdit({ ...memberEdit, directoryMemberId, displayName: displayName || memberEdit.displayName })} />
+                        {!memberEdit.directoryMemberId && <label className="block text-sm font-medium">Display name<input required maxLength={160} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 dark:border-slate-700" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>}
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
                         <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={6} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}

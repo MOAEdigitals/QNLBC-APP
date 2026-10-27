@@ -1,14 +1,25 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Bell, RefreshCw, Trash2 } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { dismissNotification, markAssignmentNotificationRead, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
-interface Props { items: AssignmentNotification[]; loading: boolean; error: string; pushStatus: PushStatus; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event') => void; onClose: () => void }
-export function NotificationInbox({ items, loading, error, pushStatus, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
+interface Props { items: AssignmentNotification[]; loading: boolean; error: string; pushStatus: PushStatus; markRead: (ids: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event') => void; onClose: () => void }
+export function NotificationInbox({ items, loading, error, pushStatus, markRead, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
   const [opening, setOpening] = useState<string | null>(null);
   const [readError, setReadError] = useState('');
   const [hidden, setHidden] = useState<string[]>([]), [deleted, setDeleted] = useState<AssignmentNotification | null>(null);
   const deleting = useRef(false);
   const visible = items.filter(item => !hidden.includes(item.id));
+  const unreadIds = visible.filter(item => !item.read_at).map(item => item.id).sort().join(',');
+  useEffect(() => {
+    if (loading || error || !unreadIds) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      if (document.visibilityState === 'visible') timer = setTimeout(() => { void markRead(unreadIds.split(',')).catch(error => setReadError((error as Error).message)); }, 5000);
+    };
+    schedule(); document.addEventListener('visibilitychange', schedule);
+    return () => { if (timer) clearTimeout(timer); document.removeEventListener('visibilitychange', schedule); };
+  }, [unreadIds, loading, error, markRead]);
   const remove = async (item: AssignmentNotification, undo = false) => {
     if (deleting.current) return;
     deleting.current = true; setOpening(item.id); setReadError('');
@@ -35,7 +46,7 @@ export function NotificationInbox({ items, loading, error, pushStatus, onEnable,
       <p className="text-sm text-slate-500">Church announcements, assignments, birthdays, and event reminders. Swipe a card to delete it from your notifications.</p>
       {deleted && <div role="status" className="flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-sm"><span>Notification deleted.</span><button className="min-h-11 px-3 font-semibold underline" disabled={!!opening} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">
-        <p>{pushStatus === 'setup' ? 'Android push notifications are not available in this build.' : pushStatus === 'denied' ? 'Notifications are blocked. Allow notifications for QNLBC App in Android Settings.' : pushStatus === 'error' ? 'Could not enable Android notifications. Please try again.' : 'Receive church notifications even when the app is closed.'}</p>
+        <p>{pushStatus === 'setup' ? 'Android push notifications are not available in this build.' : pushStatus === 'denied' ? 'Notifications are blocked. Allow notifications for QNLBC Team in Android Settings.' : pushStatus === 'error' ? 'Could not enable Android notifications. Please try again.' : 'Receive church notifications even when the app is closed.'}</p>
         {pushStatus !== 'setup' && <button type="button" className="ui-primary" onClick={() => void onEnable()}>Enable notifications</button>}
       </div>}
       {(error || readError) && <p role="alert" className="text-sm text-rose-600">{error || readError}</p>}
