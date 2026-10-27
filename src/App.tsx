@@ -98,6 +98,7 @@ const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then
 const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
 const SermonOutlines = React.lazy(() => import('./features/sermons/SermonOutlines'));
 const Notepad = React.lazy(() => import('./features/notepad/Notepad'));
+const OfflineSongs = React.lazy(() => import('./features/downloads/OfflineSongs'));
 const SettingsTab = lazy(() => import('./components/SettingsTab').then((module) => ({ default: module.SettingsTab })));
 
 function TabLoadingSkeleton() {
@@ -119,6 +120,13 @@ export default function App() {
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState<boolean>(true);
   const [isLoadingCoreData, setIsLoadingCoreData] = useState(true);
+  const [isOffline, setIsOffline] = useState(() => !navigator.onLine);
+  const [openLocalLibrary, setOpenLocalLibrary] = useState(false);
+  useEffect(() => {
+    const update = () => setIsOffline(!navigator.onLine);
+    window.addEventListener('online', update); window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
   const coreLoadEpoch = useRef(0);
 
   // Connection Status
@@ -173,11 +181,11 @@ export default function App() {
   const outlineCache = useRef<{ userId: string; rows: SermonOutline[] } | null>(null);
   const [nativeSplashVisible, setNativeSplashVisible] = useState(() => Capacitor.isNativePlatform());
   useEffect(() => {
-    if (isLoadingInitialData || !nativeSplashVisible) return;
+    if ((isLoadingInitialData && !isOffline && !openLocalLibrary) || !nativeSplashVisible) return;
     // Reveal the ready app directly, without a second React splash in between.
     void SplashScreen.hide().catch(error => console.warn('Unable to hide launch splash', error))
       .finally(() => setNativeSplashVisible(false));
-  }, [isLoadingInitialData, nativeSplashVisible]);
+  }, [isLoadingInitialData, nativeSplashVisible, isOffline, openLocalLibrary]);
   useEffect(() => {
     if (outlineCache.current?.userId !== currentUser?.id) outlineCache.current = null;
   }, [currentUser?.id]);
@@ -1318,6 +1326,9 @@ export default function App() {
     setSavedNames(names);
   };
 
+  if (openLocalLibrary || (!currentUser && isOffline)) {
+    return <Suspense fallback={<TabLoadingSkeleton />}><OfflineSongs /></Suspense>;
+  }
   // Native launch stays on its single OS splash; web uses the same logo and church name.
   if (isLoadingInitialData) {
     return (
@@ -1329,7 +1340,7 @@ export default function App() {
 
   // Unauthenticated Gate
   if (!currentUser) {
-    return <AuthScreen onSignInSuccess={handleSignInSuccess} />;
+    return <><AuthScreen onSignInSuccess={handleSignInSuccess} /><button type="button" className="fixed bottom-[calc(1rem+var(--app-safe-bottom))] left-1/2 -translate-x-1/2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={() => setOpenLocalLibrary(true)}>Open downloaded songs</button></>;
   }
 
   return (
