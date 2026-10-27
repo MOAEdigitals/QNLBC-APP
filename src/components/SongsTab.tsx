@@ -1,9 +1,4 @@
 import { getUpcomingSongSchedule } from '../utils/songSchedule';
-import { DownloadControls } from '../features/downloads/DownloadControls';
-import { useDownloads, useLocalSongPlayback } from '../features/downloads/useDownloads';
-import { localSongStats } from '../features/downloads/model';
-import { refreshDownloads } from '../features/downloads/service';
-import { cacheDownloadedSongs } from '../features/downloads/storage';
 import { scheduledSongMedia, type SongNavigationRequest } from '../utils/songMediaNavigation';
 import { supabase } from '../supabase';
 import { saveAppSettings } from '../services/supabaseData';
@@ -72,15 +67,13 @@ import {
 export const VALID_SONG_CATEGORIES = ['Hymn', 'Special', 'Contemporary', 'Choir', 'Tagalog'] as const;
 export type SongCategory = string;
 const SONG_PAGE_SIZE = 80;
-type SongSortMode = 'tracks-first' | 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added' | 'recently-downloaded' | 'file-size';
+type SongSortMode = 'tracks-first' | 'alpha-asc' | 'alpha-desc' | 'recently-sung' | 'least-recently-sung' | 'recently-added';
 
 let sessionSongSort: SongSortMode = 'alpha-asc';
 const SONG_SORT_OPTIONS: Array<{ value: SongSortMode; label: string; shortLabel: string }> = [
   { value: 'alpha-asc', label: 'Title: A–Z', shortLabel: 'A–Z' },
   { value: 'alpha-desc', label: 'Title: Z–A', shortLabel: 'Z–A' },
   { value: 'tracks-first', label: 'Attached tracks first', shortLabel: 'Tracks first' },
-  { value: 'recently-downloaded', label: 'Recently downloaded', shortLabel: 'Downloaded' },
-  { value: 'file-size', label: 'Local file size: largest first', shortLabel: 'File size' },
   { value: 'recently-sung', label: 'Recently Sung', shortLabel: 'Recently Sung' },
   { value: 'least-recently-sung', label: 'Not Sung Recently', shortLabel: 'Not Sung Recently' },
   { value: 'recently-added', label: 'Recently Added', shortLabel: 'Recently Added' },
@@ -145,16 +138,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [localOnly, setLocalOnly] = useState(false);
-  const downloads = useDownloads();
-  const localStats = useMemo(() => new Map(songs.map(song => [song.id, localSongStats(song, downloads.items)])), [songs, downloads.items]);
-  const [offlineCacheError, setOfflineCacheError] = useState('');
-  useEffect(() => {
-    if (!downloads.ready || downloads.error) return;
-    let alive = true;
-    void cacheDownloadedSongs(songs.filter(song => (localStats.get(song.id)?.count || 0) > 0)).then(() => { if (alive) setOfflineCacheError(''); }).catch(error => { if (alive) setOfflineCacheError((error as Error).message); });
-    return () => { alive = false; };
-  }, [songs, localStats, downloads.ready, downloads.error]);
   const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCategory, setNewCategory] = useState<string | null>(null);
   const [categoryError, setCategoryError] = useState('');
@@ -232,7 +215,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     url: string;
     type: 'link' | 'audio' | 'video' | 'image' | 'text' | 'file';
   } | null>(null);
-  const playback = useLocalSongPlayback(activeMedia, downloads);
   const pendingPlayerScroll = useRef<string | null>(null);
   useLayoutEffect(() => {
     if (!activeMedia || !pendingPlayerScroll.current) return;
@@ -497,7 +479,6 @@ if (isEditing && !savingSongRef.current) {
     if (initialSelectedSongId) {
       setSelectedSongId(initialSelectedSongId);
       setCategoryFilter('all');
-      setLocalOnly(false);
       setSearchQuery('');
       pendingInstantSongIdRef.current = initialSelectedSongId;
       alignSongCardBelowHeader(initialSelectedSongId);
@@ -562,8 +543,6 @@ if (isEditing && !savingSongRef.current) {
   // Sort usage-based options by the last date a song was actually sung in a past setlist.
   const sortedSongs = useMemo(() => {
     return [...songs].sort((a, b) => {
-      if (sortMode === 'recently-downloaded') return (localStats.get(b.id)?.latest || '').localeCompare(localStats.get(a.id)?.latest || '') || a.title.localeCompare(b.title);
-      if (sortMode === 'file-size') return (localStats.get(b.id)?.size || 0) - (localStats.get(a.id)?.size || 0) || a.title.localeCompare(b.title);
       if (sortMode === 'tracks-first') {
         return compareTracksFirst(a, b);
       }
@@ -593,7 +572,7 @@ if (isEditing && !savingSongRef.current) {
         ? b.title.localeCompare(a.title)
         : a.title.localeCompare(b.title);
     });
-  }, [songs, sortMode, usageMap, localStats]);
+  }, [songs, sortMode, usageMap]);
 
   // Category counts across library (multi-category compatible)
   const categoryCounts = useMemo(() => {
@@ -619,16 +598,15 @@ if (isEditing && !savingSongRef.current) {
 
   // Category Filtered Songs (multi-category compatible)
   const categoryFilteredSongs = useMemo(() => {
-    const candidates = localOnly ? sortedSongs.filter(song => (localStats.get(song.id)?.count || 0) > 0) : sortedSongs;
-    if (categoryFilter === 'all') return candidates;
+    if (categoryFilter === 'all') return sortedSongs;
     if (categoryFilter === 'Starred') {
-      return candidates.filter((s) => Boolean(s.isStarred || (s as any).starred));
+      return sortedSongs.filter((s) => Boolean(s.isStarred || (s as any).starred));
     }
     if (categoryFilter === 'uncategorized') {
-      return candidates.filter((s) => getSongCategories(s).length === 0);
+      return sortedSongs.filter((s) => getSongCategories(s).length === 0);
     }
-    return candidates.filter((s) => getSongCategories(s).includes(categoryFilter as SongCategory));
-  }, [sortedSongs, categoryFilter, localOnly, localStats]);
+    return sortedSongs.filter((s) => getSongCategories(s).includes(categoryFilter as SongCategory));
+  }, [sortedSongs, categoryFilter]);
 
   const songSearchResults = useMemo<Array<ReturnType<typeof searchSong> & { history: SongUsageHistory }>>(() => {
     if (!deferredSearchQuery.trim()) {
@@ -654,14 +632,13 @@ if (isEditing && !savingSongRef.current) {
       .filter((r) => r.matches);
 
     // When actively searching, sort by search match relevance score descending
-    if (sortMode === 'tracks-first') results.sort((a, b) => compareTracksFirst(a.song, b.song));
-    else if (!['recently-downloaded', 'file-size'].includes(sortMode)) results.sort((a, b) => b.score - a.score);
+    results.sort((a, b) => sortMode === 'tracks-first' ? compareTracksFirst(a.song, b.song) : b.score - a.score);
     return results;
   }, [categoryFilteredSongs, deferredSearchQuery, usageMap, sortMode]);
 
   useEffect(() => {
     setVisibleResultCount(SONG_PAGE_SIZE);
-  }, [deferredSearchQuery, categoryFilter, sortMode, localOnly]);
+  }, [deferredSearchQuery, categoryFilter, sortMode]);
 
   const visibleSongSearchResults = useMemo(() => {
     const visible = songSearchResults.slice(0, visibleResultCount);
@@ -942,8 +919,7 @@ if (isEditing && !savingSongRef.current) {
   };
 
   const renderAttachmentActions = (attachment: SongAttachment) => (
-    <div className="relative flex max-w-[65%] shrink-0 flex-wrap items-center justify-end gap-1" onClick={(event) => event.stopPropagation()}>
-      <DownloadControls source={{ url: attachment.urlOrData || attachment.url || '', title: attachment.name, type: attachment.type, songId: selectedSongId || '', song: selectedSong }} />
+    <div className="relative shrink-0" onClick={(event) => event.stopPropagation()}>
       <button type="button" aria-label={`Actions for ${attachment.name}`} title="Track actions" onClick={(event) => { event.stopPropagation(); setOpenAttachmentMenuId(current => current === attachment.id ? null : attachment.id); }} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
         <MoreHorizontal className="h-4 w-4" />
       </button>
@@ -1093,13 +1069,6 @@ if (isEditing && !savingSongRef.current) {
       </form>}
       {categoryError && <p role="alert" className="text-red-600">{categoryError}</p>}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" aria-pressed={localOnly} onClick={() => setLocalOnly(value => !value)} className={localOnly ? 'ui-primary' : 'ui-secondary'}>Local files ({[...localStats.values()].filter(stats => stats.count > 0).length})</button>
-        <span className="text-xs text-slate-500">Saved on this device</span>
-        {Object.values(downloads.jobs).some(job => job.running) && <p role="status" className="text-xs text-blue-600 dark:text-blue-300">Downloading… Keep the app open until complete.</p>}
-        {downloads.error && <p role="alert" className="text-xs text-rose-600">{downloads.error} <button type="button" className="underline" onClick={() => void refreshDownloads()}>Retry</button></p>}
-        {offlineCacheError && <p role="alert" className="text-xs text-rose-600">{offlineCacheError}</p>}
-      </div>
       {/* Song list header with one compact sort menu */}
       <div className="flex items-center justify-between gap-2 px-1">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">
@@ -1120,7 +1089,7 @@ if (isEditing && !savingSongRef.current) {
           >
             <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">
-              {deferredSearchQuery.trim() && !['tracks-first', 'recently-downloaded', 'file-size'].includes(sortMode)
+              {deferredSearchQuery.trim() && sortMode !== 'tracks-first'
                 ? 'Best Match'
                 : SONG_SORT_OPTIONS.find((option) => option.value === sortMode)?.shortLabel}
             </span>
@@ -1492,7 +1461,7 @@ if (isEditing && !savingSongRef.current) {
                           <div className="flex items-center space-x-2 min-w-0">
                             <Volume2 className="w-4 h-4 text-sky-400 shrink-0 animate-pulse" />
                             <span className="text-xs font-bold truncate">
-                              {playback.isLocal ? 'Playing local file: ' : 'Playing: '}{activeMedia.name}
+                              Playing: {activeMedia.name}
                             </span>
                           </div>
 
@@ -1517,8 +1486,8 @@ if (isEditing && !savingSongRef.current) {
                             </button>
 
                             {/* Repeat / Loop toggle button (Only for attached files, not web/youtube links) */}
-                            {(playback.type === 'audio' ||
-                              playback.type === 'video' ||
+                            {(activeMedia.type === 'audio' ||
+                              activeMedia.type === 'video' ||
                               activeMedia.type === 'file' ||
                               activeMedia.url.startsWith('data:')) && (
                               <button
@@ -1548,9 +1517,7 @@ if (isEditing && !savingSongRef.current) {
 
                         {/* YouTube Embed Player */}
                         {(() => {
-                          if (playback.loading) return <p role="status" className="text-sm">Opening track…</p>;
-                          if (playback.error) return <p role="alert" className="text-sm text-rose-300">{playback.error}</p>;
-                          const ytEmbed = getYouTubeEmbedUrl(playback.url);
+                          const ytEmbed = getYouTubeEmbedUrl(activeMedia.url);
                           if (ytEmbed) {
                             return (
                               <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
@@ -1565,9 +1532,9 @@ if (isEditing && !savingSongRef.current) {
                             );
                           }
 
-                          const resolvedUrl = resolveMediaUrl(playback.url);
+                          const resolvedUrl = resolveMediaUrl(activeMedia.url);
 
-                          if (playback.type === 'video' || playback.url.startsWith('data:video/')) {
+                          if (activeMedia.type === 'video' || activeMedia.url.startsWith('data:video/')) {
                             return (
                               <video
                                 src={resolvedUrl}
@@ -1579,7 +1546,7 @@ if (isEditing && !savingSongRef.current) {
                             );
                           }
 
-                          if (playback.type === 'audio' || playback.url.startsWith('data:audio/')) {
+                          if (activeMedia.type === 'audio' || activeMedia.url.startsWith('data:audio/')) {
                             return (
                               <div className="p-2 bg-slate-800/80 rounded-xl">
                                 <audio src={resolvedUrl} controls autoPlay loop={isLooping} className="w-full" />
@@ -1590,9 +1557,9 @@ if (isEditing && !savingSongRef.current) {
                           // Other web links
                           return (
                             <div className="p-3 rounded-xl bg-slate-800/80 flex items-center justify-between text-xs">
-                              <span className="truncate pr-2">{playback.url}</span>
+                              <span className="truncate pr-2">{activeMedia.url}</span>
                               <a
-                                href={playback.url}
+                                href={activeMedia.url}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-900 font-bold flex items-center gap-1 shrink-0 hover:bg-white"
@@ -1697,7 +1664,6 @@ if (isEditing && !savingSongRef.current) {
                                       </span>
                                     </div>
                                   </div>
-                                  <DownloadControls source={{ url: song.minusOneLink, title: `${song.title} — Minus One`, type: 'link', songId: song.id, song }} />
                                 </div>
                               )}
 
