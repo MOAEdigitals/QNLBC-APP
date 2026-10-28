@@ -17,19 +17,20 @@ Deno.serve(async (request) => {
     const { data: target } = await admin.auth.admin.getUserById(userId);
     if (!target.user) throw new Error('Account not found.');
     const hasDirectorySelection = Object.prototype.hasOwnProperty.call(body, 'directoryMemberId');
-    const directoryMemberId = String(hasDirectorySelection ? body.directoryMemberId || '' : target.user.app_metadata?.directory_member_id || '');
+    const directoryMemberId = String(hasDirectorySelection ? body.directoryMemberId || '' : target.user.app_metadata?.directory_member_id || '').trim();
     let displayName = String(body.displayName || username).trim();
-    if (hasDirectorySelection || directoryMemberId) {
+    if (directoryMemberId) {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(directoryMemberId)) throw new Error('Choose a church directory person.');
       const { data: person, error: personError } = await admin.from('directory_members').select('id,name,active').eq('id', directoryMemberId).maybeSingle();
       if (personError || !person?.active) throw new Error('Choose an active church directory person.');
       displayName = person.name;
     }
+    if (!displayName || displayName.length > 160) throw new Error('Name must contain 1–160 characters.');
     const password = String(body.password || '');
     if (!userId) throw new Error('User is required.');
     if (!/^[a-z0-9_.-]{3,40}$/.test(username)) throw new Error('Username must be 3–40 letters, numbers, dots, dashes, or underscores.');
     if (password && password.length < 10) throw new Error('Password must contain at least 10 characters.');
-    const updates = { app_metadata: { ...target.user.app_metadata, ...(directoryMemberId ? { directory_member_id: directoryMemberId } : {}) }, email: `${username}@qnlbc.local`, user_metadata: { username, display_name: displayName }, ...(password ? { password } : {}) };
+    const updates = { app_metadata: { ...target.user.app_metadata, directory_member_id: directoryMemberId || null }, email: `${username}@qnlbc.local`, user_metadata: { username, display_name: displayName }, ...(password ? { password } : {}) };
     const { error } = await admin.auth.admin.updateUserById(userId, updates);
     if (error) throw error;
     // The Auth trigger updates profile identity in the same transaction.

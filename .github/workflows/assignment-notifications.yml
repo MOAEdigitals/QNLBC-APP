@@ -46,6 +46,7 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/personal_notes_and_reminders.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261028171857_security_hardening.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/security_hardening.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/optional_directory_accounts.sql
   android:
     needs: [app, database]
     runs-on: ubuntu-latest

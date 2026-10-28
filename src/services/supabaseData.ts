@@ -237,11 +237,11 @@ export async function updateUserProfile(
   };
 }
 
-export async function createManagedUser(input: { username: string; password: string; displayName: string; directoryMemberId: string }): Promise<{ id: string }> {
+export async function createManagedUser(input: { username: string; password: string; displayName: string; directoryMemberId?: string | null }): Promise<{ id: string }> {
   return await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
 }
 
-export async function updateManagedUser(input: { userId: string; username: string; displayName: string; directoryMemberId: string; password?: string }): Promise<void> {
+export async function updateManagedUser(input: { userId: string; username: string; displayName: string; directoryMemberId?: string | null; password?: string }): Promise<void> {
   await invokeAdminFunction('admin-update-user', input, 'Could not update account.');
 }
 
