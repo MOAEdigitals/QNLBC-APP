@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => {
       transformIndexHtml: { order: 'post', handler(html) {
         const hashes = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
           .filter(match => match[1].trim())
-          .map(match => `'sha256-${createHash('sha256').update(match[1]).digest('base64')}'`);
+          // HTML parsing normalizes CRLF before the browser checks CSP hashes.
+          .map(match => `'sha256-${createHash('sha256').update(match[1].replace(/\r\n?/g, '\n')).digest('base64')}'`);
         const policy = `base-uri 'self'; object-src 'none'; form-action 'self'; script-src 'self' ${hashes.join(' ')}; worker-src 'self' blob:`;
         return html.replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="strict-origin-when-cross-origin">`);
       } },
