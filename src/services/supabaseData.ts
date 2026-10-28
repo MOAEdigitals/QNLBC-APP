@@ -153,16 +153,6 @@ export async function fetchAllProfiles(): Promise<UserAccount[]> {
   }));
 }
 
-/** Owner-only RPC updates the avatar without granting profile/role editing privileges. */
-export async function updateMyAvatar(avatar: string | null): Promise<UserAccount> {
-  const { error } = await supabase.rpc('update_my_avatar', { new_avatar_url: avatar });
-  if (error) throw new Error(error.message || 'Could not update profile picture.');
-  const { data } = await supabase.auth.getUser();
-  const profile = data.user ? await fetchCurrentUserProfile(data.user.id) : null;
-  if (!profile) throw new Error('Profile picture saved, but your profile could not be reloaded.');
-  return profile;
-}
-
 export async function updateUserProfile(
   targetUserId: string,
   updates: {

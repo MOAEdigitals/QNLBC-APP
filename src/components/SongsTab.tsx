@@ -1329,13 +1329,13 @@ if (isEditing && !savingSongRef.current) {
                                   </button>
                                 );
                               })}
-                              {(
+                              {getSongCategories(song).length > 0 && (
                                 <button
                                   type="button"
                                   onClick={(e) => handleClearSongCategories(song, e)}
                                   className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800 cursor-pointer"
                                 >
-                                  <span>Uncategorized</span>{getSongCategories(song).length === 0 && <Check className="h-3.5 w-3.5" />}
+                                  <span>Clear Category</span>
                                 </button>
                               )}
                             </div>
@@ -2133,10 +2133,6 @@ if (isEditing && !savingSongRef.current) {
               </div>
 
               {/* Lyrics editor stays fully open while editing. */}
-              <fieldset className="space-y-2"><legend className="text-xs font-semibold uppercase tracking-wider">Categories</legend><div className="flex flex-wrap gap-2">
-                <button type="button" aria-pressed={getSongCategories(editingSong as Song).length === 0} className="ui-secondary" onClick={() => setEditingSong({ ...editingSong, categories: [], category: undefined })}>Uncategorized</button>
-                {allCategories.map(category => { const selected = getSongCategories(editingSong as Song).includes(category); return <button type="button" key={category} aria-pressed={selected} className={`ui-secondary ${selected ? 'ring-2 ring-blue-500' : ''}`} onClick={() => { const current = getSongCategories(editingSong as Song), next = selected ? current.filter(value => value !== category) : [...current, category]; setEditingSong({ ...editingSong, categories: next, category: next.join(', ') || undefined }); }}>{selected && '✓ '}{category}</button>; })}
-              </div></fieldset>
               <div>
                 <div className="mb-1">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">

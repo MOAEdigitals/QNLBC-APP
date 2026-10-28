@@ -9,7 +9,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="church-alerts-v2" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="assignments" />
         <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notification" />
 
         <activity

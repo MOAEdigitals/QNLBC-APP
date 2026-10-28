@@ -1,4 +1,4 @@
-export const MIGRATION_PROMPT_TEXT = `# QNLBC Team — migration and recovery guide
+export const MIGRATION_PROMPT_TEXT = `# QNLBC App — migration and recovery guide
 
 Use the current MOAEdigitals/QNLBC-APP main branch as the authoritative source.
 

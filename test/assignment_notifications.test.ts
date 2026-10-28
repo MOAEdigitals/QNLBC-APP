@@ -149,8 +149,6 @@ test('dispatcher sends only claimed device deliveries and acknowledges provider 
       assert.equal(payload.message.android.priority, 'high');
       assert.ok(payload.message.notification.title);
       assert.equal(payload.message.android.notification.tag, setlistId);
-      assert.equal(payload.message.android.notification.channel_id, 'church-alerts-v2');
-      assert.equal(payload.message.android.notification.sound, 'qnlbc_notification');
       if (outcome === 'sent') return Response.json({ name: 'messages/test' });
       return Response.json({ error: { details: outcome === 'invalid' ? [{ errorCode: 'UNREGISTERED' }] : [] } }, { status: outcome === 'invalid' ? 404 : 503 });
     }) as any);
@@ -195,16 +193,4 @@ test('older APK account edits preserve existing directory links and provider met
   assert.equal(h.recorded[0].app_metadata.directory_member_id, h.personId);
   assert.equal(h.recorded[0].app_metadata.provider, 'email');
   assert.equal(h.recorded[0].user_metadata.display_name, 'Canonical directory name');
-});
-
-test('current account forms can create unlinked users and explicitly detach directory identity', async () => {
-  const create=accountHandler('create');
-  assert.equal((await create.call({username:'pastor_account',displayName:'Sample Pastor',password:'test-password',directoryMemberId:''})).status,200);
-  assert.equal(create.recorded[0].user_metadata.display_name,'Sample Pastor');
-  assert.equal(create.recorded[0].app_metadata.directory_member_id,undefined);
-  const edit=accountHandler('update');
-  assert.equal((await edit.call({userId:user2,username:'avp_account',displayName:'Sample AVP',directoryMemberId:''})).status,200);
-  assert.equal(edit.recorded[0].app_metadata.directory_member_id,null);
-  assert.equal(edit.recorded[0].app_metadata.provider,'email');
-  assert.equal(edit.recorded[0].user_metadata.display_name,'Sample AVP');
 });

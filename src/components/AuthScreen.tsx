@@ -161,7 +161,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
             <ChurchLogo className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            QNLBC Team
+            New Life Baptist Church
           </h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 font-medium">
             Worship Ministry & Program Portal • Quezon, N.E.

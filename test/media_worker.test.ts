@@ -3,13 +3,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { webcrypto } from 'node:crypto';
-import { handleSetlistShare } from '../cloudflare/setlist-share.mjs';
 
 function fixture({ active = true, canUpload = true, authenticated = true } = {}) {
   const objects = new Map();
   let writes = 0;
-  const worker = runInNewContext(readFileSync('cloudflare/media-worker.mjs', 'utf8').replace("import { handleSetlistShare } from './setlist-share.mjs';", '').replace('export default', 'worker ='), {
-    Response, URL, Uint8Array, crypto: webcrypto, handleSetlistShare,
+  const worker = runInNewContext(readFileSync('cloudflare/media-worker.mjs', 'utf8').replace('export default', 'worker ='), {
+    Response, URL, Uint8Array, crypto: webcrypto,
     fetch: async (url: string) => url.includes('/auth/')
       ? new Response(JSON.stringify({ id: 'member-id' }), { status: authenticated ? 200 : 401 })
       : new Response(JSON.stringify([{ active, role: 'user', can_upload: canUpload }])),

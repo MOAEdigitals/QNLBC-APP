@@ -72,11 +72,6 @@ export async function enableAssignmentPush(): Promise<PushStatus> {
   // 'enabled' is set only when the registration token has been persisted.
   return 'prompt';
 }
-export async function markNotificationsRead(ids: string[]): Promise<void> {
-  if (!ids.length) return;
-  const { error } = await supabase.rpc('mark_notifications_read', { notification_ids: ids.slice(0, 100) });
-  if (error) throw new Error('Could not mark notifications as read. Please try again.');
-}
 export async function refreshAssignmentPushPermission(): Promise<PushStatus | undefined> {
   if (!android()) return 'web';
   if (!configured()) return 'setup';
@@ -118,14 +113,12 @@ export async function listenForAssignmentPush(userId: string, onOpen: (id: strin
     }));
     handles.push(await PushNotifications.addListener('pushNotificationActionPerformed', action => {
       if (!live()) return;
-      const notificationId = action.notification.data?.notificationId;
-      if (action.notification.data?.userId === userId && typeof notificationId === 'string') void markAssignmentNotificationRead(notificationId).then(onRefresh).catch(() => onRefresh());
       const id = notificationSetlist(action.notification.data, userId);
       if (id) { onRefresh(); onOpen(id); } else if (isAnnouncementPush(action.notification.data, userId)) { onRefresh(); onAnnouncement?.(); }
       else { const kind = calendarPushKind(action.notification.data, userId); if (kind) { onRefresh(); onCalendar?.(kind); } }
     }));
     if (!live()) { stop(); return stop; }
-    await PushNotifications.createChannel({ id: 'church-alerts-v2', name: 'Church notifications', description: 'Assignments, announcements, birthdays and special events', importance: 4, sound: 'qnlbc_notification.wav', vibration: true });
+    await PushNotifications.createChannel({ id: 'assignments', name: 'Church notifications', description: 'Assignments, announcements, birthdays and special events', importance: 4, sound: 'default' });
     const permission = await pushPermission(true);
     if (!live()) { stop(); return stop; }
     if (permission.receive === 'granted') await PushNotifications.register();

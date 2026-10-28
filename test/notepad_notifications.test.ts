@@ -16,7 +16,7 @@ async function fixture(path: string, services: any, run: (exports: any, root: Ro
   const { createRoot } = await import('react-dom/client');
   const exports: any = {}, root = createRoot(document.getElementById('root')!);
   runInNewContext(ts.transpileModule(readFileSync(path,'utf8'), { compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2022} }).outputText, {
-    exports,window:dom.window,document:dom.window.document,crypto:webcrypto,requestAnimationFrame:(f:()=>void)=>f(),setTimeout:services.setTimeout || setTimeout,clearTimeout:services.clearTimeout || clearTimeout,
+    exports,window:dom.window,document:dom.window.document,crypto:webcrypto,requestAnimationFrame:(f:()=>void)=>f(),
     require:(name:string)=>name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
   });
   try { await run(exports,root,dom); }
@@ -46,22 +46,6 @@ test('personal notepad creates cards, preserves schedule whitespace and retains 
     await act(()=>{Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype,'value')!.set!.call(body(),schedule+'More notes');body().dispatchEvent(new dom.window.Event('input',{bubbles:true}));});
     await act(async()=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent==='Save')!.click());
     assert.equal(body().value,schedule+'More notes');assert.match(document.querySelector('[role="alert"]')!.textContent!,/retained/);
-  });
-});
-
-test('notification inbox reads only after five visible seconds and cancels when closed or backgrounded',async()=>{
-  const timers=new Map<number,()=>void>();let next=0,visibility='visible';const reads:string[][]=[];
-  await fixture('src/components/NotificationInbox.tsx',{setTimeout:(fn:()=>void,ms:number)=>{assert.equal(ms,5000);timers.set(++next,fn);return next;},clearTimeout:(id:number)=>timers.delete(id)},async(exports,root,dom)=>{
-    Object.defineProperty(dom.window.document,'visibilityState',{configurable:true,get:()=>visibility});
-    const props={items:[{id:'new',user_id:'owner',kind:'announcement',title:'Notice',body:'Body',read_at:null,created_at:'2026-10-27T00:00:00Z'}],loading:false,error:'',pushStatus:'web',markRead:async(ids:string[])=>{reads.push(ids);},onEnable:async()=>{},onRefresh:async()=>{},onOpen(){},onClose(){}};
-    await act(()=>root.render(React.createElement(exports.NotificationInbox,props)));
-    assert.equal(reads.length,0);assert.equal(timers.size,1);
-    await act(()=>{visibility='hidden';document.dispatchEvent(new dom.window.Event('visibilitychange'));});assert.equal(timers.size,0);
-    await act(()=>{visibility='visible';document.dispatchEvent(new dom.window.Event('visibilitychange'));});
-    await act(async()=>{const fn=[...timers.values()][0];timers.clear();fn();});assert.deepEqual(reads.map(ids=>Array.from(ids)),[['new']]);
-    await act(()=>root.render(null));assert.equal(timers.size,0);
-    await act(()=>root.render(React.createElement(exports.NotificationInbox,props)));assert.equal(timers.size,1);
-    await act(()=>root.render(null));assert.equal(timers.size,0,'closing before five seconds preserves unread status');
   });
 });
 
