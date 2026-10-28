@@ -253,13 +253,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           aria-pressed={subTab === 'birthdays'}
           title="Birthdays"
           onClick={() => setSubTab('birthdays')}
-          className={`relative min-w-0 flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${subTab === 'birthdays' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+          className={`ui-category-pill relative min-w-0 flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${subTab === 'birthdays' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'birthdays'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Cake className="w-4 h-4 text-indigo-500" />
+          <Cake className="w-4 h-4" />
           <span className={`${subTab === 'birthdays' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Birthdays</span>
         </button>
 
@@ -269,13 +269,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           aria-pressed={subTab === 'special'}
           title="Special"
           onClick={() => setSubTab('special')}
-          className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'special' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+          className={`ui-category-pill relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'special' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'special'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Award className="w-4 h-4 text-sky-500" />
+          <Award className="w-4 h-4" />
           <span className={`${subTab === 'special' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Special</span>
         </button>
 
@@ -285,13 +285,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
           aria-pressed={subTab === 'anniversaries'}
           title="Anniversaries"
           onClick={() => setSubTab('anniversaries')}
-          className={`relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'anniversaries' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
+          className={`ui-category-pill relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'anniversaries' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
             subTab === 'anniversaries'
               ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
           }`}
         >
-          <Heart className="w-4 h-4 text-rose-500" />
+          <Heart className="w-4 h-4" />
           <span className={`${subTab === 'anniversaries' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Anniversaries</span>
         </button>
 

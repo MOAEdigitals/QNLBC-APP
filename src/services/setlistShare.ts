@@ -16,7 +16,8 @@ export async function shareSetlistContent(title: string, url: string, image?: Fi
           reader.onerror = () => reject(new Error('The setlist image could not be read.'));
           reader.readAsDataURL(image);
         });
-        const file = await Filesystem.writeFile({ path: image.name, data: base64, directory: Directory.Cache });
+        const name = image.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const file = await Filesystem.writeFile({ path: `shared/${name}`, data: base64, directory: Directory.Cache, recursive: true });
         await Share.share({ title, text: `${title}\n${url}`, files: [file.uri], dialogTitle: 'Share setlist' });
       } else await Share.share({ title, text: title, url, dialogTitle: 'Share setlist' });
       return 'shared';

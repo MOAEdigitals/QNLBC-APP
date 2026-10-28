@@ -957,109 +957,21 @@ if (isEditing && !savingSongRef.current) {
         </div>
       )}
 
-      {/* Category Filter Pills (Compact without counts) */}
+      {/* Categories share the theme accent only when selected. */}
       <div className="flex items-center gap-1.5 flex-wrap overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs pt-0.5">
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('all')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-            categoryFilter === 'all'
-              ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-          }`}
-        >
-          <span>All</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('Hymn')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-            categoryFilter === 'Hymn'
-              ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-          }`}
-        >
-          <span>Hymns</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('Special')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-            categoryFilter === 'Special'
-              ? 'bg-purple-600 dark:bg-purple-500 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-900/60 hover:bg-purple-50 dark:hover:bg-purple-950/40'
-          }`}
-        >
-          <span>Special</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('Contemporary')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-            categoryFilter === 'Contemporary'
-              ? 'bg-cyan-600 dark:bg-cyan-500 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-400 border border-cyan-200 dark:border-cyan-900/60 hover:bg-cyan-50 dark:hover:bg-cyan-950/40'
-          }`}
-        >
-          <span>Contemporary</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('Choir')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-            categoryFilter === 'Choir'
-              ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-900/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
-          }`}
-        >
-          <span>Choir</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('Tagalog')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-            categoryFilter === 'Tagalog'
-              ? 'bg-rose-600 dark:bg-rose-500 text-white shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-          }`}
-        >
-          <span>Tagalog</span>
-        </button>
-
-        {allCategories.filter(cat => !(VALID_SONG_CATEGORIES as readonly string[]).includes(cat)).map(cat => (
-          <button key={cat} type="button" onClick={() => setCategoryFilter(cat)} className={categoryFilter === cat ? 'ui-primary shrink-0' : 'ui-secondary shrink-0'}>{cat}</button>
-        ))}
-        {categoryCounts.uncategorized > 0 && (
-          <button
-            type="button"
-            onClick={() => setCategoryFilter('uncategorized')}
-            className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap ${
-              categoryFilter === 'uncategorized'
-                ? 'bg-slate-700 text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <span>Uncategorized</span>
+        {[
+          { value: 'all', label: 'All' },
+          ...allCategories.map(value => ({ value, label: value === 'Hymn' ? 'Hymns' : value })),
+          ...(categoryCounts.uncategorized > 0 ? [{ value: 'uncategorized', label: 'Uncategorized' }] : []),
+          { value: 'Starred', label: 'Starred' },
+        ].map(({ value, label }) => (
+          <button key={value} type="button" aria-pressed={categoryFilter === value}
+            onClick={() => setCategoryFilter(value)}
+            className="ui-category-pill px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer select-none whitespace-nowrap flex items-center gap-1.5">
+            {value === 'Starred' && <Star className="w-3.5 h-3.5" fill={categoryFilter === value ? 'currentColor' : 'none'} />}
+            <span>{label}</span>
           </button>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setCategoryFilter('Starred')}
-          className={`px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-all cursor-pointer select-none whitespace-nowrap flex items-center gap-1.5 ${
-            categoryFilter === 'Starred'
-              ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xs'
-              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
-          }`}
-        >
-          <Star className={`w-3.5 h-3.5 ${categoryFilter === 'Starred' ? 'fill-yellow-400 text-yellow-400' : 'fill-yellow-400 text-yellow-500'}`} />
-          <span>Starred</span>
-        </button>
+        ))}
       </div>
 
       {newCategory !== null && <form className="flex gap-2 items-center" onSubmit={event => { event.preventDefault(); void createCategory(); }}>

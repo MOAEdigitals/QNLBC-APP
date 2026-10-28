@@ -8,6 +8,7 @@ grant usage on schema public,auth to anon,authenticated,service_role;
 grant execute on all functions in schema auth to anon,authenticated,service_role;
 create table auth.users(id uuid primary key default gen_random_uuid(),raw_user_meta_data jsonb not null default '{}',raw_app_meta_data jsonb not null default '{}');
 create table public.profiles(id uuid primary key references auth.users(id) on delete cascade,username text unique,display_name text,role text not null default 'user',active boolean not null default true,revision bigint not null default 1,created_at timestamptz default now());
+alter table public.profiles add column can_upload boolean not null default true;
 create function public.handle_new_auth_user() returns trigger language plpgsql security definer set search_path='' as $$ begin insert into public.profiles(id,username,display_name) values(new.id,new.raw_user_meta_data->>'username',new.raw_user_meta_data->>'display_name'); return new; end; $$;
 create trigger handle_new_auth_user after insert on auth.users for each row execute function public.handle_new_auth_user();
 create table public.app_settings(key text primary key,value jsonb);

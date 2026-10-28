@@ -47,7 +47,7 @@ test('explicit IDs win, missing IDs and ambiguous legacy titles never switch to 
 
 test('song category filters retain Starred without the removed add-category shortcut', () => {
   const source = readFileSync(new URL('../src/components/SongsTab.tsx', import.meta.url), 'utf8');
-  assert.ok(source.includes('<span>Starred</span>'));
-  assert.ok(source.includes('allCategories.filter'));
+  assert.ok(source.includes("{ value: 'Starred', label: 'Starred' }"));
+  assert.ok(source.includes('allCategories.map'));
   assert.doesNotMatch(source, /aria-label="Add category"/);
 });

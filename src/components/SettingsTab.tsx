@@ -679,15 +679,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleDownloadSourceZip = async () => {
     setIsDownloadingZip(true);
     try {
-      const response = await fetch('/api/download-source-zip');
-      if (!response.ok) throw new Error('Failed to generate archive');
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `qnlbc_source_${new Date().toISOString().split('T')[0]}.zip`;
+      a.href = 'https://github.com/MOAEdigitals/QNLBC-APP/archive/refs/heads/main.zip';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       a.click();
-      URL.revokeObjectURL(a.href);
     } catch (e: any) {
       alert('Could not download zip: ' + (e.message || 'Error'));
     } finally {
@@ -993,7 +989,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     <div className="ui-form-body">
                 <DirectoryAccountSelect members={directoryMembers} value={newMember.directoryMemberId} onChange={(directoryMemberId, displayName) => setNewMember({ ...newMember, directoryMemberId, displayName })} />
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
-                <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={6} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
+                <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={10} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                 {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
                     </div>
                     <div className="ui-form-actions flex justify-end gap-3"><button type="button" disabled={creatingMember} onClick={() => setShowCreateMember(false)} className="ui-secondary">Cancel</button><button type="submit" disabled={creatingMember} className="ui-primary">{creatingMember ? 'Creating…' : 'Create account'}</button></div>
@@ -1053,7 +1049,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                             <div className="ui-form-body">
                         <DirectoryAccountSelect members={directoryMembers} value={memberEdit.directoryMemberId} accountId={u.id} onChange={(directoryMemberId, displayName) => setMemberEdit({ ...memberEdit, directoryMemberId, displayName })} />
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
-                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={6} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
+                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={10} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
                             </div>
                             <div className="ui-form-actions flex justify-end gap-3"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => setEditingMemberId(null)}>Cancel</button><button type="submit" className="ui-primary" disabled={isManaging}>Save</button></div>

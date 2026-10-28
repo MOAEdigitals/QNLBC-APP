@@ -249,3 +249,13 @@ body:has(.ui-form-screen, .ui-viewport-screen) { overflow: hidden; }
 .ui-viewport-screen > form > header { flex: 0 0 auto; padding-top: calc(.75rem + var(--app-safe-top)); }
 .ui-viewport-screen > form > footer { position: static; }
 body:has(.ui-form-screen, .ui-viewport-screen) > #root nav.fixed { visibility: hidden; }
+
+/* Shared category and sub-tab states: neutral until selected. */
+.ui-revamp .ui-category-pill {
+  background: var(--ui-surface, #fff); color: #475569; border: 1px solid #cbd5e1;
+}
+.dark .ui-revamp .ui-category-pill { background: #0f172a; color: #94a3b8; border-color: #1e293b; }
+.ui-revamp .ui-category-pill[aria-pressed="true"] {
+  background: #1d4ed8; color: #fff; border-color: #1d4ed8;
+}
+.ui-revamp .ui-category-pill:not([aria-pressed="true"]):hover { color: var(--ui-accent, #1d4ed8); }

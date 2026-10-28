@@ -32,7 +32,7 @@ Deno.serve(async (request) => {
       displayName = person.name;
     }
     if (!/^[a-z0-9_.-]{3,40}$/.test(username)) throw new Error('Username must be 3–40 letters, numbers, dots, dashes, or underscores.');
-    if (password.length < 6) throw new Error('Password must contain at least 6 characters.');
+    if (password.length < 10) throw new Error('Password must contain at least 10 characters.');
     const { data, error } = await admin.auth.admin.createUser({
       email: `${username}@qnlbc.local`,
       password,
