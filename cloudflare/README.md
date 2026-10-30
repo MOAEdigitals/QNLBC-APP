@@ -10,6 +10,8 @@ The web dialog prepares the link first, then shares just that URL on a fresh use
 
 This uses the existing Worker and R2 bucket. No subscription or billing configuration is changed.
 
+Preview fetch correction: public snapshot reads accept social-network Origin headers, while authenticated creation retains the application-origin restriction. Open Graph images now use the direct public R2 PNG URL, and newly created links carry `?v=2` to avoid reusing previously cached missing-image metadata. The old Worker image endpoint remains valid. Messenger may still display a raw URL or decline a preview; the app cannot force native Facebook-post presentation. **Share photo only — no link** sends a photo attachment without any URL; it intentionally does not navigate to the setlist when tapped.
+
 `media-worker.mjs` replaces the static site's unauthenticated Firestore upload fallback. The Worker is deployed at `https://qnlbc-media.aigems2026.workers.dev` with the R2 binding and Supabase public key configured.
 
 ## Migration verification — 2026-10-09

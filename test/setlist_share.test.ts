@@ -30,7 +30,7 @@ function fixture(native = false, files = true) {
       : name === '@capacitor/share' ? { Share: { share } }
       : { Directory: { Cache: 'CACHE' }, Filesystem: { writeFile: async (data: any) => { writes.push(data); return { uri: 'file:///cache/card.png' }; } } },
   });
-  return { share: exports.shareSetlistContent, calls, writes, cancel: () => { cancel = true; } };
+  return { share: exports.shareSetlistContent, photo: exports.shareSetlistPhoto, calls, writes, cancel: () => { cancel = true; } };
 }
 test('web share includes the card image and clickable URL, with link-only support and harmless cancellation', async () => {
   const image = { name: 'card.png' }, f = fixture();
@@ -52,6 +52,17 @@ test('Android shares its cached image with the URL in the text without sending a
   assert.equal(f.calls[0].files[0], 'file:///cache/card.png');
   assert.ok(f.calls[0].text.includes(setlistShareUrl(id)));
   assert.equal(f.calls[0].dialogTitle, 'Share setlist');
+});
+
+test('photo-only sharing contains no URL on web or Android', async () => {
+  for (const native of [false, true]) {
+    const f = fixture(native);
+    assert.equal(await f.photo('Sunday Service', { name: 'card.png' }), 'shared');
+    assert.ok(f.calls[0].files);
+    assert.equal(f.calls[0].url, undefined);
+    assert.equal(f.calls[0].text, undefined);
+  }
+  assert.equal(await fixture(false, false).photo('Sunday Service', { name: 'card.png' }), 'unsupported');
 });
 
 test('App waits for login and authoritative core loading before consuming a shared setlist link', async () => {

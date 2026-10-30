@@ -90,7 +90,6 @@ async function handleSetlistPreview(request, env) {
   const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', Vary: 'Origin' };
   if (origin && ORIGINS.has(origin)) headers['Access-Control-Allow-Origin'] = origin;
   const reply = (status, body) => new Response(JSON.stringify(body), { status, headers });
-  if (origin && !ORIGINS.has(origin)) return reply(403, { error: 'Origin not allowed.' });
   if (!env.AUDIO_BUCKET) return reply(503, { error: 'Preview storage is unavailable.' });
   try {
     if (url.pathname.startsWith('/share/')) {
@@ -103,15 +102,18 @@ async function handleSetlistPreview(request, env) {
       if (!meta || meta.token !== match[2] || !UUID.test(meta.setlistId)) return reply(404, { error: 'Preview not found.' });
       const publicHeaders = { 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };
       if (match[3]) return new Response(request.method === 'HEAD' ? null : object.body, { headers: { ...publicHeaders, 'Content-Type': 'image/png' } });
-      const previewUrl = `${SHARE_ORIGIN}/share/${match[1]}/${match[2]}`;
+      const previewUrl = `${SHARE_ORIGIN}/share/${match[1]}/${match[2]}?v=2`;
+      const imageUrl = `${PUBLIC_URL}/${key}`;
       const appUrl = `${APP_URL}?setlist=${meta.setlistId}#home`;
       const title = escapeHtml(meta.title), description = 'QNLBC setlist · Open the setlist in QNLBC. Sign-in required in the app.';
       const nonce = crypto.randomUUID().replaceAll('-', '');
       const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} · QNLBC</title>
-<meta property="og:type" content="website"><meta property="og:site_name" content="QNLBC"><meta property="og:title" content="${title}"><meta property="og:description" content="${description}"><meta property="og:url" content="${previewUrl}"><meta property="og:image" content="${previewUrl}/image.png"><meta property="og:image:secure_url" content="${previewUrl}/image.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="${meta.width}"><meta property="og:image:height" content="${meta.height}"><meta property="og:image:alt" content="${title} setlist card"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${previewUrl}/image.png"></head>
-<body><h1>${title}</h1><p><a href="${appUrl}">Open setlist in QNLBC</a></p><img src="${previewUrl}/image.png" alt="${title}" width="390"><script nonce="${nonce}">location.replace(${JSON.stringify(appUrl)})</script></body></html>`;
-      return new Response(request.method === 'HEAD' ? null : html, { headers: { ...publicHeaders, 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': `default-src 'none'; img-src 'self'; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'` } });
+<meta property="og:type" content="website"><meta property="og:site_name" content="QNLBC"><meta property="og:title" content="${title}"><meta property="og:description" content="${description}"><meta property="og:url" content="${previewUrl}"><meta property="og:image" content="${imageUrl}"><meta property="og:image:secure_url" content="${imageUrl}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="${meta.width}"><meta property="og:image:height" content="${meta.height}"><meta property="og:image:alt" content="${title} setlist card"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${imageUrl}"></head>
+<body><h1>${title}</h1><p><a href="${appUrl}">Open setlist in QNLBC</a></p><img src="${imageUrl}" alt="${title}" width="390"><script nonce="${nonce}">location.replace(${JSON.stringify(appUrl)})</script></body></html>`;
+      return new Response(request.method === 'HEAD' ? null : html, { headers: { ...publicHeaders, 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': `default-src 'none'; img-src 'self' ${PUBLIC_URL}; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'` } });
     }
+    // Origin restrictions apply to authenticated creation, not already-public cards.
+    if (origin && !ORIGINS.has(origin)) return reply(403, { error: 'Origin not allowed.' });
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: { ...headers, 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Authorization, Content-Type' } });
     if (request.method !== 'POST') return reply(405, { error: 'Method not allowed.' });
     const id = url.searchParams.get('setlist');
@@ -153,6 +155,6 @@ async function handleSetlistPreview(request, env) {
     await env.AUDIO_BUCKET.put(key, bytes, { onlyIf: { etagDoesNotMatch: '*' }, httpMetadata: { contentType: 'image/png', cacheControl: 'public, max-age=31536000, immutable' }, customMetadata: { token: crypto.randomUUID().replaceAll('-', ''), setlistId: id, title, width: String(width), height: String(height) } });
     const saved = await env.AUDIO_BUCKET.head(key);
     if (!saved || saved.size !== size || !saved.customMetadata?.token) return reply(502, { error: 'Preview could not be verified.' });
-    return reply(200, { url: `${SHARE_ORIGIN}/share/${hash}/${saved.customMetadata.token}` });
+    return reply(200, { url: `${SHARE_ORIGIN}/share/${hash}/${saved.customMetadata.token}?v=2` });
   } catch { return reply(503, { error: 'Unable to prepare preview. Please retry.' }); }
 }

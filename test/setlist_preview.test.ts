@@ -43,7 +43,8 @@ test('preview snapshot emits server-rendered Open Graph PNG metadata and opens t
   const html = await page.text();
   assert.equal(page.status, 200);
   assert.match(html, /property="og:image"/);
-  assert.ok(html.includes(`${first.url}/image.png`));
+  assert.ok(html.includes(`https://pub-aaa45e93104541548f563b3496acae00.r2.dev/setlist_previews/${path.split('/')[2]}`));
+  assert.equal(new URL(first.url).search, '?v=2', 'new shares use fresh metadata instead of old Messenger cache');
   assert.ok(html.includes(`location.replace("https://moaedigitals.github.io/QNLBC-APP/?setlist=${id}#home")`));
   assert.ok(html.includes('&lt;script&gt;'));
   assert.ok(!html.includes('Sunday <script>'));
@@ -55,6 +56,8 @@ test('preview snapshot emits server-rendered Open Graph PNG metadata and opens t
   const head = await f.send(`${path}/image.png`, { method: 'HEAD' });
   assert.equal(head.status, 200); assert.equal(await head.text(), '');
   assert.equal(f.authCalls(), calls, 'public crawlers can only read the saved snapshot, without database access');
+  assert.equal((await f.send(path, { headers: { Origin: 'https://www.facebook.com' } })).status, 200, 'public preview pages allow social origins');
+  assert.equal((await f.send(`${path}/image.png`, { headers: { Origin: 'https://www.facebook.com' } })).status, 200, 'public images allow social origins');
   assert.equal((await f.send(path.replace(/.$/, path.endsWith('a') ? 'b' : 'a'), {})).status, 404);
 });
 

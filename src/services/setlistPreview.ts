@@ -11,6 +11,6 @@ export async function createSetlistPreview(id: string, image: File): Promise<str
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Could not create the preview link.');
-  if (typeof result.url !== 'string' || !new RegExp(`^${PREVIEW_ORIGIN.replaceAll('.', '\\.')}\/share\/[a-f0-9]{64}\/[a-f0-9]{32}$`).test(result.url)) throw new Error('The preview link could not be verified.');
+  if (typeof result.url !== 'string' || !new RegExp(`^${PREVIEW_ORIGIN.replaceAll('.', '\\.')}\/share\/[a-f0-9]{64}\/[a-f0-9]{32}(?:\\?v=2)?$`).test(result.url)) throw new Error('The preview link could not be verified.');
   return result.url;
 }

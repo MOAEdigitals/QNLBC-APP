@@ -5,7 +5,7 @@ import { X, Share2, Copy, Download } from 'lucide-react';
 import type { Setlist, Song } from '../types';
 import { SetlistShareCard } from './SetlistShareCard';
 import { setlistShareUrl, setlistTitle } from '../utils/setlistSharing';
-import { shareSetlistContent } from '../services/setlistShare';
+import { shareSetlistContent, shareSetlistPhoto } from '../services/setlistShare';
 import { createSetlistPreview } from '../services/setlistPreview';
 import { useBackLayer } from '../hooks/useBackLayer';
 
@@ -13,6 +13,7 @@ export function SetlistShareDialog({ item, songs, badge, highlighted, onClose }:
   const card = useRef<HTMLDivElement>(null), close = useRef<HTMLButtonElement>(null);
   const [image, setImage] = useState<{ file: File; url: string } | null>(null);
   const [preparing, setPreparing] = useState(true), [sharing, setSharing] = useState(false);
+  const [creatingPreview, setCreatingPreview] = useState(false);
   const [message, setMessage] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const imageGeneration = useRef(0);
@@ -45,6 +46,7 @@ export function SetlistShareDialog({ item, songs, badge, highlighted, onClose }:
     setSharing(true); setMessage('');
     try {
       if (image && !previewUrl) {
+        setCreatingPreview(true);
         const generation = imageGeneration.current;
         const createdUrl = await createSetlistPreview(item.id, image.file);
         if (generation !== imageGeneration.current) { setMessage('The setlist changed. Please create its new preview link.'); return; }
@@ -57,6 +59,14 @@ export function SetlistShareDialog({ item, songs, badge, highlighted, onClose }:
       const result = await shareSetlistContent(title, url);
       if (result === 'unsupported') setMessage('Copy the preview link and paste it into Messenger.');
     } catch (error) { setMessage(error instanceof Error ? error.message : 'Sharing could not open. Please retry.'); }
+    finally { setSharing(false); setCreatingPreview(false); }
+  };
+  const sharePhoto = async () => {
+    if (!image || sharing) return;
+    setSharing(true); setMessage('');
+    try {
+      if (await shareSetlistPhoto(title, image.file) === 'unsupported') setMessage('Download the image and attach it in Messenger.');
+    } catch { setMessage('Photo sharing could not open. Use Download image instead.'); }
     finally { setSharing(false); }
   };
   return createPortal(<div className="fixed inset-0 z-[250] bg-black/60 flex items-center justify-center p-3" onClick={event => { if (event.target === event.currentTarget && !sharing) onClose(); }}>
@@ -72,12 +82,13 @@ export function SetlistShareDialog({ item, songs, badge, highlighted, onClose }:
       <header className="flex items-center justify-between p-4"><h2 id="share-setlist-title" className="text-lg font-semibold">Share setlist</h2><button ref={close} type="button" aria-label="Close share preview" disabled={sharing} onClick={onClose} className="h-11 w-11 flex items-center justify-center"><X className="h-5 w-5" /></button></header>
       <div className="overflow-y-auto min-h-0 px-4 pb-4 space-y-3">
         {image ? <img src={image.url} alt={`Expanded ${setlistTitle(item)} for ${item.date}`} className="w-full rounded-2xl" /> : <p className="py-8 text-center text-sm text-slate-500" role="status">{preparing ? 'Preparing setlist image…' : 'Setlist link ready'}</p>}
-        <p className="text-sm text-slate-500 dark:text-slate-400">Create a preview link, then share it to Messenger as a clickable image card. Anyone with the link can see this card; opening the setlist in QNLBC requires sign-in. Messenger controls how the preview appears.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Create a preview link, then share it to Messenger. Messenger may show the URL alongside its image preview; the app cannot hide it. Anyone with the link can see this card; opening the setlist in QNLBC requires sign-in.</p>
         <input aria-label="Setlist link" readOnly value={url} onFocus={event => event.currentTarget.select()} className="w-full rounded-xl border border-slate-300 dark:border-slate-700 p-3 text-xs bg-transparent" />
         {message && <p role="status" className="text-sm text-sky-700 dark:text-sky-300">{message}</p>}
       </div>
       <footer className="border-t border-slate-200 dark:border-slate-800 p-4 space-y-2">
-        <button type="button" onClick={share} disabled={preparing || sharing} className="w-full rounded-xl bg-blue-700 text-white px-4 min-h-11 flex items-center justify-center gap-2 disabled:opacity-50"><Share2 className="h-4 w-4" />{sharing ? image && !previewUrl ? 'Creating preview link…' : 'Opening share sheet…' : image && !previewUrl ? 'Create preview link' : previewUrl ? 'Share preview link' : 'Share app link'}</button>
+        <button type="button" onClick={share} disabled={preparing || sharing} className="w-full rounded-xl bg-blue-700 text-white px-4 min-h-11 flex items-center justify-center gap-2 disabled:opacity-50"><Share2 className="h-4 w-4" />{sharing ? creatingPreview ? 'Creating preview link…' : 'Opening share sheet…' : image && !previewUrl ? 'Create preview link' : previewUrl ? 'Share preview link' : 'Share app link'}</button>
+        {image && <><button type="button" onClick={sharePhoto} disabled={preparing || sharing} className="w-full min-h-11 rounded-xl border border-slate-300 dark:border-slate-700 text-sm font-semibold disabled:opacity-50">Share photo only — no link</button><p className="text-xs text-slate-500 dark:text-slate-400">Photo only shows the setlist text and image, without a URL. Tapping the photo will not open the QNLBC setlist.</p></>}
         <div className="flex gap-2"><button type="button" disabled={preparing || sharing} className="min-h-11 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-2 text-sm disabled:opacity-50" onClick={async () => { try { await navigator.clipboard.writeText(url); setMessage('Link copied.'); } catch { setMessage('Select the link above and copy it.'); } }}><Copy className="h-4 w-4" />{previewUrl ? 'Copy preview link' : 'Copy app link'}</button>{image && <a href={image.url} download={image.file.name} className="min-h-11 flex-1 rounded-xl border border-slate-300 dark:border-slate-700 flex items-center justify-center gap-2 text-sm"><Download className="h-4 w-4" />Download image</a>}</div>
       </footer>
     </div>
