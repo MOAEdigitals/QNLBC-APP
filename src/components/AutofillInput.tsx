@@ -780,7 +780,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       )}
 
       <div className="relative flex items-center w-full">
-        {isOpen && !isTouchPicker && showSongCategoryFilters && <div className="absolute right-0 z-10 text-slate-500 dark:text-slate-400">{sortControl}</div>}
+        {isOpen && !isTouchPicker && showSongCategoryFilters && <div className="absolute right-0 z-[210] text-slate-500 dark:text-slate-400">{sortControl}</div>}
         <input
           ref={inputRef}
           id={stableInputIdRef.current}
