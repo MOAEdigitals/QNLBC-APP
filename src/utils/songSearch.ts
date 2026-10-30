@@ -1,5 +1,5 @@
-import { Song, Setlist } from '../types';
-import { parseDate, getTodayStr, formatDateStr } from './dateUtils';
+import type { Song, Setlist } from '../types';
+import { parseDate, getTodayStr, formatDateStr } from './dateUtils.ts';
 
 /**
  * Calculates Levenshtein distance between two strings
@@ -57,69 +57,93 @@ export interface FuzzyMatchResult {
 /**
  * Fuzzy search a target string against query with typo tolerance
  */
-export function fuzzyMatchString(target: string, query: string): FuzzyMatchResult {
-  const normTarget = normalizeForSearch(target);
-  const normQuery = normalizeForSearch(query);
+interface PreparedSearchText { normalized: string; words: string[]; initials: string; }
+function prepareSearchText(text: string): PreparedSearchText {
+  const normalized = normalizeForSearch(text);
+  const words = normalized.split(' ');
+  return { normalized, words, initials: words.map(word => word[0] || '').join('') };
+}
 
+// Banded distance: candidates outside the typo budget cannot match. Keep only
+// two rows, and stop once no path can reach the allowed edit distance.
+function calculateDistanceWithin(a: string, b: string, limit: number): number {
+  if (Math.abs(a.length - b.length) > limit) return limit + 1;
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const current = new Array<number>(b.length + 1).fill(limit + 1);
+    current[0] = i;
+    let minimum = current[0];
+    for (let j = Math.max(1, i - limit); j <= Math.min(b.length, i + limit); j++) {
+      current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      minimum = Math.min(minimum, current[j]);
+    }
+    if (minimum > limit) return limit + 1;
+    previous = current;
+  }
+  return previous[b.length];
+}
+const distanceCache = new Map<string, number>();
+const matchCache = new Map<string, FuzzyMatchResult>();
+function distanceWithin(a: string, b: string, limit: number): number {
+  const key = `${limit}:${a}`;
+  const cached = distanceCache.get(key);
+  if (cached !== undefined) return cached;
+  const result = calculateDistanceWithin(a, b, limit);
+  if (distanceCache.size < 16384) distanceCache.set(key, result);
+  return result;
+}
+function matchPrepared(target: PreparedSearchText, query: PreparedSearchText): FuzzyMatchResult {
+  const cached = matchCache.get(target.normalized);
+  if (cached) return cached;
+  const result = calculateMatch(target, query);
+  if (matchCache.size < 16384) matchCache.set(target.normalized, result);
+  return result;
+}
+function calculateMatch(target: PreparedSearchText, query: PreparedSearchText): FuzzyMatchResult {
+  const normTarget = target.normalized, normQuery = query.normalized;
   if (!normQuery) return { matches: true, score: 100 };
   if (!normTarget) return { matches: false, score: 0 };
-
-  // 1. Exact equality
-  if (normTarget === normQuery) {
-    return { matches: true, score: 100 };
-  }
-
-  // 2. Target starts with query (Prefix match)
-  if (normTarget.startsWith(normQuery)) {
-    return { matches: true, score: 95 };
-  }
-
-  // 3. Exact Substring match
-  if (normTarget.includes(normQuery)) {
-    return { matches: true, score: 85 };
-  }
-
-  // 4. Word-by-word prefix match (e.g. "gra" matches "Amazing Grace")
-  const targetWords = normTarget.split(' ');
-  const queryWords = normQuery.split(' ');
-  const allQueryWordsMatch = queryWords.every((qw) =>
-    targetWords.some((tw) => tw.startsWith(qw) || tw.includes(qw))
-  );
-  if (allQueryWordsMatch) {
-    return { matches: true, score: 80 };
-  }
-
-  // 5. Acronym / Initials match (e.g. "gog" matches "Goodness of God", "dk" matches "Dakilang Katapatan")
-  const initials = targetWords.map((w) => w[0]).join('');
-  if (initials.includes(normQuery)) {
-    return { matches: true, score: 75 };
-  }
-
-  // 6. Typo Tolerance / Levenshtein Distance for short & medium terms
-  // Only apply fuzzy distance if query has at least 3 characters
+  if (normTarget === normQuery) return { matches: true, score: 100 };
+  if (normTarget.startsWith(normQuery)) return { matches: true, score: 95 };
+  if (normTarget.includes(normQuery)) return { matches: true, score: 85 };
+  if (query.words.every(qw => target.words.some(tw => tw.includes(qw)))) return { matches: true, score: 80 };
+  if (target.initials.includes(normQuery)) return { matches: true, score: 75 };
   if (normQuery.length >= 3) {
-    // Check against full target if target length is close
     if (Math.abs(normTarget.length - normQuery.length) <= 3) {
-      const dist = levenshteinDistance(normTarget, normQuery);
       const maxAllowed = normQuery.length <= 4 ? 1 : normQuery.length <= 8 ? 2 : 3;
-      if (dist <= maxAllowed) {
-        return { matches: true, score: 70 - dist * 5, typoDistance: dist };
-      }
+      const dist = distanceWithin(normTarget, normQuery, maxAllowed);
+      if (dist <= maxAllowed) return { matches: true, score: 70 - dist * 5, typoDistance: dist };
     }
-
-    // Check individual target words for typos
-    for (const tw of targetWords) {
-      if (tw.length >= 3) {
-        const dist = levenshteinDistance(tw.slice(0, Math.max(tw.length, normQuery.length)), normQuery);
-        const maxAllowed = normQuery.length <= 4 ? 1 : 2;
-        if (dist <= maxAllowed) {
-          return { matches: true, score: 65 - dist * 5, typoDistance: dist };
-        }
-      }
+    const maxAllowed = normQuery.length <= 4 ? 1 : 2;
+    for (const word of target.words) {
+      if (word.length < 3 || Math.abs(word.length - normQuery.length) > maxAllowed) continue;
+      const dist = distanceWithin(word, normQuery, maxAllowed);
+      if (dist <= maxAllowed) return { matches: true, score: 65 - dist * 5, typoDistance: dist };
     }
   }
-
   return { matches: false, score: 0 };
+}
+let lastQuery = '', preparedQuery = prepareSearchText('');
+function prepareQuery(query: string): PreparedSearchText {
+  if (query !== lastQuery) { lastQuery = query; preparedQuery = prepareSearchText(query); distanceCache.clear(); matchCache.clear(); }
+  return preparedQuery;
+}
+export function fuzzyMatchString(target: string, query: string): FuzzyMatchResult {
+  return matchPrepared(prepareSearchText(target), prepareQuery(query));
+}
+interface IndexedSong {
+  title: string; artist: string; lyrics: string;
+  preparedTitle: PreparedSearchText; preparedArtist: PreparedSearchText;
+  normalizedLyrics: string; lines?: Array<{ text: string; prepared: PreparedSearchText }>;
+}
+const songSearchIndex = new WeakMap<Song, IndexedSong>();
+function indexSong(song: Song): IndexedSong {
+  const old = songSearchIndex.get(song);
+  const title = song.title || '', artist = song.artist || '', lyrics = song.lyrics || '';
+  if (old && old.title === title && old.artist === artist && old.lyrics === lyrics) return old;
+  const entry: IndexedSong = { title, artist, lyrics, preparedTitle: prepareSearchText(title), preparedArtist: prepareSearchText(artist), normalizedLyrics: normalizeForSearch(lyrics) };
+  songSearchIndex.set(song, entry);
+  return entry;
 }
 
 export interface SongSearchResult {
@@ -144,7 +168,9 @@ export function searchSong(song: Song, query: string): SongSearchResult {
   }
 
   // 1. Check title first (highest weight)
-  const titleMatch = fuzzyMatchString(song.title, query);
+  const indexed = indexSong(song);
+  const prepared = prepareQuery(query);
+  const titleMatch = matchPrepared(indexed.preparedTitle, prepared);
   if (titleMatch.matches) {
     return {
       song,
@@ -156,7 +182,7 @@ export function searchSong(song: Song, query: string): SongSearchResult {
 
   // 2. Check artist
   if (song.artist) {
-    const artistMatch = fuzzyMatchString(song.artist, query);
+    const artistMatch = matchPrepared(indexed.preparedArtist, prepared);
     if (artistMatch.matches) {
       return {
         song,
@@ -169,8 +195,8 @@ export function searchSong(song: Song, query: string): SongSearchResult {
 
   // 3. Check lyrics
   if (song.lyrics) {
-    const normLyrics = normalizeForSearch(song.lyrics);
-    const normQuery = normalizeForSearch(query);
+    const normLyrics = indexed.normalizedLyrics;
+    const normQuery = prepared.normalized;
 
     if (normLyrics.includes(normQuery)) {
       const snippet = extractLyricSnippet(song.lyrics, query);
@@ -185,16 +211,16 @@ export function searchSong(song: Song, query: string): SongSearchResult {
 
     // Fuzzy lyrics word matching for queries >= 4 chars
     if (normQuery.length >= 4) {
-      const lyricLines = song.lyrics.split(/\r?\n/).filter(Boolean);
-      for (const line of lyricLines) {
-        const lineMatch = fuzzyMatchString(line, query);
+      indexed.lines ??= song.lyrics.split(/\r?\n/).filter(Boolean).map(text => ({ text, prepared: prepareSearchText(text) }));
+      for (const line of indexed.lines) {
+        const lineMatch = matchPrepared(line.prepared, prepared);
         if (lineMatch.matches) {
           return {
             song,
             matches: true,
             score: 50,
             matchedField: 'lyrics',
-            lyricSnippet: line.trim(),
+            lyricSnippet: line.text.trim(),
           };
         }
       }

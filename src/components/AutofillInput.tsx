@@ -1,6 +1,6 @@
 import { pickerPlacement } from '../utils/pickerPlacement';
 import { useBackLayer } from '../hooks/useBackLayer';
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { createPortal } from 'react-dom';
 import { Song, Setlist } from '../types';
 import {
@@ -176,6 +176,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const isScrollingRef = useRef<boolean>(false);
   const hasMovedRef = useRef<boolean>(false);
   const lastScrollTimeRef = useRef<number>(0);
+  const rowGestureRef = useRef<{ id: number; title: string; x: number; y: number; moved: boolean; scrollTop: number } | null>(null);
+  const handledRowRef = useRef<{ title: string; at: number } | null>(null);
   const scrollTimeoutRef = useRef<any>(null);
 
   const releasePickerPull = (distance: number, velocity: number) => {
@@ -292,7 +294,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
   const cleanVal = (value || '').trim();
   const lowerVal = cleanVal.toLowerCase();
-  const activeQuery = isTouchPicker ? pickerQuery.trim().toLowerCase() : showAllOnFocus && desktopBrowsing ? '' : lowerVal;
+  const rawQuery = isTouchPicker ? pickerQuery.trim().toLowerCase() : showAllOnFocus && desktopBrowsing ? '' : lowerVal;
+  const activeQuery = useDeferredValue(rawQuery);
+  const [browseLimit, setBrowseLimit] = useState(80);
+  useEffect(() => { setBrowseLimit(80); }, [activeQuery, songFilter, songSort, isOpen]);
   const cleanDefault = (defaultValue || '').trim().toLowerCase();
 
   const filteredSongs = useMemo(
@@ -424,8 +429,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
   const displayedItems = useMemo(() => {
     const ordered = !showSongCategoryFilters || songSort === 'relevance' ? matchedItems : [...matchedItems].sort((a, b) => (songSort === 'az' ? 1 : -1) * a.title.localeCompare(b.title));
-    return activeQuery ? ordered.slice(0, 30) : ordered;
-  }, [matchedItems, songSort, showSongCategoryFilters, activeQuery]);
+    return ordered.slice(0, activeQuery ? 30 : browseLimit);
+  }, [matchedItems, songSort, showSongCategoryFilters, activeQuery, browseLimit]);
 
   // Keep exactly one autocomplete picker open across the entire setlist editor.
   useEffect(() => {
@@ -598,25 +603,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     };
   }, []);
 
-  // Track any scrolling anywhere on page/modal while dropdown is open to prevent accidental selection
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const onAnyScroll = () => {
-      lastScrollTimeRef.current = Date.now();
-      isScrollingRef.current = true;
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      scrollTimeoutRef.current = setTimeout(() => {
-        isScrollingRef.current = false;
-      }, 250);
-    };
-
-    window.addEventListener('scroll', onAnyScroll, { passive: true, capture: true });
-    return () => {
-      window.removeEventListener('scroll', onAnyScroll, { capture: true });
-    };
-  }, [isOpen]);
-
   const handleAcceptPrefix = (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
       e.preventDefault();
@@ -630,7 +616,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     }
   };
 
-  const handleSelect = (item: DisplaySuggestionItem, e?: React.MouseEvent | React.TouchEvent) => {
+  const handleSelect = (item: DisplaySuggestionItem, e?: React.SyntheticEvent) => {
+    if (closeTimerRef.current) return;
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -641,8 +628,11 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setHighlightedIndex(-1);
   };
 
-  // Safe click handler: only select if not scrolling, dragging, or within scroll cooldown buffer
+  // Pointer taps are committed on release before keyboard/viewport movement.
+  // Keep click as the keyboard and legacy-browser fallback only.
   const handleItemClick = (item: DisplaySuggestionItem, e?: React.MouseEvent) => {
+    if (e?.detail === 0) { handleSelect(item, e); return; }
+    if (handledRowRef.current?.title === item.title && Date.now() - handledRowRef.current.at < 1000) return;
     if (
       isScrollingRef.current ||
       hasMovedRef.current ||
@@ -834,6 +824,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         const dropdown = (
           <div
           ref={dropdownRef}
+          onPointerMoveCapture={event => {
+            const gesture = rowGestureRef.current;
+            if (gesture?.id === event.pointerId && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8) gesture.moved = true;
+          }}
+          onPointerCancelCapture={() => {
+            if (rowGestureRef.current) handledRowRef.current = { title: rowGestureRef.current.title, at: Date.now() };
+            rowGestureRef.current = null;
+          }}
           onScroll={() => {
             lastScrollTimeRef.current = Date.now();
             isScrollingRef.current = true;
@@ -875,7 +873,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           onKeyDown={event => {
             if (event.key === 'Escape') { event.stopPropagation(); closePicker(); }
             if (isTouchPicker && event.key === 'Tab') {
-              const controls = dropdownRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input');
+              const controls = dropdownRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input, [role="option"]');
               if (!controls?.length) return;
               const first = controls[0], last = controls[controls.length - 1];
               if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -1015,7 +1013,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          <div ref={pickerListRef} className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
+          <div ref={pickerListRef} role="listbox" aria-label="Suggestions" aria-busy={rawQuery !== activeQuery} className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
           {isTouchPicker && pickerQuery.trim() && !matchedItems.some(item => item.title.toLowerCase() === activeQuery) && <button type="button" onClick={event => handleSelect({ title: pickerQuery.trim() }, event)} className="w-full min-h-11 px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400">Use “{pickerQuery.trim()}”</button>}
           {displayedItems.length === 0 && (
             <div className="px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
@@ -1031,6 +1029,25 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             return (
               <div
                 key={item.title + idx}
+                role="option"
+                aria-selected={isSelected}
+                tabIndex={0}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') handleSelect(item, event); }}
+                onPointerDown={event => {
+                  if (event.button !== 0) return;
+                  // Preserve the search keyboard until the chosen title is committed.
+                  event.preventDefault();
+                  handledRowRef.current = null;
+                  rowGestureRef.current = { id: event.pointerId, title: item.title, x: event.clientX, y: event.clientY, moved: false, scrollTop: pickerListRef.current?.scrollTop || 0 };
+                }}
+                onPointerUp={event => {
+                  const gesture = rowGestureRef.current;
+                  rowGestureRef.current = null;
+                  if (!gesture || gesture.id !== event.pointerId) return;
+                  handledRowRef.current = { title: gesture.title, at: Date.now() };
+                  if (gesture.title !== item.title || gesture.moved || Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) > 8 || Math.abs((pickerListRef.current?.scrollTop || 0) - gesture.scrollTop) > 4) return;
+                  handleSelect(item, event);
+                }}
                 onMouseDown={(e) => {
                   // Keep input focus
                   e.preventDefault();
@@ -1064,6 +1081,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               </div>
             );
           })}
+          {!activeQuery && matchedItems.length > displayedItems.length && <button type="button" onClick={() => setBrowseLimit(limit => limit + 80)} className="w-full min-h-11 px-4 py-3 text-sm text-blue-600 dark:text-blue-400">Show more songs ({matchedItems.length - displayedItems.length} remaining)</button>}
           </div>
           </div>
         );

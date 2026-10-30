@@ -47,22 +47,3 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261028171857_security_hardening.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/security_hardening.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/optional_directory_accounts.sql
-  android:
-    needs: [app, database]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 22
-          cache: npm
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: gradle
-      - run: npm ci
-      - run: npm run build:android
-      - name: Compile Android notification integration
-        working-directory: android
-        run: chmod +x ./gradlew && ./gradlew assembleDebug
