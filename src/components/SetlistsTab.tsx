@@ -1,4 +1,5 @@
 import { AssignmentRecipients } from './AssignmentRecipients';
+import { PersonAvatar } from './PersonAvatar';
 import { UpcomingBadge } from './UpcomingBadge';
 import { SetlistShareDialog } from './SetlistShareDialog';
 import { CardDate } from './CardDate';
@@ -157,10 +158,10 @@ export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []):
   return sections.join('\n\n');
 }
 
-function SetlistPerson({ role, name }: { role: string; name?: string }) {
+function SetlistPerson({ role, name, avatars }: { role: string; name?: string; avatars: Record<string, string> }) {
   const color = getPersonColor(name);
   return <div className="flex min-w-0 items-center gap-2.5">
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500 dark:text-slate-400"><User className="h-4 w-4" aria-hidden="true" /></span>
+    <PersonAvatar name={name} src={avatars[name?.trim().toLowerCase() || '']} />
     <div className="min-w-0">
       <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">{role}</span>
       <span className={`block break-words text-sm font-bold ${color.textBold}`}>{name || 'Unassigned'}</span>
@@ -169,6 +170,7 @@ function SetlistPerson({ role, name }: { role: string; name?: string }) {
 }
 
 interface SetlistsTabProps {
+  directoryAvatars?: Record<string, string>;
   setlists: Setlist[];
   songs: Song[];
   savedNames?: string[];
@@ -186,6 +188,7 @@ interface SetlistsTabProps {
 }
 
 export const SetlistsTab: React.FC<SetlistsTabProps> = ({
+  directoryAvatars = {},
   setlists,
   songs,
   savedNames,
@@ -1076,7 +1079,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                             return (
                               <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                                <SetlistPerson role="Presider" name={item.presider} />
+                                <SetlistPerson avatars={directoryAvatars} role="Presider" name={item.presider} />
 
                                 {/* Badges: Welcome Song & Closing Song (Linkage to Song Library!) */}
                                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -1145,7 +1148,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                             return (
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
-                                <SetlistPerson role="Sunday School" name={item.sundaySchool?.songLeader} />
+                                <SetlistPerson avatars={directoryAvatars} role="Sunday School" name={item.sundaySchool?.songLeader} />
 
                                  <div className="space-y-1.5">
                                   {(item.sundaySchool?.songs || []).map((song, idx) => {
@@ -1191,7 +1194,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                             return (
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
-                                <SetlistPerson role="Worship Service" name={item.worshipService?.songLeader} />
+                                <SetlistPerson avatars={directoryAvatars} role="Worship Service" name={item.worshipService?.songLeader} />
 
                                  <div className="space-y-1.5">
                                   {(item.worshipService?.songs || []).map((song, idx) => {
@@ -1272,8 +1275,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div className="space-y-2.5">
                           <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-slate-200 dark:border-slate-700 pb-2">
                             <div className="flex items-center space-x-3">
-                              {item.presider && <SetlistPerson role="Presider" name={item.presider} />}
-                              {item.program?.songLeader && <SetlistPerson role="Song Leader" name={item.program.songLeader} />}
+                              {item.presider && <SetlistPerson avatars={directoryAvatars} role="Presider" name={item.presider} />}
+                              {item.program?.songLeader && <SetlistPerson avatars={directoryAvatars} role="Song Leader" name={item.program.songLeader} />}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-xs">

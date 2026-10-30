@@ -237,6 +237,17 @@ export async function updateUserProfile(
   };
 }
 
+export async function updateMyAvatar(avatar: string | null): Promise<UserAccount> {
+  const { data: auth, error: authError } = await supabase.auth.getUser();
+  if (authError || !auth.user) throw new Error('Please sign in again.');
+  const { error } = await supabase.rpc('update_my_avatar', { new_avatar: avatar });
+  if (error) throw new Error(error.message || 'Could not update profile picture.');
+  const profile = await fetchCurrentUserProfile(auth.user.id);
+  if (!profile || (profile.avatar || null) !== avatar) throw new Error('Profile picture could not be verified. Please refresh.');
+  window.dispatchEvent(new Event('qnlbc-avatar-updated'));
+  return profile;
+}
+
 export async function createManagedUser(input: { username: string; password: string; displayName: string; directoryMemberId?: string | null }): Promise<{ id: string }> {
   return await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
 }

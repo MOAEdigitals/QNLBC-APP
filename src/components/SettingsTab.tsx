@@ -1,4 +1,5 @@
 import { SongExport } from './SongExport';
+import { NotificationSoundSettings } from './NotificationSoundSettings';
 import { AdminAnnouncements } from './AdminAnnouncements';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
 import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
@@ -26,6 +27,7 @@ import {
   setProfileRole,
   toggleProfileActive,
   updateUserProfile,
+  updateMyAvatar,
   createManagedUser,
   updateManagedUser,
   deleteManagedUser,
@@ -139,6 +141,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   // Profile avatar feedback
   const [avatarNoticeMsg, setAvatarNoticeMsg] = useState<string | null>(null);
+  const [savingAvatar, setSavingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const avatarBusyRef = useRef(false);
+  const avatarOwnerRef = useRef(currentUser.id);
+  useEffect(() => { avatarOwnerRef.current = currentUser.id; return () => { avatarOwnerRef.current = ''; }; }, [currentUser.id]);
 
   // User management filtering
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -229,18 +236,23 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const handleOpenStatusModal = onOpenDatabaseStatusModal || onOpenFirestoreStatusModal;
 
   // Handle avatar upload for current user
-  const handleAvatarChange = async (file: File) => {
+  const handleAvatarChange = async (file: File | null) => {
+    if (avatarBusyRef.current) return;
+    avatarBusyRef.current = true; setSavingAvatar(true); setAvatarNoticeMsg(null);
     try {
-      const avatarBase64 = await compressImageToAvatar(file);
-      const updated = await updateUserProfile(currentUser.id, { avatar_url: avatarBase64 });
+      if (file && file.size > 10 * 1024 * 1024) throw new Error('Choose an image smaller than 10 MB.');
+      const avatarBase64 = file ? await compressImageToAvatar(file) : null;
+      if (avatarOwnerRef.current !== currentUser.id) return;
+      const updated = await updateMyAvatar(avatarBase64);
+      if (avatarOwnerRef.current !== currentUser.id) return;
       onUpdateCurrentUser(updated);
       onUpdateUsers(users.map(user => user.id === updated.id ? updated : user));
-      setAvatarNoticeMsg('Profile picture updated.');
+      setAvatarNoticeMsg(file ? 'Profile picture updated.' : 'Profile picture removed.');
       setTimeout(() => setAvatarNoticeMsg(null), 4000);
     } catch (err: any) {
-      setAvatarNoticeMsg('Could not update profile picture. Please try again.');
+      setAvatarNoticeMsg(err instanceof Error ? err.message : 'Could not update profile picture. Please try again.');
       setTimeout(() => setAvatarNoticeMsg(null), 5000);
-    }
+    } finally { avatarBusyRef.current = false; setSavingAvatar(false); }
   };
 
   // Directory Name Management
@@ -779,6 +791,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 >
                   <Camera className="w-3 h-3" />
                   <input
+                    ref={avatarInputRef}
+                    aria-label="Profile picture"
+                    disabled={savingAvatar}
                     type="file"
                     accept="image/*"
                     className="hidden"
@@ -809,8 +824,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
                   {currentUser.username}
                 </p>
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button type="button" disabled={savingAvatar} onClick={() => avatarInputRef.current?.click()} className="min-h-11 rounded-xl border border-slate-300 dark:border-slate-600 px-3 text-sm font-semibold disabled:opacity-50">{savingAvatar ? 'Saving picture…' : 'Change profile picture'}</button>
+                  {currentUser.avatar && <button type="button" disabled={savingAvatar} onClick={() => void handleAvatarChange(null)} className="min-h-11 px-3 text-sm text-slate-500 disabled:opacity-50">Remove picture</button>}
+                </div>
               </div>
             </div>
+            <NotificationSoundSettings key={currentUser.id} userId={currentUser.id} />
           </div>
         )}
       </div>

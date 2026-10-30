@@ -1,4 +1,5 @@
 import { useAssignmentNotifications } from './hooks/useAssignmentNotifications';
+import { useDirectoryAvatars } from './hooks/useDirectoryAvatars';
 import { NotificationInbox } from './components/NotificationInbox';
 import { disableAssignmentPush, requestInitialPushPermission } from './services/assignmentNotifications';
 import { SwipeNavigationProvider } from './components/SwipeNavigation';
@@ -117,6 +118,7 @@ export default function App() {
   const signedInUserIdRef = useRef<string | null>(null);
   signedInUserIdRef.current = currentUser?.id || null;
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const directoryAvatars = useDirectoryAvatars(currentUser?.id);
   const [isLoadingInitialData, setIsLoadingInitialData] = useState<boolean>(true);
   const [isLoadingCoreData, setIsLoadingCoreData] = useState(true);
   const coreLoadEpoch = useRef(0);
@@ -401,14 +403,13 @@ export default function App() {
         if (isMounted) setSpecialRecognitions(fresh);
       },
       onProfilesChange: async () => {
-        if (!loadedSectionsRef.current.has('settings')) return;
-        const fresh = await fetchAllProfiles().catch(() => preserveOnRefreshFailure('users'));
+        const fresh = loadedSectionsRef.current.has('settings') ? await fetchAllProfiles().catch(() => preserveOnRefreshFailure('users')) : null;
         const { data: authData } = await supabase.auth.getUser();
         const refreshedCurrent = authData.user
           ? await fetchCurrentUserProfile(authData.user.id).catch(() => null)
           : null;
         if (isMounted) {
-          setUsers(fresh);
+          if (fresh) setUsers(fresh);
           if (refreshedCurrent?.active) setCurrentUser(refreshedCurrent);
         }
       },
@@ -1376,6 +1377,7 @@ export default function App() {
         <Suspense fallback={<TabLoadingSkeleton />}>
         {currentTab === 'home' && (isLoadingCoreData ? <TabLoadingSkeleton /> : (
           <SetlistsTab
+            directoryAvatars={directoryAvatars}
             setlists={linkedSetlists}
             songs={songs}
             savedNames={savedNames}

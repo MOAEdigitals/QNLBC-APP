@@ -47,3 +47,6 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261028171857_security_hardening.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/security_hardening.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/optional_directory_accounts.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c 'alter table public.profiles add column avatar_url text;'
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261030161919_directory_profile_avatars.sql
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/profile_avatars.sql
