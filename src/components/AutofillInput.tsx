@@ -956,7 +956,6 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 width: mobilePickerPosition.width,
                 maxHeight: mobilePickerPosition.maxHeight,
                 clipPath: 'inset(0 -12px)',
-                visibility: isSortMenuOpen ? 'hidden' : undefined,
                 transform: isPickerClosing ? 'translateY(24px)' : 'translateY(0)',
                 opacity: isPickerClosing ? 0 : 1,
                 pointerEvents: isPickerClosing ? 'none' : undefined,
@@ -1016,7 +1015,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-3 ${showSongCategoryFilters ? 'pr-11' : 'pr-3'}`} />
             </div>
           </div>}
-          {isTouchPicker && showSongCategoryFilters && !isSortMenuOpen && (
+          {isTouchPicker && showSongCategoryFilters && (
             <div className="relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2">
 
               <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
@@ -1044,7 +1043,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          {showSongCategoryFilters && !isTouchPicker && !isSortMenuOpen && (
+          {showSongCategoryFilters && !isTouchPicker && (
             <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 px-2 py-2 border-b border-slate-100 dark:border-slate-800">
               <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
                 {SONG_PICKER_FILTERS.map((filter) => (
@@ -1074,7 +1073,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          {!isSortMenuOpen && <div ref={pickerListRef} role="listbox" aria-label="Suggestions" aria-busy={rawQuery !== activeQuery} className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
+          <div ref={pickerListRef} role="listbox" aria-label="Suggestions" aria-busy={rawQuery !== activeQuery} className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
           {isTouchPicker && pickerQuery.trim() && !matchedItems.some(item => item.title.toLowerCase() === activeQuery) && <button type="button" onClick={event => handleSelect({ title: pickerQuery.trim() }, event)} className="w-full min-h-11 px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400">Use “{pickerQuery.trim()}”</button>}
           {displayedItems.length === 0 && (
             <div className="px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
@@ -1143,7 +1142,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             );
           })}
           {!activeQuery && matchedItems.length > displayedItems.length && <button type="button" onClick={() => setBrowseLimit(limit => limit + 80)} className="w-full min-h-11 px-4 py-3 text-sm text-blue-600 dark:text-blue-400">Show more songs ({matchedItems.length - displayedItems.length} remaining)</button>}
-          </div>}
+          </div>
           </div>
         );
 
