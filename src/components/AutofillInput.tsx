@@ -2,6 +2,7 @@ import { pickerPlacement } from '../utils/pickerPlacement';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { createPortal } from 'react-dom';
+import { compareTracksFirst } from '../utils/songTracks';
 import { Song, Setlist } from '../types';
 import {
   fuzzyMatchString,
@@ -12,7 +13,18 @@ import {
 } from '../utils/songSearch';
 import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check } from 'lucide-react';
 
-export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog';
+export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized';
+
+const SONG_PICKER_SORTS = [
+  { value: 'relevance', label: 'Relevance' },
+  { value: 'az', label: 'Title: A–Z' },
+  { value: 'za', label: 'Title: Z–A' },
+  { value: 'tracks-first', label: 'Attached tracks first' },
+  { value: 'recently-sung', label: 'Recently Sung' },
+  { value: 'least-recently-sung', label: 'Not Sung Recently' },
+  { value: 'recently-added', label: 'Recently Added' },
+] as const;
+type SongPickerSort = typeof SONG_PICKER_SORTS[number]['value'];
 
 const SONG_PICKER_FILTERS: Array<{ value: SongPickerFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -22,14 +34,16 @@ const SONG_PICKER_FILTERS: Array<{ value: SongPickerFilter; label: string }> = [
   { value: 'Contemporary', label: 'Contemporary' },
   { value: 'Choir', label: 'Choir' },
   { value: 'Tagalog', label: 'Tagalog' },
+  { value: 'uncategorized', label: 'Uncategorized' },
 ];
 
 function songMatchesPickerFilter(song: Song, filter: SongPickerFilter): boolean {
   if (filter === 'all') return true;
   if (filter === 'starred') return Boolean(song.isStarred || (song as Song & { starred?: boolean }).starred);
-  const categories = Array.isArray(song.categories)
+  const categories = (Array.isArray(song.categories) && song.categories.length > 0
     ? song.categories
-    : (song.category || '').split(',').map((category) => category.trim());
+    : (song.category || '').split(',')).map(category => category.trim()).filter(Boolean);
+  if (filter === 'uncategorized') return categories.length === 0;
   return categories.includes(filter);
 }
 
@@ -99,9 +113,15 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setLocalSongFilter(filter);
     onControlledFilterChange?.(filter);
   };
-  const [songSort, setSongSort] = useState<'relevance' | 'az' | 'za'>('relevance');
+  const [songSort, setSongSort] = useState<SongPickerSort>('relevance');
   const SortIcon = songSort === 'az' ? ArrowDownAZ : songSort === 'za' ? ArrowUpAZ : ListFilter;
-  const sortLabel = songSort === 'az' ? 'A–Z' : songSort === 'za' ? 'Z–A' : 'Relevance';
+  const sortLabel = SONG_PICKER_SORTS.find(option => option.value === songSort)!.label;
+  const sortControl = <label className="relative flex h-11 w-11 items-center justify-center" title={`Sort: ${sortLabel}`}>
+    <SortIcon className="h-5 w-5 pointer-events-none" aria-hidden="true" />
+    <select aria-label="Sort songs" value={songSort} onChange={event => { setSongSort(event.target.value as SongPickerSort); setHighlightedIndex(-1); }} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
+      {SONG_PICKER_SORTS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  </label>;
   const [isOpen, setIsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -428,7 +448,15 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   }, [isOpen, activeQuery, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap]);
 
   const displayedItems = useMemo(() => {
-    const ordered = !showSongCategoryFilters || songSort === 'relevance' ? matchedItems : [...matchedItems].sort((a, b) => (songSort === 'az' ? 1 : -1) * a.title.localeCompare(b.title));
+    const ordered = !showSongCategoryFilters || songSort === 'relevance' ? matchedItems : [...matchedItems].sort((a, b) => {
+      if (songSort === 'tracks-first') return compareTracksFirst(a.songObj || { id: '', title: a.title, lyrics: '', updatedAt: '' }, b.songObj || { id: '', title: b.title, lyrics: '', updatedAt: '' });
+      if (songSort === 'recently-added') return (b.songObj?.createdAt || '').localeCompare(a.songObj?.createdAt || '') || a.title.localeCompare(b.title);
+      if (songSort === 'recently-sung' || songSort === 'least-recently-sung') {
+        const dateA = a.history?.lastDate || '', dateB = b.history?.lastDate || '';
+        return (songSort === 'recently-sung' ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB)) || a.title.localeCompare(b.title);
+      }
+      return (songSort === 'az' ? 1 : -1) * a.title.localeCompare(b.title);
+    });
     return ordered.slice(0, activeQuery ? 30 : browseLimit);
   }, [matchedItems, songSort, showSongCategoryFilters, activeQuery, browseLimit]);
 
@@ -723,7 +751,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       )}
 
       <div className="relative flex items-center w-full">
-        {isOpen && !isTouchPicker && showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} title={`Sort: ${sortLabel}`} className="absolute right-0 z-10 flex h-11 w-11 items-center justify-center text-slate-500 dark:text-slate-400" onPointerDown={event => event.preventDefault()} onClick={() => { setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance'); setHighlightedIndex(-1); }}><SortIcon className="h-5 w-5" aria-hidden="true" /></button>}
+        {isOpen && !isTouchPicker && showSongCategoryFilters && <div className="absolute right-0 z-10 text-slate-500 dark:text-slate-400">{sortControl}</div>}
         <input
           ref={inputRef}
           id={stableInputIdRef.current}
@@ -873,7 +901,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           onKeyDown={event => {
             if (event.key === 'Escape') { event.stopPropagation(); closePicker(); }
             if (isTouchPicker && event.key === 'Tab') {
-              const controls = dropdownRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input, [role="option"]');
+              const controls = dropdownRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), input, select, [role="option"]');
               if (!controls?.length) return;
               const first = controls[0], last = controls[controls.length - 1];
               if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -947,7 +975,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
             </div>
             <div className="relative">
-              {showSongCategoryFilters && <button type="button" aria-label={`Sort songs: ${sortLabel}. Tap to change`} onPointerDown={event => event.preventDefault()} onClick={() => setSongSort(current => current === 'relevance' ? 'az' : current === 'az' ? 'za' : 'relevance')} className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-slate-500"><SortIcon className="h-5 w-5" /></button>}
+              {showSongCategoryFilters && <div className="absolute right-0 top-0 text-slate-500">{sortControl}</div>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
                 onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
