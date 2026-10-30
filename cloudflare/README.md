@@ -1,5 +1,15 @@
 # QNLBC media upload service
 
+## Setlist link previews — 2026-10-31
+
+`POST /api/share-setlist?setlist=<uuid>` accepts a PNG card (maximum 3 MiB). It verifies the current Supabase user, active profile and access to the saved, non-deleted setlist through the caller's JWT and existing RLS. It never uses a service-role key. Only the explicit **Create preview link** action publishes a card.
+
+Snapshots live under the separate R2 `setlist_previews/` prefix. Create-only content-addressed objects reuse identical cards and preserve old links after edits. Public `/share/<hash>/<token>` pages contain server-rendered Open Graph metadata; `/image.png` returns the saved PNG. Browsers continue to the exact setlist URL in the app, where existing login and access checks remain in force. The exported card is visible to anyone with its preview link; it is not a private database endpoint. No listing endpoint is exposed.
+
+The web dialog prepares the link first, then shares just that URL on a fresh user gesture. It keeps image download and app-link copying available. Recipient apps control whether and how they show the preview; a successful native-share return does not prove a message was sent or a preview rendered. Messenger delivery must be checked on a recipient device. No message is automatically sent by the app.
+
+This uses the existing Worker and R2 bucket. No subscription or billing configuration is changed.
+
 `media-worker.mjs` replaces the static site's unauthenticated Firestore upload fallback. The Worker is deployed at `https://qnlbc-media.aigems2026.workers.dev` with the R2 binding and Supabase public key configured.
 
 ## Migration verification — 2026-10-09
