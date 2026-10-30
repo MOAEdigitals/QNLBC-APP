@@ -57,10 +57,25 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     await act(() => root.render(React.createElement(Harness)));
     let row = await openAndSearch(); assert.ok(row);
     const titles = () => [...document.querySelectorAll('[role="option"]')].map(row => row.textContent?.split('Last sung')[0]);
-    const sort = document.querySelector<HTMLSelectElement>('select[aria-label="Sort songs"]')!;
-    assert.equal(sort.options.length, 7, 'all six library sorts plus relevance are offered');
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-label^="Sort songs:"]')!;
+    await act(() => trigger.click());
+    assert.equal(trigger.getAttribute('aria-expanded'), 'true');
+    assert.equal(document.activeElement?.getAttribute('aria-checked'), 'true');
+    await act(() => document.activeElement!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+    assert.equal(document.activeElement?.textContent, 'Title: A–Z');
+    await act(() => document.activeElement!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    assert.equal(document.querySelector('[role="menu"]'), null);
+    assert.ok(document.querySelector('[role="dialog"]'), 'Escape closes just the sort menu');
+    await act(() => trigger.click());
+    await act(() => document.querySelector('[role="dialog"] h2')!.dispatchEvent(new dom.window.Event('pointerdown', { bubbles: true })));
+    assert.equal(document.querySelector('[role="menu"]'), null, 'outside pointer closes sort menu while leaving picker open');
     async function sortBy(value: string, firstTitle: string) {
-      await act(() => { sort.value = value; sort.dispatchEvent(new dom.window.Event('change', { bubbles: true })); });
+      const labels: Record<string, string> = { az: 'Title: A–Z', za: 'Title: Z–A', 'tracks-first': 'Attached tracks first', 'recently-added': 'Recently Added', 'recently-sung': 'Recently Sung', 'least-recently-sung': 'Not Sung Recently', relevance: 'Relevance' };
+      await act(() => document.querySelector<HTMLButtonElement>('[aria-label^="Sort songs:"]')!.click());
+      assert.equal(document.querySelectorAll('[role="menuitemradio"]').length, 7, 'all six library sorts plus relevance are offered');
+      const option = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].find(button => button.textContent === labels[value])!;
+      await act(() => option.click());
+      assert.equal(document.querySelector('[role="menu"]'), null);
       assert.ok(titles()[0]?.startsWith(firstTitle), `${value} orders matching songs correctly`);
     }
     await sortBy('az', 'Alpha Grace');

@@ -11,7 +11,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star, X, ArrowDownAZ, ArrowUpAZ, ListFilter, Check } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X, ArrowUpDown, ChevronDown, Check } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized';
 
@@ -114,15 +114,44 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     onControlledFilterChange?.(filter);
   };
   const [songSort, setSongSort] = useState<SongPickerSort>('relevance');
-  const SortIcon = songSort === 'az' ? ArrowDownAZ : songSort === 'za' ? ArrowUpAZ : ListFilter;
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+  const sortButtonRef = useRef<HTMLButtonElement>(null);
   const sortLabel = SONG_PICKER_SORTS.find(option => option.value === songSort)!.label;
-  const sortControl = <label className="relative flex h-11 w-11 items-center justify-center" title={`Sort: ${sortLabel}`}>
-    <SortIcon className="h-5 w-5 pointer-events-none" aria-hidden="true" />
-    <select aria-label="Sort songs" value={songSort} onChange={event => { setSongSort(event.target.value as SongPickerSort); setHighlightedIndex(-1); }} className="absolute inset-0 h-full w-full cursor-pointer opacity-0">
-      {SONG_PICKER_SORTS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-    </select>
-  </label>;
+  const sortControl = <div ref={sortMenuRef} className="relative shrink-0 py-1.5" onKeyDown={event => {
+    if (event.key === 'Escape' && isSortMenuOpen) { event.stopPropagation(); setIsSortMenuOpen(false); sortButtonRef.current?.focus(); }
+    if (isSortMenuOpen && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault(); event.stopPropagation();
+      const options = Array.from(sortMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]') || []);
+      const current = options.indexOf(document.activeElement as HTMLButtonElement);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : (current + (event.key === 'ArrowUp' ? -1 : 1) + options.length) % options.length;
+      options[next]?.focus();
+    }
+  }}>
+    <button ref={sortButtonRef} type="button" aria-label={`Sort songs: ${sortLabel}`} aria-haspopup="menu" aria-expanded={isSortMenuOpen}
+      onClick={() => setIsSortMenuOpen(open => !open)}
+      onKeyDown={event => { if (!isSortMenuOpen && ['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); event.stopPropagation(); setIsSortMenuOpen(true); } }}
+      className="h-8 max-w-[158px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-xs font-semibold shadow-xs">
+      <ArrowUpDown className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /><span className="truncate">{sortLabel}</span>
+      <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+    </button>
+    {isSortMenuOpen && <div role="menu" aria-label="Song sorting" className="absolute right-0 top-full mt-1.5 z-40 w-52 max-h-[min(18rem,35dvh)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 shadow-xl">
+      {SONG_PICKER_SORTS.map(option => <button key={option.value} type="button" role="menuitemradio" aria-checked={songSort === option.value}
+        onClick={() => { setSongSort(option.value); setHighlightedIndex(-1); setIsSortMenuOpen(false); sortButtonRef.current?.focus({ preventScroll: true }); }}
+        className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-3 text-left text-sm transition-colors ${songSort === option.value ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
+        <span>{option.label}</span>{songSort === option.value && <Check className="w-4 h-4 shrink-0" />}
+      </button>)}
+    </div>}
+  </div>;
   const [isOpen, setIsOpen] = useState(false);
+  useEffect(() => { if (!isOpen) setIsSortMenuOpen(false); }, [isOpen]);
+  useEffect(() => {
+    if (!isSortMenuOpen) return;
+    sortMenuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus({ preventScroll: true });
+    const closeSortMenu = (event: PointerEvent) => { if (!sortMenuRef.current?.contains(event.target as Node)) setIsSortMenuOpen(false); };
+    document.addEventListener('pointerdown', closeSortMenu);
+    return () => document.removeEventListener('pointerdown', closeSortMenu);
+  }, [isSortMenuOpen]);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [isTouchPicker, setIsTouchPicker] = useState(false);
@@ -730,7 +759,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         <div
           onClick={handleAcceptPrefix}
           className="absolute inset-0 flex items-center px-3 py-2 text-sm select-none overflow-hidden pr-2 cursor-pointer pointer-events-none"
-          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 44 } : undefined}
+          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 170 } : undefined}
         >
           <span className="opacity-0 whitespace-pre">{value}</span>
           <span className="text-slate-400/80 dark:text-slate-500 font-medium whitespace-pre">
@@ -840,7 +869,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           className={`w-full bg-transparent [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden ${inputClassName}`}
-          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 44 } : undefined}
+          style={isOpen && !isTouchPicker && showSongCategoryFilters ? { paddingRight: 170 } : undefined}
         />
       </div>
 
@@ -979,12 +1008,12 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
             </div>
             <div className="relative">
-              {showSongCategoryFilters && <div className="absolute right-0 top-0 text-slate-500">{sortControl}</div>}
+              {showSongCategoryFilters && <div className="absolute right-0 top-0 z-20 text-slate-500">{sortControl}</div>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
                 onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (pickerQuery.trim()) handleSelect({ title: displayedItems.find(item => item.title.toLowerCase() === activeQuery)?.title || pickerQuery.trim() }); } }}
-                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-3 ${showSongCategoryFilters ? 'pr-11' : 'pr-3'}`} />
+                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-3 ${showSongCategoryFilters ? 'pr-[170px]' : 'pr-3'}`} />
             </div>
           </div>}
           {isTouchPicker && showSongCategoryFilters && (

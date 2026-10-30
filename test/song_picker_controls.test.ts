@@ -31,11 +31,15 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
   const markedTitles = () => [...document.querySelectorAll('[aria-label="Selected in this setlist"]')].map(element => element.parentElement!.textContent);
   const settleClose = async () => act(async () => { await new Promise(resolve => setTimeout(resolve, 280)); });
   const click = async (button: Element) => { await act(() => (button as HTMLButtonElement).click()); if (document.querySelector('[data-picker-closing]')) await settleClose(); };
-  const sortBy = async (value: string) => act(() => {
-    const select = document.querySelector<HTMLSelectElement>('select[aria-label="Sort songs"]')!;
-    select.value = value;
-    select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
-  });
+  const sortBy = async (value: string) => {
+    const trigger = document.querySelector<HTMLButtonElement>('[aria-label^="Sort songs:"]')!;
+    if (trigger.getAttribute('aria-expanded') !== 'true') await act(() => trigger.click());
+    assert.equal(document.querySelectorAll('[role="menuitemradio"]').length, 7);
+    const labels: Record<string, string> = { az: 'Title: A–Z', za: 'Title: Z–A', relevance: 'Relevance' };
+    const option = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].find(button => button.textContent === labels[value])!;
+    await act(() => option.click());
+    assert.equal(document.querySelector('[role="menu"]'), null, 'selecting a sort collapses its menu');
+  };
   try {
     const renderDesktop = (selectedSongTitles: string[]) => root.render(React.createElement(exports.AutofillInput, { value: '', onChange: (value: string) => { selected = value; }, songs, suggestions: songs.map(s => s.title), selectedSongTitles }));
     await act(() => renderDesktop([' amazing GRACE ']));
@@ -89,7 +93,7 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       assert.deepEqual(titles(), kind === 'songs' ? ['Zion', 'Amazing Grace', 'Blessed'] : ['Bro Ronnie', 'Bro Joshua']);
       assert.deepEqual(markedTitles(), kind === 'songs' ? ['Zion'] : [], 'mobile song lists show markers without changing name pickers');
       if (kind === 'songs') {
-        assert.equal(dialog.querySelector<HTMLSelectElement>('[aria-label="Sort songs"]')!.options.length, 7);
+        assert.ok(dialog.querySelector('[aria-label^="Sort songs:"][aria-haspopup="menu"]'));
         await sortBy('az');
         assert.deepEqual(titles(), ['Amazing Grace', 'Blessed', 'Zion']);
         assert.equal(search.readOnly, true, 'sorting does not activate the keyboard');
