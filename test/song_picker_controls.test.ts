@@ -34,6 +34,8 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
   const sortBy = async (value: string) => {
     const trigger = document.querySelector<HTMLButtonElement>('[aria-label^="Sort songs:"]')!;
     if (trigger.getAttribute('aria-expanded') !== 'true') await act(() => trigger.click());
+    assert.equal(trigger.textContent, '', 'sort button remains icon only');
+    assert.equal(document.querySelector('[role="listbox"]'), null, 'only the sort list is shown while sorting');
     assert.equal(document.querySelectorAll('[role="menuitemradio"]').length, 7);
     const labels: Record<string, string> = { az: 'Title: A–Z', za: 'Title: Z–A', relevance: 'Relevance' };
     const option = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].find(button => button.textContent === labels[value])!;

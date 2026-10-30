@@ -58,13 +58,16 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     let row = await openAndSearch(); assert.ok(row);
     const titles = () => [...document.querySelectorAll('[role="option"]')].map(row => row.textContent?.split('Last sung')[0]);
     const trigger = document.querySelector<HTMLButtonElement>('[aria-label^="Sort songs:"]')!;
+    assert.equal(trigger.textContent, '', 'sort trigger displays only its icon');
     await act(() => trigger.click());
+    assert.equal(document.querySelector('[role="listbox"]'), null, 'song list and sort list never appear together');
     assert.equal(trigger.getAttribute('aria-expanded'), 'true');
     assert.equal(document.activeElement?.getAttribute('aria-checked'), 'true');
     await act(() => document.activeElement!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
     assert.equal(document.activeElement?.textContent, 'Title: A–Z');
     await act(() => document.activeElement!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     assert.equal(document.querySelector('[role="menu"]'), null);
+    assert.ok(document.querySelector('[role="listbox"]'), 'closing sort restores the song list');
     assert.ok(document.querySelector('[role="dialog"]'), 'Escape closes just the sort menu');
     await act(() => trigger.click());
     await act(() => document.querySelector('[role="dialog"] h2')!.dispatchEvent(new dom.window.Event('pointerdown', { bubbles: true })));
