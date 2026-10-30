@@ -54,6 +54,11 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
     assert.deepEqual(titles(), ['Amazing Grace', 'Blessed', 'Zion']);
     await sortBy('za');
     assert.deepEqual(titles(), ['Zion', 'Blessed', 'Amazing Grace']);
+    await act(() => document.body.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
+    assert.equal((document.querySelector('[data-picker-closing]') as HTMLElement).style.transform, 'translateY(24px)', 'desktop outside click slides the list down');
+    await settleClose();
+    assert.equal(document.querySelector('[role="listbox"]'), null);
+    await act(() => document.querySelector('input')!.dispatchEvent(new dom.window.FocusEvent('focusin', { bubbles: true })));
     await click([...document.querySelectorAll('button')].find(b => b.textContent === 'Choir')!);
     assert.deepEqual(titles(), ['Blessed']);
     await click(document.querySelector('[class*="text-[14px]"]')!);
@@ -75,9 +80,9 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       assert.equal(document.querySelector('[role="dialog"]'), null, 'scrolling past a field does not open the picker');
       await touch(input, 'pointerdown');
       await touch(input, 'pointerup');
-      const dialog = document.querySelector('[role="dialog"]')!;
+      let dialog = document.querySelector('[role="dialog"]')!;
       assert.ok(dialog);
-      const search = dialog.querySelector('input')!;
+      let search = dialog.querySelector('input')!;
       assert.equal(search.readOnly, true);
       assert.notEqual(document.activeElement, search);
       assert.equal(selected, 'Original');
@@ -90,6 +95,31 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
         assert.equal(search.readOnly, true, 'sorting does not activate the keyboard');
         await sortBy('relevance');
       }
+      const outsideTouch = async (type: string, y = 20) => act(() => {
+        const event = new dom.window.Event(type, { bubbles: true });
+        Object.defineProperty(event, 'touches', { value: [{ clientX: 20, clientY: y }] });
+        document.body.dispatchEvent(event);
+      });
+      await outsideTouch('touchstart'); await outsideTouch('touchmove', 60); await outsideTouch('touchend', 60);
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'outside scrolling does not dismiss songs or names');
+      await outsideTouch('touchstart'); await outsideTouch('touchcancel'); await outsideTouch('touchend');
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'cancelled outside gestures leave the list open');
+      await outsideTouch('touchstart'); await outsideTouch('touchend');
+      await act(() => document.body.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
+      assert.equal((document.querySelector('[data-picker-closing]') as HTMLElement).style.transform, 'translateY(100%)', 'outside tap slides songs and names down without compatibility mouse events interrupting');
+      assert.equal(selected, 'Original');
+      await settleClose();
+      assert.equal(document.querySelector('[role="dialog"]'), null);
+      await touch(input, 'pointerdown'); await touch(input, 'pointerup');
+      const activeAfterOutside = document.querySelector('[role="dialog"]')!;
+      await act(() => activeAfterOutside.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'clicking inside the list does not dismiss it');
+      await act(() => document.body.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
+      assert.equal((document.querySelector('[data-picker-closing]') as HTMLElement).style.transform, 'translateY(100%)', 'outside mouse click also slides a touch sheet down');
+      await settleClose();
+      await touch(input, 'pointerdown'); await touch(input, 'pointerup');
+      dialog = document.querySelector('[role="dialog"]')!;
+      search = dialog.querySelector('input')!;
       const header = dialog.querySelector('[data-picker-drag-header]')!;
       await touch(header, 'pointerdown', 200);
       await touch(header, 'pointermove', 180);

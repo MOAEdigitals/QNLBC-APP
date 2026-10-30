@@ -160,7 +160,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const duration = closeDurationRef.current;
     closeDurationRef.current = 240;
     setPickerCloseMs(duration);
-    if (!isTouchPicker || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       finishClosePicker();
       return;
     }
@@ -563,6 +563,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
   // Handle outside clicks/taps cleanly without closing suggestions when scrolling container or page
   useEffect(() => {
+    if (!isOpen) return;
     let touchOutsideStart: { x: number; y: number; time: number } | null = null;
     let isTouchMoveOutside = false;
 
@@ -596,9 +597,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     const handleTouchEndOutside = (event: TouchEvent) => {
       if (touchOutsideStart && !isTouchMoveOutside) {
         // Was an intentional tap outside, not a scroll or swipe gesture
-        setIsOpen(false);
-        setIsFocused(false);
-        setIsBrowseOnly(true);
+        closePicker();
       }
       touchOutsideStart = null;
       isTouchMoveOutside = false;
@@ -612,9 +611,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         dropdownRef.current &&
         !dropdownRef.current.contains(target)
       ) {
-        setIsOpen(false);
-        setIsFocused(false);
-        setIsBrowseOnly(true);
+        closePicker();
       }
     };
 
@@ -622,14 +619,17 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     document.addEventListener('touchstart', handleTouchStartOutside, { passive: true });
     document.addEventListener('touchmove', handleTouchMoveOutside, { passive: true });
     document.addEventListener('touchend', handleTouchEndOutside, { passive: true });
+    const cancelOutsideTouch = () => { touchOutsideStart = null; isTouchMoveOutside = false; };
+    document.addEventListener('touchcancel', cancelOutsideTouch, { passive: true });
 
     return () => {
       document.removeEventListener('mousedown', handleMouseDownOutside);
       document.removeEventListener('touchstart', handleTouchStartOutside);
       document.removeEventListener('touchmove', handleTouchMoveOutside);
       document.removeEventListener('touchend', handleTouchEndOutside);
+      document.removeEventListener('touchcancel', cancelOutsideTouch);
     };
-  }, []);
+  }, [isOpen, isTouchPicker]);
 
   const handleAcceptPrefix = (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
@@ -928,6 +928,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 width: mobilePickerPosition.width,
                 maxHeight: mobilePickerPosition.maxHeight,
                 clipPath: 'inset(0 -12px)',
+                transform: isPickerClosing ? 'translateY(24px)' : 'translateY(0)',
+                opacity: isPickerClosing ? 0 : 1,
+                pointerEvents: isPickerClosing ? 'none' : undefined,
+                transition: `transform ${pickerCloseMs}ms ease-out, opacity ${pickerCloseMs}ms ease-out`,
               }
             : { WebkitOverflowScrolling: 'touch' }}
         >
