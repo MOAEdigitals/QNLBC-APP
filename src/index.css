@@ -135,7 +135,7 @@ button.ui-settings-row { cursor: pointer; }
 .ui-permission-on { color: var(--ui-accent); font-weight: 600; }
 .ui-settings-panel {
   background: var(--ui-surface); border: 1px solid var(--ui-border);
-  border-radius: 1rem; box-shadow: none; overflow: hidden;
+  border-radius: 1rem; box-shadow: none; overflow: visible;
 }
 .ui-settings-panel[hidden] { display: none; }
 .ui-settings-panel > div:first-child { display: none; }

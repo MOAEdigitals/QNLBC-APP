@@ -1043,25 +1043,25 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     const storedCredentials = memberCredentials[u.id];
                     const credentials = storedCredentials?.username === u.username ? storedCredentials : undefined;
                     const visible = visibleCredentialId === u.id;
-                    return <article key={u.id} aria-label={`Account: ${name}`} className="grid grid-cols-[1.25rem_2.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_2.75rem_minmax(0,1fr)_minmax(12rem,16rem)_auto] items-center gap-x-3 gap-y-2 p-3 sm:py-4">
-                      <span className="self-start pt-2 text-center text-xs text-slate-500">{index + 1}</span>
-                      <div className="h-10 w-10 self-start overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-sm font-semibold">
+                    return <article key={u.id} aria-label={`Account: ${name}`} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(6rem,8rem)_2rem] sm:grid-cols-[1.25rem_2.5rem_minmax(0,1fr)_minmax(10rem,14rem)_2.5rem] items-center gap-x-1.5 gap-y-2 p-2 sm:gap-x-3 sm:p-3 sm:py-4">
+                      <span className="hidden sm:block text-center text-xs text-slate-500">{index + 1}</span>
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-sm font-semibold">
                         {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : name.slice(0,2).toUpperCase()}
                       </div>
                       <button type="button" className="min-w-0 text-left" aria-label={`Manage account for ${name}`} onClick={() => setSelectedMemberId(u.id)}>
-                        <span className="block break-words font-semibold">{name}{isCurrent ? ' (You)' : ''}</span>
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="min-w-0 break-words font-semibold">{name}{isCurrent ? ' (You)' : ''}</span><span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'}</span></span>
                         <span className="block break-all text-xs text-slate-500 dark:text-slate-400">{u.username}</span>
-                        <span className="mt-1 flex flex-wrap gap-1 text-[11px]"><span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'}</span>{u.active === false && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-slate-800">Deactivated</span>}</span>
+                        {u.active === false && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500 dark:bg-slate-800">Deactivated</span>}
                       </button>
-                      <div className="col-start-3 row-start-2 sm:col-start-4 sm:row-start-1 min-w-0 flex items-center gap-1">
-                        {credentials ? <div className="flex min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-slate-50 pl-2 dark:border-slate-700 dark:bg-slate-800">
-                          <Key className="h-4 w-4 shrink-0 text-slate-400" />
+                      <div className="min-w-0 flex flex-wrap justify-end items-center gap-1">
+                        {credentials ? <div className="flex w-full min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50 sm:pl-2 dark:border-slate-700 dark:bg-slate-800">
+                          <Key className="hidden sm:block h-4 w-4 shrink-0 text-slate-400" />
                           <span className="min-w-0 flex-1 break-all px-2 font-mono text-sm" aria-live="polite">{visible ? credentials.password : '••••••••'}</span>
                           <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`${visible ? 'Hide' : 'Show'} password for ${name}`} title="Show or hide password" onClick={() => setVisibleCredentialId(visible ? null : u.id)}>{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                        </div> : <button type="button" disabled={isManaging} className="ui-secondary min-w-0 flex-1 text-left text-xs" aria-label={`Set password and copy credentials for ${name}`} onClick={() => { setSelectedMemberId(u.id); void handleCopyAccountDetails(u); }}><Key className="h-4 w-4 shrink-0" /> Set password &amp; copy credentials</button>}
+                        </div> : <button type="button" disabled={isManaging} className="ui-secondary min-w-0 flex-1 px-2 text-left text-xs" aria-label={`Set password and copy credentials for ${name}`} onClick={() => { setSelectedMemberId(u.id); void handleCopyAccountDetails(u); }}><Key className="hidden sm:block h-4 w-4 shrink-0" /> Set password</button>}
                         {credentials && <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`Copy credentials for ${name}`} onClick={() => void handleCopyMemberCredentials(u.id, credentials.username, credentials.password)}>{copiedCredentialId === u.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button>}
                       </div>
-                      <div className="col-start-4 row-start-1 self-start sm:col-start-5"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
+                      <div className="min-w-0"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
                     </article>;
                   }
                   return <article key={u.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
