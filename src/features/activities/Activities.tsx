@@ -128,12 +128,15 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
 
   useEffect(() => {
     if (!openMenu) return;
-    const close = (event: PointerEvent) => {
+    const close = (event: Event) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest(`[data-activity-actions="${openMenu}"]`)) setOpenMenu(null);
     };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.stopPropagation(); setOpenMenu(null); } };
+    document.addEventListener('pointerdown', close, true);
+    document.addEventListener('click', close, true);
+    document.addEventListener('keydown', escape, true);
+    return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('click', close, true); document.removeEventListener('keydown', escape, true); };
   }, [openMenu]);
 
   useEffect(() => {

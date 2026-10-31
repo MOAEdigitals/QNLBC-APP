@@ -79,16 +79,21 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
   // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (e: PointerEvent) => {
+    const handleClickOutside = (e: Event) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsMenuOpen(false);
       }
     };
+    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setIsMenuOpen(false); menuRef.current?.querySelector('button')?.focus(); } };
     if (isMenuOpen) {
-      document.addEventListener('pointerdown', handleClickOutside);
+      document.addEventListener('pointerdown', handleClickOutside, true);
+      document.addEventListener('click', handleClickOutside, true);
+      document.addEventListener('keydown', escape, true);
     }
     return () => {
-      document.removeEventListener('pointerdown', handleClickOutside);
+      document.removeEventListener('pointerdown', handleClickOutside, true);
+      document.removeEventListener('click', handleClickOutside, true);
+      document.removeEventListener('keydown', escape, true);
     };
   }, [isMenuOpen]);
 
@@ -601,6 +606,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 setIsMenuOpen(!isMenuOpen);
               }}
               aria-label="Track options"
+              aria-expanded={isMenuOpen}
               className="h-9 w-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
             >
               <MoreHorizontal className="w-4 h-4" />

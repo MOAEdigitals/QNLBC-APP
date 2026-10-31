@@ -110,8 +110,8 @@ test('voice and backing-track forms no longer ask for a singer or track name', (
 
 test('practice and track menus close on outside taps', () => {
   assert.match(practiceTab, /details\.practice-actions\[open\]/);
-  assert.match(practiceTab, /document\.addEventListener\('pointerdown', closeOpenPracticeMenus\)/);
-  assert.match(trackRow, /document\.addEventListener\('pointerdown', handleClickOutside\)/);
+  assert.match(practiceTab, /document\.addEventListener\('pointerdown', closeOpenPracticeMenus, true\)/);
+  assert.match(trackRow, /document\.addEventListener\('pointerdown', handleClickOutside, true\)/);
 });
 
 test('existing audio cannot be replaced or re-recorded from its options menu', () => {

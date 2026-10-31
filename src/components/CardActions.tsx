@@ -6,7 +6,7 @@ export function CardActions({ label, onEdit, onDelete, disabled = false }: {
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
-    const outside = (event: PointerEvent) => {
+    const outside = (event: Event) => {
       if (!menu.current?.contains(event.target as Node)) menu.current?.removeAttribute('open');
     };
     const escape = (event: KeyboardEvent) => {
@@ -15,9 +15,10 @@ export function CardActions({ label, onEdit, onDelete, disabled = false }: {
         menu.current.querySelector('summary')?.focus();
       }
     };
-    document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('click', outside, true);
+    document.addEventListener('keydown', escape, true);
+    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('click', outside, true); document.removeEventListener('keydown', escape, true); };
   }, []);
   if (!onEdit && !onDelete) return null;
   const run = (callback: () => void) => { menu.current?.removeAttribute('open'); callback(); };

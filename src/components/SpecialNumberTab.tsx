@@ -539,16 +539,26 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Native <details> menus do not close when the user taps elsewhere. Keep the
   // compact practice menus, but give them standard popover click-away behavior.
   useEffect(() => {
-    const closeOpenPracticeMenus = (event: PointerEvent) => {
+    const closeOpenPracticeMenus = (event: Event) => {
       document
         .querySelectorAll<HTMLDetailsElement>('details.practice-actions[open]')
         .forEach((menu) => {
           if (!menu.contains(event.target as Node)) menu.removeAttribute('open');
         });
     };
-
-    document.addEventListener('pointerdown', closeOpenPracticeMenus);
-    return () => document.removeEventListener('pointerdown', closeOpenPracticeMenus);
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      const menu = document.querySelector<HTMLDetailsElement>('details.practice-actions[open]');
+      if (menu) { event.stopPropagation(); menu.removeAttribute('open'); menu.querySelector('summary')?.focus(); }
+    };
+    document.addEventListener('pointerdown', closeOpenPracticeMenus, true);
+    document.addEventListener('click', closeOpenPracticeMenus, true);
+    document.addEventListener('keydown', escape, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOpenPracticeMenus, true);
+      document.removeEventListener('click', closeOpenPracticeMenus, true);
+      document.removeEventListener('keydown', escape, true);
+    };
   }, []);
 
   const toggleScheduleLyricsExpand = (id: string, e?: React.MouseEvent) => {
@@ -2283,7 +2293,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
 
                         <div className="flex shrink-0 items-center gap-1">
-                          <details className="ui-actions practice-actions" onClick={(e) => e.stopPropagation()}>
+                          <details className="ui-actions practice-actions" onClick={(e) => { e.stopPropagation(); if ((e.target as Element).closest('button')) e.currentTarget.removeAttribute('open'); }}>
                             <summary aria-label="Practice actions" title="Practice actions">
                               <MoreHorizontal className="h-5 w-5" />
                             </summary>

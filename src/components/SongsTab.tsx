@@ -368,15 +368,29 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     onClearInitialSelectedSongId?.();
   };
 
-  // Close 3-dot menus and category picker when clicking outside
+  // Capture outside interactions before cards can stop propagation.
   useEffect(() => {
-    const handleGlobalClick = () => {
-      setOpenMenuSongId(null);
-      setCategoryPickerSongId(null);
+    const handleOutsideActions = (event: Event) => {
+      const target = event.target as Element | null;
+      if (target?.closest('[data-song-actions]')?.getAttribute('data-song-actions') !== openMenuSongId) setOpenMenuSongId(null);
+      if (target?.closest('[data-attachment-actions]')?.getAttribute('data-attachment-actions') !== openAttachmentMenuId) setOpenAttachmentMenuId(null);
+      if (target?.closest('[data-song-categories]')?.getAttribute('data-song-categories') !== categoryPickerSongId) setCategoryPickerSongId(null);
     };
-    window.addEventListener('click', handleGlobalClick);
-    return () => window.removeEventListener('click', handleGlobalClick);
-  }, []);
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && (openMenuSongId || openAttachmentMenuId || categoryPickerSongId)) {
+        event.stopPropagation(); event.preventDefault();
+        setOpenMenuSongId(null); setOpenAttachmentMenuId(null); setCategoryPickerSongId(null);
+      }
+    };
+    document.addEventListener('pointerdown', handleOutsideActions, true);
+    document.addEventListener('click', handleOutsideActions, true);
+    document.addEventListener('keydown', escape, true);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsideActions, true);
+      document.removeEventListener('click', handleOutsideActions, true);
+      document.removeEventListener('keydown', escape, true);
+    };
+  }, [openMenuSongId, openAttachmentMenuId, categoryPickerSongId]);
 
   const lastProcessedSignalRef = useRef<number>(0);
 
@@ -419,6 +433,7 @@ if (isEditing && !savingSongRef.current) {
     else if (isEditing) { if (!savingSongRef.current) { setIsEditing(false); setEditingSong(null); } }
     else if (isAddingAttachment) { if (!isUploadingCloudMedia) setIsAddingAttachment(false); }
     else if (isAddToSetlistOpen) setIsAddToSetlistOpen(false);
+    else if (openAttachmentMenuId) setOpenAttachmentMenuId(null);
     else if (openMenuSongId) setOpenMenuSongId(null);
     else if (selectedSongId && returnSetlistId && onBackToSetlist) {
       // A song opened from an expanded setlist belongs to that stage flow.
@@ -919,8 +934,8 @@ if (isEditing && !savingSongRef.current) {
   };
 
   const renderAttachmentActions = (attachment: SongAttachment) => (
-    <div className="relative shrink-0" onClick={(event) => event.stopPropagation()}>
-      <button type="button" aria-label={`Actions for ${attachment.name}`} title="Track actions" onClick={(event) => { event.stopPropagation(); setOpenAttachmentMenuId(current => current === attachment.id ? null : attachment.id); }} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
+    <div data-attachment-actions={attachment.id} className="relative shrink-0" onClick={(event) => event.stopPropagation()}>
+      <button type="button" aria-expanded={openAttachmentMenuId === attachment.id} aria-label={`Actions for ${attachment.name}`} title="Track actions" onClick={(event) => { event.stopPropagation(); setOpenAttachmentMenuId(current => current === attachment.id ? null : attachment.id); }} className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-white">
         <MoreHorizontal className="h-4 w-4" />
       </button>
       {openAttachmentMenuId === attachment.id && (
@@ -1201,7 +1216,7 @@ if (isEditing && !savingSongRef.current) {
                         </button>
 
                         {/* Category Button (Icon Only) */}
-                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <div data-song-categories={song.id} className="relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => setCategoryPickerSongId(categoryPickerSongId === song.id ? null : song.id)}
@@ -1311,13 +1326,14 @@ if (isEditing && !savingSongRef.current) {
                       </div>
 
                       {/* 3-Dot Menu Button (Anchored at the far right) */}
-                      <div className="relative ml-auto shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <div data-song-actions={song.id} className="relative ml-auto shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => setOpenMenuSongId(isMenuOpen ? null : song.id)}
                           className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
                           title="Song Options"
                           aria-label="Song Options"
+                          aria-expanded={isMenuOpen}
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </button>

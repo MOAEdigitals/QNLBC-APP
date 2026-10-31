@@ -553,7 +553,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   // Capture pointer events so an expanded card's stopPropagation cannot trap its action menu open.
   useEffect(() => {
-    const handleDocumentPointerDown = (event: PointerEvent) => {
+    const handleDocumentPointerDown = (event: Event) => {
       if (!openMenuSetlistId) return;
       const target = event.target as Element | null;
       const actionArea = target?.closest('[data-setlist-actions]');
@@ -563,15 +563,20 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     };
 
     const handleDocumentClick = () => setShowTypeSelector(false);
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape' && openMenuSetlistId) { event.stopPropagation(); setOpenMenuSetlistId(null); } };
 
     if (openMenuSetlistId) {
       document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+      document.addEventListener('click', handleDocumentPointerDown, true);
+      document.addEventListener('keydown', escape, true);
     }
     if (showTypeSelector) {
       document.addEventListener('click', handleDocumentClick);
     }
     return () => {
       document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+      document.removeEventListener('click', handleDocumentPointerDown, true);
+      document.removeEventListener('keydown', escape, true);
       document.removeEventListener('click', handleDocumentClick);
     };
   }, [openMenuSetlistId, showTypeSelector]);

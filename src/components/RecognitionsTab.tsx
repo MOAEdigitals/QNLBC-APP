@@ -132,8 +132,14 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   useEffect(() => {
     if (!birthdayMenuId) return;
     const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setBirthdayMenuId(null); };
+    const outside = (event: Event) => {
+      const target = event.target as Element | null;
+      if (target?.closest('[data-birthday-actions]')?.getAttribute('data-birthday-actions') !== birthdayMenuId) setBirthdayMenuId(null);
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('click', outside, true);
     window.addEventListener('keydown', close);
-    return () => window.removeEventListener('keydown', close);
+    return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('click', outside, true); window.removeEventListener('keydown', close); };
   }, [birthdayMenuId]);
 
   const [birthdaySearchQuery, setBirthdaySearchQuery] = useState('');
@@ -340,7 +346,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             </div>
                           </div>
 
-                          <div className="relative shrink-0">
+                          <div data-birthday-actions={item.id} className="relative shrink-0">
                             <button
                               type="button"
                               aria-label={`Actions for ${item.name}`}
@@ -353,7 +359,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             </button>
                             {birthdayMenuId === item.id && (
                               <>
-                                <button type="button" aria-label="Close birthday actions" className="fixed inset-0 z-40 cursor-default" onClick={() => setBirthdayMenuId(null)} />
                                 <div role="menu" aria-label={`${item.name} birthday actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
                                   <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => {
                                     setBirthdayMenuId(null);
