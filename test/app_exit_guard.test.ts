@@ -65,6 +65,42 @@ test('Android has a safe no-history fallback, prevents rapid Back bypass, and ex
   });
 });
 
+test('closing a local screen cannot consume the exit boundary when browser Back skips its parent entry', async () => {
+  await fixture('special-numbers', false, async (get, _, dom) => {
+    await act(() => get().setLayer(true));
+    // Mobile history traversal can skip entries added without user activation.
+    // Complete a pending screen-close traversal at the root rather than its parent.
+    dom.window.history.back = () => dom.window.history.go(-2);
+    await act(() => get().setLayer(false));
+    await act(async () => { await wait(); });
+    assert.equal(get().isOpen, true, 'root must reach the exit guard even with a pending local-screen close');
+    assert.equal(dom.window.history.state.tab, 'special-numbers');
+    assert.equal(Boolean(dom.window.history.state.appRoot), false, 'guard must re-arm a navigable entry');
+  });
+});
+
+test('fourth Back after visiting three tabs asks before leaving Schedules, and Cancel keeps the guard armed', async () => {
+  await fixture('special-numbers', false, async (get, _, dom) => {
+    const onTabBack = (event: PopStateEvent) => { if (event.state?.tab) get().setTab(event.state.tab); };
+    dom.window.addEventListener('popstate', onTabBack as EventListener);
+    try {
+      for (const tab of ['songs', 'settings', 'recognitions']) {
+        await act(() => { dom.window.history.pushState({ tab }, '', `#${tab}`); get().setTab(tab); });
+      }
+      for (let i = 0; i < 3; i++) {
+        await act(async () => { dom.window.history.back(); await wait(); });
+        assert.equal(get().isOpen, false, 'ordinary tab history is consumed first');
+      }
+      await act(async () => { dom.window.history.back(); await wait(); });
+      assert.equal(get().isOpen, true);
+      assert.equal(dom.window.history.state.tab, 'special-numbers');
+      await act(() => get().cancel());
+      await act(async () => { dom.window.history.back(); await wait(); });
+      assert.equal(get().isOpen, true, 'Cancel cannot leave the app without a guarded entry');
+    } finally { dom.window.removeEventListener('popstate', onTabBack as EventListener); }
+  });
+});
+
 test('Back closes a local screen first and Android dismisses the keyboard and action menus before asking to exit', async () => {
   await fixture('settings', true, async (get, back, dom) => {
     await act(() => get().setLayer(true));

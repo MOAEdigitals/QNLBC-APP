@@ -12,6 +12,14 @@ function installConsumer() {
   window.addEventListener('popstate', event => {
     const pending = pendingBack.get(window);
     if (!pending) return;
+    // Never consume the final app boundary during asynchronous panel cleanup.
+    // Mobile Back may skip the expected parent history entry; let the exit guard
+    // see that traversal and re-arm its confirmation instead of leaving at root.
+    if (event.state?.appRoot || (!event.state?.tab && !event.state?.localScreen)) {
+      pendingBack.delete(window); pending.state.consuming = false;
+      if (mountedLayers.has(pending.id)) pending.notify();
+      return;
+    }
     event.stopImmediatePropagation();
     if (event.state?.localScreen && !isBackLayerMounted(event.state.localScreen)) { window.history.back(); return; }
     pendingBack.delete(window); pending.state.consuming = false;

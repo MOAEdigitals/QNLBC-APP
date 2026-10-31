@@ -588,11 +588,12 @@ export default function App() {
 
   // Popstate history listener
   useEffect(() => {
-    if (!window.history.state || !window.history.state.tab) {
+    if (!window.history.state || (!window.history.state.tab && !window.history.state.appRoot)) {
       window.history.replaceState({ tab: currentTab }, '', `#${currentTab}`);
     }
 
     const handlePopState = (event: PopStateEvent) => {
+      if (event.state?.appRoot) return; // The exit guard owns this sentinel.
       if (event.state?.localScreen && !isBackLayerMounted(event.state.localScreen)) {
         window.history.back();
         return;
