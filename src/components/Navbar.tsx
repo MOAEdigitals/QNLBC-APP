@@ -10,7 +10,7 @@ const TAB_LABELS: Record<AppTab, string> = {
   'special-numbers': 'Schedules',
   songs: 'Songs',
   outlines: 'Outlines',
-  settings: 'Profile',
+  settings: 'Settings',
 };
 
 interface NavbarProps {

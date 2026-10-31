@@ -735,10 +735,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
   return (
     <div className="ui-revamp settings-screen space-y-5 max-w-3xl mx-auto pb-8">
-      <header className="space-y-3">
+      {settingsSection && <header className="space-y-3">
         {settingsSection && <button type="button" className="ui-back" onClick={() => { if (selectedMemberId) { setSelectedMemberId(null); setEditingMemberId(null); } else setSettingsSection(null); }}>{selectedMemberId ? '← All members' : '← Settings'}</button>}
         <h2 className="text-2xl font-semibold">{selectedMemberId ? 'Member account' : settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
-      </header>
+      </header>}
       {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
         {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'announcements', 'notificationSchedules', 'data'] : [])].map(section => (
           <button key={section} type="button" className="ui-settings-row" onClick={() => setSettingsSection(section)}>
@@ -746,7 +746,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </button>
         ))}
       </nav>}
-      {(settingsSection === 'account' || settingsSection === 'data') && statusObj && <button type="button" className="ui-secondary" onClick={() => setSettingsSection('connection')}>Connection details</button>}
 
       {/* Container 1: Current Account */}
       <div hidden={settingsSection !== 'account' || !!selectedMemberId} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
@@ -1039,6 +1038,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400">This password is shown only in this admin session.</p>
               </div>}
 
+              {!selectedMemberId && <p className="text-xs text-slate-500 dark:text-slate-400">Existing passwords cannot be retrieved. Passwords you create or reset can be shown and copied during this admin session.</p>}
               <div className={selectedMemberId ? 'space-y-3' : 'divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800'}>
                 {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map((u, index) => {
                   const isCurrent = u.id === currentUser.id;
@@ -1046,7 +1046,8 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   if (!selectedMemberId) {
                     const name = u.displayName || u.name || u.username;
                     const avatar = u.avatar || u.avatarUrl || u.avatar_url;
-                    const credentials = memberCredentials[u.id];
+                    const storedCredentials = memberCredentials[u.id];
+                    const credentials = storedCredentials?.username === u.username ? storedCredentials : undefined;
                     const visible = visibleCredentialId === u.id;
                     return <article key={u.id} aria-label={`Account: ${name}`} className="grid grid-cols-[1.25rem_2.5rem_minmax(0,1fr)_auto] sm:grid-cols-[1.5rem_2.75rem_minmax(0,1fr)_minmax(12rem,16rem)_auto] items-center gap-x-3 gap-y-2 p-3 sm:py-4">
                       <span className="self-start pt-2 text-center text-xs text-slate-500">{index + 1}</span>
@@ -1059,11 +1060,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <span className="mt-1 flex flex-wrap gap-1 text-[11px]"><span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'}</span>{u.active === false && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500 dark:bg-slate-800">Deactivated</span>}</span>
                       </button>
                       <div className="col-start-3 row-start-2 sm:col-start-4 sm:row-start-1 min-w-0 flex items-center gap-1">
-                        <div className="flex min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-slate-50 pl-2 dark:border-slate-700 dark:bg-slate-800">
+                        {credentials ? <div className="flex min-w-0 flex-1 items-center rounded-lg border border-slate-200 bg-slate-50 pl-2 dark:border-slate-700 dark:bg-slate-800">
                           <Key className="h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="min-w-0 flex-1 break-all px-2 font-mono text-sm" aria-live="polite">{credentials ? visible ? credentials.password : '••••••••' : <span className="font-sans text-xs text-slate-500 dark:text-slate-400">Not available</span>}</span>
-                          <button type="button" disabled={!credentials} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500 disabled:cursor-default disabled:opacity-40" aria-label={`${visible ? 'Hide' : 'Show'} password for ${name}`} title={credentials ? 'Show or hide password' : 'Use Edit account to set a new password'} onClick={() => setVisibleCredentialId(visible ? null : u.id)}>{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                        </div>
+                          <span className="min-w-0 flex-1 break-all px-2 font-mono text-sm" aria-live="polite">{visible ? credentials.password : '••••••••'}</span>
+                          <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`${visible ? 'Hide' : 'Show'} password for ${name}`} title="Show or hide password" onClick={() => setVisibleCredentialId(visible ? null : u.id)}>{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
+                        </div> : <button type="button" disabled={isManaging} className="ui-secondary min-w-0 flex-1 text-left text-xs" aria-label={`Set password and copy credentials for ${name}`} onClick={() => { setSelectedMemberId(u.id); void handleCopyAccountDetails(u); }}><Key className="h-4 w-4 shrink-0" /> Set password &amp; copy credentials</button>}
                         {credentials && <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`Copy credentials for ${name}`} onClick={() => void handleCopyMemberCredentials(u.id, credentials.username, credentials.password)}>{copiedCredentialId === u.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button>}
                       </div>
                       <div className="col-start-4 row-start-1 self-start sm:col-start-5"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
