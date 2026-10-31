@@ -1,6 +1,7 @@
 import { SongExport } from './SongExport';
 import { NotificationSoundSettings } from './NotificationSoundSettings';
 import { AdminAnnouncements } from './AdminAnnouncements';
+import { NotificationScheduleSettings } from './NotificationScheduleSettings';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
 import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
 import { CardActions } from './CardActions';
@@ -131,7 +132,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const announcementBack = useRef<(() => void) | null>(null);
   const registerAnnouncementBack = useCallback((handler: (() => void) | null) => { announcementBack.current = handler; }, []);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details', announcements: 'Admin announcements' };
+  const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details', announcements: 'Admin announcements', notificationSchedules: 'Notification schedules' };
   // Existing section content remains mounted while navigating settings.
   const isAccountCollapsed = false;
   const isAppearanceCollapsed = false;
@@ -739,7 +740,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         <h2 className="text-2xl font-semibold">{selectedMemberId ? 'Member account' : settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
       </header>
       {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
-        {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'announcements', 'data'] : [])].map(section => (
+        {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'announcements', 'notificationSchedules', 'data'] : [])].map(section => (
           <button key={section} type="button" className="ui-settings-row" onClick={() => setSettingsSection(section)}>
             <span>{sectionLabels[section]}</span><span aria-hidden="true">›</span>
           </button>
@@ -1120,6 +1121,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       )}
 
       {isAdmin && settingsSection === 'announcements' && <AdminAnnouncements key={currentUser.id} onBackHandlerChange={registerAnnouncementBack} />}
+      {isAdmin && settingsSection === 'notificationSchedules' && <NotificationScheduleSettings key={currentUser.id} />}
       {isAdmin && <div hidden={settingsSection !== 'directory'}><DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} /></div>}
 
       {directoryLoadError && isAdmin && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}

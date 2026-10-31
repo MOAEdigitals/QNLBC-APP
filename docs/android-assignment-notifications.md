@@ -48,3 +48,27 @@ Use two test accounts and an Android phone. Check initial assignment, unchanged 
 A green build or mocked FCM test does not establish live delivery. The QNLBC migration, scheduler, FCM credentials and physical-device tests must be completed before reporting this feature as active.
 
 References: [Capacitor Android push setup](https://capacitorjs.com/docs/apis/push-notifications), [FCM HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api), [Supabase scheduling](https://supabase.com/docs/guides/functions/schedule-functions).
+# Admin schedules and notification inbox
+
+Settings → Notification schedules controls reminder enablement, Philippine time,
+allowed sending weekdays, and the number of days before the record's date.
+Defaults: birthdays 7 AM on the day; special events 8 AM one day before;
+Wednesday prayer meeting 4 PM on the day; Sunday service 6 AM on the day;
+assigned Sunday team members Saturday 9 AM. Service reminders require the dated
+service entry in Activities; weekday buttons restrict sending days and do not
+create new activities. Accounts do not need a directory link for general reminders.
+
+Admin announcements supports Send now or Schedule for an exact Philippine date
+and time. Pending scheduled messages can be cancelled. Only selected accounts
+still active at send time receive them. No message is published before its due time.
+The existing minute dispatcher handles FCM delivery; device permission and network
+conditions still affect when the phone displays it.
+
+The inbox marks its loaded unread cards read after five uninterrupted visible
+seconds. Closing or hiding the app cancels that countdown. New arrivals have
+their own countdown. Tapping a card marks it read immediately; Mark all as read
+also covers older unread records outside the latest 100 loaded cards. Dismissal
+removes that user's card from the unread count and supports Undo. Read and unread
+cards use distinct backgrounds and an unread dot. State belongs to the account
+and is refreshed through realtime updates, app focus, and periodic polling.
+

@@ -7,6 +7,7 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { JSDOM } from 'jsdom';
 import { webcrypto } from 'node:crypto';
+import { philippineScheduleISO } from '../src/utils/notificationSchedule.ts';
 
 test('admin announcements preview recipients, lock rapid sends and reuse the request on uncertain errors', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://example.com' });
@@ -17,7 +18,7 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   const calls: any[][]=[]; let release: (()=>void)|undefined; let fail=true;
   const service={loadAnnouncementAdmin:async()=>({recipients:people,history:[]}),sendAnnouncement:async(...args:any[])=>{calls.push(args); await new Promise<void>(resolve=>{release=resolve;}); if(fail)throw new Error('Connection interrupted');}};
   const exports:any={};
-  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>name==='react'?React:name.includes('adminAnnouncements')?service:{useBackLayer:()=>{}}});
+  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>name==='react'?React:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
   const root=createRoot(document.getElementById('root')!);
   const click=async(element:Element)=>{await act(async()=>element.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true})));};
   const button=(name:string)=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent===name)!;
@@ -51,5 +52,14 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
     assert.equal(document.querySelector('[role="dialog"]'),null);
     assert.match(document.querySelector('[role="status"]')!.textContent!,/Sent to 2 accounts/);
     assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length,0);
+    await setValue('input[maxlength="120"]','Future notice'); await setValue('textarea','Tomorrow reminder');
+    await click(button('Select all active users'));
+    await setValue('select','schedule'); await setValue('input[type="datetime-local"]','2099-11-01T06:00');
+    await act(async()=>document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
+    assert.match(document.querySelector('[role="dialog"]')!.textContent!,/2099-11-01 06:00 Philippine time/);
+    await click(button('Schedule notification'));
+    assert.equal(calls[2][4],'2099-10-31T22:00:00.000Z');
+    await act(async()=>release!());
+    assert.match(document.querySelector('[role="status"]')!.textContent!,/Scheduled for/);
   } finally {await act(async()=>root.unmount());dom.window.close();keys.forEach((key,i)=>{if(previous[i])Object.defineProperty(globalThis,key,previous[i]!);else delete (globalThis as any)[key];});}
 });

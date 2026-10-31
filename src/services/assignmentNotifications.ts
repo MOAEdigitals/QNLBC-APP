@@ -63,6 +63,15 @@ export async function markAssignmentNotificationRead(id: string): Promise<void> 
   const { error } = await supabase.rpc('mark_assignment_notification_read', { notification_id: id });
   if (error) throw new Error('Could not mark notification as read.');
 }
+export async function fetchUnreadNotificationCount(): Promise<number> {
+  const { count, error } = await supabase.from('assignment_notifications').select('id', { count: 'exact', head: true }).is('dismissed_at', null).is('read_at', null);
+  if (error) throw new Error('Unread notification count could not be loaded.');
+  return count || 0;
+}
+export async function markNotificationsRead(ids?: string[]): Promise<void> {
+  const { error } = await supabase.rpc('mark_notifications_read', { notification_ids: ids ?? null });
+  if (error) throw new Error('Could not mark notifications as read. Please try again.');
+}
 export async function enableAssignmentPush(): Promise<PushStatus> {
   if (!android()) return 'web';
   if (!configured()) return 'setup';

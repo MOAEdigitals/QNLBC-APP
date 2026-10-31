@@ -50,3 +50,5 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c 'alter table public.profiles add column avatar_url text;'
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20261030161919_directory_profile_avatars.sql
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/profile_avatars.sql
+          sed '/^select cron\./d' supabase/migrations/20261031024932_service_reminders_and_notification_read.sql | psql -h localhost -U postgres -v ON_ERROR_STOP=1
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f test/notification_schedules.sql

@@ -1,14 +1,28 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Bell, RefreshCw, Trash2 } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
-import { dismissNotification, markAssignmentNotificationRead, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
-interface Props { items: AssignmentNotification[]; loading: boolean; error: string; pushStatus: PushStatus; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event') => void; onClose: () => void }
-export function NotificationInbox({ items, loading, error, pushStatus, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
+import { dismissNotification, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
+import { createNotificationReadTimer } from '../utils/notificationReadTimer';
+interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onMarkRead: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event') => void; onClose: () => void }
+export function NotificationInbox({ items, unreadCount, loading, error, pushStatus, onMarkRead, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
   const [opening, setOpening] = useState<string | null>(null);
   const [readError, setReadError] = useState('');
   const [hidden, setHidden] = useState<string[]>([]), [deleted, setDeleted] = useState<AssignmentNotification | null>(null);
   const deleting = useRef(false);
   const visible = items.filter(item => !hidden.includes(item.id));
+  const reading = useRef(onMarkRead); reading.current = onMarkRead;
+  const unreadIds = visible.filter(item => !item.read_at).map(item => item.id).join(',');
+  const readTimer = useRef<ReturnType<typeof createNotificationReadTimer> | null>(null);
+  useEffect(() => {
+    const timer = createNotificationReadTimer(ids => { void reading.current(ids).catch(e => setReadError((e as Error).message)); });
+    readTimer.current = timer;
+    return () => { timer.dispose(); readTimer.current = null; };
+  }, []);
+  useEffect(() => {
+    const sync = () => readTimer.current?.sync(unreadIds ? unreadIds.split(',') : [], document.visibilityState === 'visible');
+    sync(); document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [unreadIds]);
   const remove = async (item: AssignmentNotification, undo = false) => {
     if (deleting.current) return;
     deleting.current = true; setOpening(item.id); setReadError('');
@@ -22,7 +36,7 @@ export function NotificationInbox({ items, loading, error, pushStatus, onEnable,
   useBackLayer(true, onClose);
   const open = async (item: AssignmentNotification) => {
     setOpening(item.id); setReadError('');
-    try { await markAssignmentNotificationRead(item.id); await onRefresh(); if (item.setlist_id) { onOpen(item.setlist_id); onClose(); } else if (item.kind === 'birthday' || item.kind === 'event') { onCalendar?.(item.kind); onClose(); } }
+    try { await onMarkRead([item.id]); if (item.setlist_id) { onOpen(item.setlist_id); onClose(); } else if (item.kind === 'birthday' || item.kind === 'event') { onCalendar?.(item.kind); onClose(); } }
     catch (e) { setReadError((e as Error).message); }
     finally { setOpening(null); }
   };
@@ -33,6 +47,7 @@ export function NotificationInbox({ items, loading, error, pushStatus, onEnable,
     </header>
     <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
       <p className="text-sm text-slate-500">Church announcements, assignments, birthdays, and event reminders. Swipe a card to delete it from your notifications.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-500">Notifications shown here are marked read after 5 seconds.</p><button type="button" className="ui-secondary" disabled={!unreadCount || !!opening} onClick={() => { setReadError(''); void onMarkRead().catch(e => setReadError((e as Error).message)); }}>Mark all as read</button></div>
       {deleted && <div role="status" className="flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-sm"><span>Notification deleted.</span><button className="min-h-11 px-3 font-semibold underline" disabled={!!opening} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">
         <p>{pushStatus === 'setup' ? 'Android push notifications are not available in this build.' : pushStatus === 'denied' ? 'Notifications are blocked. Allow notifications for QNLBC App in Android Settings.' : pushStatus === 'error' ? 'Could not enable Android notifications. Please try again.' : 'Receive church notifications even when the app is closed.'}</p>
@@ -40,7 +55,7 @@ export function NotificationInbox({ items, loading, error, pushStatus, onEnable,
       </div>}
       {(error || readError) && <p role="alert" className="text-sm text-rose-600">{error || readError}</p>}
       {loading && !visible.length ? <p role="status">Loading notifications…</p> : !error && !visible.length ? <p className="py-8 text-center text-slate-500">No notifications yet.</p> : <div className="space-y-2">{visible.map(item => <SwipeNotification key={item.id} disabled={!!opening} label={item.title} onDelete={() => void remove(item)} onOpen={() => void open(item)} unread={!item.read_at}>
-        <p className="font-semibold">{!item.read_at && <span className="sr-only">Unread: </span>}{item.title}</p><p className="text-sm whitespace-pre-wrap break-words">{item.body}</p><p className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
+        <p className={item.read_at ? 'font-medium' : 'font-semibold'}>{!item.read_at && <><span aria-hidden="true" className="mr-2 inline-block h-2 w-2 rounded-full bg-indigo-500" /><span className="sr-only">Unread: </span></>}{item.title}</p><p className="text-sm whitespace-pre-wrap break-words">{item.body}</p><p className="text-xs text-slate-500">{new Date(item.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
       </SwipeNotification>)}</div>}
     </div>
   </div>;

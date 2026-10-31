@@ -73,3 +73,39 @@ test('notification icons appear only on the three requested tabs, directly befor
     }
   });
 });
+
+test('admin notification schedules toggle alarm-style weekdays and save only on explicit submit', async () => {
+  const writes: any[] = [];
+  await fixture('src/components/NotificationScheduleSettings.tsx', {
+    loadNotificationSchedules: async () => [{ kind: 'prayer', enabled: true, local_time: '16:00:00', days_before: 0, weekdays: [3] }],
+    saveNotificationSchedule: async (row: any) => writes.push(row),
+  }, async (exports, root, dom) => {
+    await act(async () => root.render(React.createElement(exports.NotificationScheduleSettings)));
+    assert.equal(label('Midweek prayer meeting Wed').getAttribute('aria-pressed'), 'true');
+    await act(() => label('Midweek prayer meeting Fri').click());
+    assert.equal(writes.length, 0, 'editing a weekday does not save implicitly');
+    await act(async () => document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+    assert.deepEqual(Array.from(writes[0].weekdays), [3, 5]);
+    assert.match(document.querySelector('[role="status"]')!.textContent!, /schedule saved/);
+    await act(() => label('Midweek prayer meeting Wed').click());
+    await act(() => label('Midweek prayer meeting Fri').click());
+    assert.equal(Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Save schedule')!.disabled, true);
+  });
+});
+
+test('notification panel marks a tapped card or all cards read without deleting history', async () => {
+  const read: any[] = []; let opened = '';
+  await fixture('src/components/NotificationInbox.tsx', { createNotificationReadTimer: () => ({ sync() {}, dispose() {} }) }, async (exports, root) => {
+    await act(async () => root.render(React.createElement(exports.NotificationInbox, {
+      items: [{ id: 'one', title: 'Sunday Service', body: 'Today', kind: 'event', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
+      unreadCount: 1, loading: false, error: '', pushStatus: 'web', onMarkRead: async (ids?: string[]) => { read.push(ids); },
+      onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onCalendar: (kind: string) => { opened = kind; }, onClose() {},
+    })));
+    assert.match(document.querySelector('#root')!.textContent!, /Unread:/);
+    await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Sunday Service'))!.click());
+    assert.deepEqual(Array.from(read[0]), ['one']); assert.equal(opened, 'event');
+    await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Mark all as read')!.click());
+    assert.equal(read.length, 2); assert.equal(read[1], undefined);
+    assert.match(document.querySelector('#root')!.textContent!, /Sunday Service/, 'read cards remain in history');
+  });
+});

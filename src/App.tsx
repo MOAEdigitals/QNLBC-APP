@@ -1363,11 +1363,11 @@ export default function App() {
           onNavigateToSettings={() => handleNavigateTab('settings')}
           onOpenNotifications={() => { setNotificationInboxOpen(true); void notifications.refresh(); }}
           onOpenNotepad={() => setNotepadOpen(true)}
-          unreadNotifications={notifications.items.filter(item => !item.read_at).length}
+          unreadNotifications={notifications.unreadCount}
         />
       )}
 
-      {isNotificationInboxOpen && <NotificationInbox key={currentUser.id} {...notifications} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
+      {isNotificationInboxOpen && <NotificationInbox key={currentUser.id} {...notifications} onMarkRead={notifications.markRead} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
       {isNotepadOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
 
       {/* Main Content Area */}
