@@ -451,10 +451,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-60">
             <Music className="w-16 h-16 mb-4 stroke-1 opacity-50" />
             <h2 className="text-xl font-bold">No Lyrics Available</h2>
-            <p className="text-sm mt-1 max-w-sm">
-              This song does not have lyrics saved yet. You can edit this song in the library to add
-              verses and choruses.
-            </p>
           </div>
         ) : (
           <div className="max-w-4xl mx-auto space-y-8">

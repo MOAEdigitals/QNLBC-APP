@@ -887,9 +887,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
                   Display mode
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
-                  Switch between Light and Dark interface modes
-                </span>
+
               </div>
               <button
                 type="button"
@@ -916,23 +914,21 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <select id="app-font" value={appFont} onChange={event => onChangeAppFont(event.target.value as AppFont)} className="w-full min-h-11 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                 {APP_FONTS.map(font => <option key={font} value={font}>{font}</option>)}
               </select>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Applies throughout the app. Saved on this device.</p>
+
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-0.5">
                 <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
-                  Purge Legacy Local Storage Cache
+                  Legacy cache
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 block">
-                  Removes obsolete version keys without clearing your current session or display preferences.
-                </span>
+
               </div>
               <button
                 type="button"
                 onClick={handlePurgeLegacyStorage}
                 className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-semibold shrink-0 cursor-pointer transition-colors"
               >
-                Clean Legacy Cache
+                Clear legacy cache
               </button>
             </div>
             {cleanStorageStatus && (
@@ -965,9 +961,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     {users.length} {users.length === 1 ? 'Member' : 'Members'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Manage accounts, grant administrator access, or deactivate users.
-                </p>
+
               </div>
             </div>
 
@@ -1042,10 +1036,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Account credentials ready</p><button type="button" aria-label="Dismiss credentials" className="text-emerald-700 dark:text-emerald-300" onClick={() => setCredentialNotice(null)}><X className="h-4 w-4" /></button></div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{credentialNotice.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{credentialNotice.password}</dd></dl>
                 <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(credentialNotice.userId, credentialNotice.username, credentialNotice.password, credentialNotice.name)}>{copiedCredentialId === credentialNotice.userId ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
-                <p className="text-xs text-slate-500 dark:text-slate-400">This password is shown only in this admin session.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Visible this session only.</p>
               </div>}
 
-              {!selectedMemberId && <p className="text-xs text-slate-500 dark:text-slate-400">Existing passwords cannot be retrieved. Passwords you create or reset can be shown and copied during this admin session.</p>}
               <div className={selectedMemberId ? 'space-y-3' : 'divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800'}>
                 {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map((u, index) => {
                   const isCurrent = u.id === currentUser.id;
@@ -1100,7 +1093,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                           </form>
                         </div>
                       </div>}
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{memberCredentials[u.id] ? 'This password is shown only in this admin session.' : 'Existing passwords cannot be retrieved. Use Edit account to set a new password, then you can view and copy it here during this admin session.'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{memberCredentials[u.id] ? 'Visible this session only.' : 'Set a new password to view and copy credentials.'}</p>
                       {u.role === 'admin' ? <p>Administrators have full access.</p> : <div className="divide-y divide-slate-200 dark:divide-slate-800">
                         {([['canAdd', 'Add'], ['canEdit', 'Edit'], ['canDelete', 'Delete']] as const).map(([key, label]) => {
                           const enabled = Boolean(u.permissions?.[key]);
@@ -1149,9 +1142,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                   Data management
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Export backups, restore from JSON files, and batch import song lyrics.
-                </p>
+
               </div>
             </div>
 
@@ -1196,7 +1187,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       {lyricsImporting ? 'Importing songs…' : 'Select Multiple .txt Files'}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                      Choose multiple .txt files (1 text file = 1 song). The file name becomes the song title and text becomes the lyrics.
+                      One song per file. File name = song title.
                     </span>
                     <input
                       type="file"
@@ -1267,9 +1258,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
                         {isImporting ? 'Restoring Records...' : 'Restore JSON Backup'}
                       </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Upload JSON backup to restore and synchronize across all devices.
-                      </span>
+
                       <input
                         type="file"
                         accept=".json,application/json"
@@ -1293,9 +1282,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
                         Migration Prompt (.md)
                       </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Full prompt and schema specification for new environments.
-                      </span>
+
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 pt-1">
@@ -1336,9 +1323,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
                         Download Codebase (.ZIP)
                       </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Full codebase archive for local backup or offline testing.
-                      </span>
+
                     </div>
                   </div>
                   <div className="pt-1">

@@ -8,9 +8,9 @@ export function SongExport() {
   const start = async () => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError('');
-    try { const count = await exportAllSongs(setStatus); setStatus(`Export ready: ${count} songs. Keep the ZIP in a safe location.`); }
+    try { const count = await exportAllSongs(setStatus); setStatus(`Export ready: ${count} songs.`); }
     catch (e) { setStatus(''); setError((e as Error).message || 'Export could not be completed.'); }
     finally { lock.current = false; setBusy(false); }
   };
-  return <section className="space-y-3 pt-3" aria-label="Songs-only backup"><h4 className="font-semibold">Songs-only backup</h4><p className="text-sm text-slate-500">Export all current songs as a ZIP. Extract it for individual .txt files: the filename is the song title, with verses, choruses, and lyrics inside. A JSON backup preserves the original song details. Media links are included; recordings are available through Full Data Export.</p><button type="button" className="ui-primary" disabled={busy} onClick={() => void start()}>{busy ? 'Exporting songs…' : 'Export all songs'}</button>{status && <p role="status" className="text-sm text-slate-500">{status}</p>}{error && <p role="alert" className="text-sm text-rose-600">{error}</p>}</section>;
+  return <section className="space-y-3 pt-3" aria-label="Songs-only backup"><h4 className="font-semibold">Songs-only backup</h4><p className="text-sm text-slate-500">ZIP with individual TXT files and a JSON backup. Recordings are included in Full Data Export.</p><button type="button" className="ui-primary" disabled={busy} onClick={() => void start()}>{busy ? 'Exporting songs…' : 'Export all songs'}</button>{status && <p role="status" className="text-sm text-slate-500">{status}</p>}{error && <p role="alert" className="text-sm text-rose-600">{error}</p>}</section>;
 }

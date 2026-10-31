@@ -8,7 +8,7 @@ export function NotificationScheduleSettings() {
   const [notice, setNotice] = useState('');
   useEffect(() => { void loadNotificationSchedules().then(setRows).catch(e => setError(e.message)); }, []);
   const change = (kind: string, update: Partial<NotificationSchedule>) => setRows(rows => rows.map(row => row.kind === kind ? { ...row, ...update } : row));
-  return <section className="space-y-4"><p className="text-sm text-slate-500">All times use Philippine time (Asia/Manila). Dates follow the birthday, service, or event in your records. Assignment reminders go only to assigned members; the other reminders go to all active accounts. Changes apply to reminders that have not been sent.</p>
+  return <section className="space-y-4"><p className="text-sm text-slate-500">Philippine time · Assignment reminders: assigned members. Other reminders: all active accounts.</p>
     {error && <p role="alert" className="text-rose-600">{error}</p>}{notice && <p role="status" className="text-emerald-600">{notice}</p>}
     {!rows.length && !error && <p>Loading notification schedules…</p>}
     {rows.map(row => <form key={row.kind} aria-label={labels[row.kind]} className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-700" onSubmit={async e => { e.preventDefault(); if (busy) return; setBusy(row.kind); setError(''); setNotice(''); try { await saveNotificationSchedule(row); setNotice(`${labels[row.kind]} schedule saved.`); } catch (e) { setError((e as Error).message); } finally { setBusy(''); } }}>
@@ -19,6 +19,6 @@ export function NotificationScheduleSettings() {
       {row.enabled && !row.weekdays.length && <p className="text-sm text-rose-600">Select at least one day, or turn off this reminder.</p>}
       <button type="submit" className="ui-primary" disabled={!!busy || (row.enabled && !row.weekdays.length)}>{busy === row.kind ? 'Saving…' : 'Save schedule'}</button>
     </form>)}
-    <p className="text-xs text-slate-500">For a custom message on an exact date and time, use Admin announcements → Schedule. Phone delivery requires notification permission and an internet connection.</p>
+
   </section>;
 }

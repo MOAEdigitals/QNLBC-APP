@@ -46,7 +46,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
       <div className="flex"><button type="button" aria-label="Refresh notifications" className="h-11 w-11 grid place-items-center" disabled={loading} onClick={() => void onRefresh()}><RefreshCw className="h-5 w-5" /></button><button type="button" aria-label="Close notifications" className="h-11 w-11 grid place-items-center" onClick={onClose}><X className="h-5 w-5" /></button></div>
     </header>
     <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
-      <p className="text-sm text-slate-500">Church announcements, assignments, birthdays, and event reminders. Swipe a card to delete it from your notifications.</p>
+
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-slate-500">Notifications shown here are marked read after 5 seconds.</p><button type="button" className="ui-secondary" disabled={!unreadCount || !!opening} onClick={() => { setReadError(''); void onMarkRead().catch(e => setReadError((e as Error).message)); }}>Mark all as read</button></div>
       {deleted && <div role="status" className="flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-sm"><span>Notification deleted.</span><button className="min-h-11 px-3 font-semibold underline" disabled={!!opening} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">

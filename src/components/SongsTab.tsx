@@ -1547,7 +1547,7 @@ if (isEditing && !savingSongRef.current) {
                                           {att.name}
                                         </span>
                                         <span className="text-[10px] text-slate-400 block truncate">
-                                          {isPlaying ? 'Now Playing' : 'Click to play / preview'}
+                                          {isPlaying ? 'Now Playing' : 'Play track'}
                                         </span>
                                       </div>
                                     </div>
@@ -1631,7 +1631,7 @@ if (isEditing && !savingSongRef.current) {
                                           {att.name}
                                         </span>
                                         <span className="text-[10px] text-slate-400 block truncate">
-                                          {isPlaying ? 'Now Playing' : 'Click to play / preview'}
+                                          {isPlaying ? 'Now Playing' : 'Play track'}
                                         </span>
                                       </div>
                                     </div>
@@ -1937,7 +1937,7 @@ if (isEditing && !savingSongRef.current) {
                 )}
 
                 <span className="text-[11px] text-slate-400 mt-1 block">
-                  Paste any YouTube/audio link or click the paperclip icon to upload tracks (&gt;1MB supported with Universal Cloud Storage).
+                  Paste a track link or attach a file.
                 </span>
               </div>
 
