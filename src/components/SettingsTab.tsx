@@ -7,7 +7,7 @@ import { fetchDirectoryMembers, type DirectoryMember } from '../services/directo
 import { CardActions } from './CardActions';
 import { APP_FONTS, type AppFont } from '../utils/appFont';
 import { useBackLayer } from '../hooks/useBackLayer';
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
 import { UserAccount, DatabaseStatusInfo } from '../types';
 import {
   cleanupLegacyStorage,
@@ -74,6 +74,7 @@ import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
 import { createFullBackup } from '../services/backup';
 
 interface SettingsTabProps {
+  onSectionOpenChange?: (open: boolean) => void;
   currentUser: UserAccount;
   onUpdateCurrentUser: (user: UserAccount) => void;
   users: UserAccount[];
@@ -108,6 +109,7 @@ interface SettingsTabProps {
 }
 
 export const SettingsTab: React.FC<SettingsTabProps> = ({
+  onSectionOpenChange,
   currentUser,
   onUpdateCurrentUser,
   users,
@@ -129,6 +131,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   collapseSignal,
 }) => {
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
+  useLayoutEffect(() => {
+    onSectionOpenChange?.(settingsSection !== null);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    return () => onSectionOpenChange?.(false);
+  }, [settingsSection, onSectionOpenChange]);
   const announcementBack = useRef<(() => void) | null>(null);
   const registerAnnouncementBack = useCallback((handler: (() => void) | null) => { announcementBack.current = handler; }, []);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);

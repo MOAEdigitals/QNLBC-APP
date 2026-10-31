@@ -151,6 +151,8 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<AppTab>(() => readSetlistShareId(window.location.href, window.location.href) ? 'home' : initialAppTab(window.location.hash));
 
   const exitGuard = useAppExitGuard(currentTab);
+  const [isSettingsSectionOpen, setIsSettingsSectionOpen] = useState(false);
+  const hideMainHeader = currentTab === 'settings' && isSettingsSectionOpen;
 
   const tabHistoryRef = useRef<AppTab[]>([currentTab]);
   const hasActiveSubViewRef = useRef(false);
@@ -1338,7 +1340,7 @@ export default function App() {
             </button>
           </div>
         </header>
-      ) : (
+      ) : hideMainHeader ? null : (
         <Navbar
           currentUser={currentUser}
           users={users}
@@ -1354,7 +1356,7 @@ export default function App() {
       {isNotepadOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28" style={hideMainHeader ? { paddingTop: 'calc(var(--app-safe-top, 0px) + 1.25rem)' } : undefined}>
         {sharedSetlistError && currentTab === 'home' && <div role="alert" className="mb-4 rounded-xl border border-amber-300 p-3 text-sm">{sharedSetlistError}<button type="button" className="ml-3 underline" onClick={() => setSharedSetlistError('')}>Dismiss</button></div>}
         {refreshError && <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 p-3 text-sm"><span>{refreshError}</span><button type="button" className="ui-secondary" onClick={() => { setRefreshError(''); void reloadAllData(); }}>Retry</button></div>}
         <Suspense fallback={<TabLoadingSkeleton />}>
@@ -1456,6 +1458,7 @@ export default function App() {
           onRowsChange={rows => { outlineCache.current = { userId: currentUser.id, rows }; }} />}
         {currentTab === 'settings' && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
           <SettingsTab
+            onSectionOpenChange={setIsSettingsSectionOpen}
             currentUser={currentUser}
             onUpdateCurrentUser={setCurrentUser}
             users={users}
