@@ -34,6 +34,7 @@ import {
   fetchAllProfiles,
 } from '../services/supabaseData';
 import { compressImageToAvatar } from '../utils/imageUtils';
+import { formatAccountCredentials } from '../utils/accountCredentials';
 import {
   Settings,
   Sun,
@@ -164,8 +165,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [memberEditError, setMemberEditError] = useState('');
   const [visibleCredentialId, setVisibleCredentialId] = useState<string | null>(null);
   const [memberCredentials, setMemberCredentials] = useState<Record<string, { username: string; password: string }>>({});
-  const [credentialNotice, setCredentialNotice] = useState<{ userId: string; username: string; password: string } | null>(null);
+  const [credentialNotice, setCredentialNotice] = useState<{ userId: string; username: string; password: string; name?: string } | null>(null);
   const [copiedCredentialId, setCopiedCredentialId] = useState<string | null>(null);
+  const [copyAfterSaveId, setCopyAfterSaveId] = useState<string | null>(null);
 
   // Church directory names state
   const [savedNames, setSavedNames] = useState<string[]>(propSavedNames);
@@ -229,6 +231,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     setMemberCredentials({});
     setVisibleCredentialId(null);
     setCredentialNotice(null);
+    setCopyAfterSaveId(null);
     setMemberEdit({ displayName: '', directoryMemberId: '', username: '', password: '' });
     setNewMember({ displayName: '', directoryMemberId: '', username: '', password: '' });
   }, [currentUser.id, isAdmin]);
@@ -388,7 +391,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       };
       const createdUser = await createManagedUser({ ...newMember, username: createdCredentials.username });
       setMemberCredentials(current => ({ ...current, [createdUser.id]: createdCredentials }));
-      setCredentialNotice({ userId: createdUser.id, ...createdCredentials });
+      setCredentialNotice({ userId: createdUser.id, ...createdCredentials, name: newMember.displayName.trim() || createdCredentials.username });
       setMemberNotice('Account created.');
       await refreshDirectory().catch(() => {});
       // A refresh failure must not invite a second account creation.
@@ -409,6 +412,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const startEditingMember = (user: UserAccount) => {
+    setCopyAfterSaveId(null);
     setMemberEditError('');
     setShowMemberEditPassword(false);
     setMemberEdit({ displayName: user.displayName || user.name || user.username, directoryMemberId: user.directoryMemberId || '', username: user.username, password: '' });
@@ -425,6 +429,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     try {
       const nextUsername = memberEdit.username.trim().toLowerCase();
       const nextPassword = memberEdit.password;
+      if (copyAfterSaveId === user.id && !nextPassword) throw new Error('Set a new password to copy complete credentials.');
       await updateManagedUser({ userId: user.id, displayName: memberEdit.displayName.trim(), directoryMemberId: memberEdit.directoryMemberId, username: nextUsername, password: nextPassword || undefined });
       setMemberNotice('Account saved.');
       await refreshDirectory().catch(() => {});
@@ -438,7 +443,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       if (nextPassword) {
         const credentials = { username: nextUsername, password: nextPassword };
         setMemberCredentials(current => ({ ...current, [user.id]: credentials }));
-        setCredentialNotice({ userId: user.id, ...credentials });
+        setCredentialNotice({ userId: user.id, ...credentials, name: memberEdit.displayName.trim() || nextUsername });
       } else {
         setMemberCredentials(current => current[user.id]
           ? { ...current, [user.id]: { ...current[user.id], username: nextUsername } }
@@ -446,29 +451,37 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         setCredentialNotice(current => current?.userId === user.id ? { ...current, username: nextUsername } : current);
       }
       setEditingMemberId(null);
+      if (copyAfterSaveId === user.id && nextPassword) {
+        await handleCopyMemberCredentials(user.id, nextUsername, nextPassword, memberEdit.displayName.trim() || nextUsername);
+        setCopyAfterSaveId(null);
+      }
       setMemberEdit({ displayName: '', directoryMemberId: '', username: '', password: '' });
     } catch (error: any) {
       setMemberEditError(error.message || 'Could not update account.');
     } finally { memberSaveLock.current = false; setManagingUserId(null); }
   };
 
-  const handleCopyMemberCredentials = async (userId: string, username: string, password: string) => {
+  const handleCopyMemberCredentials = async (userId: string, username: string, password: string, displayName?: string) => {
     try {
-      await navigator.clipboard.writeText(`Username: ${username}\nPassword: ${password}`);
+      const account = users.find(user => user.id === userId);
+      await navigator.clipboard.writeText(formatAccountCredentials(displayName || account?.displayName || account?.name || username, username, password));
       setCopiedCredentialId(userId);
+      setMemberNotice('Complete credentials copied: webapp link, name, username and password.');
       setTimeout(() => setCopiedCredentialId(current => current === userId ? null : current), 2500);
     } catch {
-      setMemberEditError('Could not copy credentials. Select the username and password manually.');
+      setMemberNotice('The password is saved, but copying was blocked. Tap Copy credentials again.');
     }
   };
 
-  const handleCopyMemberUsername = async (user: UserAccount) => {
-    try {
-      await navigator.clipboard.writeText(user.username);
-      setMemberNotice(`Username copied: ${user.username}`);
-    } catch {
-      setMemberNotice('Could not copy. Select the username manually.');
+  const handleCopyAccountDetails = async (user: UserAccount) => {
+    const fresh = memberCredentials[user.id];
+    const password = fresh?.username === user.username ? fresh.password : undefined;
+    if (!password) {
+      startEditingMember(user); setCopyAfterSaveId(user.id);
+      setMemberNotice('Set a new password, then Save & copy credentials. Existing passwords cannot be retrieved.');
+      return;
     }
+    await handleCopyMemberCredentials(user.id, user.username, password);
   };
 
   const handleDeleteMember = async (user: UserAccount) => {
@@ -1021,7 +1034,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {credentialNotice && !selectedMemberId && <div role="status" className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                 <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Account credentials ready</p><button type="button" aria-label="Dismiss credentials" className="text-emerald-700 dark:text-emerald-300" onClick={() => setCredentialNotice(null)}><X className="h-4 w-4" /></button></div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{credentialNotice.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{credentialNotice.password}</dd></dl>
-                <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(credentialNotice.userId, credentialNotice.username, credentialNotice.password)}>{copiedCredentialId === credentialNotice.userId ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
+                <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(credentialNotice.userId, credentialNotice.username, credentialNotice.password, credentialNotice.name)}>{copiedCredentialId === credentialNotice.userId ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
                 <p className="text-xs text-slate-500 dark:text-slate-400">This password is shown only in this admin session.</p>
               </div>}
 
@@ -1061,7 +1074,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <p className="text-sm text-slate-600 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'} · {u.active !== false ? 'Active' : 'Deactivated'}</p>
                     </div>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{u.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id]?.password || 'Set a new password to view and copy'}</dd></dl>
-                    <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" onClick={() => void handleCopyMemberUsername(u)}><Copy className="h-4 w-4" /> Copy username</button>{memberCredentials[u.id] && <button type="button" className="ui-secondary" onClick={() => void handleCopyMemberCredentials(u.id, memberCredentials[u.id].username, memberCredentials[u.id].password)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>}</div>
+                    <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => void handleCopyAccountDetails(u)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" />{memberCredentials[u.id] ? 'Copy credentials' : 'Set password & copy credentials'}</>}</button></div>
                     {!selectedMemberId ? <div className="flex flex-wrap gap-2"><button type="button" disabled={isManaging} className="ui-secondary" onClick={() => { setSelectedMemberId(u.id); startEditingMember(u); }}><Pencil className="h-4 w-4" /> Edit account</button><button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button></div> : <>
                       {editingMemberId === u.id && <div role="dialog" aria-modal="true" aria-labelledby="edit-member-title" className="ui-form-screen fixed inset-0 z-50 flex flex-col">
                         <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
@@ -1071,10 +1084,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <DirectoryAccountSelect members={directoryMembers} value={memberEdit.directoryMemberId} accountId={u.id} onChange={(directoryMemberId, displayName) => setMemberEdit({ ...memberEdit, directoryMemberId, displayName: directoryMemberId ? displayName : memberEdit.displayName })} />
                 <label className="block text-sm font-medium">Name<input required maxLength={160} readOnly={!!memberEdit.directoryMemberId} autoComplete="name" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base read-only:opacity-70 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
-                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">(optional)</span><span className="relative mt-1 block"><input minLength={10} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
+                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">{copyAfterSaveId === u.id ? '(required to copy)' : '(optional)'}</span><span className="relative mt-1 block"><input required={copyAfterSaveId === u.id} minLength={10} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
                             </div>
-                            <div className="ui-form-actions flex justify-end gap-3"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => setEditingMemberId(null)}>Cancel</button><button type="submit" className="ui-primary" disabled={isManaging}>Save</button></div>
+                            <div className="ui-form-actions flex justify-end gap-3"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => setEditingMemberId(null)}>Cancel</button><button type="submit" className="ui-primary" disabled={isManaging}>{copyAfterSaveId === u.id ? 'Save & copy credentials' : 'Save'}</button></div>
                           </form>
                         </div>
                       </div>}
