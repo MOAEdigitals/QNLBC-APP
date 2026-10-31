@@ -1,7 +1,6 @@
 import { AssignmentRecipients } from './AssignmentRecipients';
 import { PersonAvatar } from './PersonAvatar';
 import { UpcomingBadge } from './UpcomingBadge';
-import { SetlistShareDialog } from './SetlistShareDialog';
 import { CardDate } from './CardDate';
 import { featuredSetlistCardId, initialSetlistCardId, orderSameDateSetlists } from '../utils/initialSetlistCard';
 import { useSetlistReorder } from '../hooks/useSetlistReorder';
@@ -49,7 +48,6 @@ import {
   Check,
   Search,
   GripVertical,
-  Share2,
 } from 'lucide-react';
 
 export function formatSetlistForMessenger(setlist: Setlist, songs: Song[] = []): string {
@@ -297,7 +295,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
-  const [sharePreview, setSharePreview] = useState<{ id: string; badge?: string } | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search names, songs, dates, or setlists', label: 'Search setlists' });
@@ -889,7 +886,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen setlists-screen space-y-6">
-      {sharePreview && setlists.some(item => item.id === sharePreview.id) && <SetlistShareDialog item={setlists.find(item => item.id === sharePreview.id)!} songs={songs} badge={sharePreview.badge} highlighted={sharePreview.id === featuredId} onClose={() => { const id = sharePreview.id; setSharePreview(null); requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(`[data-setlist-actions="${id}"] button[title="Setlist actions"]`)?.focus({ preventScroll: true })); }} />}
       {reorder.error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{reorder.error}</p>}
       <span role="status" aria-live="polite" className="sr-only">{reorder.announcement || (reorder.busy ? 'Saving setlist order…' : '')}</span>
       {reorder.drag && createPortal(<div aria-hidden="true" className="pointer-events-none fixed z-[220] max-w-[80vw] rounded-xl border border-blue-400 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-xl dark:bg-slate-800 dark:text-white" style={{ left: Math.max(8, Math.min(reorder.drag.x + 12, window.innerWidth - 220)), top: reorder.drag.y + 12 }}>
@@ -1038,7 +1034,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           <><Copy className="w-4 h-4" /><span>Copy setlist</span></>
                         )}
                       </button>
-                          <button type="button" onClick={() => { setOpenMenuSetlistId(null); setSharePreview({ id: item.id, badge: today ? 'Today' : isSoonest ? 'Next up' : item.id === followingUpcoming?.id ? 'Upcoming' : undefined }); }} className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2 cursor-pointer"><Share2 className="w-3.5 h-3.5 text-slate-500" /><span>Share setlist</span></button>
                           <button
                             type="button"
                             onClick={() => {
