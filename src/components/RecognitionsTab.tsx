@@ -2,7 +2,7 @@ import { celebrationConfetti } from '../utils/celebrationConfetti';
 import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek, isAnniversaryRecognitionWeek } from '../utils/dateUtils';
-import { isAnnualDatePast, orderAnnualBirthdays } from '../utils/recognitionOrder';
+import { isAnnualDatePast, orderAnnualBirthdays, orderBirthdayRecognitionMonths } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { useHeaderSearch } from './HeaderSearch';
@@ -149,13 +149,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   const { mondayStr, sundayStr } = getCurrentRecognitionWindow();
 
-  // Categorize Birthdays & Anniversaries (Current Window: Last Monday through This Sunday, Upcoming below)
-  const { currentWindow: currentBirthdays, upcoming: upcomingBirthdays } =
-    categorizeAnnualCelebrants<BirthdayCelebrant>(birthdays, (b: BirthdayCelebrant) => b.birthDate);
-
-  const visibleBirthdays = [...currentBirthdays, ...upcomingBirthdays];
   const birthdayToday = getTodayStr();
-  const filteredBirthdays = orderAnnualBirthdays(visibleBirthdays, b => b.birthDate, birthdayToday).filter((b: BirthdayCelebrant) => {
+  const filteredBirthdays = orderBirthdayRecognitionMonths(birthdays.filter(b => b.birthDate), b => b.birthDate, birthdayToday).filter((b: BirthdayCelebrant) => {
     if (!birthdaySearchQuery.trim()) return true;
     const q = birthdaySearchQuery.trim().toLowerCase();
     return b.name.toLowerCase().includes(q);

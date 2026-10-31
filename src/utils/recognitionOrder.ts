@@ -23,3 +23,23 @@ export function orderAnnualBirthdays<T>(items: T[], dateOf: (item: T) => string,
     return aPast ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
   });
 }
+
+/** Keep months together in annual order, starting with birthdays still to recognize. */
+export function orderBirthdayRecognitionMonths<T>(items: T[], dateOf: (item: T) => string, today: string): T[] {
+  const [year, month, day] = today.split('-').map(Number);
+  const start = new Date(year, month - 1, day);
+  start.setDate(start.getDate() + (7 - start.getDay()) % 7 - 3);
+  const startMonthDay = (start.getMonth() + 1) * 100 + start.getDate();
+  const monthRanks = new Map<number, number>();
+  const entries = items.map(item => {
+    const [, birthMonth, birthDay] = dateOf(item).split('-').map(Number);
+    const monthDay = birthMonth * 100 + birthDay;
+    // Sort the annual calendar without turning February 29 into March 1.
+    const rank = (start.getFullYear() + (monthDay < startMonthDay ? 1 : 0)) * 10000 + monthDay;
+    monthRanks.set(birthMonth, Math.min(monthRanks.get(birthMonth) ?? Infinity, rank));
+    return { item, month: birthMonth, rank };
+  });
+  return entries.sort((a, b) =>
+    (monthRanks.get(a.month)! - monthRanks.get(b.month)!) || a.rank - b.rank,
+  ).map(entry => entry.item);
+}

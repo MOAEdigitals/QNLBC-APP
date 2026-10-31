@@ -768,9 +768,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Account</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Logged in as <span className="font-semibold text-slate-700 dark:text-slate-300">{currentUser.name || currentUser.username}</span> ({currentUser.role === 'admin' ? 'Administrator' : 'Worship Team Member'})
-              </p>
             </div>
           </div>
 
@@ -869,9 +866,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
                 Appearance
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Current theme: <span className="font-semibold capitalize">{theme}</span> mode
-              </p>
             </div>
           </div>
 
@@ -1365,9 +1359,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     Realtime Active
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Realtime Postgres replication and authoritative cloud database.
-                </p>
               </div>
             </div>
 

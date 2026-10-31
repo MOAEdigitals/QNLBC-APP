@@ -983,7 +983,7 @@ if (isEditing && !savingSongRef.current) {
           <button key={value} type="button" aria-pressed={categoryFilter === value}
             onClick={() => setCategoryFilter(value)}
             className="ui-category-pill px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer select-none whitespace-nowrap flex items-center gap-1.5">
-            {value === 'Starred' && <Star className="w-3.5 h-3.5" fill={categoryFilter === value ? 'currentColor' : 'none'} />}
+                  {value === 'Starred' && <Star className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" />}
             <span>{label}</span>
           </button>
         ))}

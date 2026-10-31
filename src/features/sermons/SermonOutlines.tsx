@@ -219,7 +219,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
     {current.length > 0 && <div className="space-y-2.5">{renderCards(current)}</div>}
     {archive.length > 0 && <details open={archiveOpen || !!search.trim()} onToggle={event => { if (!search.trim()) setArchiveOpen(event.currentTarget.open); }} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/30">
       <summary className="min-h-12 cursor-pointer rounded-2xl px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-indigo-500">Imported / Older Outlines <span className="ml-1 text-slate-500 dark:text-slate-400">({archive.length})</span><span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">Before 2026</span></summary>
-      <div className="space-y-2.5 px-3 pb-3"><p className="px-1 pb-1 text-xs text-slate-500 dark:text-slate-400">Reference material from earlier collections. Imported notes use assigned archive dates.</p>{renderCards(archive)}</div>
+      <div className="space-y-2.5 px-3 pb-3">{renderCards(archive)}</div>
     </details>}
     {selected && !editor && <div ref={surface} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="sermon-reader-title" className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-slate-950 outline-none" onKeyDown={screenKeys}>
       <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-2 sm:px-5 pt-[var(--app-safe-top)]">

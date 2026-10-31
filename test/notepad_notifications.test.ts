@@ -95,17 +95,46 @@ test('admin notification schedules toggle alarm-style weekdays and save only on 
 
 test('notification panel marks a tapped card or all cards read without deleting history', async () => {
   const read: any[] = []; let opened = '';
-  await fixture('src/components/NotificationInbox.tsx', { createNotificationReadTimer: () => ({ sync() {}, dispose() {} }) }, async (exports, root) => {
+  await fixture('src/components/NotificationInbox.tsx', { createNotificationReadTimer: () => { throw Error('Opening the inbox must not start automatic read timers'); } }, async (exports, root, dom) => {
     await act(async () => root.render(React.createElement(exports.NotificationInbox, {
       items: [{ id: 'one', title: 'Sunday Service', body: 'Today', kind: 'event', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
       unreadCount: 1, loading: false, error: '', pushStatus: 'web', onMarkRead: async (ids?: string[]) => { read.push(ids); },
       onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onCalendar: (kind: string) => { opened = kind; }, onClose() {},
     })));
+    assert.equal(read.length, 0, 'opening the panel preserves unread notifications');
+    await act(() => document.dispatchEvent(new dom.window.Event('visibilitychange')));
+    assert.equal(read.length, 0, 'returning to the panel also preserves unread notifications');
     assert.match(document.querySelector('#root')!.textContent!, /Unread:/);
     await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Sunday Service'))!.click());
     assert.deepEqual(Array.from(read[0]), ['one']); assert.equal(opened, 'event');
+    assert.equal(document.querySelector('[role="menu"]'), null, 'bulk action is hidden in the header menu');
+    await act(() => label('Notification options').click());
+    assert.ok(document.querySelector('[role="menu"]'));
+    await act(() => document.getElementById('notifications-title')!.click());
+    assert.equal(document.querySelector('[role="menu"]'), null, 'outside taps dismiss the menu');
+    await act(() => label('Notification options').click());
     await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Mark all as read')!.click());
     assert.equal(read.length, 2); assert.equal(read[1], undefined);
+    assert.equal(document.querySelector('[role="menu"]'), null);
     assert.match(document.querySelector('#root')!.textContent!, /Sunday Service/, 'read cards remain in history');
+  });
+});
+
+test('failed marking keeps the notification unread and offers a retry', async () => {
+  let attempts = 0;
+  await fixture('src/components/NotificationInbox.tsx', {}, async (exports, root) => {
+    await act(async () => root.render(React.createElement(exports.NotificationInbox, {
+      items: [{ id: 'one', title: 'Reminder', body: 'Today', kind: 'custom', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
+      unreadCount: 1, loading: false, error: '', pushStatus: 'web',
+      onMarkRead: async () => { attempts++; throw Error('Connection failed'); },
+      onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onClose() {},
+    })));
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      await act(() => label('Notification options').click());
+      await act(async () => document.querySelector<HTMLButtonElement>('[role="menuitem"]')!.click());
+      assert.equal(attempts, attempt);
+      assert.match(document.querySelector('[role="alert"]')!.textContent!, /Connection failed/);
+      assert.match(document.getElementById('root')!.textContent!, /Unread:/);
+    }
   });
 });
