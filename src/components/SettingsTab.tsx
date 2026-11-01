@@ -1034,7 +1034,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <p className="text-xs text-slate-500 dark:text-slate-400">Visible this session only.</p>
               </div>}
 
-              <div className={selectedMemberId ? 'space-y-3' : 'divide-y divide-slate-200 dark:divide-slate-800 rounded-xl border border-slate-200 dark:border-slate-800'}>
+              <div className={selectedMemberId ? 'space-y-3' : 'member-account-list divide-y divide-slate-200 dark:divide-slate-800'}>
                 {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map((u, index) => {
                   const isCurrent = u.id === currentUser.id;
                   const isManaging = managingUserId === u.id;
@@ -1058,7 +1058,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <div className="min-w-0"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
                     </article>;
                   }
-                  return <article key={u.id} className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+                  return <article key={u.id} className="space-y-3">
                     <div className="space-y-1 min-w-0">
                       <h3 className="font-semibold break-words">{u.displayName || u.name || u.username}{isCurrent ? ' (You)' : ''}</h3>
                       <p className="text-sm text-slate-600 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'} · {u.active !== false ? 'Active' : 'Deactivated'}</p>
