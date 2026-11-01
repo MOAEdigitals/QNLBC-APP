@@ -377,7 +377,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
       const target = event.target as Element | null;
       if (target?.closest('[data-song-actions]')?.getAttribute('data-song-actions') !== openMenuSongId) setOpenMenuSongId(null);
       if (target?.closest('[data-attachment-actions]')?.getAttribute('data-attachment-actions') !== openAttachmentMenuId) setOpenAttachmentMenuId(null);
-      if (target?.closest('[data-song-categories]')?.getAttribute('data-song-categories') !== categoryPickerSongId) setCategoryPickerSongId(null);
+      if (!target?.closest('.ui-bottom-sheet-backdrop') && target?.closest('[data-song-categories]')?.getAttribute('data-song-categories') !== categoryPickerSongId) setCategoryPickerSongId(null);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && (openMenuSongId || openAttachmentMenuId || categoryPickerSongId)) {
@@ -1223,9 +1223,6 @@ if (isEditing && !savingSongRef.current) {
 
                           {categoryPickerSongId === song.id && (
                             <BottomSheet open title="Song categories" onClose={() => setCategoryPickerSongId(null)}><div data-song-categories={song.id} className="ui-sheet-options ui-category-sheet">
-                              <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                Categories
-                              </div>
                               {allCategories.map((cat) => {
                                 const isChecked = getSongCategories(song).includes(cat);
                                 return (
