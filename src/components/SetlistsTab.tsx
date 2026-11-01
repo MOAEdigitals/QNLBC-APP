@@ -1,3 +1,5 @@
+import { SheetDateField } from './SheetDateField';
+import { confirmAction } from '../services/appDialogs';
 import { AssignmentRecipients } from './AssignmentRecipients';
 import { PersonAvatar } from './PersonAvatar';
 import { UpcomingBadge } from './UpcomingBadge';
@@ -1048,9 +1050,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               setOpenMenuSetlistId(null);
-                              if (confirm(`Remove this setlist for ${item.date}?`)) {
+                              if ((await confirmAction(`Remove this setlist for ${item.date}?`))) {
                                 onDeleteSetlist(item.id);
                                 if (selectedSetlistId === item.id) setSelectedSetlistId(null);
                               }
@@ -1484,7 +1486,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   <label htmlFor="setlist-scheduled-date" className="sr-only">
                     Scheduled date
                   </label>
-                  <input
+                  <SheetDateField
                     id="setlist-scheduled-date"
                     name="scheduled_calendar_date"
                     type="date"

@@ -26,7 +26,7 @@ test('activities use compact month-grouped cards and a minimal editor', () => {
   assert.match(source, /const color = 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'/);
   assert.doesNotMatch(source, /monthColors\[/);
   assert.match(source, />Title<input required/);
-  assert.match(source, />Date<input required/);
+  assert.match(source, />Date<SheetDateField required/);
   assert.match(source, />\+ Add time</);
   assert.match(source, />\+ Add description</);
   assert.match(source, /expanded && item\.description/);

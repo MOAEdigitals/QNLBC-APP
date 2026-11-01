@@ -1,3 +1,6 @@
+import { SheetDateField } from '../../components/SheetDateField';
+import { confirmAction } from '../../services/appDialogs';
+import { BottomSheet } from '../../components/BottomSheet';
 import { UpcomingBadge } from '../../components/UpcomingBadge';
 import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import { CardDate } from '../../components/CardDate';
@@ -65,9 +68,9 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   const activityFilter = useMemo(() => (
       <div ref={filterRef} className="relative">
         <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-5 w-5" /></button>
-        {showFilters && <div className="absolute right-0 top-11 z-50 w-56 space-y-1 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+        <BottomSheet open={showFilters} title="Filter activities" onClose={() => setShowFilters(false)}><div className="space-y-1">
           {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
-        </div>}
+        </div></BottomSheet>
       </div>
     ), [showFilters, gatheringFilters]);
   useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities',
@@ -139,14 +142,6 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('click', close, true); document.removeEventListener('keydown', escape, true); };
   }, [openMenu]);
 
-  useEffect(() => {
-    if (!showFilters) return;
-    const close = (event: PointerEvent) => {
-      if (!filterRef.current?.contains(event.target as Node)) setShowFilters(false);
-    };
-    document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [showFilters]);
 
   const copyActivity = async (item: ChurchActivity) => {
     const date = localDate(item.activityDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -201,7 +196,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
 
   const remove = async (item: ChurchActivity) => {
     setOpenMenu(null);
-    if (!window.confirm(`Delete “${item.title}”?`)) return;
+    if (!(await confirmAction(`Delete “${item.title}”?`))) return;
     try {
       await deleteActivity(item.id);
       setItems(previous => previous.filter(existing => existing.id !== item.id));
@@ -262,8 +257,8 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800"><h2 id="activity-editor-title" className="font-semibold">{editor.isNew ? 'New activity' : 'Edit activity'}</h2><button type="button" disabled={saving} className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label="Close" onClick={() => setEditor(null)}><X className="h-5 w-5" /></button></header>
         <fieldset disabled={saving} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
           <label className="block text-sm font-medium">Title<input required autoFocus id="activity-title" name="activity_title" autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false} data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.title} onChange={event => setEditor({ ...editor, item: { ...editor.item, title: event.target.value } })} /></label>
-          <label className="block text-sm font-medium">Date<input required id="activity-date" name="activity_date" type="date" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityDate} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityDate: event.target.value } })} /></label>
-          <div>{!showTime ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowTime(true)}>+ Add time</button> : <label className="block text-sm font-medium">Time <span className="font-normal text-slate-400">(optional)</span><input id="activity-time" name="activity_time" type="time" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityTime || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityTime: event.target.value } })} /></label>}</div>
+          <label className="block text-sm font-medium">Date<SheetDateField required id="activity-date" name="activity_date" type="date" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityDate} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityDate: event.target.value } })} /></label>
+          <div>{!showTime ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowTime(true)}>+ Add time</button> : <label className="block text-sm font-medium">Time <span className="font-normal text-slate-400">(optional)</span><SheetDateField id="activity-time" name="activity_time" type="time" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1.5`} value={editor.item.activityTime || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, activityTime: event.target.value } })} /></label>}</div>
           <div className="pt-3">{!showDescription ? <button type="button" className="text-left text-sm font-semibold text-indigo-600" onClick={() => setShowDescription(true)}>+ Add description</button> : <label className="block text-sm font-medium">Description <span className="font-normal text-slate-400">(optional)</span><textarea id="activity-description" name="activity_description" rows={4} className={`${field} mt-1.5 resize-none`} value={editor.item.description || ''} onChange={event => setEditor({ ...editor, item: { ...editor.item, description: event.target.value } })} /></label>}</div>
           {saveError && <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">{saveError}</p>}
         </fieldset>

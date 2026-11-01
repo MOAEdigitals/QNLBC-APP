@@ -1,3 +1,6 @@
+import { SheetDateField } from './SheetDateField';
+import { confirmAction, showAppMessage } from '../services/appDialogs';
+import { SheetSelect } from './SheetSelect';
 import { celebrationConfetti } from '../utils/celebrationConfetti';
 import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
@@ -352,7 +355,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                                   <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => {
                                     setBirthdayMenuId(null);
                                     try { await navigator.clipboard.writeText(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`); }
-                                    catch { window.alert('Unable to copy. Please try again.'); }
+                                    catch { void showAppMessage('Unable to copy. Please try again.'); }
                                   }}><Copy className="w-4 h-4" />Copy</button>
                                   <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => {
                                     setBirthdayMenuId(null);
@@ -414,8 +417,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
                     <button
                       aria-label={`Remove ${item.title}`}
-                      onClick={() => {
-                        if (confirm(`Remove ${item.title}?`)) onDeleteAnniversary(item.id);
+                      onClick={async () => {
+                        if ((await confirmAction(`Remove ${item.title}?`))) onDeleteAnniversary(item.id);
                       }}
                       className="relative shrink-0 p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
                     >
@@ -471,8 +474,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                         </div>
 
                         <button
-                          onClick={() => {
-                            if (confirm(`Remove recognition for ${item.name}?`))
+                          onClick={async () => {
+                            if ((await confirmAction(`Remove recognition for ${item.name}?`)))
                               onDeleteSpecialRecognition(item.id);
                           }}
                           className="p-1.5 text-slate-400 hover:text-rose-600"
@@ -537,16 +540,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   Birthday (Month and Day) *
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <select aria-label="Birthday month" required value={bdayForm.birthDate.slice(5,7)} onChange={e => {
+                  <SheetSelect aria-label="Birthday month" required value={bdayForm.birthDate.slice(5,7)} onChange={e => {
                     const month = e.target.value;
                     const day = Math.min(Number(bdayForm.birthDate.slice(8)), new Date(2000, Number(month), 0).getDate());
                     setBdayForm({ ...bdayForm, birthDate: `2000-${month}-${String(day).padStart(2, '0')}` });
                   }} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
                     {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{new Date(2000,i,1).toLocaleDateString('en-US',{month:'long'})}</option>)}
-                  </select>
-                  <select aria-label="Birthday day" required value={bdayForm.birthDate.slice(8)} onChange={e => setBdayForm({ ...bdayForm, birthDate: `2000-${bdayForm.birthDate.slice(5,7)}-${e.target.value}` })} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
+                  </SheetSelect>
+                  <SheetSelect aria-label="Birthday day" required value={bdayForm.birthDate.slice(8)} onChange={e => setBdayForm({ ...bdayForm, birthDate: `2000-${bdayForm.birthDate.slice(5,7)}-${e.target.value}` })} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
                     {Array.from({ length: new Date(2000, Number(bdayForm.birthDate.slice(5,7)), 0).getDate() }, (_, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{i+1}</option>)}
-                  </select>
+                  </SheetSelect>
                 </div>
               </div>
 
@@ -619,7 +622,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                     Date *
                   </label>
-                  <input
+                  <SheetDateField
                     id="anniv-event-date"
                     name="anniv_event_date"
                     type="date"
@@ -634,7 +637,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                     Type
                   </label>
-                  <select
+                  <SheetSelect
                     value={annivForm.type}
                     onChange={(e) => setAnnivForm({ ...annivForm, type: e.target.value as any })}
                     className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
@@ -643,7 +646,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                     <option value="Church">Church Founding</option>
                     <option value="Ministry">Ministry Milestone</option>
                     <option value="Other">Other</option>
-                  </select>
+                  </SheetSelect>
                 </div>
               </div>
 
@@ -729,7 +732,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Recognition Type *
                 </label>
-                <select
+                <SheetSelect
                   value={specialForm.recognitionType}
                   onChange={(e) =>
                     setSpecialForm({ ...specialForm, recognitionType: e.target.value as SpecialRecognitionType })
@@ -742,7 +745,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   <option value="Newlywed">Newlywed</option>
                   <option value="Baby Dedication">Baby Dedication</option>
                   <option value="Custom">Custom Recognition Type</option>
-                </select>
+                </SheetSelect>
               </div>
 
               <div>
@@ -774,7 +777,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Recognition Date
                 </label>
-                <input
+                <SheetDateField
                   id="special-event-date"
                   name="special_event_date"
                   type="date"

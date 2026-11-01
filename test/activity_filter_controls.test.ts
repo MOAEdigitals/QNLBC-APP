@@ -1,3 +1,4 @@
+import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,10 +22,10 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   let updateHeader: (node: any) => void;
   let searchConfig: any;
   const scrollTargets: HTMLElement[] = [];
-  const exports: any = {};
+  const exports: any = {}; const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync('src/features/activities/Activities.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document, window: dom.window, console,
-    require: (name: string) => name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => name.endsWith('BottomSheet') ? ui(name) : name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
   });
   function Harness() {
     const [header, setHeader] = React.useState(null); updateHeader = setHeader;

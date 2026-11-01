@@ -1,3 +1,5 @@
+import { confirmAction, showAppMessage } from '../services/appDialogs';
+import { SheetSelect } from './SheetSelect';
 import { SongExport } from './SongExport';
 import { NotificationSoundSettings } from './NotificationSoundSettings';
 import { AdminAnnouncements } from './AdminAnnouncements';
@@ -287,7 +289,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
     const trimmed = newNameInput.trim();
     if (!trimmed) return;
     if (savedNames.some((n) => n.toLowerCase() === trimmed.toLowerCase())) {
-      alert('This name already exists in the church directory.');
+      void showAppMessage('This name already exists in the church directory.');
       return;
     }
     const updated = [...savedNames, trimmed].sort();
@@ -314,7 +316,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Toggle user role
   const handleToggleUserRole = async (targetUser: UserAccount) => {
     if (targetUser.id === currentUser.id) {
-      if (!confirm('Are you sure you want to change your own role? You may lose admin privileges.')) {
+      if (!(await confirmAction('Are you sure you want to change your own role? You may lose admin privileges.'))) {
         return;
       }
     }
@@ -329,7 +331,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         onUpdateCurrentUser({ ...currentUser, role: nextRole });
       }
     } catch (err: any) {
-      alert('Failed to update role: ' + (err.message || 'Error'));
+      void showAppMessage('Failed to update role: ' + (err.message || 'Error'));
     } finally {
       setManagingUserId(null);
     }
@@ -338,12 +340,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   // Toggle user active/deactivated
   const handleToggleUserActive = async (targetUser: UserAccount) => {
     if (targetUser.id === currentUser.id) {
-      alert('You cannot deactivate your own account.');
+      void showAppMessage('You cannot deactivate your own account.');
       return;
     }
     const nextActive = !targetUser.active;
     const actionLabel = nextActive ? 'activate' : 'deactivate';
-    if (!confirm(`Are you sure you want to ${actionLabel} ${targetUser.username}?`)) {
+    if (!(await confirmAction(`Are you sure you want to ${actionLabel} ${targetUser.username}?`))) {
       return;
     }
 
@@ -354,7 +356,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         users.map((u) => (u.id === targetUser.id ? { ...u, active: nextActive } : u))
       );
     } catch (err: any) {
-      alert(`Failed to ${actionLabel} user: ` + (err.message || 'Error'));
+      void showAppMessage(`Failed to ${actionLabel} user: ` + (err.message || 'Error'));
     } finally {
       setManagingUserId(null);
     }
@@ -378,7 +380,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       const updatedUser = await updateUserProfile(targetUser.id, nextPermissions);
       onUpdateUsers(users.map((u) => (u.id === targetUser.id ? updatedUser : u)));
     } catch (err: any) {
-      alert('Failed to update permissions: ' + (err.message || 'Error'));
+      void showAppMessage('Failed to update permissions: ' + (err.message || 'Error'));
     } finally {
       setManagingUserId(null);
     }
@@ -492,7 +494,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const handleDeleteMember = async (user: UserAccount) => {
-    if (user.id === currentUser.id || !confirm(`Permanently delete ${user.displayName || user.username}?`)) return;
+    if (user.id === currentUser.id || !(await confirmAction(`Permanently delete ${user.displayName || user.username}?`))) return;
     setManagingUserId(user.id);
     try {
       await deleteManagedUser(user.id);
@@ -500,7 +502,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       onUpdateUsers(users.filter(item => item.id !== user.id));
       setSelectedMemberId(null);
     } catch (error: any) {
-      alert(error.message || 'Could not delete account.');
+      void showAppMessage(error.message || 'Could not delete account.');
     } finally { setManagingUserId(null); }
   };
 
@@ -717,7 +719,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
       a.rel = 'noopener noreferrer';
       a.click();
     } catch (e: any) {
-      alert('Could not download zip: ' + (e.message || 'Error'));
+      void showAppMessage('Could not download zip: ' + (e.message || 'Error'));
     } finally {
       setIsDownloadingZip(false);
     }
@@ -912,9 +914,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
             {/* Targeted Cache & Legacy Storage Tool */}
             <div className="space-y-2">
               <label htmlFor="app-font" className="block text-sm font-semibold">App font</label>
-              <select id="app-font" value={appFont} onChange={event => onChangeAppFont(event.target.value as AppFont)} className="w-full min-h-11 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
+              <SheetSelect id="app-font" value={appFont} onChange={event => onChangeAppFont(event.target.value as AppFont)} className="w-full min-h-11 rounded-xl border border-slate-300 bg-white p-3 text-base text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white">
                 {APP_FONTS.map(font => <option key={font} value={font}>{font}</option>)}
-              </select>
+              </SheetSelect>
 
             </div>
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

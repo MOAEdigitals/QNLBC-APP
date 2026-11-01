@@ -1,3 +1,5 @@
+import { SheetDateField } from './SheetDateField';
+import { SheetSelect } from './SheetSelect';
 import React, { useEffect, useRef, useState } from 'react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { loadAnnouncementAdmin, sendAnnouncement, cancelScheduledAnnouncement, type ScheduledAnnouncement, type AnnouncementRecipient } from '../services/adminAnnouncements';
@@ -55,8 +57,8 @@ export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChang
     <label className="block text-sm font-medium">Title<input required maxLength={120} placeholder="Announcement title" className={field} value={title} onChange={e => { setTitle(e.target.value); setNotice(''); }} /></label>
     <label className="block text-sm font-medium">Message<textarea required maxLength={2000} rows={4} placeholder="Write your announcement…" className={field} value={body} onChange={e => { setBody(e.target.value); setNotice(''); }} /><span className="block text-right text-xs text-slate-500">{body.length}/2000</span></label>
     <div className="settings-section-divider grid gap-4 sm:grid-cols-2">
-    <label className="block text-sm font-medium">Delivery<select className={field} value={scheduleMode ? 'schedule' : 'now'} onChange={e => setScheduleMode(e.target.value === 'schedule')}><option value="now">Send now</option><option value="schedule">Schedule</option></select></label>
-    {scheduleMode && <label className="block text-sm font-medium">Date and time (Philippine time)<input required type="datetime-local" className={field} value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} /></label>}
+    <label className="block text-sm font-medium">Delivery<SheetSelect className={field} value={scheduleMode ? 'schedule' : 'now'} onChange={e => setScheduleMode(e.target.value === 'schedule')}><option value="now">Send now</option><option value="schedule">Schedule</option></SheetSelect></label>
+    {scheduleMode && <label className="block text-sm font-medium">Date and time (Philippine time)<SheetDateField required type="datetime-local" className={field} value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} /></label>}
     </div>
     <fieldset className="settings-section-divider space-y-3"><legend className="font-semibold">Recipients · {recipients.length} selected</legend>
       <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" disabled={loading} onClick={() => setSelected(people.map(person => person.id))}>Select all active users</button><button type="button" className="ui-secondary" onClick={() => setSelected([])}>Clear selection</button></div>

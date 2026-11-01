@@ -1,3 +1,6 @@
+import { confirmAction } from '../services/appDialogs';
+import { SheetSelect } from './SheetSelect';
+import { BottomSheet } from './BottomSheet';
 import { getUpcomingSongSchedule } from '../utils/songSchedule';
 import { scheduledSongMedia, type SongNavigationRequest } from '../utils/songMediaNavigation';
 import { supabase } from '../supabase';
@@ -544,16 +547,6 @@ if (isEditing && !savingSongRef.current) {
   const usageMap = useMemo(() => buildSongUsageMap(setlists), [setlists]);
 
 
-  useEffect(() => {
-    if (!isSortMenuOpen) return;
-    const closeSortMenu = (event: MouseEvent) => {
-      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
-        setIsSortMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', closeSortMenu);
-    return () => document.removeEventListener('mousedown', closeSortMenu);
-  }, [isSortMenuOpen]);
 
   // Sort usage-based options by the last date a song was actually sung in a past setlist.
   const sortedSongs = useMemo(() => {
@@ -1023,10 +1016,10 @@ if (isEditing && !savingSongRef.current) {
             <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} />
           </button>
 
-          {isSortMenuOpen && (
+          <BottomSheet open={isSortMenuOpen} title="Sort songs" onClose={() => setIsSortMenuOpen(false)}>
             <div
               role="menu"
-              className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 shadow-xl"
+              className="ui-sheet-options"
             >
               {SONG_SORT_OPTIONS.map((option) => (
                 <button
@@ -1034,6 +1027,7 @@ if (isEditing && !savingSongRef.current) {
                   type="button"
                   role="menuitemradio"
                   aria-checked={sortMode === option.value}
+                  data-sheet-focus={sortMode === option.value || undefined}
                   onClick={() => {
                     setSortMode(option.value);
                     setIsSortMenuOpen(false);
@@ -1049,7 +1043,7 @@ if (isEditing && !savingSongRef.current) {
                 </button>
               ))}
             </div>
-          )}
+          </BottomSheet>
         </div>
       </div>
 
@@ -1352,10 +1346,10 @@ if (isEditing && !savingSongRef.current) {
 
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
                                 setOpenMenuSongId(null);
-                                if (confirm(`Remove "${song.title}" from Song Library?`)) {
+                                if ((await confirmAction(`Remove "${song.title}" from Song Library?`))) {
                                   onDeleteSong(song.id);
                                   setSelectedSongId(null);
                                   onClearInitialSelectedSongId?.();
@@ -1700,7 +1694,7 @@ if (isEditing && !savingSongRef.current) {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                   Select Target Setlist *
                 </label>
-                <select
+                <SheetSelect
                   value={targetSetlistId}
                   onChange={(e) => setTargetSetlistId(e.target.value)}
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
@@ -1718,7 +1712,7 @@ if (isEditing && !savingSongRef.current) {
                       </option>
                     ))}
                   <option value="NEW">Create Brand New Setlist with this song</option>
-                </select>
+                </SheetSelect>
               </div>
 
               {targetSetlistId !== 'NEW' && (

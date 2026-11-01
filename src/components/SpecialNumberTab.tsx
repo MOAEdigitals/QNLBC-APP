@@ -1,3 +1,5 @@
+import { SheetDateField } from './SheetDateField';
+import { confirmAction } from '../services/appDialogs';
 import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { CardActions } from './CardActions';
@@ -1316,8 +1318,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  const handleDeleteChoir = (id: string) => {
-    if (window.confirm('Are you sure you want to remove this choir song entry?')) {
+  const handleDeleteChoir = async (id: string) => {
+    if ((await confirmAction('Are you sure you want to remove this choir song entry?'))) {
       if (onDeleteChoirEntry) {
         onDeleteChoirEntry(id);
       }
@@ -2144,8 +2146,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
 
                         <div className="flex items-center shrink-0 ml-2">
-                          <CardActions label="Song number" onEdit={() => { setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={() => {
-                            if (confirm(`Remove special song number for ${item.performerName}?`)) {
+                          <CardActions label="Song number" onEdit={() => { setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={async () => {
+                            if ((await confirmAction(`Remove special song number for ${item.performerName}?`))) {
                               onDeleteSpecialNumber(item.id);
                               if (selectedEntryId === item.id) setSelectedEntryId(null);
                             }
@@ -2322,8 +2324,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                           <button
                             type="button"
-                            onClick={() => {
-                              if (confirm(`Remove practice group "${group.groupName}"?`)) {
+                            onClick={async () => {
+                              if ((await confirmAction(`Remove practice group "${group.groupName}"?`))) {
                                 if (onDeletePracticeEntry) onDeletePracticeEntry(group.id);
                                 if (selectedPracticeId === group.id) setSelectedPracticeId(null);
                               }
@@ -2788,7 +2790,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Scheduled Service Date *
                 </label>
-                <input
+                <SheetDateField
                   id="schedule-date-input"
                   name="schedule_service_date"
                   type="date"
@@ -3634,7 +3636,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Scheduled Date <span className="text-rose-500">*</span>
                 </label>
-                <input
+                <SheetDateField
                   id="choir-service-date"
                   name="choir_service_date"
                   type="date"

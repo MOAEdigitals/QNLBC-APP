@@ -1,3 +1,4 @@
+import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React, { act } from 'react';
@@ -15,9 +16,10 @@ async function fixture(path: string, services: any, run: (exports: any, root: Ro
   keys.forEach(key => Object.defineProperty(globalThis,key,{configurable:true,value:key==='IS_REACT_ACT_ENVIRONMENT'?true:(dom.window as any)[key]}));
   const { createRoot } = await import('react-dom/client');
   const exports: any = {}, root = createRoot(document.getElementById('root')!);
+  const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync(path,'utf8'), { compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2022} }).outputText, {
     exports,window:dom.window,document:dom.window.document,crypto:webcrypto,requestAnimationFrame:(f:()=>void)=>f(),
-    require:(name:string)=>name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
+    require:(name:string)=>name.endsWith('SheetSelect')||name.endsWith('SheetDateField')||name.endsWith('BottomSheet')?ui(name):name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
   });
   try { await run(exports,root,dom); }
   finally { await act(()=>root.unmount()); dom.window.close(); keys.forEach((key,i)=>{if(prior[i])Object.defineProperty(globalThis,key,prior[i]!);else delete (globalThis as any)[key];}); }

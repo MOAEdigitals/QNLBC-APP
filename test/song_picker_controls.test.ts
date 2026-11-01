@@ -1,3 +1,4 @@
+import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -15,7 +16,7 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
   const React = require('react');
   const { createRoot } = require('react-dom/client');
   const { act } = React;
-  const exports: any = {};
+  const exports: any = {}; const ui = createUiTestLoader(dom, React);
   let selected = '';
   const root = createRoot(document.getElementById('root'));
   runInNewContext(ts.transpileModule(readFileSync('src/components/AutofillInput.tsx', 'utf8'), {
@@ -24,7 +25,7 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
     exports, document, window: dom.window, CustomEvent: dom.window.CustomEvent, setTimeout, clearTimeout,
     ResizeObserver: class { observe() {} disconnect() {} },
     // Geometry is tested separately in picker_placement.test.ts.
-    require: (name: string) => name === 'react' ? React : name === 'react-dom' ? require('react-dom') : name === 'lucide-react' ? new Proxy({}, { get: () => (props: any) => React.createElement('svg', props) }) : name.includes('pickerPlacement') ? { pickerPlacement: () => ({ top: 144, maxHeight: 300 }) } : name.includes('songSearch') ? { fuzzyMatchString: () => ({ matches: false }), searchSong: () => ({ matches: true, score: 1 }), buildSongUsageMap: () => null } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => name.endsWith('BottomSheet') ? ui(name) : name === 'react' ? React : name === 'react-dom' ? require('react-dom') : name === 'lucide-react' ? new Proxy({}, { get: () => (props: any) => React.createElement('svg', props) }) : name.includes('pickerPlacement') ? { pickerPlacement: () => ({ top: 144, maxHeight: 300 }) } : name.includes('songSearch') ? { fuzzyMatchString: () => ({ matches: false }), searchSong: () => ({ matches: true, score: 1 }), buildSongUsageMap: () => null } : new Proxy({}, { get: () => () => null }),
   });
   const songs = [{ id: 'z', title: 'Zion', category: 'Hymn' }, { id: 'a', title: 'Amazing Grace', category: 'Hymn', isStarred: true }, { id: 'b', title: 'Blessed', category: 'Choir' }];
   const titles = () => [...document.querySelectorAll('[class*="text-[14px]"]')].map(e => e.textContent);
@@ -61,7 +62,7 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
     await sortBy('za');
     assert.deepEqual(titles(), ['Zion', 'Blessed', 'Amazing Grace']);
     await act(() => document.body.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true })));
-    assert.equal((document.querySelector('[data-picker-closing]') as HTMLElement).style.transform, 'translateY(24px)', 'desktop outside click slides the list down');
+    assert.equal((document.querySelector('[data-picker-closing]') as HTMLElement).style.transform, 'translateY(100%)', 'outside click slides the sheet down on every device');
     await settleClose();
     assert.equal(document.querySelector('[role="listbox"]'), null);
     await act(() => document.querySelector('input')!.dispatchEvent(new dom.window.FocusEvent('focusin', { bubbles: true })));

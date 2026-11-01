@@ -1,3 +1,4 @@
+import { SheetSelect } from '../../components/SheetSelect';
 import React, { useEffect } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -58,7 +59,7 @@ export default function RichOutlineEditor({ html, text, disabled, onChange }: { 
   ];
   return <div className="rounded-xl border border-slate-300 dark:border-slate-600 overflow-hidden bg-white dark:bg-slate-900">
     <div role="toolbar" aria-label="Outline formatting" className="flex flex-wrap gap-0.5 sm:gap-1 p-2 border-b border-slate-200 dark:border-slate-700">
-      <select aria-label="Paragraph style" disabled={disabled || !editor} value={editor?.isActive('heading', { level: 1 }) ? '1' : editor?.isActive('heading', { level: 2 }) ? '2' : editor?.isActive('heading', { level: 3 }) ? '3' : 'paragraph'} onChange={event => { const value = event.target.value; if (value === 'paragraph') editor?.chain().focus().setParagraph().run(); else editor?.chain().focus().setHeading({ level: Number(value) as 1 | 2 | 3 }).run(); }} className="h-10 max-w-32 rounded-lg bg-white dark:bg-slate-900 px-2 text-sm border border-slate-200 dark:border-slate-700"><option value="paragraph">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option></select>
+      <SheetSelect aria-label="Paragraph style" disabled={disabled || !editor} value={editor?.isActive('heading', { level: 1 }) ? '1' : editor?.isActive('heading', { level: 2 }) ? '2' : editor?.isActive('heading', { level: 3 }) ? '3' : 'paragraph'} onChange={event => { const value = event.target.value; if (value === 'paragraph') editor?.chain().focus().setParagraph().run(); else editor?.chain().focus().setHeading({ level: Number(value) as 1 | 2 | 3 }).run(); }} className="h-10 max-w-32 rounded-lg bg-white dark:bg-slate-900 px-2 text-sm border border-slate-200 dark:border-slate-700"><option value="paragraph">Normal text</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option></SheetSelect>
       {commands.map(command => <button key={command.label} type="button" title={command.label} aria-label={command.label} aria-pressed={command.active} disabled={disabled || !editor} onClick={command.run} className={`w-9 sm:w-10 h-10 shrink-0 rounded-lg flex items-center justify-center disabled:opacity-40 ${command.active ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}><command.icon className="w-4 h-4" /></button>)}</div>
     <EditorContent editor={editor} />
   </div>;

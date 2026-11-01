@@ -1,3 +1,4 @@
+import { showAppMessage } from './services/appDialogs';
 import { useAppExitGuard } from './hooks/useAppExitGuard';
 import { ExitConfirmation } from './components/ExitConfirmation';
 import { useAssignmentNotifications } from './hooks/useAssignmentNotifications';
@@ -710,7 +711,7 @@ export default function App() {
 
   const requirePermission = (permission: 'add' | 'edit' | 'delete' | 'upload') => {
     if (hasPermission(permission)) return true;
-    alert(`Your account does not have ${permission.toUpperCase()} permission. Please contact an administrator.`);
+    void showAppMessage(`Your account does not have ${permission.toUpperCase()} permission. Please contact an administrator.`);
     return false;
   };
 
@@ -748,7 +749,7 @@ export default function App() {
       // Refresh authoritative list
       const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
       setSetlists(fresh);
-      alert('Unable to save setlist: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save setlist: ' + (err.message || 'Database error'));
       return false;
     }
   }, [setlists, currentUser]);
@@ -764,7 +765,7 @@ export default function App() {
       console.error('Failed to delete setlist from Supabase:', err);
       const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
       setSetlists(fresh);
-      alert('Unable to delete setlist: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to delete setlist: ' + (err.message || 'Database error'));
     }
   }, [setlists, currentUser]);
 
@@ -787,7 +788,7 @@ export default function App() {
       console.error('Failed to save song to Supabase:', err);
       const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
       setSongs(fresh);
-      alert('Unable to save song: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save song: ' + (err.message || 'Database error'));
       throw err;
     }
   }, [songs, currentUser]);
@@ -819,7 +820,7 @@ export default function App() {
       console.error('Failed to delete song from Supabase:', err);
       const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
       setSongs(fresh);
-      alert('Unable to delete song: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to delete song: ' + (err.message || 'Database error'));
     }
   }, [songs, currentUser]);
 
@@ -862,7 +863,7 @@ export default function App() {
       console.error('Failed to save special number:', err);
       const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
       setSpecialNumbers(fresh);
-      alert('Unable to save special number: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save special number: ' + (err.message || 'Database error'));
     }
   };
 
@@ -917,7 +918,7 @@ export default function App() {
       console.error('Failed to save choir presentation:', err);
       const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
       setChoirEntries(fresh);
-      alert('Unable to save choir presentation: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save choir presentation: ' + (err.message || 'Database error'));
     }
   };
 
@@ -955,7 +956,7 @@ export default function App() {
         console.error('Failed to create practice entry:', formatSupabaseError(err), err);
         const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
         setPracticeEntries(fresh);
-        alert('Unable to save practice: ' + (err.message || 'Database error'));
+        void showAppMessage('Unable to save practice: ' + (err.message || 'Database error'));
         throw err;
       }
     } else {
@@ -969,12 +970,12 @@ export default function App() {
           setPracticeEntries((prev) => prev.filter((p) => p.id !== entry.id));
           const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
           setPracticeEntries(fresh);
-          alert('Practice no longer exists or could not be accessed.');
+          void showAppMessage('Practice no longer exists or could not be accessed.');
           throw err;
         }
         const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
         setPracticeEntries(fresh);
-        alert('Unable to save practice: ' + (err.message || 'Database error'));
+        void showAppMessage('Unable to save practice: ' + (err.message || 'Database error'));
         throw err;
       }
     }
@@ -990,7 +991,7 @@ export default function App() {
       console.error('Failed to delete practice entry:', formatSupabaseError(err), err);
       const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
       setPracticeEntries(fresh);
-      alert('Unable to delete practice: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to delete practice: ' + (err.message || 'Database error'));
     }
   };
 
@@ -1077,7 +1078,7 @@ export default function App() {
       console.error('Failed to save birthday celebrant:', err);
       const fresh = await fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays'));
       setBirthdays(fresh);
-      alert('Unable to save celebrant: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save celebrant: ' + (err.message || 'Database error'));
       return false;
     }
   };
@@ -1110,7 +1111,7 @@ export default function App() {
       console.error('Failed to save anniversary:', err);
       const fresh = await fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries'));
       setAnniversaries(fresh);
-      alert('Unable to save anniversary: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save anniversary: ' + (err.message || 'Database error'));
     }
   };
 
@@ -1142,7 +1143,7 @@ export default function App() {
       console.error('Failed to save visitor:', err);
       const fresh = await fetchVisitors().catch(() => preserveOnRefreshFailure('visitors'));
       setVisitors(fresh);
-      alert('Unable to save visitor: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save visitor: ' + (err.message || 'Database error'));
     }
   };
 
@@ -1174,7 +1175,7 @@ export default function App() {
       console.error('Failed to save recognition:', err);
       const fresh = await fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions'));
       setSpecialRecognitions(fresh);
-      alert('Unable to save recognition: ' + (err.message || 'Database error'));
+      void showAppMessage('Unable to save recognition: ' + (err.message || 'Database error'));
     }
   };
 

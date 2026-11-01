@@ -1,3 +1,5 @@
+import { SheetDateField } from '../../components/SheetDateField';
+import { confirmAction } from '../../services/appDialogs';
 import { CardDate } from '../../components/CardDate';
 import { CardActions } from '../../components/CardActions';
 import { UpcomingBadge } from '../../components/UpcomingBadge';
@@ -101,14 +103,14 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
     setSelectedId(row.id); setCopyMessage('');
   }
   function closeReader() { setSelectedId(null); setCopyMessage(''); }
-  function closeEditor() {
+  async function closeEditor() {
     if (saveLock.current || checkingFiles || !editor) return;
     const original = editor.original;
     const dirty = original
       ? ['service_date', 'title', 'preacher', 'outline', 'outline_html'].some(key => (editor.input[key as keyof SermonInput] || '') !== (original[key as keyof SermonInput] || ''))
         || JSON.stringify(editor.input.attachments || []) !== JSON.stringify(original.attachments || []) || pendingFiles.length > 0
       : !!editor.input.title || !!editor.input.preacher || !!editor.input.outline || !!editor.input.attachments?.length || pendingFiles.length > 0;
-    if (dirty && !window.confirm('Discard your unsaved changes?')) return;
+    if (dirty && !(await confirmAction('Discard your unsaved changes?'))) return;
     const originalPaths = new Set(original?.attachments?.map(item => item.path));
     void removeUnusedSermonFiles((editor.input.attachments || []).filter(item => !originalPaths.has(item.path)).map(item => item.path));
     setEditor(null); setPendingFiles([]); setSaveError('');
@@ -159,7 +161,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
   }
   async function removeSelected(row = selected) {
     if (!row || !canDelete(row) || saveLock.current) return;
-    if (!window.confirm(`Delete “${row.title}”? This cannot be undone.`)) return;
+    if (!(await confirmAction(`Delete “${row.title}”? This cannot be undone.`))) return;
     saveLock.current = true; setSaving(true); setCopyMessage('');
     try {
       await deleteSermon(row);
@@ -242,7 +244,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
       <form onSubmit={event => { event.preventDefault(); void submit('published'); }} autoComplete="off" data-form-type="other" className="flex flex-col flex-1 min-h-0">
         <div className="flex-1 min-h-0 overflow-y-auto"><div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4">
           <fieldset disabled={saving || checkingFiles} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="block text-sm">Service date<input required id="sermon-service-date" name="sermon_service_date" type="date" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1`} value={editor.input.service_date} onChange={event => setEditor({ ...editor, input: { ...editor.input, service_date: event.target.value } })} /></label>
+            <label className="block text-sm">Service date<SheetDateField required id="sermon-service-date" name="sermon_service_date" type="date" autoComplete="off" data-form-type="other" data-lpignore="true" className={`${field} mt-1`} value={editor.input.service_date} onChange={event => setEditor({ ...editor, input: { ...editor.input, service_date: event.target.value } })} /></label>
             <label className="block text-sm">Preacher<input required id="sermon-preacher" name="sermon_preacher" autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck={false} data-form-type="other" data-lpignore="true" placeholder="Preacher's name" className={`${field} mt-1`} value={editor.input.preacher} onChange={event => setEditor({ ...editor, input: { ...editor.input, preacher: event.target.value } })} /></label>
             <label className="block text-sm sm:col-span-2">Sermon title<input required id="sermon-title" name="sermon_title" autoComplete="off" autoCorrect="off" autoCapitalize="sentences" spellCheck={false} data-form-type="other" data-lpignore="true" className={`${field} mt-1`} value={editor.input.title} onChange={event => setEditor({ ...editor, input: { ...editor.input, title: event.target.value } })} /></label>
           </fieldset>

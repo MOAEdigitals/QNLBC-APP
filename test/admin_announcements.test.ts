@@ -1,3 +1,4 @@
+import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,8 +18,8 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   const people = [{id:'one',name:'Roger',username:'qnlbcroger',push_enabled:true},{id:'two',name:'Eric',username:'qnlbceric',push_enabled:false}];
   const calls: any[][]=[]; let release: (()=>void)|undefined; let fail=true;
   const service={loadAnnouncementAdmin:async()=>({recipients:people,history:[]}),sendAnnouncement:async(...args:any[])=>{calls.push(args); await new Promise<void>(resolve=>{release=resolve;}); if(fail)throw new Error('Connection interrupted');}};
-  const exports:any={};
-  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>name==='react'?React:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
+  const exports:any={}; const ui = createUiTestLoader(dom, React);
+  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>(name.endsWith('SheetSelect')||name.endsWith('SheetDateField'))?ui(name):name==='react'?React:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
   const root=createRoot(document.getElementById('root')!);
   const click=async(element:Element)=>{await act(async()=>element.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true})));};
   const button=(name:string)=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent===name)!;
@@ -55,11 +56,16 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
     assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length,0);
     await setValue('input[maxlength="120"]','Future notice'); await setValue('textarea','Tomorrow reminder');
     await click(button('Select all active users'));
-    await setValue('select','schedule'); await setValue('input[type="datetime-local"]','2099-11-01T06:00');
+    await click(document.querySelector('button[aria-haspopup="dialog"]')!); await click(button('Schedule')); await click(document.querySelector('input[data-field-type="datetime-local"]')!.previousElementSibling!);
+    await click(document.querySelector('[aria-label="Calendar year"]')!); await click(button('2070'));
+    await click(document.querySelector('[aria-label="Calendar month"]')!); await click(button('November'));
+    await click(document.querySelector('[aria-label="November 1, 2070"]')!);
+    await click(document.querySelector('[aria-label="Hour"]')!); await click([...document.querySelectorAll('[role="dialog"]')].at(-1)!.querySelector('.ui-sheet-options button:nth-child(6)')!);
+    await click(button('Set date and time'));
     await act(async()=>document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
-    assert.match(document.querySelector('[role="dialog"]')!.textContent!,/2099-11-01 06:00 Philippine time/);
+    assert.match(document.querySelector('[role="dialog"]')!.textContent!,/2070-11-01 06:00 Philippine time/);
     await click(button('Schedule notification'));
-    assert.equal(calls[2][4],'2099-10-31T22:00:00.000Z');
+    assert.equal(calls[2][4],'2070-10-31T22:00:00.000Z');
     await act(async()=>release!());
     assert.match(document.querySelector('[role="status"]')!.textContent!,/Scheduled for/);
   } finally {await act(async()=>root.unmount());dom.window.close();keys.forEach((key,i)=>{if(previous[i])Object.defineProperty(globalThis,key,previous[i]!);else delete (globalThis as any)[key];});}

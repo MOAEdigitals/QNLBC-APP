@@ -1,3 +1,4 @@
+import { confirmAction } from '../../services/appDialogs';
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Plus, Search, X, Trash2, RotateCcw, NotebookPen } from 'lucide-react';
 import { useBackLayer } from '../../hooks/useBackLayer';
@@ -25,10 +26,10 @@ export default function Notepad({ userId, onClose }: { userId: string; onClose: 
     window.addEventListener('focus', focus);
     return () => { live.current = false; document.body.style.overflow = before; window.removeEventListener('focus', focus); };
   }, [userId]);
-  function closeEditor() {
+  async function closeEditor() {
     if (lock.current || !editor) return;
     const dirty = editor.title !== (editor.original?.title || '') || editor.body !== (editor.original?.body || '');
-    if (dirty && !window.confirm('Discard unsaved note changes?')) return;
+    if (dirty && !(await confirmAction('Discard unsaved note changes?'))) return;
     setEditor(null); setError('');
   }
   function closeSearch() { searchInput.current?.blur(); setQuery(''); setSearchOpen(false); }
@@ -44,7 +45,7 @@ export default function Notepad({ userId, onClose }: { userId: string; onClose: 
     finally { lock.current = false; if (live.current) setBusy(false); }
   }
   async function removeOrRestore(note: PersonalNote, deleted: boolean) {
-    if (lock.current || (deleted && !window.confirm('Move this note to Recently deleted?'))) return;
+    if (lock.current || (deleted && !(await confirmAction('Move this note to Recently deleted?')))) return;
     lock.current = true; setBusy(true); setError('');
     try { const saved = await setNoteDeleted(note, deleted); if (live.current) { update(saved); setEditor(null); } }
     catch (e) { if (live.current) setError((e as Error).message); }

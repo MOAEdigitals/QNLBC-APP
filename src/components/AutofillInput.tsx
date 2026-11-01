@@ -1,4 +1,5 @@
 import { pickerPlacement } from '../utils/pickerPlacement';
+import { BottomSheet } from './BottomSheet';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
 import { createPortal } from 'react-dom';
@@ -11,7 +12,7 @@ import {
   buildSongUsageMap,
   SongUsageHistory,
 } from '../utils/songSearch';
-import { AlertTriangle, CornerDownLeft, Star, X, ArrowUpDown, Check } from 'lucide-react';
+import { AlertTriangle, CornerDownLeft, Star, X, Search, ArrowUpDown, Check } from 'lucide-react';
 
 export type SongPickerFilter = 'all' | 'starred' | 'Hymn' | 'Special' | 'Contemporary' | 'Choir' | 'Tagalog' | 'uncategorized';
 
@@ -134,26 +135,23 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       title={`Sort: ${sortLabel}`} className="h-11 w-11 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center">
       <ArrowUpDown className="w-5 h-5" aria-hidden="true" />
     </button>
-    {isSortMenuOpen && <div role="menu" aria-label="Song sorting" className="absolute right-0 top-full mt-1.5 z-40 w-52 max-h-[min(18rem,35dvh)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1.5 shadow-xl">
-      {SONG_PICKER_SORTS.map(option => <button key={option.value} type="button" role="menuitemradio" aria-checked={songSort === option.value}
+    <BottomSheet open={isSortMenuOpen} title="Sort songs" onClose={() => setIsSortMenuOpen(false)}><div role="menu" aria-label="Song sorting" className="ui-sheet-options">
+      {SONG_PICKER_SORTS.map(option => <button key={option.value} type="button" role="menuitemradio" aria-checked={songSort === option.value} data-sheet-focus={songSort === option.value || undefined}
         onClick={() => { setSongSort(option.value); setHighlightedIndex(-1); setIsSortMenuOpen(false); sortButtonRef.current?.focus({ preventScroll: true }); }}
         className={`w-full px-3 py-2 rounded-lg flex items-center justify-between gap-3 text-left text-sm transition-colors ${songSort === option.value ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'}`}>
         <span>{option.label}</span>{songSort === option.value && <Check className="w-4 h-4 shrink-0" />}
       </button>)}
-    </div>}
+    </div></BottomSheet>
   </div>;
   const [isOpen, setIsOpen] = useState(false);
   useEffect(() => { if (!isOpen) setIsSortMenuOpen(false); }, [isOpen]);
   useEffect(() => {
     if (!isSortMenuOpen) return;
     sortMenuRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus({ preventScroll: true });
-    const closeSortMenu = (event: PointerEvent) => { if (!sortMenuRef.current?.contains(event.target as Node)) setIsSortMenuOpen(false); };
-    document.addEventListener('pointerdown', closeSortMenu);
-    return () => document.removeEventListener('pointerdown', closeSortMenu);
   }, [isSortMenuOpen]);
   const [isFocused, setIsFocused] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const [isTouchPicker, setIsTouchPicker] = useState(false);
+  const [isTouchPicker, setIsTouchPicker] = useState(true);
   const [isBrowseOnly, setIsBrowseOnly] = useState(true);
   const [pickerQuery, setPickerQuery] = useState('');
   const [desktopBrowsing, setDesktopBrowsing] = useState(false);
@@ -795,7 +793,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           readOnly={isTouchPicker}
           value={value}
           onPointerDown={(event) => {
-            if (event.pointerType !== 'touch') { setIsTouchPicker(false); return; }
+            if (event.pointerType !== 'touch') { setIsTouchPicker(true); return; }
             event.preventDefault();
             setIsTouchPicker(true);
             inputRef.current?.blur();
@@ -846,6 +844,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             }
           }}
           onChange={(e) => {
+            if (isTouchPicker) setPickerQuery(e.target.value);
             setDesktopBrowsing(false);
             onChange(e.target.value);
             setIsOpen(true);
@@ -1008,11 +1007,13 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
             <div className="relative">
               {showSongCategoryFilters && <div className="absolute right-0 top-0 z-20 text-slate-500">{sortControl}</div>}
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              {pickerQuery && <button type="button" aria-label="Clear picker search" onClick={() => setPickerQuery('')} className={`absolute top-0 z-20 h-11 w-10 flex items-center justify-center text-slate-400 ${showSongCategoryFilters ? 'right-11' : 'right-0'}`}><X className="h-4 w-4" /></button>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
                 onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (pickerQuery.trim()) handleSelect({ title: displayedItems.find(item => item.title.toLowerCase() === activeQuery)?.title || pickerQuery.trim() }); } }}
-                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-3 ${showSongCategoryFilters ? 'pr-11' : 'pr-3'}`} />
+                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-10 ${showSongCategoryFilters ? 'pr-20' : 'pr-11'}`} />
             </div>
           </div>}
           {isTouchPicker && showSongCategoryFilters && (

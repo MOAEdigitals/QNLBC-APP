@@ -17,7 +17,7 @@ const cases = [
   ['song options', 'src/components/SongsTab.tsx', '// Capture outside interactions', '\n\n  const lastProcessedSignalRef', 'data-song-actions', 'setOpenMenuSongId'],
   ['setlists', 'src/components/SetlistsTab.tsx', '// Capture pointer events', '\n\n  // Notify parent', 'data-setlist-actions', 'setOpenMenuSetlistId'],
   ['birthdays', 'src/components/RecognitionsTab.tsx', '  useEffect(() => {\n    if (!birthdayMenuId)', '\n\n  const [birthdaySearchQuery', 'data-birthday-actions', 'setBirthdayMenuId'],
-  ['activities', 'src/features/activities/Activities.tsx', '  useEffect(() => {\n    if (!openMenu)', '\n\n  useEffect(', 'data-activity-actions', 'setOpenMenu'],
+  ['activities', 'src/features/activities/Activities.tsx', '  useEffect(() => {\n    if (!openMenu)', '\n\n\n  const copyActivity', 'data-activity-actions', 'setOpenMenu'],
   ['practice audio tracks', 'src/components/PracticeAudioTrackRow.tsx', '// Close menu when clicking outside', '\n\n  // Format seconds', 'data-audio-actions', 'setIsMenuOpen'],
 ] as const;
 

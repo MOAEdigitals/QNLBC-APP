@@ -1,3 +1,4 @@
+import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -17,10 +18,10 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
   const { createRoot } = require('react-dom/client');
   const NoResize = class { observe() {} disconnect() {} };
   dom.window.matchMedia = (() => ({ matches: true, addEventListener() {}, removeEventListener() {} })) as any;
-  const exports: any = {};
+  const exports: any = {}; const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AutofillInput.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText, {
     exports, window: dom.window, document: dom.window.document, CustomEvent: dom.window.CustomEvent, ResizeObserver: NoResize, setTimeout, clearTimeout,
-    require: (name: string) => name.includes('songSearch') ? search : name.includes('songTracks') ? tracks : name.includes('pickerPlacement') ? { pickerPlacement: () => ({ top: 100, maxHeight: 300 }) } : name.includes('useBackLayer') ? { useBackLayer() {} } : require(name),
+    require: (name: string) => name.endsWith('BottomSheet') ? ui(name) : name.includes('songSearch') ? search : name.includes('songTracks') ? tracks : name.includes('pickerPlacement') ? { pickerPlacement: () => ({ top: 100, maxHeight: 300 }) } : name.includes('useBackLayer') ? { useBackLayer() {} } : require(name),
   });
   const root = createRoot(document.getElementById('root'));
   const selected: string[] = [];
@@ -70,7 +71,7 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     assert.ok(document.querySelector('[role="listbox"]'), 'closing sort keeps the song list open');
     assert.ok(document.querySelector('[role="dialog"]'), 'Escape closes just the sort menu');
     await act(() => trigger.click());
-    await act(() => document.querySelector('[role="dialog"] h2')!.dispatchEvent(new dom.window.Event('pointerdown', { bubbles: true })));
+    await act(() => document.querySelector('.ui-bottom-sheet-backdrop')!.dispatchEvent(new dom.window.Event('pointerdown', { bubbles: true })));
     assert.equal(document.querySelector('[role="menu"]'), null, 'outside pointer closes sort menu while leaving picker open');
     async function sortBy(value: string, firstTitle: string) {
       const labels: Record<string, string> = { az: 'Title: A–Z', za: 'Title: Z–A', 'tracks-first': 'Attached tracks first', 'recently-added': 'Recently Added', 'recently-sung': 'Recently Sung', 'least-recently-sung': 'Not Sung Recently', relevance: 'Relevance' };
