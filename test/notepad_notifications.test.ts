@@ -24,6 +24,28 @@ async function fixture(path: string, services: any, run: (exports: any, root: Ro
 }
 const label = (name:string) => document.querySelector<HTMLButtonElement>(`[aria-label="${name}"]`)!;
 
+test('member password controls retain their mask after refresh without pretending to retrieve a password', async () => {
+  await fixture('src/components/MemberPasswordControl.tsx', {}, async (exports, root) => {
+    let toggles = 0, unavailable = 0;
+    const props = { name: 'Test member', visible: false, disabled: false, onToggle: () => toggles++, onUnavailable: () => unavailable++ };
+    await act(() => root.render(React.createElement(exports.MemberPasswordControl, { ...props, password: 'Test-only-password' })));
+    assert.match(document.getElementById('root')!.textContent!, /••••••••/);
+    assert.doesNotMatch(document.getElementById('root')!.textContent!, /Test-only-password/);
+    await act(() => label('Show password for Test member').click());
+    assert.equal(toggles, 1);
+    await act(() => root.render(React.createElement(exports.MemberPasswordControl, { ...props, password: 'Test-only-password', visible: true })));
+    assert.match(document.getElementById('root')!.textContent!, /Test-only-password/);
+    assert.ok(label('Hide password for Test member'));
+    // A fresh session has no recoverable plaintext, but preserves the same compact field.
+    await act(() => root.render(React.createElement(exports.MemberPasswordControl, { ...props, visible: true })));
+    assert.match(document.getElementById('root')!.textContent!, /••••••••/);
+    assert.doesNotMatch(document.getElementById('root')!.textContent!, /Test-only-password|Set password/);
+    await act(() => label('Show password for Test member').click());
+    assert.equal(unavailable, 1);
+    assert.equal(toggles, 1, 'unavailable passwords never trigger a reveal or password reset');
+  });
+});
+
 test('personal notepad creates cards, preserves schedule whitespace and retains failed-save text', async()=>{
   const notes:any[]=[]; let writes=0,fail=false;
   const services={loadNotes:async()=>notes,saveNote:async(user_id:string,id:string,title:string,body:string)=>{

@@ -5,6 +5,7 @@ import { NotificationScheduleSettings } from './NotificationScheduleSettings';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
 import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
 import { CardActions } from './CardActions';
+import { MemberPasswordControl } from './MemberPasswordControl';
 import { APP_FONTS, type AppFont } from '../utils/appFont';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
@@ -1043,24 +1044,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     const storedCredentials = memberCredentials[u.id];
                     const credentials = storedCredentials?.username === u.username ? storedCredentials : undefined;
                     const visible = visibleCredentialId === u.id;
-                    return <article key={u.id} aria-label={`Account: ${name}`} className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(6rem,8rem)_2rem] sm:grid-cols-[1.25rem_2.5rem_minmax(0,1fr)_minmax(10rem,14rem)_2.5rem] items-center gap-x-1.5 gap-y-2 p-2 sm:gap-x-3 sm:p-3 sm:py-4">
+                    return <article key={u.id} aria-label={`Account: ${name}`} className="member-account-row">
                       <span className="hidden sm:block text-center text-xs text-slate-500">{index + 1}</span>
                       <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-sm font-semibold">
                         {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : name.slice(0,2).toUpperCase()}
                       </div>
-                      <button type="button" className="min-w-0 text-left" aria-label={`Manage account for ${name}`} onClick={() => setSelectedMemberId(u.id)}>
-                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="min-w-0 break-words font-semibold">{name}{isCurrent ? ' (You)' : ''}</span><span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'}</span></span>
-                        <span className="block break-all text-xs text-slate-500 dark:text-slate-400">{u.username}</span>
+                      <button type="button" className="member-account-identity min-w-0 text-left" aria-label={`Manage account for ${name}`} title={name} onClick={() => setSelectedMemberId(u.id)}>
+                        <span className="member-account-name"><span className="min-w-0 break-words font-semibold">{name}{isCurrent && <span className="hidden sm:inline"> (You)</span>}</span><span className="member-account-role rounded bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'}</span></span>
+                        <span className="member-account-username block break-all text-slate-500 dark:text-slate-400">{u.username}</span>
                         {u.active === false && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500 dark:bg-slate-800">Deactivated</span>}
                       </button>
-                      <div className="min-w-0 flex flex-wrap justify-end items-center gap-1">
-                        {credentials ? <div className="flex w-full min-w-0 items-center rounded-lg border border-slate-200 bg-slate-50 sm:pl-2 dark:border-slate-700 dark:bg-slate-800">
-                          <Key className="hidden sm:block h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="min-w-0 flex-1 break-all px-2 font-mono text-sm" aria-live="polite">{visible ? credentials.password : '••••••••'}</span>
-                          <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`${visible ? 'Hide' : 'Show'} password for ${name}`} title="Show or hide password" onClick={() => setVisibleCredentialId(visible ? null : u.id)}>{visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                        </div> : <button type="button" disabled={isManaging} className="ui-secondary min-w-0 flex-1 px-2 text-left text-xs" aria-label={`Set password and copy credentials for ${name}`} onClick={() => { setSelectedMemberId(u.id); void handleCopyAccountDetails(u); }}><Key className="hidden sm:block h-4 w-4 shrink-0" /> Set password</button>}
-                        {credentials && <button type="button" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-slate-500" aria-label={`Copy credentials for ${name}`} onClick={() => void handleCopyMemberCredentials(u.id, credentials.username, credentials.password)}>{copiedCredentialId === u.id ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}</button>}
-                      </div>
+                      <MemberPasswordControl name={name} password={credentials?.password} visible={visible} disabled={isManaging} onToggle={() => setVisibleCredentialId(visible ? null : u.id)} onUnavailable={() => setMemberNotice('Existing passwords cannot be retrieved. Use Edit account to set a new password, then view and copy it during this admin session.')} />
                       <div className="min-w-0"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
                     </article>;
                   }
