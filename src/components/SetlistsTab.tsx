@@ -1,3 +1,4 @@
+import { BottomSheet } from './BottomSheet';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction } from '../services/appDialogs';
 import { AssignmentRecipients } from './AssignmentRecipients';
@@ -2040,12 +2041,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       {!isEditing && (
         <div onClick={(event) => event.stopPropagation()}>
           {showTypeSelector && (
-            <div className="fixed bottom-36 right-4 sm:right-6 md:right-8 z-40 w-[min(20rem,calc(100vw-2rem))] bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl py-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+            <BottomSheet open title="New setlist" onClose={() => setShowTypeSelector(false)}><div className="ui-sheet-options">
               <button type="button" onClick={handleStartCreateSunday} className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"><Calendar className="w-4 h-4 text-blue-500 shrink-0" /><span className="font-semibold">Sunday Service</span></button>
               <button type="button" onClick={() => handleStartCreateOther('prayer_meeting')} className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"><Flame className="w-4 h-4 text-sky-500 shrink-0" /><span className="font-semibold">Midweek Prayer Meeting</span></button>
               <button type="button" onClick={() => handleStartCreateOther('fellowship')} className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"><Users className="w-4 h-4 text-indigo-500 shrink-0" /><span className="font-semibold">Fellowship Gathering</span></button>
               <button type="button" onClick={() => handleStartCreateOther('event')} className="w-full px-4 py-2.5 text-left text-xs sm:text-sm text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2.5 cursor-pointer"><Sparkles className="w-4 h-4 text-emerald-500 shrink-0" /><span className="font-semibold">Special Event</span></button>
-            </div>
+            </div></BottomSheet>
           )}
           <button
             type="button"

@@ -334,3 +334,6 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 @keyframes ui-sheet-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes ui-sheet-fade { from { background: #0000; } to { background: #0009; } }
 @media (prefers-reduced-motion: reduce) { .ui-bottom-sheet, .ui-bottom-sheet-backdrop, .ui-exit-confirmation > div { animation: none; transition: none; } }
+
+.ui-category-sheet > button { color: var(--ui-muted); }
+.ui-category-sheet > button[aria-pressed="true"] { color: var(--ui-accent); }

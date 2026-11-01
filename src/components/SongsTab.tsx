@@ -1222,7 +1222,7 @@ if (isEditing && !savingSongRef.current) {
                           </button>
 
                           {categoryPickerSongId === song.id && (
-                            <div className="absolute left-0 top-full mt-1.5 w-48 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-40 space-y-0.5">
+                            <BottomSheet open title="Song categories" onClose={() => setCategoryPickerSongId(null)}><div data-song-categories={song.id} className="ui-sheet-options ui-category-sheet">
                               <div className="px-3.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                                 Categories
                               </div>
@@ -1231,6 +1231,7 @@ if (isEditing && !savingSongRef.current) {
                                 return (
                                   <button
                                     key={cat}
+                                    aria-pressed={isChecked}
                                     type="button"
                                     onClick={(e) => handleToggleSongCategory(song, cat, e)}
                                     className={`w-full px-3.5 py-1.5 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
@@ -1259,7 +1260,7 @@ if (isEditing && !savingSongRef.current) {
                                   <span>Clear Category</span>
                                 </button>
                               )}
-                            </div>
+                            </div></BottomSheet>
                           )}
                         </div>
 
