@@ -24,25 +24,26 @@ async function fixture(path: string, services: any, run: (exports: any, root: Ro
 }
 const label = (name:string) => document.querySelector<HTMLButtonElement>(`[aria-label="${name}"]`)!;
 
-test('member password controls retain their mask after refresh without pretending to retrieve a password', async () => {
-  await fixture('src/components/MemberPasswordControl.tsx', {}, async (exports, root) => {
-    let toggles = 0, unavailable = 0;
-    const props = { name: 'Test member', visible: false, disabled: false, onToggle: () => toggles++, onUnavailable: () => unavailable++ };
-    await act(() => root.render(React.createElement(exports.MemberPasswordControl, { ...props, password: 'Test-only-password' })));
-    assert.match(document.getElementById('root')!.textContent!, /••••••••/);
-    assert.doesNotMatch(document.getElementById('root')!.textContent!, /Test-only-password/);
-    await act(() => label('Show password for Test member').click());
-    assert.equal(toggles, 1);
-    await act(() => root.render(React.createElement(exports.MemberPasswordControl, { ...props, password: 'Test-only-password', visible: true })));
-    assert.match(document.getElementById('root')!.textContent!, /Test-only-password/);
-    assert.ok(label('Hide password for Test member'));
-    // A fresh session has no recoverable plaintext, but preserves the same compact field.
-    await act(() => root.render(React.createElement(exports.MemberPasswordControl, { ...props, visible: true })));
-    assert.match(document.getElementById('root')!.textContent!, /••••••••/);
-    assert.doesNotMatch(document.getElementById('root')!.textContent!, /Test-only-password|Set password/);
-    await act(() => label('Show password for Test member').click());
-    assert.equal(unavailable, 1);
-    assert.equal(toggles, 1, 'unavailable passwords never trigger a reveal or password reset');
+test('directory search and inline rename preserve failed edits and cancel additions without writing', async () => {
+  const writes: unknown[][] = []; let fail = true;
+  await fixture('src/components/DirectoryManagement.tsx', { saveDirectoryMember: async (...args: unknown[]) => { writes.push(args); if (fail) throw Error('Connection failed'); } }, async (exports, root, dom) => {
+    await act(() => root.render(React.createElement(exports.DirectoryManagement, { members: [{ id: 'roger', name: 'ROGER', active: true, linked_user_id: 'account', account_active: true }, { id: 'ronnie', name: 'RONNIE', active: true, linked_user_id: null }], onRefresh: async () => {} })));
+    const change = async (selector: string, value: string) => { const el = document.querySelector(selector)!; const key = Object.keys(el).find(k => k.startsWith('__reactProps$'))!; await act(() => (el as any)[key].onChange({ target: { value } })); };
+    await change('[aria-label="Search directory"]', 'roger');
+    assert.equal(document.querySelector('[aria-label="Rename RONNIE"]'), null);
+    await act(() => label('Rename ROGER').click());
+    await change('[aria-label="Directory name"]', 'ROGER UPDATED');
+    const submit = async () => act(async () => document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+    await submit();
+    assert.equal((document.querySelector('[aria-label="Directory name"]') as HTMLInputElement).value, 'ROGER UPDATED');
+    assert.match(document.querySelector('[role="alert"]')!.textContent!, /Connection failed/);
+    fail = false; await submit();
+    assert.deepEqual(Array.from(writes[1]), ['roger', 'ROGER UPDATED', true]);
+    assert.equal(document.querySelector('form'), null);
+    await act(() => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Add person')!.click());
+    await act(() => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Cancel')!.click());
+    assert.equal(writes.length, 2);
+    assert.equal(document.querySelector('form'), null);
   });
 });
 

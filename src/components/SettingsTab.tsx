@@ -5,7 +5,6 @@ import { NotificationScheduleSettings } from './NotificationScheduleSettings';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
 import { fetchDirectoryMembers, type DirectoryMember } from '../services/directory';
 import { CardActions } from './CardActions';
-import { MemberPasswordControl } from './MemberPasswordControl';
 import { APP_FONTS, type AppFont } from '../utils/appFont';
 import { useBackLayer } from '../hooks/useBackLayer';
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useMemo } from 'react';
@@ -172,7 +171,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [memberEdit, setMemberEdit] = useState({ displayName: '', directoryMemberId: '', username: '', password: '' });
   const [showMemberEditPassword, setShowMemberEditPassword] = useState(false);
   const [memberEditError, setMemberEditError] = useState('');
-  const [visibleCredentialId, setVisibleCredentialId] = useState<string | null>(null);
   const [memberCredentials, setMemberCredentials] = useState<Record<string, { username: string; password: string }>>({});
   const [credentialNotice, setCredentialNotice] = useState<{ userId: string; username: string; password: string; name?: string } | null>(null);
   const [copiedCredentialId, setCopiedCredentialId] = useState<string | null>(null);
@@ -238,7 +236,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   useBackLayer(settingsSection === 'members' && !!userSearchQuery && !selectedMemberId && !showCreateMember && !editingMemberId, () => { (document.activeElement as HTMLElement | null)?.blur(); setUserSearchQuery(''); });
   useEffect(() => {
     setMemberCredentials({});
-    setVisibleCredentialId(null);
     setCredentialNotice(null);
     setCopyAfterSaveId(null);
     setMemberEdit({ displayName: '', directoryMemberId: '', username: '', password: '' });
@@ -1005,7 +1002,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     Members ({users.filter((u) => u.role !== 'admin').length})
                   </button>
                 </div>
-                <button type="button" className="ui-secondary" onClick={() => setShowCreateMember(value => !value)}>
+                <button type="button" className="ui-primary" onClick={() => setShowCreateMember(value => !value)}>
                   <Plus className="h-4 w-4" /> New member
                 </button>
               </div>
@@ -1035,18 +1032,14 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>}
 
               <div className={selectedMemberId ? 'space-y-3' : 'member-account-list divide-y divide-slate-200 dark:divide-slate-800'}>
-                {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map((u, index) => {
+                {(selectedMemberId ? users.filter(u => u.id === selectedMemberId) : filteredUsers).map((u) => {
                   const isCurrent = u.id === currentUser.id;
                   const isManaging = managingUserId === u.id;
                   if (!selectedMemberId) {
                     const name = u.displayName || u.name || u.username;
                     const avatar = u.avatar || u.avatarUrl || u.avatar_url;
-                    const storedCredentials = memberCredentials[u.id];
-                    const credentials = storedCredentials?.username === u.username ? storedCredentials : undefined;
-                    const visible = visibleCredentialId === u.id;
                     return <article key={u.id} aria-label={`Account: ${name}`} className="member-account-row">
-                      <span className="hidden sm:block text-center text-xs text-slate-500">{index + 1}</span>
-                      <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-sm font-semibold">
+                      <div className="h-10 w-10 overflow-hidden rounded-full border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 flex items-center justify-center text-sm font-semibold">
                         {avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : name.slice(0,2).toUpperCase()}
                       </div>
                       <button type="button" className="member-account-identity min-w-0 text-left" aria-label={`Manage account for ${name}`} title={name} onClick={() => setSelectedMemberId(u.id)}>
@@ -1054,7 +1047,6 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <span className="member-account-username block break-all text-slate-500 dark:text-slate-400">{u.username}</span>
                         {u.active === false && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500 dark:bg-slate-800">Deactivated</span>}
                       </button>
-                      <MemberPasswordControl name={name} password={credentials?.password} visible={visible} disabled={isManaging} onToggle={() => setVisibleCredentialId(visible ? null : u.id)} onUnavailable={() => setMemberNotice('Existing passwords cannot be retrieved. Use Edit account to set a new password, then view and copy it during this admin session.')} />
                       <div className="min-w-0"><CardActions label={name} disabled={isManaging} onEdit={() => { setSelectedMemberId(u.id); startEditingMember(u); }} onDelete={isCurrent ? undefined : () => void handleDeleteMember(u)} /></div>
                     </article>;
                   }
@@ -1111,7 +1103,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {isAdmin && settingsSection === 'announcements' && <AdminAnnouncements key={currentUser.id} onBackHandlerChange={registerAnnouncementBack} />}
       {isAdmin && settingsSection === 'notificationSchedules' && <NotificationScheduleSettings key={currentUser.id} />}
-      {isAdmin && <div hidden={settingsSection !== 'directory'}><DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} /></div>}
+      {isAdmin && settingsSection === 'directory' && <DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} />}
 
       {directoryLoadError && isAdmin && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}
 

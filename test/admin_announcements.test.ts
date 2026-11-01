@@ -26,6 +26,7 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   try{
     let backHandler: (() => void) | null = null;
     await act(async()=>root.render(React.createElement(exports.AdminAnnouncements,{onBackHandlerChange:(handler:(()=>void)|null)=>{backHandler=handler;}})));
+    assert.equal(document.querySelector('[aria-label="Sent announcements"]'), null, 'sent history is removed from the admin screen');
     // Native change handling is covered below with React props, avoiding JSDOM's input-event polyfill differences.
     const setValue=async(selector:string,value:string)=>{const el=document.querySelector(selector)!;const propsKey=Object.keys(el).find(k=>k.startsWith('__reactProps$'))!;await act(async()=>(el as any)[propsKey].onChange({target:{value}}));};
     await setValue('input[maxlength="120"]','Practice update'); await setValue('textarea','Please arrive at 3 PM.');

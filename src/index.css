@@ -138,21 +138,18 @@ button.ui-settings-row { cursor: pointer; }
   border-radius: 1rem; box-shadow: none; overflow: visible;
 }
 .ui-settings-panel[hidden] { display: none; }
-.member-account-row { display: grid; grid-template-columns: 2rem minmax(0, 1fr) 6rem 1.75rem; align-items: center; gap: .5rem; padding: .75rem .5rem; }
-.member-account-name { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; font-size: .8125rem; line-height: 1.4; }
-.member-account-role { font-size: .625rem; white-space: nowrap; }
-.member-account-username { margin-top: .125rem; font-size: .75rem; line-height: 1.4; }
-.member-password-control { display: flex; align-items: center; min-width: 0; min-height: 44px; border: 1px solid var(--ui-border); border-radius: .625rem; background: var(--ui-surface); }
-.member-password-value { min-width: 0; flex: 1; overflow-wrap: anywhere; padding: .375rem .25rem; font-family: var(--font-mono); font-size: .6875rem; line-height: 1.4; }
-.member-password-control > button { display: grid; place-items: center; width: 1.75rem; min-height: 44px; flex-shrink: 0; color: #94a3b8; }
+.member-account-row, .settings-person-row { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) 2.75rem; align-items: center; gap: .75rem; padding: .875rem 0; }
+.member-account-name { display: flex; flex-wrap: wrap; align-items: center; gap: .375rem; font-size: .9375rem; line-height: 1.4; }
+.member-account-role { font-size: .6875rem; white-space: nowrap; }
+.member-account-username { margin-top: .25rem; font-size: .8125rem; line-height: 1.4; }
+.settings-person-avatar { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid var(--ui-border); border-radius: 50%; color: var(--ui-accent); background: var(--ui-surface); font-size: .8125rem; font-weight: 600; }
+.settings-content-card { border: 1px solid var(--ui-border); border-radius: 1rem; background: var(--ui-surface); padding: 1rem; }
+.settings-section-divider { border-top: 1px solid var(--ui-border); padding-top: 1.25rem; }
 .member-account-row .ui-actions > summary { padding: .25rem; justify-content: center; list-style: none; }
 .member-account-row .ui-actions > summary::-webkit-details-marker { display: none; }
 @media (min-width: 640px) {
-  .member-account-row { grid-template-columns: 1.25rem 2.5rem minmax(0, 1fr) minmax(9rem, 12rem) 2rem; gap: .75rem; padding: 1rem .75rem; }
-  .member-account-name { font-size: .9375rem; gap: .5rem; }
-  .member-account-role, .member-account-username { font-size: .8125rem; }
-  .member-password-value { font-size: .875rem; padding: .5rem; }
-  .member-password-control > button { width: 2.75rem; }
+  .settings-content-card { padding: 1.25rem; }
+  .member-account-row, .settings-person-row { padding: 1rem 0; }
 }
 .ui-settings-panel > div:first-child { display: none; }
 .ui-settings-panel > div:nth-child(2) { padding: 1rem; border: 0; }
