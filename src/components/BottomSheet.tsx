@@ -4,19 +4,20 @@ import { X } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 const sheetStack: string[] = [];
 
-export function BottomSheet({ open, title, children, onClose, onBack, role = 'dialog' }: {
+export function BottomSheet({ open, title, children, onClose, onBack, role = 'dialog', dismissible = true }: {
   open: boolean; title: string; children: React.ReactNode; onClose: () => void;
-  onBack?: () => void; role?: 'dialog' | 'alertdialog';
+  onBack?: () => void; role?: 'dialog' | 'alertdialog'; dismissible?: boolean;
 }) {
   const id = useId();
   const sheet = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; time: number } | null>(null);
   const closing = useRef(false);
+  const canDismiss = useRef(dismissible); canDismiss.current = dismissible;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [offset, setOffset] = useState(0);
   const [leaving, setLeaving] = useState(false);
   const close = () => {
-    if (closing.current) return;
+    if (closing.current || !canDismiss.current) return;
     closing.current = true;
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { onClose(); return; }
     setLeaving(true);
@@ -71,7 +72,7 @@ export function BottomSheet({ open, title, children, onClose, onBack, role = 'di
         else setOffset(0);
       }} onPointerCancel={() => { drag.current = null; setOffset(0); }}>
         <div aria-hidden="true" className="ui-sheet-handle" />
-        <div className="flex items-center justify-between gap-3"><h2 id={id} className="min-w-0 font-bold text-lg">{title}</h2><button type="button" aria-label={`Close ${title}`} onClick={close} className="ui-sheet-close"><X className="h-5 w-5" /></button></div>
+        <div className="flex items-center justify-between gap-3"><h2 id={id} className="min-w-0 font-bold text-lg">{title}</h2><button type="button" aria-label={`Close ${title}`} disabled={!dismissible} onClick={close} className="ui-sheet-close"><X className="h-5 w-5" /></button></div>
       </header>
       <div className="ui-sheet-body">{children}</div>
     </div>

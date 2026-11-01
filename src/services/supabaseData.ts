@@ -480,12 +480,23 @@ export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song
     .eq('id', song.id)
     .eq('revision', expectedRev)
     .select('*')
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
-    throw new ConcurrencyConflictError(
-      error?.message || 'Song update conflict: the song has been updated by another user.'
-    );
+  if (error) throw error;
+  if (!data) {
+    // Some API responses omit the updated row. Confirm the intended write before
+    // reporting failure; never treat a zero-row/stale-revision update as success.
+    const { data: reloaded, error: reloadError } = await supabase.from('songs').select('*').eq('id', song.id).maybeSingle();
+    if (reloadError) throw reloadError;
+    const same = (a: unknown, b: unknown): boolean => {
+      if (a === b) return true;
+      if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+      if (Array.isArray(a) !== Array.isArray(b)) return false;
+      const keys = Object.keys(a);
+      return keys.length === Object.keys(b).length && keys.every(key => same((a as any)[key], (b as any)[key]));
+    };
+    if (reloaded && !reloaded.deleted_at && Number(reloaded.revision) === expectedRev + 1 && Object.entries(payload).every(([key, value]) => same(reloaded[key], value))) return mapSongFromDB(reloaded);
+    throw new ConcurrencyConflictError('This song changed while you were editing. Please review the refreshed song and try again.');
   }
 
   return mapSongFromDB(data);

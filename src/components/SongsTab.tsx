@@ -1,3 +1,4 @@
+import { SongCategorySheet } from './SongCategorySheet';
 import { confirmAction } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
 import { BottomSheet } from './BottomSheet';
@@ -704,38 +705,6 @@ if (isEditing && !savingSongRef.current) {
     onSaveSong(updated);
   };
 
-  const handleToggleSongCategory = (
-    song: Song,
-    categoryToToggle: SongCategory,
-    e?: React.MouseEvent
-  ) => {
-    if (e) e.stopPropagation();
-    const currentCats = getSongCategories(song);
-    const exists = currentCats.includes(categoryToToggle);
-    const nextCats = exists
-      ? currentCats.filter((c) => c !== categoryToToggle)
-      : [...currentCats, categoryToToggle];
-
-    const updated: Song = {
-      ...song,
-      categories: nextCats,
-      category: nextCats.length > 0 ? nextCats.join(', ') : undefined,
-      updatedAt: new Date().toISOString(),
-    };
-    onSaveSong(updated);
-  };
-
-  const handleClearSongCategories = (song: Song, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    const updated: Song = {
-      ...song,
-      categories: [],
-      category: undefined,
-      updatedAt: new Date().toISOString(),
-    };
-    onSaveSong(updated);
-  };
-
   const handleSaveSongForm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSong || !editingSong.title?.trim() || savingSongRef.current) return;
@@ -1221,44 +1190,7 @@ if (isEditing && !savingSongRef.current) {
                             <Tag className="w-4 h-4 opacity-80" />
                           </button>
 
-                          {categoryPickerSongId === song.id && (
-                            <BottomSheet open title="Song categories" onClose={() => setCategoryPickerSongId(null)}><div data-song-categories={song.id} className="ui-sheet-options ui-category-sheet">
-                              {allCategories.map((cat) => {
-                                const isChecked = getSongCategories(song).includes(cat);
-                                return (
-                                  <button
-                                    key={cat}
-                                    aria-pressed={isChecked}
-                                    type="button"
-                                    onClick={(e) => handleToggleSongCategory(song, cat, e)}
-                                    className={`w-full px-3.5 py-1.5 text-left text-xs font-semibold flex items-center justify-between cursor-pointer ${
-                                      cat === 'Hymn'
-                                        ? 'text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
-                                        : cat === 'Special'
-                                        ? 'text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-950/40'
-                                        : cat === 'Contemporary'
-                                        ? 'text-cyan-700 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/40'
-                                        : cat === 'Choir'
-                                        ? 'text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
-                                        : 'text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                                    }`}
-                                  >
-                                    <span>{cat}</span>
-                                    {isChecked && <Check className="w-3.5 h-3.5 stroke-[2.5]" />}
-                                  </button>
-                                );
-                              })}
-                              {getSongCategories(song).length > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => handleClearSongCategories(song, e)}
-                                  className="w-full px-3.5 py-1.5 text-left text-xs font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border-t border-slate-100 dark:border-slate-800 cursor-pointer"
-                                >
-                                  <span>Clear Category</span>
-                                </button>
-                              )}
-                            </div></BottomSheet>
-                          )}
+                          {categoryPickerSongId === song.id && <SongCategorySheet key={song.id} categories={allCategories} selected={getSongCategories(song)} onClose={() => setCategoryPickerSongId(null)} onSave={categories => onSaveSong({ ...song, categories, category: categories.length ? categories.join(', ') : undefined })} />}
                         </div>
 
                         {/* In-Card Font Stepper A- / A+ */}
