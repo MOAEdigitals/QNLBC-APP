@@ -1,3 +1,5 @@
+import { isBirthdayRecognitionWeek } from './dateUtils.ts';
+
 /** Current month first, future months ascending, previous months most recent first. */
 export function compareMonthKeys(a: string, b: string, current: string): number {
   if (a === b) return 0;
@@ -42,4 +44,27 @@ export function orderBirthdayRecognitionMonths<T>(items: T[], dateOf: (item: T) 
   return entries.sort((a, b) =>
     (monthRanks.get(a.month)! - monthRanks.get(b.month)!) || a.rank - b.rank,
   ).map(entry => entry.item);
+}
+
+/** Split a previous month's remaining recognition cards from its completed cards. */
+export function groupBirthdayRecognitionMonths<T>(items: T[], dateOf: (item: T) => string, today: string): { key: string; month: number; items: T[] }[] {
+  const months = new Map<number, T[]>();
+  for (const item of items) {
+    const month = Number(dateOf(item).slice(5, 7)) - 1;
+    const group = months.get(month) || [];
+    group.push(item); months.set(month, group);
+  }
+  const [year, month, day] = today.split('-').map(Number);
+  const now = new Date(year, month - 1, day, 12);
+  const previousMonth = (month + 10) % 12;
+  const previous = months.get(previousMonth) || [];
+  const pending = previous.filter(item => isBirthdayRecognitionWeek(dateOf(item), now));
+  const completed = previous.filter(item => !isBirthdayRecognitionWeek(dateOf(item), now));
+  const groups = [...months].map(([month, items]) => ({ key: String(month), month, items }));
+  if (!pending.length || !completed.length) return groups;
+  return [
+    { key: String(previousMonth), month: previousMonth, items: pending },
+    ...groups.filter(group => group.month !== previousMonth),
+    { key: `${previousMonth}-completed`, month: previousMonth, items: completed },
+  ];
 }

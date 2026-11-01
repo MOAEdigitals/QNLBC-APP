@@ -2,7 +2,7 @@ import { celebrationConfetti } from '../utils/celebrationConfetti';
 import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek, isAnniversaryRecognitionWeek } from '../utils/dateUtils';
-import { isAnnualDatePast, orderAnnualBirthdays, orderBirthdayRecognitionMonths } from '../utils/recognitionOrder';
+import { isAnnualDatePast, orderAnnualBirthdays, orderBirthdayRecognitionMonths, groupBirthdayRecognitionMonths } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { useHeaderSearch } from './HeaderSearch';
@@ -156,13 +156,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     return b.name.toLowerCase().includes(q);
   });
 
-  const birthdayMonths = new Map<number, BirthdayCelebrant[]>();
-  for (const item of filteredBirthdays) {
-    const month = parseDate(item.birthDate).getMonth();
-    const group = birthdayMonths.get(month) || [];
-    group.push(item);
-    birthdayMonths.set(month, group);
-  }
+  const birthdayMonths = groupBirthdayRecognitionMonths(filteredBirthdays, b => b.birthDate, birthdayToday);
 
   const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
     categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
@@ -311,10 +305,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               </div>
             ) : (
               <div className="space-y-6">
-                {Array.from(birthdayMonths, ([month, items]) => (
-                  <section key={month} aria-labelledby={`birthday-month-${month}`} className="space-y-3">
+                {birthdayMonths.map(({ key, month, items }) => (
+                  <section key={key} aria-labelledby={`birthday-month-${key}`} className="space-y-3">
                     <div className="flex items-center gap-3 px-1">
-                      <h3 id={`birthday-month-${month}`} className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
+                      <h3 id={`birthday-month-${key}`} className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
                         {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
                       </h3>
                       <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />

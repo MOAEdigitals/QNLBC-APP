@@ -1141,13 +1141,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
           </div>
 
           {!isDataBackupCollapsed && (
-            <div className="p-4 sm:p-5 pt-0 space-y-5 border-t border-slate-100 dark:border-slate-800">
+            <div className="p-4 sm:p-5 pt-0 space-y-5 settings-data-tools border-t border-slate-100 dark:border-slate-800">
               <SongExport />
               {/* Batch Lyrics Import */}
-              <div className="space-y-3 pt-2">
+              <div className="settings-section-divider space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Batch Import Lyrics (.txt files)</span>
+                  <span>Import songs</span>
                 </h4>
 
                 {lyricsImportStatus && (
@@ -1167,7 +1167,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                   </div>
                 )}
 
-                <label className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs">
+                <label className="data-tool-action">
                   <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
                     <Music className="w-5 h-5 text-indigo-600" />
                   </div>
@@ -1191,10 +1191,10 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               {/* Full Backup & Restore */}
-              <div className="space-y-3 pt-2">
+              <div className="settings-section-divider space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                   <Database className="w-3.5 h-3.5" />
-                  <span>Full Data Export & Restore (JSON)</span>
+                  <span>Full backup & restore</span>
                 </h4>
 
                 {importStatus && (
@@ -1220,7 +1220,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     type="button"
                     onClick={handleExportBackup}
                     disabled={isExporting || isImporting}
-                    className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs"
+                    className="data-tool-action"
                   >
                     <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
                       <Download className="w-5 h-5 text-indigo-600" />
@@ -1230,12 +1230,12 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         Export All Data (JSON)
                       </span>
                       <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                        Export church records, recordings, and outline files for administrator recovery.
+                        All records, recordings & outlines.
                       </span>
                     </div>
                   </button>
 
-                  <label className={`p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-left hover:border-slate-400 dark:hover:border-slate-500 transition-all flex items-start space-x-3 cursor-pointer shadow-xs ${isImporting ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <label className={`data-tool-action ${isImporting ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shrink-0">
                       {isImporting ? (
                         <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
@@ -1245,7 +1245,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                     </div>
                     <div className="flex-1">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        {isImporting ? 'Restoring Records...' : 'Restore JSON Backup'}
+                        {isImporting ? 'Restoring…' : 'Restore JSON Backup'}
                       </span>
 
                       <input
@@ -1260,74 +1260,16 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 </div>
               </div>
 
-              {/* Developer / Migration Utilities */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
-                <div className="p-4 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900/60 flex flex-col justify-between space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 shrink-0">
-                      <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div className="flex-1">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        Migration Prompt (.md)
-                      </span>
-
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={handleDownloadPromptMd}
-                      className="flex-1 px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download .md</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCopyPromptText}
-                      className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 border border-purple-300 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-slate-750 text-purple-700 dark:text-purple-300 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
-                    >
-                      {copiedPrompt ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-emerald-600 font-bold">Copied!</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy Prompt</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+              <details className="settings-section-divider group">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 font-semibold">Advanced tools<ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" /></summary>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-3"><h4 className="text-sm font-semibold">Migration prompt (.md)</h4><div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={handleDownloadPromptMd} className="ui-secondary"><Download className="h-4 w-4" />Download .md</button>
+                    <button type="button" onClick={handleCopyPromptText} className="ui-secondary">{copiedPrompt ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copiedPrompt ? 'Copied' : 'Copy prompt'}</button>
+                  </div></div>
+                  <div className="settings-section-divider space-y-3"><h4 className="text-sm font-semibold">Codebase (.ZIP)</h4><button type="button" disabled={isDownloadingZip} onClick={handleDownloadSourceZip} className="ui-secondary"><Code2 className="h-4 w-4" />{isDownloadingZip ? 'Preparing ZIP…' : 'Download codebase'}</button></div>
                 </div>
-
-                <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/60 flex flex-col justify-between space-y-3">
-                  <div className="flex items-start space-x-3">
-                    <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 shrink-0">
-                      <Code2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                      <span className="text-sm font-bold text-slate-900 dark:text-white block">
-                        Download Codebase (.ZIP)
-                      </span>
-
-                    </div>
-                  </div>
-                  <div className="pt-1">
-                    <button
-                      type="button"
-                      disabled={isDownloadingZip}
-                      onClick={handleDownloadSourceZip}
-                      className="w-full px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors shadow-xs cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>{isDownloadingZip ? 'Preparing Zip...' : 'Download Codebase (.ZIP)'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              </details>
             </div>
           )}
         </div>
