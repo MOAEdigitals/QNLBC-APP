@@ -131,6 +131,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   collapseSignal,
 }) => {
   const [settingsSection, setSettingsSection] = useState<string | null>(null);
+  const [peopleTab, setPeopleTab] = useState<'accounts' | 'directory'>('accounts');
   useLayoutEffect(() => {
     onSectionOpenChange?.(settingsSection !== null);
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -139,7 +140,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const announcementBack = useRef<(() => void) | null>(null);
   const registerAnnouncementBack = useCallback((handler: (() => void) | null) => { announcementBack.current = handler; }, []);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const sectionLabels: Record<string, string> = { account: 'Account', appearance: 'Appearance', members: 'Members & permissions', directory: 'Church directory', data: 'Data management', connection: 'Connection details', announcements: 'Admin announcements', notificationSchedules: 'Notification schedules' };
+  const sectionLabels: Record<string, string> = { account: 'My Account', appearance: 'Appearance', members: 'People & Accounts', data: 'Data management', connection: 'Connection details', announcements: 'Admin announcements', notificationSchedules: 'Notification schedules' };
   // Existing section content remains mounted while navigating settings.
   const isAccountCollapsed = false;
   const isAppearanceCollapsed = false;
@@ -233,7 +234,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   });
 
   const isAdmin = currentUser.role === 'admin';
-  useBackLayer(settingsSection === 'members' && !!userSearchQuery && !selectedMemberId && !showCreateMember && !editingMemberId, () => { (document.activeElement as HTMLElement | null)?.blur(); setUserSearchQuery(''); });
+  useBackLayer(settingsSection === 'members' && peopleTab === 'accounts' && !!userSearchQuery && !selectedMemberId && !showCreateMember && !editingMemberId, () => { (document.activeElement as HTMLElement | null)?.blur(); setUserSearchQuery(''); });
   useEffect(() => {
     setMemberCredentials({});
     setCredentialNotice(null);
@@ -741,16 +742,24 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   return (
     <div className="ui-revamp settings-screen space-y-5 max-w-3xl mx-auto pb-8">
       {settingsSection && <header className="space-y-3">
-        {settingsSection && <button type="button" className="ui-back" onClick={() => { if (selectedMemberId) { setSelectedMemberId(null); setEditingMemberId(null); } else setSettingsSection(null); }}>{selectedMemberId ? '← All members' : '← Settings'}</button>}
+        {settingsSection && <button type="button" className="ui-back" onClick={() => { if (selectedMemberId) { setSelectedMemberId(null); setEditingMemberId(null); } else setSettingsSection(null); }}>{selectedMemberId ? '← All accounts' : '← Settings'}</button>}
         <h2 className="text-2xl font-semibold">{selectedMemberId ? 'Member account' : settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
       </header>}
       {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
-        {['account', 'appearance', ...(isAdmin ? ['members', 'directory', 'announcements', 'notificationSchedules', 'data'] : [])].map(section => (
-          <button key={section} type="button" className="ui-settings-row" onClick={() => setSettingsSection(section)}>
+        {['account', 'appearance', ...(isAdmin ? ['members', 'announcements', 'notificationSchedules', 'data'] : [])].map(section => (
+          <button key={section} type="button" className="ui-settings-row" onClick={() => { if (section === 'members') setPeopleTab('accounts'); setSettingsSection(section); }}>
             <span>{sectionLabels[section]}</span><span aria-hidden="true">›</span>
           </button>
         ))}
       </nav>}
+      {isAdmin && settingsSection === 'members' && !selectedMemberId && <div role="tablist" aria-label="People & Accounts sections" className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700 dark:bg-slate-800" onKeyDown={event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 'accounts' : event.key === 'End' ? 'directory' : peopleTab === 'accounts' ? 'directory' : 'accounts';
+        setPeopleTab(next); document.getElementById(`people-${next}-tab`)?.focus();
+      }}>
+        {(['accounts', 'directory'] as const).map(tab => <button key={tab} type="button" role="tab" id={`people-${tab}-tab`} aria-controls={`people-${tab}-panel`} aria-selected={peopleTab === tab} tabIndex={peopleTab === tab ? 0 : -1} onClick={() => setPeopleTab(tab)} className={`min-h-11 rounded-xl px-3 text-sm font-semibold transition-colors ${peopleTab === tab ? 'bg-blue-700 text-white' : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>{tab === 'accounts' ? 'Accounts' : 'Directory'}</button>)}
+      </div>}
 
       {/* Container 1: Current Account */}
       <div hidden={settingsSection !== 'account' || !!selectedMemberId} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
@@ -935,7 +944,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {/* Container 3: Church Members & permissions (Admin Only) */}
       {isAdmin && (
-        <div hidden={settingsSection !== 'members' && settingsSection !== 'account'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
+        <div id="people-accounts-panel" role="tabpanel" aria-labelledby="people-accounts-tab" hidden={settingsSection !== 'members' || peopleTab !== 'accounts'} className="ui-settings-panel bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden transition-all">
           <div
 
             className="p-4 sm:p-5 flex items-center justify-between gap-3 cursor-pointer select-none group hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
@@ -964,7 +973,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
           {!isUserDatabaseCollapsed && (
             <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-              {!selectedMemberId && <div className="space-y-2"><h3 className="text-lg font-semibold">User & admin accounts</h3><label className="block text-sm font-medium">Find account<input type="text" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" placeholder="Name or username" value={userSearchQuery} onChange={event => setUserSearchQuery(event.target.value)} /></label></div>}
+              {!selectedMemberId && <label className="block text-sm font-medium">Find account<input type="text" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" placeholder="Name or username" value={userSearchQuery} onChange={event => setUserSearchQuery(event.target.value)} /></label>}
               <div className={selectedMemberId ? 'hidden' : 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2'}>
                 {/* Filter */}
                 <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shrink-0">
@@ -1103,9 +1112,9 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
       {isAdmin && settingsSection === 'announcements' && <AdminAnnouncements key={currentUser.id} onBackHandlerChange={registerAnnouncementBack} />}
       {isAdmin && settingsSection === 'notificationSchedules' && <NotificationScheduleSettings key={currentUser.id} />}
-      {isAdmin && settingsSection === 'directory' && <DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} />}
+      {isAdmin && settingsSection === 'members' && peopleTab === 'directory' && <div id="people-directory-panel" role="tabpanel" aria-labelledby="people-directory-tab"><DirectoryManagement members={directoryMembers} onRefresh={refreshDirectory} /></div>}
 
-      {directoryLoadError && isAdmin && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}
+      {directoryLoadError && isAdmin && settingsSection === 'members' && <p role="alert" className="text-sm text-rose-600">{directoryLoadError}<button type="button" className="ml-2 underline" onClick={() => void refreshDirectory().catch(() => {})}>Retry directory</button></p>}
 
       {/* Container 5: Data management (Admin Only) */}
       {isAdmin && (
