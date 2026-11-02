@@ -412,7 +412,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   const lastProcessedSignalRef = useRef<number>(0);
 
-  // Smart Progressive Tab Action: Return to Open -> Collapse -> Scroll to Top
+  // A tab re-tap closes the editor first, otherwise scrolls to the list's top.
   useEffect(() => {
     if (collapseSignal !== undefined && collapseSignal > 0 && collapseSignal !== lastProcessedSignalRef.current) {
       lastProcessedSignalRef.current = collapseSignal;
@@ -425,13 +425,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         return;
       }
 
-      if (selectedSetlistId) {
-        // Reselecting the navigation tab does not collapse a program.
-        setShowTypeSelector(false);
-        return;
-      }
-
-      // The next reselect scrolls smoothly to the top.
+      // An expanded program must not swallow the scroll-to-top action.
+      setShowTypeSelector(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [collapseSignal, selectedSetlistId, isEditing]);

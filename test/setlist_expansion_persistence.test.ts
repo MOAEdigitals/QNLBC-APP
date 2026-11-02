@@ -16,7 +16,8 @@ test('one setlist stays expanded across tab remounts until its header or another
   for (const k of keys) Object.defineProperty(globalThis, k, { configurable: true, value: k === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[k] });
   const require = createRequire(import.meta.url), React = require('react');
   const { act } = React, root = require('react-dom/client').createRoot(document.getElementById('root'));
-  dom.window.scrollTo = () => {};
+  const scrollCalls: any[] = [];
+  dom.window.scrollTo = ((...args: any[]) => { scrollCalls.push(args); }) as any;
   dom.window.HTMLElement.prototype.scrollIntoView = () => {};
   let remembered: string[] = [];
   const compile = (file: string, dependencies: any) => {
@@ -53,7 +54,9 @@ test('one setlist stays expanded across tab remounts until its header or another
     await act(() => root.render(null));
     await act(() => render(1));
     assert.equal(open('one'), false); assert.equal(open('two'), true);
+    scrollCalls.length = 0;
     await act(() => render(2)); assert.equal(open('two'), true);
+    assert.deepEqual(scrollCalls.map(args => [args[0].top, args[0].behavior]), [[0, 'smooth']], 're-tapping Setlists scrolls to the top even while a program is expanded');
     await clickHeader('one'); assert.equal(open('one'), true); assert.equal(open('two'), false);
     await clickHeader('one'); assert.equal(open('one'), false); assert.equal(open('two'), false);
     await act(() => root.render(null)); await act(() => render(0, true));
