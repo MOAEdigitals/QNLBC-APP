@@ -738,6 +738,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   const handleStartEdit = (setlist: Setlist) => {
     const cloned = JSON.parse(JSON.stringify(setlist));
+    if (cloned.type === 'prayer_meeting' && !cloned.title?.trim()) cloned.title = 'Midweek Prayer Meeting';
     initialEditingJsonRef.current = JSON.stringify(cloned);
     setEditingSetlist(cloned);
     setShowCustomTitle(!!cloned.title);
@@ -809,7 +810,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       id: editingSetlist.id && isUUID(editingSetlist.id) ? editingSetlist.id : generateUUID(),
       revision: editingSetlist.revision,
       type: setlistType,
-      title: editingSetlist.title?.trim() || undefined,
+      title: editingSetlist.title?.trim() || (setlistType === 'prayer_meeting' ? 'Midweek Prayer Meeting' : undefined),
       date: editingSetlist.date,
       presider: editingSetlist.presider?.trim() || undefined,
       welcomeSong:
@@ -961,7 +962,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 : 'font-black text-slate-900 dark:text-white'
                             }`}
                           >
-                            {item.title || ({ sunday: 'Sunday Service', prayer_meeting: 'Prayer Meeting', fellowship: 'Fellowship', event: 'Special Event' }[item.type || 'sunday'])}
+                            {item.title || ({ sunday: 'Sunday Service', prayer_meeting: 'Midweek Prayer Meeting', fellowship: 'Fellowship', event: 'Special Event' }[item.type || 'sunday'])}
                           </h4>
 
                           <UpcomingBadge status={today ? 'today' : isSoonest ? 'next-up' : !isPast && item.id === followingUpcoming?.id ? 'upcoming' : undefined} />
