@@ -927,6 +927,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   key={item.id}
                   id={`setlist-card-${item.id}`}
                   data-setlist-drag-id={item.id}
+                  data-past={isPast || undefined}
                   aria-busy={reorder.busy || undefined}
                   style={reorder.drag?.id === item.id ? { opacity: .5 } : undefined}
                   data-upcoming-card={item.id === featuredId ? 'featured' : undefined}

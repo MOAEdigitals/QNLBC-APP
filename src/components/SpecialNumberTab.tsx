@@ -1007,7 +1007,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Compute vacant fellowships or special events
   const vacantEvents = setlists.filter((s) => {
-    if (s.type === 'sunday') return false;
+    if (s.type !== 'fellowship' && s.type !== 'event') return false;
     if (isPastDate(s.date)) return false;
     const hasSpecial = specialNumbers.some((sp) => sp.scheduledDate === s.date);
     return !hasSpecial;

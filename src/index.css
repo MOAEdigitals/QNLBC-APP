@@ -337,3 +337,8 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 
 .ui-category-sheet > button { color: var(--ui-muted); }
 .ui-category-sheet > button[aria-pressed="true"] { color: var(--ui-accent); }
+
+/* Dim completed setlists while keeping their action menus fully readable. */
+.setlists-screen .app-date-card[data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; }
+.dark .setlists-screen .app-date-card[data-past] { background-color: #0d1527; border-color: #1b263b; }
+.setlists-screen .app-date-card[data-past] [data-setlist-card-header] > :first-child { opacity: .6; }
