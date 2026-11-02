@@ -192,8 +192,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [choirFilter, setChoirFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [expandedChoirLyricsIds, setExpandedChoirLyricsIds] = useState<Record<string, boolean>>({});
   const [copiedChoirLyricsId, setCopiedChoirLyricsId] = useState<string | null>(null);
-  const [newChoirArtist, setNewChoirArtist] = useState('');
-  const [showChoirArtistInput, setShowChoirArtistInput] = useState(false);
 
   // Schedules state
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -1194,10 +1192,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         lyrics: matched.lyrics || prev?.lyrics || '',
         artist: matched.artist || prev?.artist || '',
       }));
-      if (matched.artist) {
-        setNewChoirArtist(matched.artist);
-        setShowChoirArtistInput(true);
-      }
     } else {
       setEditingChoir((prev) => ({
         ...prev,
@@ -1216,7 +1210,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     try {
 
       const trimmedTitle = editingChoir.songTitle.trim();
-      const artist = showChoirArtistInput ? newChoirArtist.trim() : (editingChoir.artist || '').trim();
+      const artist = (editingChoir.artist || '').trim();
       const lyrics = (editingChoir.lyrics || '').trim();
       const choirGroup = (editingChoir.choirGroup || '').trim() || 'Church Choir';
       const date = editingChoir.date || getNextSundayStr();
@@ -1255,8 +1249,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
       setIsEditingChoir(false);
       setEditingChoir(null);
-      setNewChoirArtist('');
-      setShowChoirArtistInput(false);
     } catch (err) {
       setChoirSaveError(err instanceof Error ? err.message : 'Unable to save choir song. Please try again.');
     } finally {
@@ -3677,8 +3669,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               });
               setIsEditingPractice(true);
             } else {
-              setNewChoirArtist('');
-              setShowChoirArtistInput(false);
               setEditingChoir({
                 id: generateUUID(),
                 choirGroup: 'Church Choir',
