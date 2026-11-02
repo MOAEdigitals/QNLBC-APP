@@ -35,7 +35,6 @@ import {
   getTodayStr,
 } from '../utils/dateUtils';
 import {
-  getAllDirectoryNames,
 } from '../utils/storage';
 import {
   saveAudioToStorage,
@@ -158,7 +157,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   choirEntries = [],
   songs,
   setlists,
-  savedNames,
   onSaveSpecialNumber,
   onDeleteSpecialNumber,
   onSavePracticeEntry,
@@ -986,7 +984,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   }, [activePracticeMedia, isBgPlayEnabled]);
 
-  const directoryNames = getAllDirectoryNames(savedNames);
   const songTitleSuggestions = songs.map((s) => s.title);
 
   // Sorted: soonest upcoming at top (nearest future/today first), past dates below
@@ -2878,20 +2875,23 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <div className="ui-form-body">
               {/* Group name */}
               <div className="order-3">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="practice-group-name" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Group name (optional)
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                  <AutofillInput
-                    id="practice-group-name"
-                    name="practice_group_name"
-                    value={editingPractice.groupName || ''}
-                    onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
-                    suggestions={directoryNames}
-                    placeholder="Enter singer or group"
-                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
-                  />
-                </div>
+                <input
+                  id="practice-group-name"
+                  name="practice_group_name"
+                  type="text"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="words"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  value={editingPractice.groupName || ''}
+                  onChange={event => setEditingPractice({ ...editingPractice, groupName: event.target.value })}
+                  placeholder="Enter singer or group"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
               </div>
 
               {/* Event (optional) */}
