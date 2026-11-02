@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../services/clipboard';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction } from '../services/appDialogs';
 import { useSwipeSubtabs } from './SwipeNavigation';
@@ -189,7 +190,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [choirSearchQuery, setChoirSearchQuery] = useState('');
   const [choirFilter, setChoirFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
   const [expandedChoirLyricsIds, setExpandedChoirLyricsIds] = useState<Record<string, boolean>>({});
-  const [copiedChoirLyricsId, setCopiedChoirLyricsId] = useState<string | null>(null);
 
   // Schedules state
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
@@ -538,7 +538,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Expandable Lyrics states for cards
   const [expandedScheduleLyricsIds, setExpandedScheduleLyricsIds] = useState<Record<string, boolean>>({});
-  const [copiedScheduleLyricsId, setCopiedScheduleLyricsId] = useState<string | null>(null);
 
   // Native <details> menus do not close when the user taps elsewhere. Keep the
   // compact practice menus, but give them standard popover click-away behavior.
@@ -576,64 +575,26 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }));
   };
 
-  const handleCopyScheduleLyrics = async (id: string, lyrics: string, songTitle: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    const text = `${songTitle ? `${songTitle}\n\n` : ''}${lyrics}`;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-      setCopiedScheduleLyricsId(id);
-      setTimeout(() => {
-        setCopiedScheduleLyricsId((prev) => (prev === id ? null : prev));
-      }, 2500);
-    } catch (err) {
-      console.error('Failed to copy lyrics:', err);
-    }
-  };
 
   const [copiedLyricsGroupId, setCopiedLyricsGroupId] = useState<string | null>(null);
 
+  const handleCopyLyricsRequest=useRef(0);
+  const copyIndicatorTimer=useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(()=>()=>{if(copyIndicatorTimer.current)clearTimeout(copyIndicatorTimer.current)},[]);
   const handleCopyLyrics = async (groupId: string, lyrics: string, songTitle: string, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     const text = `${songTitle ? `${songTitle}\n\n` : ''}${lyrics}`;
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-      setCopiedLyricsGroupId(groupId);
-      setTimeout(() => {
-        setCopiedLyricsGroupId((prev) => (prev === groupId ? null : prev));
-      }, 2500);
-    } catch (err) {
-      console.error('Failed to copy lyrics:', err);
-    }
+    const request=++handleCopyLyricsRequest.current;
+    setCopiedLyricsGroupId(null);
+    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
+    if (!await copyWithFeedback(text, 'Lyrics copied.')) return;
+    if (request !== handleCopyLyricsRequest.current) return;
+    setCopiedLyricsGroupId(groupId);
+    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
+    copyIndicatorTimer.current=setTimeout(()=>setCopiedLyricsGroupId(null),2500);
   };
 
 
@@ -1275,12 +1236,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  const handleCopyChoirLyrics = (entry: ChoirEntry) => {
-    if (!entry.lyrics) return;
-    navigator.clipboard.writeText(entry.lyrics);
-    setCopiedChoirLyricsId(entry.id);
-    setTimeout(() => setCopiedChoirLyricsId(null), 2000);
-  };
 
   const handleSaveChoirSongToLibrary = (entry: ChoirEntry) => {
     if (!entry.songTitle) return;

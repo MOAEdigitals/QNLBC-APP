@@ -45,7 +45,7 @@ test('copy credentials uses exact username and password without sending a messag
   let copied = '';
   const code = handler('handleCopyMemberCredentials', 'handleCopyAccountDetails');
   const copy = runInNewContext(ts.transpileModule(`${code}\nhandleCopyMemberCredentials;`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, {
-    navigator: { clipboard: { writeText: async (text: string) => { copied = text; } } },
+    copyWithFeedback: async (text: string) => { copied = text; return true; }, credentialCopyRequest:{current:0}, credentialCopyTimer:{current:null}, clearTimeout() {},
     users: [{ id: 'member', displayName: 'Sample Member' }], formatAccountCredentials,
     setCopiedCredentialId() {}, setTimeout() {}, setMemberNotice() {},
   });

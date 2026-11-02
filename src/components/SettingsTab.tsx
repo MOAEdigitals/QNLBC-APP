@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../services/clipboard';
 import { confirmAction, showAppMessage } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
 import { SongExport } from './SongExport';
@@ -212,6 +213,11 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const credentialCopyRequest=useRef(0);
+  const credentialCopyTimer=useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleCopyPromptTextRequest=useRef(0);
+  const promptCopyTimer=useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(()=>()=>{if(credentialCopyTimer.current)clearTimeout(credentialCopyTimer.current);if(promptCopyTimer.current)clearTimeout(promptCopyTimer.current)},[]);
   const lastProcessedSignalRef = useRef<number>(0);
 
   useEffect(() => {
@@ -471,12 +477,17 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   const handleCopyMemberCredentials = async (userId: string, username: string, password: string, displayName?: string) => {
+    const request=++credentialCopyRequest.current;
+    setCopiedCredentialId(null);
+    if (credentialCopyTimer.current) clearTimeout(credentialCopyTimer.current);
     try {
       const account = users.find(user => user.id === userId);
-      await navigator.clipboard.writeText(formatAccountCredentials(displayName || account?.displayName || account?.name || username, username, password));
+      if (!await copyWithFeedback(formatAccountCredentials(displayName || account?.displayName || account?.name || username, username, password), 'Credentials copied.')) { setMemberNotice('Copying was blocked. Tap Copy credentials again.'); return; }
+      if (request !== credentialCopyRequest.current) return;
       setCopiedCredentialId(userId);
       setMemberNotice('Complete credentials copied: webapp link, name, username and password.');
-      setTimeout(() => setCopiedCredentialId(current => current === userId ? null : current), 2500);
+      if (credentialCopyTimer.current) clearTimeout(credentialCopyTimer.current);
+      credentialCopyTimer.current=setTimeout(() => setCopiedCredentialId(null),2500);
     } catch {
       setMemberNotice('The password is saved, but copying was blocked. Tap Copy credentials again.');
     }
@@ -694,10 +705,15 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
   };
 
   // AI Studio Migration prompt helpers
-  const handleCopyPromptText = () => {
-    navigator.clipboard.writeText(MIGRATION_PROMPT_TEXT);
+  const handleCopyPromptText = async () => {
+    const request=++handleCopyPromptTextRequest.current;
+    setCopiedPrompt(false);
+    if (promptCopyTimer.current) clearTimeout(promptCopyTimer.current);
+    if (!await copyWithFeedback(MIGRATION_PROMPT_TEXT, 'Prompt copied.')) return;
+    if (request !== handleCopyPromptTextRequest.current) return;
     setCopiedPrompt(true);
-    setTimeout(() => setCopiedPrompt(false), 3000);
+    if (promptCopyTimer.current) clearTimeout(promptCopyTimer.current);
+    promptCopyTimer.current=setTimeout(() => setCopiedPrompt(false),2500);
   };
 
   const handleDownloadPromptMd = () => {

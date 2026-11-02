@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../../services/clipboard';
 import { SheetDateField } from '../../components/SheetDateField';
 import { confirmAction } from '../../services/appDialogs';
 import { CardDate } from '../../components/CardDate';
@@ -173,12 +174,8 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
   }
   async function copy() {
     if (!selected) return;
-    try {
-      if (selected.outline_html && typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
-        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([selected.outline], { type: 'text/plain' }), 'text/html': new Blob([sanitizeOutline(selected.outline_html)], { type: 'text/html' }) })]);
-      } else await navigator.clipboard.writeText(selected.outline);
-      setCopyMessage('Copied.');
-    } catch { setCopyMessage('Copy unavailable. Select the outline text and copy it.'); }
+    const copied=await copyWithFeedback(selected.outline, 'Outline copied.', selected.outline_html ? sanitizeOutline(selected.outline_html) : undefined);
+    setCopyMessage(copied ? 'Copied.' : 'Copy unavailable. Select the outline text and copy it.');
   }
   useBackLayer(!!editor, closeEditor);
   useBackLayer(!!selected, () => { if (!saveLock.current) closeReader(); });

@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../services/clipboard';
 import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionActive, partitionSpecialRecognitions } from '../utils/recognitionDetails';
 import { BirthdayDatePicker } from './BirthdayDatePicker';
 import { SheetDateField } from './SheetDateField';
@@ -240,7 +241,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     <div data-birthday-actions={key} className="relative shrink-0">
       <button type="button" aria-label={`Actions for ${name}`} aria-haspopup="menu" aria-expanded={birthdayMenuId === key} onClick={() => setBirthdayMenuId(birthdayMenuId === key ? null : key)} className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"><MoreHorizontal className="w-4 h-4" /></button>
       {birthdayMenuId === key && <div role="menu" aria-label={`${name} actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
-        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => { setBirthdayMenuId(null); try { await navigator.clipboard.writeText(copy); } catch { void showAppMessage('Unable to copy. Please try again.'); } }}><Copy className="w-4 h-4" />Copy</button>
+        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => { setBirthdayMenuId(null); await copyWithFeedback(copy); }}><Copy className="w-4 h-4" />Copy</button>
         <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setBirthdayMenuId(null); setRecognitionSaveError(''); edit(); }}><Pencil className="w-4 h-4" />Edit</button>
         <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={async () => { setBirthdayMenuId(null); if (await confirmAction(`Remove ${name}?`)) remove(); }}><Trash2 className="w-4 h-4" />Delete</button>
       </div>}
@@ -369,8 +370,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                                 <div role="menu" aria-label={`${item.name} birthday actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
                                   <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => {
                                     setBirthdayMenuId(null);
-                                    try { await navigator.clipboard.writeText(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`); }
-                                    catch { void showAppMessage('Unable to copy. Please try again.'); }
+                                    await copyWithFeedback(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`);
                                   }}><Copy className="w-4 h-4" />Copy</button>
                                   <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => {
                                     setBirthdayMenuId(null);

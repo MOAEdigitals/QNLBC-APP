@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../../services/clipboard';
 import { calendarOverlays, EMPTY_OVERLAY_FILTERS } from './calendarOverlays';
 import { yearList } from '../../components/MonthSeparators';
 import { SheetDateField } from '../../components/SheetDateField';
@@ -168,7 +169,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const copyActivity = async (item: ChurchActivity) => {
     const date = localDate(item.activityDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     const time = item.activityTime ? new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-    await navigator.clipboard.writeText([item.title, date, time, item.description].filter(Boolean).join('\n'));
+    if (!await copyWithFeedback([item.title, date, time, item.description].filter(Boolean).join('\n'), 'Activity copied.')) return;
     setOpenMenu(null);
   };
 

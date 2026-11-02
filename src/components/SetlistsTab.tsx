@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../services/clipboard';
 import { BottomSheet } from './BottomSheet';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction } from '../services/appDialogs';
@@ -418,33 +419,23 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     }
   }, [collapseSignal, selectedSetlistId, isEditing]);
 
+  const handleCopySetlistRequest=useRef(0);
+  const copyIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current); }, []);
   const handleCopySetlist = async (setlist: Setlist, e?: React.MouseEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     const text = formatSetlistForMessenger(setlist, songs);
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-      }
-      setCopiedSetlistId(setlist.id);
-      setTimeout(() => {
-        setCopiedSetlistId((prev) => (prev === setlist.id ? null : prev));
-      }, 2500);
-    } catch (err) {
-      console.error('Failed to copy setlist:', err);
-    }
+    const request=++handleCopySetlistRequest.current;
+    setCopiedSetlistId(null);
+    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
+    if (!await copyWithFeedback(text, 'Setlist copied.')) return;
+    if (request !== handleCopySetlistRequest.current) return;
+    setCopiedSetlistId(setlist.id);
+    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
+    copyIndicatorTimer.current = setTimeout(() => setCopiedSetlistId(null), 2500);
   };
 
   // Back swipe & dirty state tracking
@@ -1004,7 +995,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         {copiedSetlistId === item.id ? (
                           <>
                             <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                               Copied!
                             </span>
                           </>

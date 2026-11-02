@@ -1,3 +1,4 @@
+import { copyWithFeedback } from '../services/clipboard';
 import { SongCategorySheet } from './SongCategorySheet';
 import { confirmAction } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
@@ -529,16 +530,22 @@ if (isEditing && !savingSongRef.current) {
     }
   }, [selectedSongId, alignSongCardBelowHeader]);
 
-  const handleCopySong = (song: Song, e?: React.MouseEvent) => {
+  const handleCopySongRequest=useRef(0);
+  const copyIndicatorTimer=useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(()=>()=>{if(copyIndicatorTimer.current)clearTimeout(copyIndicatorTimer.current)},[]);
+  const handleCopySong = async (song: Song, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
     const textToCopy = `Title: ${song.title}${song.artist ? `\nArtist/Author: ${song.artist}` : ''}\n\n${song.lyrics || '(No lyrics available)'}`;
-    navigator.clipboard.writeText(textToCopy);
+    const request=++handleCopySongRequest.current;
+    setCopiedSongId(null);
+    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
+    if (!await copyWithFeedback(textToCopy, 'Song copied.')) return;
+    if (request !== handleCopySongRequest.current) return;
     setCopiedSongId(song.id);
-    setTimeout(() => {
-      setCopiedSongId(null);
-    }, 2500);
+    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
+    copyIndicatorTimer.current=setTimeout(() => setCopiedSongId(null),2500);
   };
 
   useEffect(() => { sessionSongSort = sortMode; }, [sortMode]);

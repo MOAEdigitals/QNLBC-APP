@@ -104,7 +104,7 @@ test('share dialog creates a preview on request, then shares one clickable URL w
   const preview = `${origin}/share/${'a'.repeat(64)}/${'b'.repeat(32)}`;
   runInNewContext(ts.transpileModule(readFileSync('src/components/SetlistShareDialog.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText, {
     exports, document, File, Error, URL: { createObjectURL: () => 'blob:card', revokeObjectURL() {} },
-    require: (name: string) => name.includes('html-to-image') ? { toBlob: async () => new Blob([png], { type: 'image/png' }) }
+    require: (name: string) => name.endsWith('/clipboard') ? {copyWithFeedback:async()=>true} : name.includes('html-to-image') ? { toBlob: async () => new Blob([png], { type: 'image/png' }) }
       : name.includes('SetlistShareCard') ? { SetlistShareCard: React.forwardRef((_: any, ref: any) => React.createElement('div', { ref })) }
       : name.includes('setlistSharing') ? { setlistShareUrl: () => 'https://moaedigitals.github.io/QNLBC-APP/?setlist=test#home', setlistTitle: () => 'Sunday Service' }
       : name.includes('setlistPreview') ? { createSetlistPreview: async (receivedId: string) => { creates++; assert.equal(receivedId, id); return preview; } }

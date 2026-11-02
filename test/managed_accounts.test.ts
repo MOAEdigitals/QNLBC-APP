@@ -26,7 +26,7 @@ test('new or reset member credentials can be revealed and copied without databas
   assert.match(settings, /Copy credentials/);
   assert.match(settings, /Visible this session only/);
   assert.match(settings, /Existing passwords cannot be retrieved/);
-  assert.match(settings, /navigator\.clipboard\.writeText\(formatAccountCredentials\(/);
+  assert.match(settings, /copyWithFeedback\(formatAccountCredentials\(/);
   assert.doesNotMatch(profile, /password_hash|passwordHash/);
 });
 
