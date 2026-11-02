@@ -1,3 +1,4 @@
+import { calendarOverlays, EMPTY_OVERLAY_FILTERS } from './calendarOverlays';
 import { yearList } from '../../components/MonthSeparators';
 import { SheetDateField } from '../../components/SheetDateField';
 import { confirmAction } from '../../services/appDialogs';
@@ -7,7 +8,7 @@ import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import { CardDate } from '../../components/CardDate';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
-import type { ChurchActivity, UserAccount } from '../../types';
+import type { BirthdayCelebrant, ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
 import { useBackLayer } from '../../hooks/useBackLayer';
@@ -35,7 +36,7 @@ function todayKey() {
   return dateKey(new Date());
 }
 
-export default function Activities({ currentUser, collapseSignal }: { currentUser: UserAccount | null; collapseSignal?: number }) {
+export default function Activities({ currentUser, collapseSignal, birthdays = [], onLoadBirthdays }: { currentUser: UserAccount | null; collapseSignal?: number; birthdays?: BirthdayCelebrant[]; onLoadBirthdays?: () => Promise<void> }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const calendarRef = useCalendarSwipe(direction => setMonth(value => new Date(value.getFullYear(), value.getMonth() + direction, 1)));
@@ -58,6 +59,9 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
   const [showTime, setShowTime] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [overlayFilters, setOverlayFilters] = useState(EMPTY_OVERLAY_FILTERS);
+  const [dateDetails, setDateDetails] = useState<string | null>(null);
+  const [birthdaysLoading, setBirthdaysLoading] = useState(false);
   const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: false, other: true });
   const savingRef = useRef(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -71,9 +75,19 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
         <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-5 w-5" /></button>
         <BottomSheet open={showFilters} title="Filter activities" onClose={() => setShowFilters(false)}><div className="space-y-1">
           {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
+          <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+            {([['ph', 'PH holidays', 'bg-cyan-500'], ['local', 'Local holidays (Nueva Ecija)', 'bg-violet-500'], ['birthday', 'Birthdays', 'bg-rose-500']] as const).map(([key, label, color]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={overlayFilters[key]} onChange={() => {
+              const enabled = !overlayFilters[key];
+              setOverlayFilters(value => ({ ...value, [key]: enabled }));
+              if (key === 'birthday' && enabled && onLoadBirthdays) {
+                setBirthdaysLoading(true);
+                void onLoadBirthdays().catch(() => setLoadError('Could not load birthdays.')).finally(() => setBirthdaysLoading(false));
+              }
+            }} /><i aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />{label}</label>)}
+          </div>
         </div></BottomSheet>
       </div>
-    ), [showFilters, gatheringFilters]);
+    ), [showFilters, gatheringFilters, overlayFilters, onLoadBirthdays]);
   useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities',
     label: 'Search activities', beforeSearch: activityFilter, onOpen: scrollToResults });
 
@@ -107,11 +121,12 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     if (!collapseSignal || collapseSignal === lastProcessedSignalRef.current) return;
     lastProcessedSignalRef.current = collapseSignal;
     if (editor && !savingRef.current) { setEditor(null); return; }
+    if (dateDetails) { setDateDetails(null); return; }
     if (showFilters) { setShowFilters(false); return; }
     if (openMenu) { setOpenMenu(null); return; }
     if (expandedActivity) { setExpandedActivity(null); return; }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [collapseSignal, editor, showFilters, openMenu, expandedActivity]);
+  }, [collapseSignal, editor, showFilters, openMenu, expandedActivity, dateDetails]);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -125,6 +140,12 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     for (const item of filteredItems) result.set(item.activityDate, (result.get(item.activityDate) || 0) + 1);
     return result;
   }, [filteredItems]);
+  const overlays = useMemo(() => calendarOverlays(month.getFullYear(), birthdays, overlayFilters, search), [month, birthdays, overlayFilters, search]);
+  const overlaysByDate = useMemo(() => {
+    const result = new Map<string, typeof overlays>();
+    for (const entry of overlays) result.set(entry.date, [...(result.get(entry.date) || []), entry]);
+    return result;
+  }, [overlays]);
   const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today))?.id;
   const followingActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today) && item.id !== nextActivityId)?.id;
   // Completed dates stay at the end of their year, after every upcoming month.
@@ -166,6 +187,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
 
   const showActivitiesForDate = (date: string) => {
     setSelectedDate(date);
+    if (overlaysByDate.has(date)) { setDateDetails(date); return; }
     const matches = filteredItems.filter(item => item.activityDate === date);
     const first = matches[0];
     if (!first) return;
@@ -220,16 +242,26 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
           if (!day) return <span key={`blank-${index}`} />;
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
           const count = counts.get(key) || 0;
+          const entries = overlaysByDate.get(key) || [];
+          const kinds = ['ph', 'local', 'birthday'] as const;
+          const extraLabel = kinds.map(kind => { const total = entries.filter(entry => entry.kind === kind).length; return total ? `, ${total} ${kind === 'birthday' ? 'birthday' : kind === 'local' ? 'local holiday' : 'PH holiday'}${total > 1 ? 's' : ''}` : ''; }).join('');
           const isSelected = key === selectedDate;
           const isCurrentDay = key === today;
-          return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}`}>
+          return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}${extraLabel}`}>
             <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isCurrentDay ? 'bg-indigo-600 text-white dark:bg-indigo-300 dark:text-slate-950 font-bold' : isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
-            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}</span>
+            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${kind === 'ph' ? 'bg-cyan-500' : kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} />)}</span>
           </button>;
         })}
       </div>
     </section>
 
+    {birthdaysLoading && overlayFilters.birthday && <p role="status" className="px-1 text-sm text-slate-500">Loading birthdays…</p>}
+    <BottomSheet open={!!dateDetails} title={dateDetails ? localDate(dateDetails).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''} onClose={() => setDateDetails(null)}>
+      <div className="divide-y divide-slate-200 dark:divide-slate-700">
+        {(overlaysByDate.get(dateDetails || '') || []).map(entry => <div key={entry.id} className="flex gap-3 py-3"><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${entry.kind === 'ph' ? 'bg-cyan-500' : entry.kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} /><div className="min-w-0"><p className="font-semibold">{entry.title}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{entry.detail}{entry.kind === 'ph' ? ' · Philippines' : ''}</p>{entry.source && <a href={entry.source} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-600 dark:text-blue-400">Official source</a>}</div></div>)}
+        {filteredItems.filter(item => item.activityDate === dateDetails).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); const card = document.getElementById(`activity-card-${item.id}`); if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), true); }}><i aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" /><span className="font-semibold">{item.title}</span></button>)}
+      </div>
+    </BottomSheet>
     <div ref={resultsRef} data-activity-results>
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">

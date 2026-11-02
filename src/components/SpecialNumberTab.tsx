@@ -13,6 +13,7 @@ import { useHeaderSearch } from './HeaderSearch';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
+  BirthdayCelebrant,
   UserAccount,
   SpecialNumberEntry,
   PracticeGroupEntry,
@@ -102,6 +103,8 @@ import {
 const Activities = React.lazy(() => import('../features/activities/Activities'));
 
 interface SpecialNumberTabProps {
+  birthdays?: BirthdayCelebrant[];
+  onLoadBirthdays?: () => Promise<void>;
   currentUser: UserAccount | null;
   specialNumbers: SpecialNumberEntry[];
   practiceEntries?: PracticeGroupEntry[];
@@ -149,6 +152,8 @@ const VOCAL_PART_OPTIONS: VocalPartLabel[] = [
 ];
 
 export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
+  birthdays = [],
+  onLoadBirthdays,
   currentUser,
   specialNumbers,
   practiceEntries = [],
@@ -2012,7 +2017,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       </div>
 
       {activeSubTab === 'activities' && (
-        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
+        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
       )}
 
       {/* ========================================================================= */}

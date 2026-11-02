@@ -1,3 +1,4 @@
+import * as calendarOverlayModel from '../src/features/activities/calendarOverlays.ts';
 import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,6 +12,7 @@ import * as monthOrder from '../src/utils/recognitionOrder.ts';
 
 test('Schedules filter controls hide matching cards and calendar dots, including Midweek titles', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost' });
+  dom.window.matchMedia = (() => ({ matches: true })) as any;
   const keys = ['window', 'document', 'navigator', 'HTMLElement', 'IS_REACT_ACT_ENVIRONMENT'];
   const saved = keys.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
   keys.forEach(key => Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[key] }));
@@ -21,15 +23,17 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   const items = ['Midweek Prayer Meeting', 'Sunday Service', 'Song Leaders & Choir Practice', 'Church Anniversary'].map((title, index) => ({ id: String(index), title, activityDate: day }));
   let updateHeader: (node: any) => void;
   let searchConfig: any;
+  let birthdayLoads = 0;
+  const loadBirthdays = async () => { birthdayLoads++; };
   const scrollTargets: HTMLElement[] = [];
   const exports: any = {}; const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync('src/features/activities/Activities.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document, window: dom.window, console,
-    require: (name: string) => (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './calendarOverlays' ? calendarOverlayModel : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
   });
   function Harness() {
     const [header, setHeader] = React.useState(null); updateHeader = setHeader;
-    return React.createElement(React.Fragment, null, header, React.createElement(exports.default, { currentUser: null }));
+    return React.createElement(React.Fragment, null, header, React.createElement(exports.default, { currentUser: null, birthdays: [{ id: 'birthday-test', name: 'Test Celebrant', birthDate: `2000-${day.slice(5)}` }], onLoadBirthdays: loadBirthdays }));
   }
   try {
     await act(async () => { root.render(React.createElement(Harness)); });
@@ -43,6 +47,20 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.equal(checkbox('Sunday service').checked, true);
     assert.equal(checkbox('Other events').checked, true);
     assert.equal(checkbox('Choir & song leader practice').checked, false);
+    for (const label of ['PH holidays', 'Local holidays (Nueva Ecija)', 'Birthdays']) assert.equal(checkbox(label).checked, false);
+    assert.equal(document.querySelectorAll('[data-calendar-overlay]').length, 0, 'all overlays start hidden');
+    await act(() => checkbox('Birthdays').click());
+    assert.equal(birthdayLoads, 1, 'birthdays load on demand, even when Recognitions has not been opened');
+    assert.ok(document.querySelector('[data-calendar-overlay="birthday"]'));
+    await act(() => document.querySelector<HTMLButtonElement>('[aria-label="Close Filter activities"]')!.click());
+    await act(() => document.querySelector<HTMLButtonElement>(`[aria-label="${day}, 3 activities, 1 birthday"]`)!.click());
+    assert.ok(document.querySelector('[role="dialog"]')?.textContent?.includes('Test Celebrant'), 'calendar tap reveals the birthday name');
+    assert.ok(document.querySelector('[role="dialog"]')?.textContent?.includes('Midweek Prayer Meeting'), 'the date sheet also includes church activities on the same day');
+    await act(() => document.querySelector<HTMLButtonElement>('[role="dialog"] [aria-label^="Close "]')!.click());
+    await act(() => document.querySelector<HTMLButtonElement>('[aria-label="Filter activities"]')!.click());
+    await act(() => checkbox('Birthdays').click());
+    assert.equal(document.querySelector('[data-calendar-overlay="birthday"]'), null);
+
     await act(() => checkbox('Choir & song leader practice').click());
     assert.equal(cards().length, 4, 'practice can still be enabled manually');
     await act(() => checkbox('Prayer meetings').click());

@@ -1,3 +1,4 @@
+import * as calendarOverlayModel from '../src/features/activities/calendarOverlays.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import React, { act } from 'react';
@@ -27,6 +28,7 @@ test('calendar swipes change months while outside swipes still navigate; taps, s
   const activities = load('src/features/activities/Activities.tsx', name => {
     if (name === 'react') return React;
     if (name === './useCalendarSwipe') return hook;
+    if (name === './calendarOverlays') return calendarOverlayModel;
     if (name === './model') return model;
     if (name === './data') return { fetchActivities: async () => [] };
     if (name === 'lucide-react') return new Proxy({}, { get: () => () => null });

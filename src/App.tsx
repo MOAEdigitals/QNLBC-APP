@@ -279,6 +279,8 @@ export default function App() {
     return request;
   }, []);
 
+  const loadCalendarBirthdays = useCallback(() => loadTabData('recognitions'), [loadTabData]);
+
   // 4. Initial Authoritative Load and Session Management
   useEffect(() => {
     let isMounted = true;
@@ -1403,6 +1405,8 @@ export default function App() {
 
         {currentTab === 'special-numbers' && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
+            birthdays={birthdays}
+            onLoadBirthdays={loadCalendarBirthdays}
             currentUser={currentUser}
             specialNumbers={linkedSpecialNumbers}
             practiceEntries={linkedPracticeEntries}
