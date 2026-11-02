@@ -29,8 +29,6 @@
 .auth-screen > :first-child { margin-top: auto; }
 .auth-screen > :last-child { margin-bottom: auto; }
 .keyboard-open .auth-screen { justify-content: flex-start; padding-block: .75rem; }
-.keyboard-open .auth-screen > :first-child { margin-top: 0; }
-.keyboard-open .auth-screen > :last-child { margin-bottom: 0; }
 .keyboard-open .auth-logo { width: 2rem; height: 2rem; margin-bottom: .375rem; padding: .25rem; }
 .keyboard-open .auth-brand h2 { font-size: 1.125rem; line-height: 1.5rem; }
 .keyboard-open .auth-brand p, .keyboard-open .auth-footer { display: none; }
