@@ -1,3 +1,4 @@
+import { songTitleCase } from './utils/songTitleCase';
 import { showAppMessage } from './services/appDialogs';
 import { useAppExitGuard } from './hooks/useAppExitGuard';
 import { ExitConfirmation } from './components/ExitConfirmation';
@@ -885,42 +886,33 @@ export default function App() {
   // Choir Operations
   const handleSaveChoirEntry = async (entry: ChoirEntry) => {
     const isNew = !choirEntries.some((item) => item.id === entry.id);
-    if (!requirePermission(isNew ? 'add' : 'edit')) return;
+    if (!requirePermission(isNew ? 'add' : 'edit')) return false;
     let entryToSave = { ...entry };
 
-    if (entry.songTitle && entry.lyrics) {
-      const existingSong = songs.find(
-        (song) => song.title.trim().toLowerCase() === entry.songTitle.trim().toLowerCase()
-      );
-      const songDraft = existingSong
-        ? {
-            ...existingSong,
-            lyrics: entry.lyrics,
-            updatedAt: new Date().toISOString(),
-          }
-        : upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics);
-      const savedSong = await supabaseSaveSong(songDraft, !existingSong);
-      setSongs((prev) => {
-        const withoutOld = prev.filter(
-          (song) => song.id !== songDraft.id && song.id !== savedSong.id
-        );
-        return [...withoutOld, savedSong];
-      });
-      entryToSave = { ...entryToSave, songId: savedSong.id };
-    }
-
     try {
+      const existingSong = songs.find(song => song.id === entry.songId)
+        || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle.trim().toLowerCase());
+      if (existingSong) {
+        entryToSave = { ...entryToSave, songId: existingSong.id, songTitle: existingSong.title };
+      } else if (entry.songTitle.trim()) {
+        const songDraft = { ...upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics), categories: ['Choir'], category: 'Choir' };
+        const savedSong = await supabaseSaveSong(songDraft, true);
+        setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+        entryToSave = { ...entryToSave, songId: savedSong.id, songTitle: savedSong.title };
+      }
+
       const saved = await supabaseSaveChoirEntry(entryToSave, isNew);
       setChoirEntries((prev) =>
         isNew
           ? [saved, ...prev.filter((item) => item.id !== entry.id && item.id !== saved.id)]
           : prev.map((item) => (item.id === entry.id ? saved : item))
       );
+      return true;
     } catch (err: any) {
       console.error('Failed to save choir presentation:', err);
       const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
       setChoirEntries(fresh);
-      void showAppMessage('Unable to save choir presentation: ' + (err.message || 'Database error'));
+      return false;
     }
   };
 

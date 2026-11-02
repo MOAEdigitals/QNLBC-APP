@@ -129,7 +129,7 @@ interface SpecialNumberTabProps {
   onDeletePracticeTrack?: (attachment: SongAttachment) => Promise<void> | void;
   onDeletePracticeEntry?: (id: string) => void;
   onSaveChoirMedia?: (entry: ChoirEntry) => Promise<void>;
-  onSaveChoirEntry?: (entry: ChoirEntry) => void;
+  onSaveChoirEntry?: (entry: ChoirEntry) => Promise<boolean | void> | void;
   onDeleteChoirEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
   onPlaySongMedia?: (songId: string, mediaUrl: string) => void;
@@ -186,6 +186,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   // Choir state
   const [selectedChoirId, setSelectedChoirId] = useState<string | null>(null);
   const [isEditingChoir, setIsEditingChoir] = useState(false);
+  const choirSavingRef = useRef(false);
+  const [isSavingChoir, setIsSavingChoir] = useState(false);
+  const [choirSaveError, setChoirSaveError] = useState<string | null>(null);
   const [editingChoir, setEditingChoir] = useState<Partial<ChoirEntry> | null>(null);
   const [choirSearchQuery, setChoirSearchQuery] = useState('');
   const [choirFilter, setChoirFilter] = useState<'all' | 'upcoming' | 'completed'>('all');
@@ -955,7 +958,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   useBackLayer(isEditingSchedule || isEditingPractice || isEditingChoir || isAddingTrackModal || isAddingVocalPartModal || !!selectedEntryId || !!selectedPracticeId || !!selectedChoirId, () => {
     if (isAddingVocalPartModal) { if (!savingVocalPartRef.current) handleCloseVocalPartModal(); }
     else if (isAddingTrackModal) { if (!savingTrackRef.current && !isUploadingCloudMedia) setIsAddingTrackModal(false); }
-    else if (isEditingChoir) { setIsEditingChoir(false); setEditingChoir(null); }
+    else if (isEditingChoir) { if (choirSavingRef.current) return; setIsEditingChoir(false); setEditingChoir(null); }
     else if (isEditingPractice) { if (isSavingPractice) return; setIsEditingPractice(false); setEditingPractice(null); }
     else if (isEditingSchedule) { setIsEditingSchedule(false); setEditingSchedule(null); }
     else if (selectedPracticeId) setSelectedPracticeId(null);
@@ -1229,75 +1232,62 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   };
 
   // Choir Save Handler
-  const handleSaveChoirSubmit = (e: React.FormEvent) => {
+  const handleSaveChoirSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingChoir || !editingChoir.songTitle?.trim()) return;
+    if (!editingChoir || !editingChoir.songTitle?.trim() || choirSavingRef.current) return;
+    choirSavingRef.current = true;
+    setIsSavingChoir(true);
+    setChoirSaveError(null);
+    try {
 
-    const trimmedTitle = editingChoir.songTitle.trim();
-    const artist = showChoirArtistInput ? newChoirArtist.trim() : (editingChoir.artist || '').trim();
-    const lyrics = (editingChoir.lyrics || '').trim();
-    const choirGroup = (editingChoir.choirGroup || '').trim() || 'Church Choir';
-    const date = editingChoir.date || getNextSundayStr();
-    const notes = (editingChoir.notes || '').trim();
+      const trimmedTitle = editingChoir.songTitle.trim();
+      const artist = showChoirArtistInput ? newChoirArtist.trim() : (editingChoir.artist || '').trim();
+      const lyrics = (editingChoir.lyrics || '').trim();
+      const choirGroup = (editingChoir.choirGroup || '').trim() || 'Church Choir';
+      const date = editingChoir.date || getNextSundayStr();
+      const notes = (editingChoir.notes || '').trim();
 
-    let effectiveSongId = editingChoir.songId;
+      let effectiveSongId = editingChoir.songId;
 
-    // Check if song exists in songs library
-    const matchedSong = songs.find(
-      (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
-    );
+      // Check if song exists in songs library
+      const matchedSong = songs.find(
+        (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
+      );
 
-    if (!matchedSong && lyrics && onSaveSong) {
-      const newSong: Song = {
-        id: generateUUID(),
-        title: trimmedTitle,
+      // The parent saves and links the library song once before persisting the lineup.
+      if (matchedSong) effectiveSongId = matchedSong.id;
+
+      const entryToSave: ChoirEntry = {
+        id: editingChoir.id && isUUID(editingChoir.id) ? editingChoir.id : generateUUID(),
+        revision: editingChoir.revision,
+        mediaAttachments: editingChoir.mediaAttachments || [],
+        date,
+        songTitle: trimmedTitle,
         artist: artist || undefined,
-        lyrics: lyrics,
+        songId: effectiveSongId,
+        lyrics: lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
+        notes: notes || undefined,
+        choirGroup,
+        isDone: editingChoir.isDone || false,
+        createdAt: editingChoir.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      onSaveSong(newSong);
-      effectiveSongId = newSong.id;
-    } else if (matchedSong) {
-      effectiveSongId = matchedSong.id;
-      if (
-        (artist && matchedSong.artist !== artist) ||
-        (lyrics && matchedSong.lyrics !== lyrics)
-      ) {
-        if (onSaveSong) {
-          onSaveSong({
-            ...matchedSong,
-            artist: artist || matchedSong.artist,
-            lyrics: lyrics || matchedSong.lyrics,
-            updatedAt: new Date().toISOString(),
-          });
-        }
+
+      if (onSaveChoirEntry) {
+        const result = await onSaveChoirEntry(entryToSave);
+        if (result === false) throw new Error('Unable to save choir song. Please try again.');
       }
+
+      setIsEditingChoir(false);
+      setEditingChoir(null);
+      setNewChoirArtist('');
+      setShowChoirArtistInput(false);
+    } catch (err) {
+      setChoirSaveError(err instanceof Error ? err.message : 'Unable to save choir song. Please try again.');
+    } finally {
+      choirSavingRef.current = false;
+      setIsSavingChoir(false);
     }
-
-    const entryToSave: ChoirEntry = {
-      id: editingChoir.id && isUUID(editingChoir.id) ? editingChoir.id : generateUUID(),
-      revision: editingChoir.revision,
-      mediaAttachments: editingChoir.mediaAttachments || [],
-      date,
-      songTitle: trimmedTitle,
-      artist: artist || undefined,
-      songId: effectiveSongId,
-      lyrics: lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
-      notes: notes || undefined,
-      choirGroup,
-      isDone: editingChoir.isDone || false,
-      createdAt: editingChoir.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    if (onSaveChoirEntry) {
-      onSaveChoirEntry(entryToSave);
-    }
-
-    setIsEditingChoir(false);
-    setEditingChoir(null);
-    setNewChoirArtist('');
-    setShowChoirArtistInput(false);
   };
 
   const handleToggleChoirDone = (entry: ChoirEntry) => {
@@ -3558,7 +3548,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </h3>
               <button
                 type="button"
-                onClick={() => setIsEditingChoir(false)}
+                disabled={isSavingChoir}
+                onClick={() => { setChoirSaveError(null); setIsEditingChoir(false); }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -3566,7 +3557,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             <form onSubmit={handleSaveChoirSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
-              <div className="ui-form-body">
+              <fieldset disabled={isSavingChoir} className="ui-form-body">
               {/* 1. Scheduled Date */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
@@ -3644,21 +3635,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 />
               </div>
 
+              {choirSaveError && <p role="alert" className="text-sm text-rose-500">{choirSaveError}</p>}
               {/* Modal Footer */}
-              </div>
+              </fieldset>
               <div className="ui-form-actions flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsEditingChoir(false)}
+                  disabled={isSavingChoir}
+                  onClick={() => { setChoirSaveError(null); setIsEditingChoir(false); }}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={isSavingChoir}
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs hover:bg-slate-800 dark:hover:bg-white transition-all cursor-pointer"
                 >
-                  Save Choir Song
+                  {isSavingChoir ? 'Saving…' : 'Save Choir Song'}
                 </button>
               </div>
             </form>
