@@ -1013,7 +1013,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (pickerQuery.trim()) handleSelect({ title: displayedItems.find(item => item.title.toLowerCase() === activeQuery)?.title || pickerQuery.trim() }); } }}
-                className={`h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-10 ${showSongCategoryFilters ? 'pr-20' : 'pr-11'}`} />
+                className={`ui-picker-search-field h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-10 ${showSongCategoryFilters ? 'pr-20' : 'pr-11'}`} />
             </div>
           </div>}
           {isTouchPicker && showSongCategoryFilters && (
@@ -1074,7 +1074,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           )}
 
-          <div ref={pickerListRef} role="listbox" aria-label="Suggestions" aria-busy={rawQuery !== activeQuery} className="min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80 overscroll-contain touch-pan-y">
+          <div ref={pickerListRef} role="listbox" aria-label="Suggestions" aria-busy={rawQuery !== activeQuery} className="ui-picker-options min-h-0 overflow-y-auto overscroll-contain touch-pan-y">
           {isTouchPicker && pickerQuery.trim() && !matchedItems.some(item => item.title.toLowerCase() === activeQuery) && <button type="button" onClick={event => handleSelect({ title: pickerQuery.trim() }, event)} className="w-full min-h-11 px-4 py-3 text-left text-sm text-blue-600 dark:text-blue-400">Use “{pickerQuery.trim()}”</button>}
           {displayedItems.length === 0 && (
             <div className="px-4 py-5 text-center text-xs text-slate-500 dark:text-slate-400">
