@@ -1158,9 +1158,11 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         // Keep the picker in the dialog's stacking context, below its action bar.
         // Keep even the expanded drag handle below the system notification gesture area.
         // Subtract only the inset still visible above the visual viewport (e.g. with a keyboard).
-        if (isTouchPicker) return createPortal(<div className="fixed z-[200] inset-x-0 flex flex-col justify-end" style={{
-          top: `max(${mobilePickerPosition.top}px, calc(var(--app-safe-top, 0px) + 12px))`,
-          height: `calc(${mobilePickerPosition.maxHeight}px - max(0px, calc(var(--app-safe-top, 0px) + 12px - ${mobilePickerPosition.top}px)))`,
+        // Overlay keyboards do not resize visualViewport. Use the same keyboard
+        // boundary as forms and BottomSheet, retaining measured geometry as fallback.
+        if (isTouchPicker) return createPortal(<div className="ui-picker-viewport fixed z-[200] inset-x-0 flex flex-col justify-end" style={{
+          top: `max(var(--form-viewport-top, ${mobilePickerPosition.top}px), calc(var(--app-safe-top, 0px) + 12px))`,
+          height: `calc(var(--form-viewport-height, ${mobilePickerPosition.maxHeight}px) - max(0px, calc(var(--app-safe-top, 0px) + 12px - var(--form-viewport-top, ${mobilePickerPosition.top}px))))`,
         }}>
           <button type="button" aria-label="Dismiss picker" onClick={closePicker} className="absolute inset-0 bg-black/50" />
           {dropdown}

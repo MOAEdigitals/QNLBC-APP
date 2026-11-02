@@ -168,8 +168,8 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       assert.equal(dialog.querySelector('[aria-label="Reduce list"]'), null, 'the separate Reduce button is removed');
 
       const top = (dialog.parentElement as HTMLElement).style.top;
-      assert.equal(top, 'max(0px, calc(var(--app-safe-top, 0px) + 12px))', 'expanded drag header stays below the system status bar with an extra gesture gap');
-      assert.equal((dialog.parentElement as HTMLElement).style.height, `calc(${window.innerHeight}px - max(0px, calc(var(--app-safe-top, 0px) + 12px - 0px)))`, 'safe top clearance is removed from available height so the bottom stays in view');
+      assert.equal(top, 'max(var(--form-viewport-top, 0px), calc(var(--app-safe-top, 0px) + 12px))', 'expanded drag header stays below the system status bar with an extra gesture gap');
+      assert.equal((dialog.parentElement as HTMLElement).style.height, `calc(var(--form-viewport-height, ${window.innerHeight}px) - max(0px, calc(var(--app-safe-top, 0px) + 12px - var(--form-viewport-top, 0px))))`, 'safe top clearance is removed from available height so the bottom stays in view');
       await act(() => window.dispatchEvent(new dom.window.Event('resize')));
       assert.equal((dialog.parentElement as HTMLElement).style.top, top, 'sheet does not flip around the field');
       await click(search);
