@@ -1,4 +1,4 @@
-import { calendarOverlays, EMPTY_OVERLAY_FILTERS } from './calendarOverlays';
+import { calendarOverlays, EMPTY_OVERLAY_FILTERS, OVERLAY_COLORS } from './calendarOverlays';
 import { yearList } from '../../components/MonthSeparators';
 import { SheetDateField } from '../../components/SheetDateField';
 import { confirmAction } from '../../services/appDialogs';
@@ -76,7 +76,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
         <BottomSheet open={showFilters} title="Filter activities" onClose={() => setShowFilters(false)}><div className="space-y-1">
           {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
           <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
-            {([['ph', 'PH holidays', 'bg-cyan-500'], ['local', 'Local holidays (Nueva Ecija)', 'bg-violet-500'], ['birthday', 'Birthdays', 'bg-rose-500']] as const).map(([key, label, color]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={overlayFilters[key]} onChange={() => {
+            {([['ph', 'PH holidays', 'bg-cyan-500'], ['local', 'Local holidays (Nueva Ecija)', 'bg-violet-500'], ['birthday', 'Birthdays', 'bg-rose-500'], ['festival', 'Fiestas & festivals (Quezon)', 'bg-emerald-500']] as const).map(([key, label, color]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={overlayFilters[key]} onChange={() => {
               const enabled = !overlayFilters[key];
               setOverlayFilters(value => ({ ...value, [key]: enabled }));
               if (key === 'birthday' && enabled && onLoadBirthdays) {
@@ -243,13 +243,13 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
           const count = counts.get(key) || 0;
           const entries = overlaysByDate.get(key) || [];
-          const kinds = ['ph', 'local', 'birthday'] as const;
-          const extraLabel = kinds.map(kind => { const total = entries.filter(entry => entry.kind === kind).length; return total ? `, ${total} ${kind === 'birthday' ? 'birthday' : kind === 'local' ? 'local holiday' : 'PH holiday'}${total > 1 ? 's' : ''}` : ''; }).join('');
+          const kinds = ['ph', 'local', 'birthday', 'festival'] as const;
+          const extraLabel = kinds.map(kind => { const total = entries.filter(entry => entry.kind === kind).length; return total ? `, ${total} ${kind === 'birthday' ? 'birthday' : kind === 'festival' ? 'fiesta/festival' : kind === 'local' ? 'local holiday' : 'PH holiday'}${total > 1 ? 's' : ''}` : ''; }).join('');
           const isSelected = key === selectedDate;
           const isCurrentDay = key === today;
           return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}${extraLabel}`}>
             <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isCurrentDay ? 'bg-indigo-600 text-white dark:bg-indigo-300 dark:text-slate-950 font-bold' : isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
-            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${kind === 'ph' ? 'bg-cyan-500' : kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} />)}</span>
+            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${OVERLAY_COLORS[kind]}`} />)}</span>
           </button>;
         })}
       </div>
@@ -258,7 +258,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     {birthdaysLoading && overlayFilters.birthday && <p role="status" className="px-1 text-sm text-slate-500">Loading birthdays…</p>}
     <BottomSheet open={!!dateDetails} title={dateDetails ? localDate(dateDetails).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''} onClose={() => setDateDetails(null)}>
       <div className="divide-y divide-slate-200 dark:divide-slate-700">
-        {(overlaysByDate.get(dateDetails || '') || []).map(entry => <div key={entry.id} className="flex gap-3 py-3"><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${entry.kind === 'ph' ? 'bg-cyan-500' : entry.kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} /><div className="min-w-0"><p className="font-semibold">{entry.title}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{entry.detail}{entry.kind === 'ph' ? ' · Philippines' : ''}</p>{entry.source && <a href={entry.source} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-600 dark:text-blue-400">Official source</a>}</div></div>)}
+        {(overlaysByDate.get(dateDetails || '') || []).map(entry => <div key={entry.id} className="flex gap-3 py-3"><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${OVERLAY_COLORS[entry.kind]}`} /><div className="min-w-0"><p className="font-semibold">{entry.title}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{entry.detail}{entry.kind === 'ph' ? ' · Philippines' : ''}</p>{entry.source && <a href={entry.source} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-600 dark:text-blue-400">{entry.sourceLabel || 'Official source'}</a>}</div></div>)}
         {filteredItems.filter(item => item.activityDate === dateDetails).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); const card = document.getElementById(`activity-card-${item.id}`); if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), true); }}><i aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" /><span className="font-semibold">{item.title}</span></button>)}
       </div>
     </BottomSheet>

@@ -4,9 +4,10 @@ export type CalendarOverlay = {
   id: string;
   date: string;
   title: string;
-  kind: 'ph' | 'local' | 'birthday';
+  kind: 'ph' | 'local' | 'birthday' | 'festival';
   detail: string;
   source?: string;
+  sourceLabel?: string;
 };
 type HolidayRow = [monthDay: string, title: string, detail: string];
 const proclamation2026 = 'https://lawphil.net/executive/proc/proc2025/pdf/proc_1006_2025.pdf';
@@ -53,9 +54,15 @@ export const HOLIDAYS: CalendarOverlay[] = [
   ...[2026, 2027].map(year => ({ id: `ne-${year}-09-02`, date: `${year}-09-02`, title: 'Araw ng Nueva Ecija', detail: 'Nueva Ecija · Special non-working day', kind: 'local' as const, source: 'https://lawphil.net/statutes/repacts/ra1992/ra_7596_1992.html' })),
 ].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
 
-export const EMPTY_OVERLAY_FILTERS = { ph: false, local: false, birthday: false };
+/** Traditional references, not announced 2026/2027 programs or holiday declarations. */
+export const FIESTAS: CalendarOverlay[] = [2026, 2027].flatMap(year => [
+  { id: `quezon-festival-${year}`, date: `${year}-01-30`, title: 'Patimyas Ani Festival', kind: 'festival' as const, detail: 'Quezon, Nueva Ecija · Traditional date; LGU program to confirm', source: 'https://commons.wikimedia.org/wiki/File:Patimyas_Gintong_Ani_2020,_Quezon,_Nueva_Ecija.jpg', sourceLabel: 'Historical reference' },
+  ...['01', '02', '03'].map(day => ({ id: `quezon-fiesta-${year}-02-${day}`, date: `${year}-02-${day}`, title: 'Quezon Town Fiesta', kind: 'festival' as const, detail: 'Quezon, Nueva Ecija · Traditional Feb 1–3 period; LGU program to confirm', source: 'https://www.scribd.com/document/735555637/Festivals-and-Founding-Anniversary-Province-of-Nueva-Ecija-2020', sourceLabel: 'Historical reference' })),
+]);
+export const OVERLAY_COLORS = { ph: 'bg-cyan-500', local: 'bg-violet-500', birthday: 'bg-rose-500', festival: 'bg-emerald-500' };
+export const EMPTY_OVERLAY_FILTERS = { ph: false, local: false, birthday: false, festival: false };
 export function calendarOverlays(year: number, birthdays: BirthdayCelebrant[], filters: typeof EMPTY_OVERLAY_FILTERS, search = ''): CalendarOverlay[] {
-  const entries = HOLIDAYS.filter(item => item.date.startsWith(`${year}-`) && filters[item.kind]);
+  const entries = [...HOLIDAYS, ...FIESTAS].filter(item => item.date.startsWith(`${year}-`) && filters[item.kind]);
   if (filters.birthday) for (const birthday of birthdays) {
     const monthDay = birthday.birthDate?.slice(5, 10);
     if (!/^\d{2}-\d{2}$/.test(monthDay || '')) continue;
