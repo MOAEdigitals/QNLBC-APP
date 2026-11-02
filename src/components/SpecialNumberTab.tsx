@@ -2767,7 +2767,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       setEditingSchedule({
                         ...editingSchedule,
                         songTitle: val,
-                        songId: matched ? matched.id : editingSchedule.songId,
+                        songId: matched?.id,
                         lyrics: matched?.lyrics || editingSchedule.lyrics,
                         minusOneLink: matched?.minusOneLink || editingSchedule.minusOneLink,
                       });
@@ -2775,7 +2775,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     suggestions={songTitleSuggestions}
                     songs={songs}
                     setlists={setlists}
-                    placeholder="Song title (optional / select from library)"
+                    placeholder="Select or enter song title (optional)"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
                   />
                 </div>
