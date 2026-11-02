@@ -92,15 +92,15 @@ test('declining the launch prompt is respected on subsequent launches', async ()
   assert.equal(h.calls.some(call => call.name === 'native-register'), false); stop();
 });
 
-test('birthday and event push taps route only the matching signed-in account', async () => {
+test('calendar and recognition push taps route only the matching signed-in account', async () => {
   const h = clientHarness(), opened: string[] = [];
   const stop = await h.exports.listenForAssignmentPush(user1, () => {}, () => {}, () => {}, undefined, (kind: string) => opened.push(kind));
-  for (const kind of ['birthday','event']) {
+  for (const kind of ['birthday','event','anniversary','recognition']) {
     h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { userId: user2, kind, notificationId: setlistId } } });
     h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { userId: user1, kind, notificationId: 'bad-id' } } });
     h.listeners.get('pushNotificationActionPerformed')!({ notification: { data: { userId: user1, kind, notificationId: setlistId } } });
   }
-  assert.deepEqual(opened, ['birthday','event']); stop();
+  assert.deepEqual(opened, ['birthday','event','anniversary','recognition']); stop();
 });
 test('announcement pushes refresh and open the inbox only for their own account', async () => {
   const h = clientHarness(); let refreshed = 0, opened = 0;
@@ -135,7 +135,7 @@ test('dispatcher sends only claimed device deliveries and acknowledges provider 
   const keys = await webcrypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
   const privateKey = Buffer.from(await webcrypto.subtle.exportKey('pkcs8', keys.privateKey)).toString('base64');
   const account = { client_email: 'test@example.test', project_id: 'test-project', private_key: `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----` };
-  for (const outcome of ['sent', 'retry', 'invalid']) for (const kind of ['assigned', 'announcement', 'birthday', 'event']) {
+  for (const outcome of ['sent', 'retry', 'invalid']) for (const kind of ['assigned', 'announcement', 'birthday', 'event', 'anniversary', 'recognition']) {
     const standalone = kind !== 'assigned';
     const acknowledgements: any[] = [];
     const handler = workerHarness({ NOTIFICATIONS_CRON_SECRET: 'test-server-secret', FCM_SERVICE_ACCOUNT_JSON: JSON.stringify(account) }, async (name, args) => {

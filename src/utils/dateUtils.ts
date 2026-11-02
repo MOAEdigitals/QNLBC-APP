@@ -208,9 +208,9 @@ export function isBirthdayRecognitionWeek(dateStr: string, now = new Date()): bo
   return isSundayRecognitionWindow(dateStr, now, 3);
 }
 
-/** Preserve the Sunday-through-Saturday window used by anniversary cards. */
+/** Anniversaries share the Thursday–Wednesday Sunday recognition window. */
 export function isAnniversaryRecognitionWeek(dateStr: string, now = new Date()): boolean {
-  return isSundayRecognitionWindow(dateStr, now, 0);
+  return isSundayRecognitionWindow(dateStr, now, 3);
 }
 
 function isSundayRecognitionWindow(dateStr: string, now: Date, daysBeforeSunday: number): boolean {

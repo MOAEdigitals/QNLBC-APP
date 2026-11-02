@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { X, Bell, RefreshCw, Trash2, MoreHorizontal, CheckCheck } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { dismissNotification, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
-interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onMarkRead: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event') => void; onClose: () => void }
+interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onMarkRead: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void; onClose: () => void }
 export function NotificationInbox({ items, unreadCount, loading, error, pushStatus, onMarkRead, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
   const [opening, setOpening] = useState<string | null>(null);
   const [readError, setReadError] = useState('');
@@ -41,7 +41,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
   };
   const open = async (item: AssignmentNotification) => {
     setOpening(item.id); setReadError('');
-    try { await onMarkRead([item.id]); if (item.setlist_id) { onOpen(item.setlist_id); onClose(); } else if (item.kind === 'birthday' || item.kind === 'event') { onCalendar?.(item.kind); onClose(); } }
+    try { await onMarkRead([item.id]); if (item.setlist_id) { onOpen(item.setlist_id); onClose(); } else if (item.kind === 'birthday' || item.kind === 'event' || item.kind === 'anniversary' || item.kind === 'recognition') { onCalendar?.(item.kind); onClose(); } }
     catch (e) { setReadError((e as Error).message); }
     finally { setOpening(null); }
   };

@@ -1,3 +1,4 @@
+import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionWeek, partitionSpecialRecognitions } from '../utils/recognitionDetails';
 import { BirthdayDatePicker } from './BirthdayDatePicker';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction, showAppMessage } from '../services/appDialogs';
@@ -6,7 +7,7 @@ import { celebrationConfetti } from '../utils/celebrationConfetti';
 import { useSwipeSubtabs } from './SwipeNavigation';
 import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek, isAnniversaryRecognitionWeek } from '../utils/dateUtils';
-import { isAnnualDatePast, orderAnnualBirthdays, orderBirthdayRecognitionMonths, groupBirthdayRecognitionMonths } from '../utils/recognitionOrder';
+import { isAnnualDatePast, orderBirthdayRecognitionMonths, groupBirthdayRecognitionMonths } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { monthList } from './MonthSeparators';
 import { useHeaderSearch } from './HeaderSearch';
@@ -21,8 +22,6 @@ import {
 } from '../types';
 import {
   formatDateStr,
-  getCurrentRecognitionWindow,
-  categorizeAnnualCelebrants,
   getTodayStr,
   parseDate,
 } from '../utils/dateUtils';
@@ -54,11 +53,11 @@ interface RecognitionsTabProps {
   specialRecognitions: SpecialRecognition[];
   onSaveBirthday: (item: BirthdayCelebrant) => Promise<boolean>;
   onDeleteBirthday: (id: string) => void;
-  onSaveAnniversary: (item: AnniversaryCelebrant) => void;
+  onSaveAnniversary: (item: AnniversaryCelebrant) => Promise<boolean>;
   onDeleteAnniversary: (id: string) => void;
   onSaveVisitor: (item: Visitor) => void;
   onDeleteVisitor: (id: string) => void;
-  onSaveSpecialRecognition: (item: SpecialRecognition) => void;
+  onSaveSpecialRecognition: (item: SpecialRecognition) => Promise<boolean>;
   onDeleteSpecialRecognition: (id: string) => void;
   collapseSignal?: number;
 }
@@ -77,6 +76,20 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 }) => {
   const lastProcessedSignalRef = React.useRef<number | undefined>(collapseSignal);
   const [subTab, setSubTab] = useSwipeSubtabs<RecognitionsSubTab>('recognitions', 'birthdays');
+
+  const [editingAnniversary, setEditingAnniversary] = useState<AnniversaryCelebrant | null>(null);
+  const [editingSpecial, setEditingSpecial] = useState<SpecialRecognition | null>(null);
+  const [savingRecognition, setSavingRecognition] = useState(false);
+  const recognitionSaveLock = React.useRef(false);
+  const [recognitionSaveError, setRecognitionSaveError] = useState('');
+
+  useEffect(() => {
+    const open = (event: Event) => { const tab=(event as CustomEvent).detail; if (['birthdays','anniversaries','special'].includes(tab)) setSubTab(tab); };
+    const requested=window.history.state?.recognitionSubtab;
+    if (['birthdays','anniversaries','special'].includes(requested)) setSubTab(requested);
+    window.addEventListener('qnlbc-open-recognition',open);
+    return () => window.removeEventListener('qnlbc-open-recognition',open);
+  }, [setSubTab]);
 
   // Modal States
   const [isAddingBirthday, setIsAddingBirthday] = useState(false);
@@ -109,13 +122,13 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     title: string;
     anniversaryDate: string;
     type: 'Wedding' | 'Church' | 'Ministry' | 'Other';
-    yearsCount: string;
+    startingYear: string;
     notes: string;
   }>({
     title: '',
     anniversaryDate: getTodayStr(),
     type: 'Wedding',
-    yearsCount: '',
+    startingYear: '',
     notes: '',
   });
 
@@ -151,7 +164,6 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const [isSavingBirthday, setIsSavingBirthday] = useState(false);
   const [birthdaySaveError, setBirthdaySaveError] = useState('');
 
-  const { mondayStr, sundayStr } = getCurrentRecognitionWindow();
 
   const birthdayToday = getTodayStr();
   const filteredBirthdays = orderBirthdayRecognitionMonths(birthdays.filter(b => b.birthDate), b => b.birthDate, birthdayToday).filter((b: BirthdayCelebrant) => {
@@ -162,20 +174,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   const birthdayMonths = groupBirthdayRecognitionMonths(filteredBirthdays, b => b.birthDate, birthdayToday);
 
-  const { currentWindow: currentAnniversaries, upcoming: upcomingAnniversaries } =
-    categorizeAnnualCelebrants<AnniversaryCelebrant>(anniversaries, (a: AnniversaryCelebrant) => a.anniversaryDate);
   const recognitionQuery = birthdaySearchQuery.trim().toLowerCase();
-  const filteredAnniversaries = orderAnnualBirthdays([...currentAnniversaries, ...upcomingAnniversaries], item => item.anniversaryDate, birthdayToday).filter(item => !recognitionQuery || `${item.title} ${item.type}`.toLowerCase().includes(recognitionQuery));
-
-  // Group Special Recognitions by Type
-  const groupedSpecial: Record<string, SpecialRecognition[]> = {};
-  for (const item of specialRecognitions.filter(item => !recognitionQuery || `${item.name} ${item.recognitionType} ${item.customType || ''} ${item.description || ''}`.toLowerCase().includes(recognitionQuery))) {
-    const key = item.recognitionType === 'Custom' && item.customType ? item.customType : item.recognitionType;
-    if (!groupedSpecial[key]) {
-      groupedSpecial[key] = [];
-    }
-    groupedSpecial[key].push(item);
-  }
+  const filteredAnniversaries = orderBirthdayRecognitionMonths(anniversaries.filter(a => a.anniversaryDate), a => a.anniversaryDate, birthdayToday).filter(item => !recognitionQuery || `${item.title} ${item.type} ${item.notes || ''}`.toLowerCase().includes(recognitionQuery));
+  const anniversaryMonths = groupBirthdayRecognitionMonths(filteredAnniversaries, a => a.anniversaryDate, birthdayToday);
+  const specialGroups = partitionSpecialRecognitions(specialRecognitions.filter(item => !recognitionQuery || `${item.name} ${item.recognitionType} ${item.customType || ''} ${item.description || ''}`.toLowerCase().includes(recognitionQuery)), item => item.date);
 
   const handleAddBirthday = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,38 +206,50 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
     }
   };
 
-  const handleAddAnniversary = (e: React.FormEvent) => {
+  const handleAddAnniversary = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!annivForm.title.trim()) return;
-    onSaveAnniversary({
-      id: generateUUID(),
-      title: annivForm.title.trim(),
-      anniversaryDate: annivForm.anniversaryDate,
-      type: annivForm.type,
-      yearsCount: annivForm.yearsCount ? parseInt(annivForm.yearsCount, 10) : undefined,
-      notes: annivForm.notes.trim() || undefined,
-    });
-    setAnnivForm({ title: '', anniversaryDate: getTodayStr(), type: 'Wedding', yearsCount: '', notes: '' });
-    setIsAddingAnniversary(false);
+    if (!annivForm.title.trim() || recognitionSaveLock.current) return;
+    const year = annivForm.startingYear ? Number(annivForm.startingYear) : undefined;
+    const date = `${String(year || 2000).padStart(4,'0')}-${annivForm.anniversaryDate.slice(5)}`;
+    const parsed = parseDate(date);
+    if ((year && (year < 1 || year > new Date().getFullYear())) || parsed.getMonth()+1 !== Number(date.slice(5,7)) || parsed.getDate() !== Number(date.slice(8))) {
+      setRecognitionSaveError('Check the starting year and date.'); return;
+    }
+    recognitionSaveLock.current = true; setSavingRecognition(true); setRecognitionSaveError('');
+    try {
+      const saved = await onSaveAnniversary({ ...editingAnniversary, id: editingAnniversary?.id || generateUUID(), title: annivForm.title.trim(), anniversaryDate: date, type: annivForm.type, yearsCount: year ? 0 : undefined, years_count: undefined, notes: annivForm.notes.trim() || undefined });
+      if (!saved) { setRecognitionSaveError('Unable to save anniversary. Please try again.'); return; }
+      setEditingAnniversary(null); setIsAddingAnniversary(false);
+    } catch { setRecognitionSaveError('Unable to save anniversary. Please try again.'); }
+    finally { recognitionSaveLock.current = false; setSavingRecognition(false); }
   };
 
-  const handleAddSpecial = (e: React.FormEvent) => {
+  const handleAddSpecial = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!specialForm.name.trim()) return;
-    onSaveSpecialRecognition({
-      id: generateUUID(),
-      name: specialForm.name.trim(),
-      recognitionType: specialForm.recognitionType,
-      customType: specialForm.customType.trim() || undefined,
-      date: specialForm.date,
-      description: specialForm.description.trim() || undefined,
-    });
-    setSpecialForm({ name: '', recognitionType: 'Board Passer', customType: '', date: getTodayStr(), description: '' });
-    setIsAddingSpecial(false);
+    if (!specialForm.name.trim() || (specialForm.recognitionType === 'Custom' && !specialForm.customType.trim()) || recognitionSaveLock.current) return;
+    recognitionSaveLock.current = true; setSavingRecognition(true); setRecognitionSaveError('');
+    try {
+      const saved = await onSaveSpecialRecognition({ ...editingSpecial, id: editingSpecial?.id || generateUUID(), name: specialForm.name.trim(), recognitionType: specialForm.recognitionType, customType: specialForm.customType.trim() || undefined, date: specialForm.date, description: specialForm.description.trim() || undefined });
+      if (!saved) { setRecognitionSaveError('Unable to save recognition. Please try again.'); return; }
+      setEditingSpecial(null); setIsAddingSpecial(false);
+    } catch { setRecognitionSaveError('Unable to save recognition. Please try again.'); }
+    finally { recognitionSaveLock.current = false; setSavingRecognition(false); }
   };
+
+  const recognitionActions = (key: string, name: string, copy: string, edit: () => void, remove: () => void) => (
+    <div data-birthday-actions={key} className="relative shrink-0">
+      <button type="button" aria-label={`Actions for ${name}`} aria-haspopup="menu" aria-expanded={birthdayMenuId === key} onClick={() => setBirthdayMenuId(birthdayMenuId === key ? null : key)} className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"><MoreHorizontal className="w-4 h-4" /></button>
+      {birthdayMenuId === key && <div role="menu" aria-label={`${name} actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
+        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => { setBirthdayMenuId(null); try { await navigator.clipboard.writeText(copy); } catch { void showAppMessage('Unable to copy. Please try again.'); } }}><Copy className="w-4 h-4" />Copy</button>
+        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setBirthdayMenuId(null); setRecognitionSaveError(''); edit(); }}><Pencil className="w-4 h-4" />Edit</button>
+        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={async () => { setBirthdayMenuId(null); if (await confirmAction(`Remove ${name}?`)) remove(); }}><Trash2 className="w-4 h-4" />Delete</button>
+      </div>}
+    </div>
+  );
 
   useBackLayer(isAddingBirthday || isAddingAnniversary || isAddingSpecial || !!birthdayMenuId, () => {
-    if (isSavingBirthday) return;
+    if (isSavingBirthday || savingRecognition) return;
+    if (birthdayMenuId) { setBirthdayMenuId(null); return; }
     setBirthdayMenuId(null);
     setIsAddingBirthday(false); setIsAddingAnniversary(false); setIsAddingSpecial(false);
   });
@@ -384,114 +398,34 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         </div>
       )}
 
-      {/* SUBTAB 2: ANNIVERSARIES */}
-      {subTab === 'anniversaries' && (
-        <div className="space-y-6">
-          {/* Upcoming Anniversaries Section */}
-          <div className="space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block px-1">
-              Anniversaries
-            </span>
+      {subTab === 'anniversaries' && <div className="space-y-6">
+        {!filteredAnniversaries.length && <p className="p-4 text-center text-xs text-slate-500">No anniversaries found.</p>}
+        {anniversaryMonths.map(({key,month,items}) => <section key={key} className="space-y-3">
+          <div className="flex items-center gap-3 px-1"><h3 className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">{new Date(2000,month,1).toLocaleDateString('en-US',{month:'long'})}</h3><div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{items.map(item => {
+            const years = anniversaryYears(item, annualRecognitionYear(item.anniversaryDate));
+            const detail = [item.type, years != null && years > 0 ? `${years} years` : null].filter(Boolean).join(' · ');
+            return <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined} data-past={isAnnualDatePast(item.anniversaryDate,birthdayToday) && !isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+              <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={`${annualRecognitionYear(item.anniversaryDate)}-${item.anniversaryDate.slice(5)}`} /><div className="min-w-0 flex-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.title}</h4><p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{detail}</p>{item.notes && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.notes}</p>}</div></div>
+              {recognitionActions(`anniversary:${item.id}`,item.title, [item.title,parseDate(item.anniversaryDate).toLocaleDateString('en-US',{month:'long',day:'numeric'}),detail,item.notes].filter(Boolean).join('\n'), () => {
+                setEditingAnniversary(item); setAnnivForm({title:item.title, anniversaryDate:item.anniversaryDate,type:item.type,startingYear:String(anniversaryStartingYear(item) ?? ''),notes:item.notes || ''}); setIsAddingAnniversary(true);
+              }, () => onDeleteAnniversary(item.id))}
+            </div>;
+          })}</div>
+        </section>)}
+      </div>}
 
-            {filteredAnniversaries.length === 0 ? (
-              <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500">
-                No upcoming anniversaries recorded.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {monthList(filteredAnniversaries, item => item.anniversaryDate, ['anniversary', 'anniversaries'], { annual: true }).render((item) => (
-                  <div
-                    key={item.id}
-                    style={celebrationConfetti(item.id)}
-                    data-birthday-celebrant={isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined}
-                    data-past={isAnnualDatePast(item.anniversaryDate, birthdayToday) && !isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined}
-                    className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
-                  >
-                    <div className="flex min-w-0 flex-1 items-center space-x-3">
-                      <CardDate date={`${birthdayToday.slice(0, 4)}-${item.anniversaryDate.slice(5)}`} />
-                      <div className="min-w-0 flex-1">
-                        <h4 title={[item.title, item.type, item.yearsCount ? `${item.yearsCount} yrs` : null].filter(Boolean).join(' · ')} className="app-card-title truncate text-sm font-bold text-slate-900 dark:text-white">
-                          {item.title}
-                        </h4>
-                      </div>
-                    </div>
-
-                    <button
-                      aria-label={`Remove ${item.title}`}
-                      onClick={async () => {
-                        if ((await confirmAction(`Remove ${item.title}?`))) onDeleteAnniversary(item.id);
-                      }}
-                      className="relative shrink-0 p-1.5 text-slate-400 hover:text-rose-600 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* SUBTAB 4: SPECIAL RECOGNITIONS */}
-      {subTab === 'special' && (
-        <div className="space-y-6">
-          {Object.keys(groupedSpecial).length === 0 ? (
-            <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-              No special recognitions added yet.
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(groupedSpecial).map(([category, items]) => (
-                <div key={category} className="space-y-3">
-                  <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-                    <Award className="w-4 h-4 text-sky-500" />
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                      {category} ({items.length})
-                    </h4>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {monthList(items, item => item.date, ['recognition', 'recognitions']).render((item) => (
-                      <div
-                        key={item.id}
-                        className="app-date-card p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between"
-                      >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <CardDate date={item.date} />
-                          <div className="min-w-0 flex-1 space-y-1">
-                          <h5 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.name}</h5>
-                          {item.customType && item.recognitionType !== 'Custom' && (
-                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 block">
-                              {item.customType}
-                            </span>
-                          )}
-                          {item.description && (
-                            <p className="app-card-secondary text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
-                              {item.description}
-                            </p>
-                          )}
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={async () => {
-                            if ((await confirmAction(`Remove recognition for ${item.name}?`)))
-                              onDeleteSpecialRecognition(item.id);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-rose-600"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {subTab === 'special' && <div className="space-y-6">
+        {!specialGroups.upcoming.length && !specialGroups.past.length && <p className="p-4 text-center text-xs text-slate-500">No special recognitions found.</p>}
+        {[specialGroups.upcoming,specialGroups.past].map((items,index) => <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {monthList(items,item=>item.date,['recognition','recognitions']).render(item => <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isSpecialRecognitionWeek(item.date) || undefined} data-past={index === 1 || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+            <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={item.date} /><div className="min-w-0 flex-1 space-y-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.name}</h4><p className="app-card-secondary text-xs font-semibold text-indigo-600 dark:text-indigo-400">{item.recognitionType === 'Custom' ? item.customType : [item.recognitionType,item.customType].filter(Boolean).join(' · ')}</p>{item.description && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.description}</p>}</div></div>
+            {recognitionActions(`special:${item.id}`,item.name,[item.name,item.recognitionType === 'Custom' ? item.customType : item.recognitionType,item.recognitionType !== 'Custom' && item.customType,formatDateStr(item.date),item.description].filter(Boolean).join('\n'),() => {
+              setEditingSpecial(item); setSpecialForm({name:item.name,recognitionType:item.recognitionType,customType:item.customType || '',date:item.date,description:item.description || ''}); setIsAddingSpecial(true);
+            },()=>onDeleteSpecialRecognition(item.id))}
+          </div>)}
+        </div>)}
+      </div>}
 
       {/* MODAL 1: ADD BIRTHDAY */}
       {isAddingBirthday && (
@@ -576,15 +510,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Heart className="w-4 h-4 text-rose-500" />
-                <span>Add Anniversary Entry</span>
+                <span>{editingAnniversary ? 'Edit Anniversary' : 'Add Anniversary'}</span>
               </h3>
-              <button onClick={() => setIsAddingAnniversary(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button disabled={savingRecognition} aria-label="Close anniversary" onClick={() => setIsAddingAnniversary(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddAnniversary} autoComplete="off" data-form-type="other" className="ui-modal-form">
-              <div className="ui-form-body">
+              <fieldset disabled={savingRecognition} className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Couple / Event *
@@ -612,15 +546,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                     Date *
                   </label>
-                  <SheetDateField
-                    id="anniv-event-date"
-                    name="anniv_event_date"
-                    type="date"
-                    required
-                    value={annivForm.anniversaryDate}
-                    onChange={(e) => setAnnivForm({ ...annivForm, anniversaryDate: e.target.value })}
-                    className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
-                  />
+                  <BirthdayDatePicker label="Anniversary" disabled={savingRecognition} value={annivForm.anniversaryDate} onChange={value => setAnnivForm({...annivForm,anniversaryDate:value})} />
                 </div>
 
                 <div>
@@ -642,37 +568,40 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Years Count (Optional)
+                  Starting year (optional)
                 </label>
                 <input
                   id="anniv-years-count"
                   name="anniv_years_count"
                   type="number"
                   min={1}
-                  max={150}
-                  value={annivForm.yearsCount}
-                  onChange={(e) => setAnnivForm({ ...annivForm, yearsCount: e.target.value })}
-                  placeholder="Enter years"
+                  max={new Date().getFullYear()}
+                  value={annivForm.startingYear}
+                  onChange={(e) => setAnnivForm({ ...annivForm, startingYear: e.target.value })}
+                  placeholder="e.g. 2016"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                 />
               </div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">Details<textarea value={annivForm.notes} onChange={e=>setAnnivForm({...annivForm,notes:e.target.value})} placeholder="Add details" className="mt-1 w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm" /></label>
 
 
 
-              </div>
+
+              </fieldset>
+              {recognitionSaveError && <p role="alert" className="px-5 text-sm text-rose-500">{recognitionSaveError}</p>}
               <div className="ui-form-actions flex justify-end gap-3 pt-3">
                 <button
-                  type="button"
+                  type="button" disabled={savingRecognition}
                   onClick={() => setIsAddingAnniversary(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={savingRecognition}
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold"
                 >
-                  Save Entry
+                  {savingRecognition ? 'Saving…' : 'Save Anniversary'}
                 </button>
               </div>
             </form>
@@ -687,15 +616,15 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Award className="w-4 h-4 text-sky-500" />
-                <span>Add Special Recognition</span>
+                <span>{editingSpecial ? 'Edit Recognition' : 'Add Recognition'}</span>
               </h3>
-              <button onClick={() => setIsAddingSpecial(false)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button disabled={savingRecognition} aria-label="Close recognition" onClick={() => setIsAddingSpecial(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleAddSpecial} autoComplete="off" data-form-type="other" className="ui-modal-form">
-              <div className="ui-form-body">
+              <fieldset disabled={savingRecognition} className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Name / Honoree *
@@ -756,6 +685,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   spellCheck={false}
                   data-form-type="other"
                   data-lpignore="true"
+                  required={specialForm.recognitionType === 'Custom'}
                   value={specialForm.customType}
                   onChange={(e) => setSpecialForm({ ...specialForm, customType: e.target.value })}
                   placeholder="Enter title"
@@ -799,20 +729,21 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 />
               </div>
 
-              </div>
+              </fieldset>
+              {recognitionSaveError && <p role="alert" className="px-5 text-sm text-rose-500">{recognitionSaveError}</p>}
               <div className="ui-form-actions flex justify-end gap-3 pt-3">
                 <button
-                  type="button"
+                  type="button" disabled={savingRecognition}
                   onClick={() => setIsAddingSpecial(false)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-400"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="submit" disabled={savingRecognition}
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold"
                 >
-                  Save Recognition
+                  {savingRecognition ? 'Saving…' : 'Save Recognition'}
                 </button>
               </div>
             </form>
@@ -831,8 +762,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               setBirthdaySaveError('');
               setIsAddingBirthday(true);
             }
-            else if (subTab === 'anniversaries') setIsAddingAnniversary(true);
-            else if (subTab === 'special') setIsAddingSpecial(true);
+            else if (subTab === 'anniversaries') { setEditingAnniversary(null); setAnnivForm({title:'',anniversaryDate:getTodayStr(),type:'Wedding',startingYear:'',notes:''}); setRecognitionSaveError(''); setIsAddingAnniversary(true); }
+            else if (subTab === 'special') { setEditingSpecial(null); setSpecialForm({name:'',recognitionType:'Board Passer',customType:'',date:getTodayStr(),description:''}); setRecognitionSaveError(''); setIsAddingSpecial(true); }
           }}
           aria-label={
             subTab === 'birthdays'

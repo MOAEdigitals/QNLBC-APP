@@ -489,10 +489,12 @@ export default function App() {
     });
   }, []);
   const openAnnouncementInbox = useCallback(() => setNotificationInboxOpen(true), []);
-  const openCalendarNotification = useCallback((kind: 'birthday' | 'event') => {
-    const tab = kind === 'birthday' ? 'recognitions' : 'special-numbers';
+  const openCalendarNotification = useCallback((kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => {
+    const tab = kind === 'event' ? 'special-numbers' : 'recognitions';
+    const recognitionSubtab = kind === 'anniversary' ? 'anniversaries' : kind === 'recognition' ? 'special' : 'birthdays';
+    if (tab === 'recognitions') window.dispatchEvent(new CustomEvent('qnlbc-open-recognition', {detail:recognitionSubtab}));
     setNotificationInboxOpen(false);
-    window.history.pushState({ tab }, '', `#${tab}`); setCurrentTab(tab);
+    window.history.pushState({ tab, recognitionSubtab }, '', `#${tab}`); setCurrentTab(tab);
   }, []);
   const notifications = useAssignmentNotifications(currentUser?.id, openAssignedSetlist, openAnnouncementInbox, openCalendarNotification);
 
@@ -1097,7 +1099,7 @@ export default function App() {
 
   const handleSaveAnniversary = async (item: AnniversaryCelebrant) => {
     const isNew = !anniversaries.some((existing) => existing.id === item.id);
-    if (!requirePermission(isNew ? 'add' : 'edit')) return;
+    if (!requirePermission(isNew ? 'add' : 'edit')) return false;
 
     try {
       const saved = await supabaseSaveAnniversary(item, isNew);
@@ -1106,11 +1108,13 @@ export default function App() {
           ? [...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id), saved]
           : prev.map((existing) => (existing.id === item.id ? saved : existing))
       );
+      return true;
     } catch (err: any) {
       console.error('Failed to save anniversary:', err);
       const fresh = await fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries'));
       setAnniversaries(fresh);
       void showAppMessage('Unable to save anniversary: ' + (err.message || 'Database error'));
+      return false;
     }
   };
 
@@ -1161,7 +1165,7 @@ export default function App() {
 
   const handleSaveSpecialRecognition = async (item: SpecialRecognition) => {
     const isNew = !specialRecognitions.some((existing) => existing.id === item.id);
-    if (!requirePermission(isNew ? 'add' : 'edit')) return;
+    if (!requirePermission(isNew ? 'add' : 'edit')) return false;
 
     try {
       const saved = await supabaseSaveSpecialRecognition(item, isNew);
@@ -1170,11 +1174,13 @@ export default function App() {
           ? [saved, ...prev.filter((existing) => existing.id !== item.id && existing.id !== saved.id)]
           : prev.map((existing) => (existing.id === item.id ? saved : existing))
       );
+      return true;
     } catch (err: any) {
       console.error('Failed to save recognition:', err);
       const fresh = await fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions'));
       setSpecialRecognitions(fresh);
       void showAppMessage('Unable to save recognition: ' + (err.message || 'Database error'));
+      return false;
     }
   };
 

@@ -37,7 +37,7 @@ test('RecognitionsTab replaces top full-width add button with floating + action 
   );
   assert.match(
     recognitions,
-    /else if \(subTab === 'anniversaries'\) setIsAddingAnniversary\(true\)/,
+    /else if \(subTab === 'anniversaries'\) \{[^}]*[\s\S]*?setIsAddingAnniversary\(true\)/,
     'FAB must trigger Add Anniversary for anniversaries'
   );
   assert.doesNotMatch(
@@ -47,7 +47,7 @@ test('RecognitionsTab replaces top full-width add button with floating + action 
   );
   assert.match(
     recognitions,
-    /else if \(subTab === 'special'\) setIsAddingSpecial\(true\)/,
+    /else if \(subTab === 'special'\) \{[^}]*[\s\S]*?setIsAddingSpecial\(true\)/,
     'FAB must trigger Add Special Recognition for special'
   );
 

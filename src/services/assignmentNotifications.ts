@@ -2,7 +2,7 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { PushNotifications, type PermissionStatus } from '@capacitor/push-notifications';
 import { supabase } from '../supabase';
 export interface AssignmentNotification {
-  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement' | 'birthday' | 'event';
+  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement' | 'birthday' | 'event' | 'anniversary' | 'recognition';
   title: string; body: string; service_date: string | null; read_at: string | null; created_at: string;
 }
 export type PushStatus = 'web' | 'setup' | 'prompt' | 'denied' | 'enabled' | 'error';
@@ -44,11 +44,11 @@ export function isAnnouncementPush(data: unknown, userId: string): boolean {
   const value = data as Record<string, unknown>;
   return value.userId === userId && value.kind === 'announcement' && typeof value.notificationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.notificationId);
 }
-export function calendarPushKind(data: unknown, userId: string): 'birthday' | 'event' | null {
+export function calendarPushKind(data: unknown, userId: string): 'birthday' | 'event' | 'anniversary' | 'recognition' | null {
   if (!data || typeof data !== 'object') return null;
   const value = data as Record<string, unknown>;
   return value.userId === userId && typeof value.notificationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.notificationId)
-    && (value.kind === 'birthday' || value.kind === 'event') ? value.kind : null;
+    && (value.kind === 'birthday' || value.kind === 'event' || value.kind === 'anniversary' || value.kind === 'recognition') ? value.kind : null;
 }
 export async function dismissNotification(id: string, dismissed = true): Promise<void> {
   const { error } = await supabase.rpc('set_notification_dismissed', { notification_id: id, dismissed });
@@ -98,7 +98,7 @@ export async function disableAssignmentPush(): Promise<void> {
   const results = await Promise.allSettled(tasks);
   if (results.some(result => result.status === 'rejected')) throw new Error('Could not fully disconnect Android notifications.');
 }
-export async function listenForAssignmentPush(userId: string, onOpen: (id: string) => void, onRefresh: () => void, onStatus: (status: PushStatus) => void, onAnnouncement?: () => void, onCalendar?: (kind: 'birthday' | 'event') => void): Promise<() => void> {
+export async function listenForAssignmentPush(userId: string, onOpen: (id: string) => void, onRefresh: () => void, onStatus: (status: PushStatus) => void, onAnnouncement?: () => void, onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void): Promise<() => void> {
   const ownGeneration = ++generation;
   let stopped = false;
   const handles: PluginListenerHandle[] = [];

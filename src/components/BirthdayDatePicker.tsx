@@ -47,7 +47,7 @@ function Wheel({ label, labels, value, selection, onChange }: { label: string; l
   </div>;
 }
 
-export function BirthdayDatePicker({ value, onChange, disabled = false }: { value: string; onChange: (value: string) => void; disabled?: boolean }) {
+export function BirthdayDatePicker({ value, onChange, disabled = false, label = 'Birthday' }: { label?: string; value: string; onChange: (value: string) => void; disabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const monthSelection = useRef(1), daySelection = useRef(1);
   const [month, setMonth] = useState(1), [day, setDay] = useState(1);
@@ -55,15 +55,15 @@ export function BirthdayDatePicker({ value, onChange, disabled = false }: { valu
   const selectedDay = Number(value.slice(8, 10)) || 1;
   const show = () => { setMonth(selectedMonth); setDay(Math.min(selectedDay, daysInMonth(selectedMonth))); setOpen(true); };
   return <>
-    <button type="button" disabled={disabled} aria-label="Birthday (month and day)" aria-haspopup="dialog" aria-expanded={open} className="ui-sheet-select" onClick={show}><span className="min-w-0 flex-1 truncate">{months[selectedMonth - 1]} {selectedDay}</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" /></button>
-    <BottomSheet open={open} title="Birthday" onClose={() => setOpen(false)}>
+    <button type="button" disabled={disabled} aria-label={`${label} (month and day)`} aria-haspopup="dialog" aria-expanded={open} className="ui-sheet-select" onClick={show}><span className="min-w-0 flex-1 truncate">{months[selectedMonth - 1]} {selectedDay}</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" /></button>
+    <BottomSheet open={open} title={label} onClose={() => setOpen(false)}>
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3 py-3">
         <Wheel label="Month" selection={monthSelection} labels={months} value={month} onChange={next => { setMonth(next); setDay(previous => Math.min(previous, daysInMonth(next))); }} />
         <Wheel label="Day" selection={daySelection} labels={Array.from({ length: daysInMonth(month) }, (_, index) => String(index + 1))} value={day} onChange={setDay} />
       </div>
       <div className="flex gap-3 pt-3">
         <button type="button" className="ui-secondary flex-1" onClick={() => setOpen(false)}>Cancel</button>
-        <button type="button" className="ui-primary flex-1" onClick={() => { const finalMonth = monthSelection.current; const finalDay = Math.min(daySelection.current, daysInMonth(finalMonth)); onChange(`2000-${String(finalMonth).padStart(2, '0')}-${String(finalDay).padStart(2, '0')}`); setOpen(false); }}>Set birthday</button>
+        <button type="button" className="ui-primary flex-1" onClick={() => { const finalMonth = monthSelection.current; const finalDay = Math.min(daySelection.current, daysInMonth(finalMonth)); onChange(`2000-${String(finalMonth).padStart(2, '0')}-${String(finalDay).padStart(2, '0')}`); setOpen(false); }}>{label === 'Birthday' ? 'Set birthday' : 'Set date'}</button>
       </div>
     </BottomSheet>
   </>;

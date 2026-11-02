@@ -43,10 +43,8 @@ test('leap birthdays are included only when February 29 exists in the recognitio
   }
 });
 
-test('anniversary cards retain their Sunday-through-Saturday window', () => {
-  const now = new Date(2026, 9, 25);
-  assert.equal(isAnniversaryRecognitionWeek('1990-10-24', now), false);
-  assert.equal(isAnniversaryRecognitionWeek('1990-10-25', now), true);
-  assert.equal(isAnniversaryRecognitionWeek('1990-10-31', now), true);
-  assert.equal(isAnniversaryRecognitionWeek('1990-11-01', now), false);
+test('anniversaries share the Thursday–Wednesday recognition window', () => {
+ const now=new Date(2026,9,25);
+ for(const day of [22,23,24,25,26,27,28]) assert.equal(isAnniversaryRecognitionWeek('1990-10-'+day,now),true);
+ for(const day of [21,29,31]) assert.equal(isAnniversaryRecognitionWeek('1990-10-'+day,now),false);
 });

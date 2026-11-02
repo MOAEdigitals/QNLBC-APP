@@ -2,7 +2,7 @@ import { SheetDateField } from './SheetDateField';
 import { SheetSelect } from './SheetSelect';
 import React, { useEffect, useState } from 'react';
 import { loadNotificationSchedules, saveNotificationSchedule, type NotificationSchedule } from '../services/notificationSchedules';
-const labels = { birthday: 'Birthdays', event: 'Special events', prayer: 'Midweek prayer meeting', sunday: 'Sunday service', practice: 'Setlist assignment reminder' };
+const labels = { anniversary: 'Anniversaries', recognition: 'Special recognitions', birthday: 'Birthdays', event: 'Special events', prayer: 'Midweek prayer meeting', sunday: 'Sunday service', practice: 'Setlist assignment reminder' };
 export function NotificationScheduleSettings() {
   const [rows, setRows] = useState<NotificationSchedule[]>([]);
   const [busy, setBusy] = useState('');

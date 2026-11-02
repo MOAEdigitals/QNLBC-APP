@@ -4,7 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { hasNewUnreadNotifications, notificationSoundEnabled, playNotificationSound, unlockNotificationSound } from '../utils/notificationSound';
 import { fetchAssignmentNotifications, fetchUnreadNotificationCount, markNotificationsRead, listenForAssignmentPush, enableAssignmentPush, refreshAssignmentPushPermission, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
-export function useAssignmentNotifications(userId: string | undefined, onOpen: (id: string) => void, onAnnouncement?: () => void, onCalendar?: (kind: 'birthday' | 'event') => void) {
+export function useAssignmentNotifications(userId: string | undefined, onOpen: (id: string) => void, onAnnouncement?: () => void, onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void) {
   const [items, setItems] = useState<AssignmentNotification[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);

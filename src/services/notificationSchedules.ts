@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-export interface NotificationSchedule { kind: 'birthday' | 'event' | 'prayer' | 'sunday' | 'practice'; enabled: boolean; local_time: string; days_before: number; weekdays: number[] }
+export interface NotificationSchedule { kind: 'birthday' | 'event' | 'prayer' | 'sunday' | 'practice' | 'anniversary' | 'recognition'; enabled: boolean; local_time: string; days_before: number; weekdays: number[] }
 export async function loadNotificationSchedules(): Promise<NotificationSchedule[]> {
   const { data, error } = await supabase.from('notification_schedule_settings').select('*').order('kind');
   if (error) throw new Error('Notification schedules could not be loaded.');
