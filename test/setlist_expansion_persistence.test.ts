@@ -37,7 +37,7 @@ test('one setlist stays expanded across tab remounts until its header or another
   for (const [index, type] of ['prayer_meeting', 'fellowship', 'event'].entries()) rows.push({ id: type, type, date: `2099-01-0${index + 1}`, program: { songLeader: 'Bro Joshua', songs: [{ id: 'song-one', title: 'Grace hymn' }] }, themeSong: 'Theme hymn' });
   const render = (signal = 0, fresh = false) => root.render(React.createElement(component, { setlists: rows, songs: [], canReorder: true, onReorderSetlists: async () => {}, initialExpandedSetlistIds: fresh ? undefined : remembered, collapseSignal: signal, onExpandedSetlistsChange: (ids: string[]) => { remembered = ids; }, onSaveSetlist: async () => true, onDeleteSetlist() {}, onOpenSongDetail() {} }));
   const clickHeader = async (id: string) => act(() => document.querySelector<HTMLDivElement>(`#setlist-card-${id} > div`)!.click());
-  const open = (id: string) => document.querySelector(`#setlist-card-${id}`)!.children.length > 1;
+  const open = (id: string) => !!document.querySelector(`#setlist-card-${id} .setlist-expansion[data-expanded]`);
   try {
     await act(() => render());
     assert.equal(document.querySelectorAll('[aria-label^="Reorder"]').length, 2, 'only today/future same-date cards have handles');

@@ -13,7 +13,7 @@ export function createUiTestLoader(dom: JSDOM, React: any) {
     const base = name.split('/').at(-1)!;
     if (base === 'useBackLayer') return { useBackLayer() {} };
     if (base === 'appDialogs') return appDialogs;
-    if (!['SongCategorySheet', 'SheetSelect', 'SheetDateField', 'BottomSheet', 'AppDialogHost'].includes(base)) throw Error(`Unexpected test UI import: ${name}`);
+    if (!['MonthSeparators', 'SongCategorySheet', 'SheetSelect', 'SheetDateField', 'BottomSheet', 'AppDialogHost'].includes(base)) throw Error(`Unexpected test UI import: ${name}`);
     if (cache.has(base)) return cache.get(base);
     const exports: any = {}; cache.set(base, exports);
     runInNewContext(ts.transpileModule(readFileSync(`src/components/${base}.tsx`, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {

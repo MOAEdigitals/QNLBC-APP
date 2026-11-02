@@ -361,3 +361,9 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 .setlist-summary-names > .setlist-names { min-height: 0; overflow: hidden; }
 .setlist-summary-names[data-expanded] { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
 @media (prefers-reduced-motion: reduce) { .setlist-summary-names { transition: none; } }
+
+/* Animate the entire program, including its divider/spacing, on both directions. */
+.setlist-expansion { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 240ms ease, opacity 180ms ease; }
+.setlist-expansion[data-expanded] { grid-template-rows: 1fr; opacity: 1; }
+.setlist-expansion-clip { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .setlist-expansion { transition: none; } }

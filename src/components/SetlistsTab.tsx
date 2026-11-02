@@ -315,18 +315,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     initialScreenY: number;
   } | null>(null);
 
-  // Precise Scroll Anchoring:
-  // When a setlist is tapped while another setlist above it collapses, the document height shrinks.
-  // We capture the tapped setlist card's screen position before the state change and in useLayoutEffect
-  // after the DOM updates, we adjust the scroll position by the exact difference (delta) so the tapped
-  // setlist card stays locked in the exact same screen position without jumping up or down.
+  // Keep the tapped header in place while the previous program above it animates closed.
   useLayoutEffect(() => {
     const anchor = scrollAnchorRef.current;
     if (!anchor) return;
-    if (selectedSetlistId !== anchor.setlistId) {
-      scrollAnchorRef.current = null;
-      return;
-    }
 
     const cardEl = document.getElementById(`setlist-card-${anchor.setlistId}`);
     if (!cardEl) {
@@ -371,22 +363,17 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       applyScrollCorrection(delta);
     }
 
-    // Secondary verification on requestAnimationFrame to compensate for any micro-shifts
-    const rafId = requestAnimationFrame(() => {
-      const el = document.getElementById(`setlist-card-${anchor.setlistId}`);
-      if (el) {
-        const rafScreenY = el.getBoundingClientRect().top;
-        const rafDelta = rafScreenY - anchor.initialScreenY;
-        if (Math.abs(rafDelta) > 1) {
-          applyScrollCorrection(rafDelta);
-        }
-      }
-      scrollAnchorRef.current = null;
-    });
-
-    return () => {
-      cancelAnimationFrame(rafId);
+    // Follow the height transition continuously, rather than snapping a second time.
+    const deadline = Date.now() + 280;
+    let rafId = 0;
+    const follow = () => {
+      const delta = cardEl.getBoundingClientRect().top - anchor.initialScreenY;
+      if (Math.abs(delta) > 0.5) applyScrollCorrection(delta);
+      if (Date.now() < deadline) rafId = requestAnimationFrame(follow);
+      else scrollAnchorRef.current = null;
     };
+    rafId = requestAnimationFrame(follow);
+    return () => cancelAnimationFrame(rafId);
   }, [selectedSetlistId]);
 
   // Sync initialSelectedSetlistId prop if provided and preserve expanded container
@@ -864,19 +851,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   const handleSelectSetlist = (id: string, e?: React.MouseEvent) => {
     setOpenMenuSetlistId(null);
+    const cardEl = document.getElementById(`setlist-card-${id}`);
+    if (cardEl) scrollAnchorRef.current = { setlistId: id, initialScreenY: cardEl.getBoundingClientRect().top };
     if (expandedSetlistIds.includes(id)) {
       setExpandedSetlistIds([]);
       setSelectedSetlistId(null);
     } else {
-      if (e) {
-        const cardEl = document.getElementById(`setlist-card-${id}`);
-        if (cardEl) {
-          scrollAnchorRef.current = {
-            setlistId: id,
-            initialScreenY: cardEl.getBoundingClientRect().top,
-          };
-        }
-      }
       setSelectedSetlistId(id);
       setExpandedSetlistIds([id]);
       window.history.pushState({ tab: 'home', subView: 'detail', id }, '', '#home');
@@ -912,7 +892,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-            {monthList(searchableSetlists, item => item.date, ['setlist', 'setlists']).render((item) => {
+            {monthList(searchableSetlists, item => item.date, ['setlist', 'setlists'], { archive: true, revealArchive: !!searchQuery.trim(), revealDate: searchableSetlists.find(item => item.id === initialSelectedSetlistId)?.date }).render((item) => {
               const isPast = isPastDate(item.date);
               const today = isToday(item.date);
               const isSelected = expandedSetlistIds.includes(item.id);
@@ -1070,7 +1050,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   </div>
 
                   {/* IN-PLACE EXPANDED ACCORDION CONTENT */}
-                  {isSelected && (
+                  <SetlistExpansion expanded={isSelected}>{() => (
                     <div
                       className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 cursor-default"
                       onClick={(e) => e.stopPropagation()}
@@ -1417,7 +1397,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
 
                     </div>
-                  )}
+                  )}</SetlistExpansion>
                 </div>
               );
             })}
@@ -2064,4 +2044,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     </div>
   );
 };
-
+function SetlistExpansion({ expanded, children }: { expanded: boolean; children: () => React.ReactNode }) {
+  const [visited, setVisited] = useState(expanded);
+  useEffect(() => { if (expanded) setVisited(true); }, [expanded]);
+  return <div className="setlist-expansion" data-expanded={expanded || undefined} aria-hidden={!expanded} inert={!expanded}>
+    <div className="setlist-expansion-clip">{(expanded || visited) && children()}</div>
+  </div>;
+}

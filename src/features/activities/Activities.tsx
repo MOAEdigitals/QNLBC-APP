@@ -1,3 +1,4 @@
+import { yearList } from '../../components/MonthSeparators';
 import { SheetDateField } from '../../components/SheetDateField';
 import { confirmAction } from '../../services/appDialogs';
 import { BottomSheet } from '../../components/BottomSheet';
@@ -232,7 +233,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
     <div ref={resultsRef} data-activity-results>
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
-      {activityGroups.map(group => {
+      {yearList(activityGroups, group => group.items[0]?.activityDate, groups => groups.map(group => {
 
         const color = 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800';
         return <section key={group.key} className="space-y-2">
@@ -246,7 +247,7 @@ export default function Activities({ currentUser, collapseSignal }: { currentUse
             {expanded && item.description && <p className="mt-2 whitespace-pre-wrap break-words border-t border-slate-200 dark:border-slate-700 pt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{item.description}</p>}
           </article>; })}
         </section>;
-      })}
+      }), { reveal: !!search.trim(), currentYear: Number(today.slice(0, 4)), gridClass: 'space-y-3 px-3 pb-3' })}
     </div>}
     </div>
 
