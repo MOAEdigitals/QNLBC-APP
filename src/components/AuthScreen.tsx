@@ -154,10 +154,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors">
+    <div className="auth-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors">
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
-        <div className="flex flex-col items-center text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 shadow-sm flex items-center justify-center mb-4 overflow-hidden">
+        <div className="auth-brand flex flex-col items-center text-center">
+          <div className="auth-logo w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 shadow-sm flex items-center justify-center mb-4 overflow-hidden">
             <ChurchLogo className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -169,9 +169,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
         </div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
-        <div className="bg-white dark:bg-slate-900 py-8 px-6 sm:px-10 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl">
-          <form className="space-y-4" onSubmit={handleSubmit}>
+      <div className="auth-form-section mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
+        <div className="auth-card bg-white dark:bg-slate-900 py-8 px-6 sm:px-10 shadow-sm border border-slate-200 dark:border-slate-800 rounded-2xl">
+          <form className="space-y-4" autoComplete="off" onSubmit={handleSubmit}>
             {errorMsg && (
               <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200/80 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-start space-x-2.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -190,7 +190,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
                 <input
                   type="text"
                   required
-                  autoComplete="username"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   autoCapitalize="none"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -211,7 +216,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  autoComplete="current-password"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-form-type="other"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter password"
@@ -246,7 +257,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
             </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 text-center">
+          <div className="auth-footer mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Authorized church ministry portal for New Life Baptist Church.
             </p>

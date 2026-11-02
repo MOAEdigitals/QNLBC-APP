@@ -18,6 +18,24 @@
 /* Android SystemBars resizes the WebView above the IME. Keep tabs out of that
    smaller viewport while preserving their measured height for layout. */
 .keyboard-open .app-bottom-nav { visibility: hidden; pointer-events: none; }
+/* Login uses the same unobscured viewport as modal forms, including overlay IMEs. */
+.auth-screen {
+  position: fixed; inset: auto 0 auto 0; top: var(--form-viewport-top, 0px);
+  height: var(--form-viewport-height, 100dvh); min-height: 0;
+  overflow-y: auto; overscroll-behavior-y: contain; scroll-padding-block: 1rem;
+  justify-content: flex-start;
+}
+.auth-screen > div { flex-shrink: 0; }
+.auth-screen > :first-child { margin-top: auto; }
+.auth-screen > :last-child { margin-bottom: auto; }
+.keyboard-open .auth-screen { justify-content: flex-start; padding-block: .75rem; }
+.keyboard-open .auth-screen > :first-child { margin-top: 0; }
+.keyboard-open .auth-screen > :last-child { margin-bottom: 0; }
+.keyboard-open .auth-logo { width: 2rem; height: 2rem; margin-bottom: .375rem; padding: .25rem; }
+.keyboard-open .auth-brand h2 { font-size: 1.125rem; line-height: 1.5rem; }
+.keyboard-open .auth-brand p, .keyboard-open .auth-footer { display: none; }
+.keyboard-open .auth-form-section { margin-top: .75rem; }
+.keyboard-open .auth-card { padding: 1rem; }
 .app-nav-label { font-size: clamp(10px, 2.65vw, 12px); letter-spacing: -.02em; }
 .qnlbc-app > main { padding-bottom: calc(var(--app-bottom-nav-height, calc(4.25rem + var(--app-safe-bottom))) + 5rem); }
 /* Avoid scroll anchoring to cards that disappear during section switches. */
