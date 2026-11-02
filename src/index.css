@@ -46,6 +46,12 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Search fields use our themed clear action, never a second browser-provided X. */
+input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none; appearance: none; display: none;
+}
+input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
+
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/plus-jakarta-sans-400.ttf') format('truetype'); }
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/plus-jakarta-sans-500.ttf') format('truetype'); }
 @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/plus-jakarta-sans-600.ttf') format('truetype'); }

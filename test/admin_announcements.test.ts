@@ -19,7 +19,7 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   const calls: any[][]=[]; let release: (()=>void)|undefined; let fail=true;
   const service={loadAnnouncementAdmin:async()=>({recipients:people,history:[]}),sendAnnouncement:async(...args:any[])=>{calls.push(args); await new Promise<void>(resolve=>{release=resolve;}); if(fail)throw new Error('Connection interrupted');}};
   const exports:any={}; const ui = createUiTestLoader(dom, React);
-  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>(name.endsWith('SheetSelect')||name.endsWith('SheetDateField'))?ui(name):name==='react'?React:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
+  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>(name.endsWith('SheetSelect')||name.endsWith('SheetDateField'))?ui(name):name==='react'?React:name==='lucide-react'?{X:()=>null}:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
   const root=createRoot(document.getElementById('root')!);
   const click=async(element:Element)=>{await act(async()=>element.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true})));};
   const button=(name:string)=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent===name)!;
@@ -35,6 +35,11 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
     assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length,2);
     await setValue('input[type="search"]','Roger');
     assert.equal(document.querySelectorAll('input[type="checkbox"]').length,1,'search filters the list without changing selected recipients');
+    assert.equal(document.querySelectorAll('[aria-label="Clear member search"]').length, 1);
+    await click(document.querySelector('[aria-label="Clear member search"]')!);
+    assert.equal(document.querySelector('input[type="search"]')!.getAttribute('value'), '');
+    assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length, 2, 'clearing search preserves recipients');
+    assert.equal(document.querySelector('[aria-label="Clear member search"]'), null);
     await act(async()=>document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true})));
     assert.match(document.querySelector('[role="dialog"]')!.textContent!,/Send to 2 accounts/);
     assert.equal(calls.length,0,'preview does not send');

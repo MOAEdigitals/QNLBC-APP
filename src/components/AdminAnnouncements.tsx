@@ -1,6 +1,7 @@
 import { SheetDateField } from './SheetDateField';
 import { SheetSelect } from './SheetSelect';
 import React, { useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { loadAnnouncementAdmin, sendAnnouncement, cancelScheduledAnnouncement, type ScheduledAnnouncement, type AnnouncementRecipient } from '../services/adminAnnouncements';
 import { philippineScheduleISO } from '../utils/notificationSchedule';
@@ -62,7 +63,7 @@ export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChang
     </div>
     <fieldset className="settings-section-divider space-y-3"><legend className="font-semibold">Recipients · {recipients.length} selected</legend>
       <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" disabled={loading} onClick={() => setSelected(people.map(person => person.id))}>Select all active users</button><button type="button" className="ui-secondary" onClick={() => setSelected([])}>Clear selection</button></div>
-      <label className="block text-sm">Find member<input className={field} type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name or username" /></label>
+      <label className="block text-sm">Find member<span className="relative block"><input className={`${field} pr-12`} type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Name or username" />{search && <button type="button" aria-label="Clear member search" onPointerDown={event => event.preventDefault()} onClick={() => setSearch('')} className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400"><X className="h-4 w-4" /></button>}</span></label>
       <div className="max-h-80 overflow-y-auto divide-y divide-slate-200 dark:divide-slate-700">
         {people.filter(person => `${person.name} ${person.username}`.toLowerCase().includes(search.trim().toLowerCase())).map(person => <label key={person.id} className="flex cursor-pointer items-center gap-3 py-3 pr-1"><span aria-hidden="true" className="settings-person-avatar shrink-0">{person.name.split(/\s+/).filter(Boolean).map(word => word[0]).slice(0,2).join('')}</span><span className="min-w-0 flex-1"><span className="block break-words font-medium">{person.name}</span><span className="member-account-username block text-slate-500">{person.username}</span></span><input type="checkbox" className="h-5 w-5 shrink-0 accent-blue-700" checked={selected.includes(person.id)} onChange={e => setSelected(previous => e.target.checked ? [...previous, person.id] : previous.filter(id => id !== person.id))} /></label>)}
         {!loading && !people.some(person => `${person.name} ${person.username}`.toLowerCase().includes(search.trim().toLowerCase())) && <p className="py-4 text-sm text-slate-500">No matching accounts.</p>}
