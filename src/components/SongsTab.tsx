@@ -176,7 +176,6 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   const [editingSong, setEditingSong] = useState<Partial<Song> | null>(null);
   const [isSavingSong, setIsSavingSong] = useState(false);
   const savingSongRef = useRef(false);
-  const [showArtistInput, setShowArtistInput] = useState(false);
 
   // Category quick-picker popup state for song card
   const [categoryPickerSongId, setCategoryPickerSongId] = useState<string | null>(null);
@@ -680,7 +679,6 @@ if (isEditing && !savingSongRef.current) {
       attachments: [],
       updatedAt: new Date().toISOString(),
     });
-    setShowArtistInput(false);
     setIsEditing(true);
   };
 
@@ -688,7 +686,6 @@ if (isEditing && !savingSongRef.current) {
     if (e) e.stopPropagation();
     setOpenMenuSongId(null);
     setEditingSong(JSON.parse(JSON.stringify(song)));
-    setShowArtistInput(Boolean(song.artist && song.artist.trim().length > 0));
     setIsEditing(true);
   };
 
@@ -718,7 +715,7 @@ if (isEditing && !savingSongRef.current) {
       id: editingSong.id && isUUID(editingSong.id) ? editingSong.id : generateUUID(),
       revision: editingSong.revision,
       title: formattedTitle,
-      artist: showArtistInput && editingSong.artist?.trim() ? editingSong.artist.trim() : undefined,
+      artist: editingSong.artist,
       lyrics: editingSong.lyrics || '',
       category: editingSong.category,
       categories: editingSong.categories,
@@ -1934,54 +1931,6 @@ if (isEditing && !savingSongRef.current) {
                   placeholder="Enter song title"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium"
                 />
-              </div>
-
-              {/* Optional Artist / Origin with "Add Artist/Origin" button */}
-              <div>
-                {showArtistInput ? (
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        Artist / Composer / Hymn Origin
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowArtistInput(false);
-                          setEditingSong({ ...editingSong, artist: '' });
-                        }}
-                        className="text-[11px] text-slate-400 hover:text-rose-500 cursor-pointer"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                    <input
-                      id="song-artist-input"
-                      name="library_song_artist"
-                      type="text"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      autoCapitalize="sentences"
-                      spellCheck={false}
-                      data-form-type="other"
-                      data-lpignore="true"
-                      value={editingSong.artist || ''}
-                      onChange={(e) => setEditingSong({ ...editingSong, artist: e.target.value })}
-                      placeholder="Enter artist, composer, or hymn origin"
-                      className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
-                      autoFocus
-                    />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowArtistInput(true)}
-                    className="text-xs font-bold text-slate-700 dark:text-slate-300 hover:underline flex items-center gap-1 cursor-pointer py-1"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add artist/origin</span>
-                  </button>
-                )}
               </div>
 
               {/* Lyrics editor stays fully open while editing. */}
