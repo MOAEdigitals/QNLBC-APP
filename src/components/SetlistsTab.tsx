@@ -953,7 +953,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       {/* Date Badge */}
                       <CardDate date={item.date} />
 
-                      <div className="min-w-0 flex-1">
+                      <div className="setlist-heading min-w-0 flex-1">
                         <div className="flex min-w-0 items-center gap-1.5">
                           <h4
                             className={`app-card-title min-w-0 truncate text-sm sm:text-base ${
@@ -970,8 +970,9 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         </div>
 
                         {/* Compact role summary: balanced on the line directly below title */}
+                        <div className="setlist-summary-names" data-expanded={isSelected || undefined} aria-hidden={isSelected}>
                         <div
-                          className="setlist-names app-card-secondary mt-1 flex flex-wrap items-center gap-x-1.5 text-slate-500 dark:text-slate-400"
+                          className="setlist-names app-card-secondary flex flex-wrap items-center gap-x-1.5 text-slate-500 dark:text-slate-400"
                         >
                           {item.type !== 'prayer_meeting' && <>
                             <span className="min-w-0">
@@ -994,6 +995,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               {item.program?.songLeader || 'TBD'}
                             </span>
                           )}
+                        </div>
                         </div>
                       </div>
                     </div>

@@ -18,7 +18,7 @@ test('SetlistsTab keeps all three names below the title alongside the calendar b
   // Ensure role summary is nested inside min-w-0 flex-1 directly under the title h4
   assert.match(
     setlists,
-    /<div className="min-w-0 flex-1">[\s\S]*?<h4[\s\S]*?<\/h4>[\s\S]*?className="setlist-names[\s\S]*?item.presider[\s\S]*?item.sundaySchool\?\.songLeader[\s\S]*?item.worshipService\?\.songLeader/,
+    /<div className="setlist-heading min-w-0 flex-1">[\s\S]*?<h4[\s\S]*?<\/h4>[\s\S]*?className="setlist-names[\s\S]*?item.presider[\s\S]*?item.sundaySchool\?\.songLeader[\s\S]*?item.worshipService\?\.songLeader/,
     'All three names must remain inside the title block alongside the calendar badge'
   );
 });

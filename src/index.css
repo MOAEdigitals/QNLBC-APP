@@ -355,3 +355,9 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 .ui-picker-categories { padding: 0 1rem .75rem; }
 .ui-picker-chip { background: var(--ui-field); border: 1px solid var(--ui-border); color: var(--ui-muted); }
 .ui-picker-chip[aria-pressed="true"] { background: var(--ui-primary); border-color: var(--ui-primary); color: #fff; }
+
+.setlist-heading { display: flex; flex-direction: column; justify-content: center; min-height: 44px; }
+.setlist-summary-names { display: grid; grid-template-rows: 1fr; opacity: 1; margin-top: .25rem; transition: grid-template-rows 240ms ease, opacity 180ms ease, margin-top 240ms ease; }
+.setlist-summary-names > .setlist-names { min-height: 0; overflow: hidden; }
+.setlist-summary-names[data-expanded] { grid-template-rows: 0fr; opacity: 0; margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .setlist-summary-names { transition: none; } }
