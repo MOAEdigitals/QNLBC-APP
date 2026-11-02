@@ -57,6 +57,25 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
     assert.deepEqual(markedTitles(), ['Zion'], 'unsaved changes in another field update open pickers');
     await act(() => renderDesktop([]));
     assert.deepEqual(markedTitles(), [], 'removing the last use clears its marker');
+    // A tap on the portalled sort backdrop must dismiss only that layer.
+    for (const mode of ['mouse', 'touch']) {
+      await act(() => document.querySelector<HTMLButtonElement>('[aria-label^="Sort songs:"]')!.click());
+      const backdrop = document.querySelector('.ui-bottom-sheet-backdrop')!;
+      await act(() => {
+        if (mode === 'touch') {
+          const start = new dom.window.Event('touchstart', { bubbles: true });
+          Object.defineProperty(start, 'touches', { value: [{ clientX: 5, clientY: 5 }] });
+          backdrop.dispatchEvent(start);
+        } else backdrop.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true }));
+        backdrop.dispatchEvent(new dom.window.Event('pointerdown', { bubbles: true }));
+      });
+      assert.equal(document.querySelector('[data-picker-closing]'), null, 'outside sort tap never starts closing Songs');
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 220)); });
+      if (mode === 'touch') await act(() => document.body.dispatchEvent(new dom.window.Event('touchend', { bubbles: true })));
+      assert.equal(document.querySelector('[role="menu"]'), null, 'only Sort songs closes');
+      assert.ok(document.querySelector('[role="listbox"]'), 'Songs remains open after sort backdrop closes');
+      assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed']);
+    }
     await sortBy('az');
     assert.deepEqual(titles(), ['Amazing Grace', 'Blessed', 'Zion']);
     await sortBy('za');

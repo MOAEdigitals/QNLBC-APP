@@ -591,7 +591,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
   // Handle outside clicks/taps cleanly without closing suggestions when scrolling container or page
   useEffect(() => {
-    if (!isOpen) return;
+    // The sort sheet is portalled outside the picker. Let its backdrop consume
+    // the gesture before the underlying picker resumes outside-tap dismissal.
+    if (!isOpen || isSortMenuOpen) return;
     let touchOutsideStart: { x: number; y: number; time: number } | null = null;
     let isTouchMoveOutside = false;
 
@@ -657,7 +659,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       document.removeEventListener('touchend', handleTouchEndOutside);
       document.removeEventListener('touchcancel', cancelOutsideTouch);
     };
-  }, [isOpen, isTouchPicker]);
+  }, [isOpen, isTouchPicker, isSortMenuOpen]);
 
   const handleAcceptPrefix = (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
