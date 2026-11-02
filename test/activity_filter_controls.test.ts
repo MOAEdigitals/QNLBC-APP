@@ -47,7 +47,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.equal(checkbox('Sunday service').checked, true);
     assert.equal(checkbox('Other events').checked, true);
     assert.equal(checkbox('Choir & song leader practice').checked, false);
-    for (const label of ['PH holidays', 'Local holidays (Nueva Ecija)', 'Birthdays', 'Fiestas & festivals (Quezon)']) assert.equal(checkbox(label).checked, false);
+    for (const label of ['PH holidays', 'Local holidays (Nueva Ecija)', 'Birthdays']) assert.equal(checkbox(label).checked, false);
     assert.equal(document.querySelectorAll('[data-calendar-overlay]').length, 0, 'all overlays start hidden');
     await act(() => checkbox('Birthdays').click());
     assert.equal(birthdayLoads, 1, 'birthdays load on demand, even when Recognitions has not been opened');

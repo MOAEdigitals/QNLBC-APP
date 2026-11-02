@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HOLIDAYS, FIESTAS, EMPTY_OVERLAY_FILTERS, calendarOverlays } from '../src/features/activities/calendarOverlays.ts';
+import { HOLIDAYS, EMPTY_OVERLAY_FILTERS, calendarOverlays } from '../src/features/activities/calendarOverlays.ts';
 
 test('verified holidays cover 2026 and 2027 with accurate movable dates and local scope', () => {
   assert.equal(HOLIDAYS.length, 43);
@@ -47,19 +47,4 @@ test('birthday dots use actual month/day each year, handling leap years and mult
   assert.equal(calendarOverlays(2028, birthdays, enabled).find(item => item.title === 'Leap')?.date, '2028-02-29');
   assert.equal(calendarOverlays(2027, birthdays, enabled, 'Roger').length, 1);
   assert.equal(JSON.stringify(birthdays), before);
-});
-
-
-test('Quezon fiestas are optional traditional references, separated from declared holidays', () => {
-  assert.equal(FIESTAS.length, 8);
-  assert.equal(EMPTY_OVERLAY_FILTERS.festival, false);
-  for (const year of [2026, 2027]) {
-    const entries = calendarOverlays(year, [], { ...EMPTY_OVERLAY_FILTERS, festival: true });
-    assert.equal(entries.length, 4);
-    assert.ok(entries.every(entry => entry.kind === 'festival' && /Traditional/.test(entry.detail) && /to confirm/.test(entry.detail)));
-    assert.equal(entries[0].date, `${year}-01-30`);
-    assert.deepEqual(entries.slice(1).map(entry => entry.date), ['01', '02', '03'].map(day => `${year}-02-${day}`));
-    assert.ok(entries.every(entry => !/holiday/i.test(entry.detail)));
-    assert.equal(calendarOverlays(year, [], { ...EMPTY_OVERLAY_FILTERS, ph: true }).some(entry => entry.kind === 'festival'), false);
-  }
 });

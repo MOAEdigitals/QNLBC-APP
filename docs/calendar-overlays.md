@@ -9,9 +9,3 @@ Verified on 2026-11-02. This is a bundled calendar reference, not church activit
 - Birthdays use their actual month/day in the displayed year, independently of the Thursday–Wednesday Sunday recognition window. February 29 appears only in leap years.
 
 Keep working/non-working classifications visible in date details. Update `src/features/activities/calendarOverlays.ts` when further official proclamations are published. Do not infer substitute weekdays or future local holidays.
-
-## Quezon fiestas and festivals
-
-A separate default-off, green layer marks traditional local planning references for 2026–2027: Patimyas Ani on January 30, and the February 1–3 town fiesta period. These are **not verified year-specific LGU programs or declarations of non-working holidays**. Their date details explicitly say the LGU program needs confirmation. Do not label their source links "Official source".
-
-References: [municipal eLGU portal, historical 2025 fiesta/festival announcements](https://elgu-quezon-nueva-ecija-news.e.gov.ph/); [photographer's annual January 30 description](https://commons.wikimedia.org/wiki/File:Patimyas_Gintong_Ani_2020,_Quezon,_Nueva_Ecija.jpg); [historical Nueva Ecija festivals catalog, Patimyas Ani entry and February 1–3 explanation](https://www.scribd.com/document/735555637/Festivals-and-Founding-Anniversary-Province-of-Nueva-Ecija-2020). Replace reference dates with verified schedules when the corresponding LGU program is available; keep the holiday classification separate.
