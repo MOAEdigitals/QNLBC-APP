@@ -2712,20 +2712,24 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             <form onSubmit={handleSaveScheduleSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
               <fieldset disabled={isSavingSchedule} className="ui-form-body">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                <label htmlFor="schedule-performer-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Performer Name(s) *
                 </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                  <AutofillInput
-                    id="schedule-performer-input"
-                    name="schedule_performer_name"
-                    value={editingSchedule.performerName || ''}
-                    onChange={(val) => setEditingSchedule({ ...editingSchedule, performerName: val })}
-                    suggestions={directoryNames}
-                    placeholder="Enter singer or group name"
-                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
-                  />
-                </div>
+                <input
+                  id="schedule-performer-input"
+                  name="schedule_performer_name"
+                  type="text"
+                  required
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="words"
+                  data-form-type="other"
+                  data-lpignore="true"
+                  value={editingSchedule.performerName || ''}
+                  onChange={event => setEditingSchedule({ ...editingSchedule, performerName: event.target.value })}
+                  placeholder="Enter singer or group name"
+                  className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                />
               </div>
 
               <div>
