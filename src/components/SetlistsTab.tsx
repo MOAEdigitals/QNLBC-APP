@@ -971,10 +971,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <div
                           className="setlist-names app-card-secondary mt-1 flex flex-wrap items-center gap-x-1.5 text-slate-500 dark:text-slate-400"
                         >
-                          <span className="min-w-0">
-                            {item.presider || 'TBD'}
-                          </span>
-                          <span aria-hidden="true">•</span>
+                          {item.type !== 'prayer_meeting' && <>
+                            <span className="min-w-0">
+                              {item.presider || 'TBD'}
+                            </span>
+                            <span aria-hidden="true">•</span>
+                          </>}
                           {item.type === 'sunday' || !item.type ? (
                             <>
                               <span className="min-w-0">
