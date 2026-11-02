@@ -36,8 +36,6 @@ import {
 } from '../utils/dateUtils';
 import {
   getAllDirectoryNames,
-  formatDuplicateTitle,
-  upsertSongFromSpecialNumber,
 } from '../utils/storage';
 import {
   saveAudioToStorage,
@@ -112,7 +110,7 @@ interface SpecialNumberTabProps {
   songs: Song[];
   setlists: Setlist[];
   savedNames?: string[];
-  onSaveSpecialNumber: (entry: SpecialNumberEntry) => void;
+  onSaveSpecialNumber: (entry: SpecialNumberEntry) => Promise<boolean | void> | void;
   onDeleteSpecialNumber: (id: string) => void;
   onSavePracticeEntry?: (entry: Partial<PracticeGroupEntry>, isNew?: boolean) => Promise<PracticeGroupEntry | void> | void;
   onSavePracticeVocalPart?: (
@@ -219,6 +217,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const [isEditingPractice, setIsEditingPractice] = useState(false);
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSaveError, setPracticeSaveError] = useState<string | null>(null);
+  const practiceSavingRef = useRef(false);
+  const scheduleSavingRef = useRef(false);
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [scheduleSaveError, setScheduleSaveError] = useState<string | null>(null);
   const [isSavingPractice, setIsSavingPractice] = useState(false);
   const [practiceSearchQuery, setPracticeSearchQuery] = useState('');
   useHeaderSearch(activeSubTab === 'schedules'
@@ -960,7 +962,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     else if (isAddingTrackModal) { if (!savingTrackRef.current && !isUploadingCloudMedia) setIsAddingTrackModal(false); }
     else if (isEditingChoir) { if (choirSavingRef.current) return; setIsEditingChoir(false); setEditingChoir(null); }
     else if (isEditingPractice) { if (isSavingPractice) return; setIsEditingPractice(false); setEditingPractice(null); }
-    else if (isEditingSchedule) { setIsEditingSchedule(false); setEditingSchedule(null); }
+    else if (isEditingSchedule) { if (scheduleSavingRef.current) return; setIsEditingSchedule(false); setEditingSchedule(null); }
     else if (selectedPracticeId) setSelectedPracticeId(null);
     else if (selectedChoirId) { setExpandedChoirLyricsIds({}); setSelectedChoirId(null); }
     else { setExpandedScheduleLyricsIds({}); setSelectedEntryId(null); }
@@ -1056,57 +1058,54 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   };
 
   // Schedule Save Handler
-  const handleSaveScheduleSubmit = (e: React.FormEvent) => {
+  const handleSaveScheduleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSchedule || !editingSchedule.performerName?.trim()) return;
+    if (!editingSchedule || !editingSchedule.performerName?.trim() || scheduleSavingRef.current) return;
+    scheduleSavingRef.current = true;
+    setIsSavingSchedule(true);
+    setScheduleSaveError(null);
+    try {
 
-    let finalSongTitle = editingSchedule.songTitle?.trim() || '';
-    let matchedSongId = editingSchedule.songId;
+      const finalSongTitle = editingSchedule.songTitle?.trim() || '';
+      const matchedSongId = editingSchedule.songId;
 
-    if (finalSongTitle) {
-      const match = songs.find((s) => s.title.toLowerCase() === finalSongTitle.toLowerCase());
-      if (match) {
-        matchedSongId = match.id;
-      } else {
-        finalSongTitle = formatDuplicateTitle(finalSongTitle, songs);
-        const newSong = upsertSongFromSpecialNumber(
-          finalSongTitle,
-          editingSchedule.lyrics || '',
-          editingSchedule.minusOneLink || ''
-        );
-        matchedSongId = newSong.id;
-      }
+      const entryToSave: SpecialNumberEntry = {
+        id: editingSchedule.id && isUUID(editingSchedule.id) ? editingSchedule.id : generateUUID(),
+        revision: editingSchedule.revision,
+        performerName: editingSchedule.performerName.trim(),
+        scheduledDate: editingSchedule.scheduledDate || getNextSundayStr(),
+        songTitle: finalSongTitle,
+        songId: matchedSongId,
+        minusOneLink: editingSchedule.minusOneLink?.trim() || '',
+        notes: editingSchedule.notes?.trim() || '',
+        lyrics: editingSchedule.lyrics?.trim() || '',
+        createdAt: editingSchedule.createdAt || new Date().toISOString(),
+      };
+
+      const result = await onSaveSpecialNumber(entryToSave);
+      if (result === false) throw new Error('Unable to save song number. Please try again.');
+      setIsEditingSchedule(false);
+      setEditingSchedule(null);
+      setSyncedNotice(true);
+      setTimeout(() => setSyncedNotice(false), 3500);
+    } catch (err) {
+      setScheduleSaveError(err instanceof Error ? err.message : 'Unable to save song number. Please try again.');
+    } finally {
+      scheduleSavingRef.current = false;
+      setIsSavingSchedule(false);
     }
-
-    const entryToSave: SpecialNumberEntry = {
-      id: editingSchedule.id && isUUID(editingSchedule.id) ? editingSchedule.id : generateUUID(),
-      revision: editingSchedule.revision,
-      performerName: editingSchedule.performerName.trim(),
-      scheduledDate: editingSchedule.scheduledDate || getNextSundayStr(),
-      songTitle: finalSongTitle,
-      songId: matchedSongId,
-      minusOneLink: editingSchedule.minusOneLink?.trim() || '',
-      notes: editingSchedule.notes?.trim() || '',
-      lyrics: editingSchedule.lyrics?.trim() || '',
-      createdAt: editingSchedule.createdAt || new Date().toISOString(),
-    };
-
-    onSaveSpecialNumber(entryToSave);
-    setIsEditingSchedule(false);
-    setEditingSchedule(null);
-    setSyncedNotice(true);
-    setTimeout(() => setSyncedNotice(false), 3500);
   };
 
   // Practice Save Handler
   const handleSavePracticeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSavingPractice) return;
+    if (practiceSavingRef.current) return;
     setPracticeSaveError(null);
     if (!editingPractice?.songTitle?.trim()) {
       setPracticeSaveError('Enter a song title before saving the practice.');
       return;
     }
+    practiceSavingRef.current = true;
     setIsSavingPractice(true);
     try {
 
@@ -1119,32 +1118,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
     );
 
-    // If song is not in the library, save it to the Songs library only if:
-    // This is a brand new practice entry (not an edit of existing practice where song was deleted)
-    if (!matchedSong && onSaveSong && isNew) {
-      const newSong: Song = {
-        id: generateUUID(),
-        title: trimmedTitle,
-        lyrics: editingPractice.lyrics || '',
-        updatedAt: new Date().toISOString(),
-      };
-      const savedSong = await onSaveSong(newSong);
-      effectiveSongId = savedSong ? savedSong.id : undefined;
-    } else if (matchedSong) {
-      effectiveSongId = matchedSong.id;
-      // Save changed lyrics while preserving existing song metadata
-      if (
-        ((editingPractice.lyrics || '') !== (matchedSong.lyrics || ''))
-      ) {
-        if (onSaveSong) {
-          await onSaveSong({
-            ...matchedSong,
-            lyrics: editingPractice.lyrics || '',
-            updatedAt: new Date().toISOString(),
-          });
-        }
-      }
-    }
+    if (matchedSong) effectiveSongId = matchedSong.id;
 
     const entryToSave: Partial<PracticeGroupEntry> = {
       ...(isNew ? {} : { id: editingPractice.id }),
@@ -1179,6 +1153,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       console.error('Save practice error:', err);
       setPracticeSaveError(err instanceof Error ? err.message : 'Unable to save practice. Please try again.');
     } finally {
+      practiceSavingRef.current = false;
       setIsSavingPractice(false);
     }
   };
@@ -2734,7 +2709,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 </span>
               </h3>
               <button
-                onClick={() => setIsEditingSchedule(false)}
+                disabled={isSavingSchedule}
+                onClick={() => { setScheduleSaveError(null); setIsEditingSchedule(false); }}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -2742,7 +2718,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
 
             <form onSubmit={handleSaveScheduleSubmit} autoComplete="off" data-form-type="other" className="ui-modal-form">
-              <div className="ui-form-body">
+              <fieldset disabled={isSavingSchedule} className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Singer / Performer Name(s) *
@@ -2852,20 +2828,23 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 />
               </div>
 
-              </div>
+              {scheduleSaveError && <p role="alert" className="text-sm text-rose-500">{scheduleSaveError}</p>}
+              </fieldset>
               <div className="ui-form-actions flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setIsEditingSchedule(false)}
+                  disabled={isSavingSchedule}
+                  onClick={() => { setScheduleSaveError(null); setIsEditingSchedule(false); }}
                   className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  disabled={isSavingSchedule}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-white shadow-xs cursor-pointer"
                 >
-                  Save
+                  {isSavingSchedule ? 'Saving…' : 'Save'}
                 </button>
               </div>
             </form>

@@ -830,43 +830,35 @@ export default function App() {
   // Special Number Operations
   const handleSaveSpecialNumber = async (entry: SpecialNumberEntry) => {
     const isNew = !specialNumbers.some((item) => item.id === entry.id);
-    if (!requirePermission(isNew ? 'add' : 'edit')) return;
+    if (!requirePermission(isNew ? 'add' : 'edit')) return false;
     let entryToSave = { ...entry };
 
-    if (entry.songTitle && entry.lyrics) {
-      const existingSong = songs.find(
-        (song) => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase()
-      );
-      const songDraft = existingSong
-        ? {
-            ...existingSong,
-            lyrics: entry.lyrics,
-            minusOneLink: entry.minusOneLink || existingSong.minusOneLink,
-            updatedAt: new Date().toISOString(),
-          }
-        : upsertSongFromSpecialNumber(entry.songTitle, entry.lyrics, entry.minusOneLink);
-      const savedSong = await supabaseSaveSong(songDraft, !existingSong);
-      setSongs((prev) => {
-        const withoutOld = prev.filter(
-          (song) => song.id !== songDraft.id && song.id !== savedSong.id
-        );
-        return [...withoutOld, savedSong];
-      });
-      entryToSave = { ...entryToSave, songId: savedSong.id };
-    }
-
     try {
+      if (entry.songTitle?.trim()) {
+        const existingSong = songs.find(song => song.id === entry.songId)
+          || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase());
+        if (existingSong) {
+          entryToSave = { ...entryToSave, songId: existingSong.id, songTitle: existingSong.title };
+        } else {
+          const songDraft = { ...upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics, entry.minusOneLink), category: 'Special', categories: ['Special'] };
+          const savedSong = await supabaseSaveSong(songDraft, true);
+          setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+          entryToSave = { ...entryToSave, songId: savedSong.id, songTitle: savedSong.title };
+        }
+      }
+
       const saved = await supabaseSaveSpecialNumber(entryToSave, isNew);
       setSpecialNumbers((prev) =>
         isNew
           ? [saved, ...prev.filter((item) => item.id !== entry.id && item.id !== saved.id)]
           : prev.map((item) => (item.id === entry.id ? saved : item))
       );
+      return true;
     } catch (err: any) {
       console.error('Failed to save special number:', err);
       const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
       setSpecialNumbers(fresh);
-      void showAppMessage('Unable to save special number: ' + (err.message || 'Database error'));
+      return false;
     }
   };
 
@@ -939,6 +931,19 @@ export default function App() {
     );
     if (!requirePermission(isActuallyNew ? 'add' : 'edit')) {
       throw new Error(`Your account does not have ${isActuallyNew ? 'ADD' : 'EDIT'} permission.`);
+    }
+
+    // Save new library songs once; existing arrangements remain local to practice.
+    if (entry.songTitle?.trim()) {
+      const existingSong = songs.find(song => song.id === entry.songId)
+        || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase());
+      if (existingSong) {
+        entry = { ...entry, songId: existingSong.id, songTitle: existingSong.title };
+      } else {
+        const savedSong = await supabaseSaveSong(upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics), true);
+        setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+        entry = { ...entry, songId: savedSong.id, songTitle: savedSong.title };
+      }
     }
 
     if (isActuallyNew) {

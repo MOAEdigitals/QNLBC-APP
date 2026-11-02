@@ -44,9 +44,7 @@ test('track saves use a synchronous lock and a stable id so double taps and retr
   assert.doesNotMatch(practiceTab, /trackSaveNotice/);
 });
 
-test('practice creation saves new songs without exposing a separate practice date or time', () => {
-  assert.match(practiceTab, /if \(!matchedSong && onSaveSong && isNew\)/);
-  assert.doesNotMatch(practiceTab, /if \(!matchedSong && onSaveSong && !isEditingPractice\)/);
+test('practice creation does not expose a separate practice date or time', () => {
   assert.doesNotMatch(practiceTab, /value=\{editingPractice\.practiceDate \|\| ''\}/);
   assert.doesNotMatch(practiceTab, /value=\{editingPractice\.practiceTime \|\| ''\}/);
   assert.doesNotMatch(practiceTab, /1\. Choose the song and practice details/);
@@ -89,7 +87,7 @@ test('practice cards and details omit audio-track totals', () => {
   assert.doesNotMatch(practiceTab, /audio track\{\(\(group\.vocalParts/);
 });
 
-test('practice lyrics auto-grow without an expand control and sync to the matching song', () => {
+test('practice lyrics auto-grow without an expand control', () => {
   const autoGrow = readFileSync('src/components/AutoGrowTextarea.tsx', 'utf8');
   assert.match(practiceTab, /AutoGrowTextarea/);
   assert.match(autoGrow, /textarea\.style\.height = `\$\{textarea\.scrollHeight\}px`/);
@@ -98,8 +96,7 @@ test('practice lyrics auto-grow without an expand control and sync to the matchi
   assert.doesNotMatch(practiceTab, /Edit lyrics full screen/);
   assert.match(practiceTab, /value=\{editingPractice\.lyrics \|\| ''\}/);
   assert.match(practiceTab, /onChange=\{\(e\) => setEditingPractice\(\{ \.\.\.editingPractice, lyrics: e\.target\.value \}\)\}/);
-  assert.match(practiceTab, /\(editingPractice\.lyrics \|\| ''\) !== \(matchedSong\.lyrics \|\| ''\)/);
-  assert.match(practiceTab, /lyrics: editingPractice\.lyrics \|\| '',/);
+  assert.match(practiceTab, /lyricsSnapshot: editingPractice\.lyrics/);
 });
 
 test('voice and backing-track forms no longer ask for a singer or track name', () => {
