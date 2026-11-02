@@ -90,7 +90,11 @@
   opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }
-.qnlbc-app .birthday-card[data-past], .qnlbc-app .special-screen [data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; opacity: .6; }
+/* Fade content only: opacity on a card also fades its floating actions and menu. */
+.qnlbc-app .birthday-card[data-past] > :first-child,
+.qnlbc-app .special-screen .app-date-card[data-past] [data-card-muted-content],
+.qnlbc-app .special-screen .app-date-card[data-past] [data-activity-card-header] > :not([data-activity-actions]) { opacity: .6; }
+.qnlbc-app .birthday-card[data-past], .qnlbc-app .special-screen .app-date-card[data-past] { background-image: none; background-color: #f1f5f9; border-color: #e2e8f0; }
 .dark .qnlbc-app .birthday-card[data-past], .dark .qnlbc-app .special-screen [data-past] { background-color: #0f172a; border-color: #1e293b; }
 .ui-revamp .setlist-names { font-size: 12px; font-weight: 400; line-height: 1.5; }
 :root {

@@ -2090,6 +2090,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <div
                       key={item.id}
                       id={`schedule-card-${item.id}`}
+                      data-past={isPast || undefined}
                       data-upcoming-card={today ? 'today' : isSoonest ? 'next-up' : !isPast && !today && item.id === followingEntry?.id ? 'upcoming' : undefined}
                       onClick={(e) => {
                         if (isSelected) {
@@ -2105,7 +2106,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       }}
                       className={`app-date-card p-4 rounded-2xl border transition-all cursor-pointer ${
                         isPast
-                          ? `bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 text-slate-500 opacity-60 ${
+                          ? `bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 text-slate-500 ${
                               isSelected ? 'ring-2 ring-slate-400 dark:ring-slate-600' : ''
                             }`
                           : isSelected
@@ -2117,7 +2118,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     >
                       {/* Card Header Row with Far-Right 3-Dots / Actions */}
                       <div className="flex items-center justify-between">
-                        <div className="flex min-h-11 flex-1 items-center gap-3 min-w-0">
+                        <div data-card-muted-content className="flex min-h-11 flex-1 items-center gap-3 min-w-0">
                           {/* Date Badge */}
                           <CardDate date={item.scheduledDate} />
 
@@ -2685,6 +2686,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   <div
                     key={entry.id}
                     id={`choir-card-${entry.id}`}
+                    data-past={isElapsed || undefined}
                     data-upcoming-card={!entry.isDone && isToday(entry.date) ? 'today' : choirUpcoming.get(entry.id)}
                     onClick={() => {
                       const nextExpanded = !isLyricsExpanded;
@@ -2696,13 +2698,13 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     }}
                     className={`app-date-card p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
                       isElapsed
-                        ? 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 opacity-60'
+                        ? 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
                     }`}
                   >
                     {/* Surface-Level Row: Date & Title matching Setlists Tab visual hierarchy */}
                     <div className="flex items-center justify-between gap-3 min-w-0">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div data-card-muted-content className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Date Badge */}
                         <CardDate date={entry.date} />
 

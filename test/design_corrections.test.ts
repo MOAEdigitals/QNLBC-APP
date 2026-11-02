@@ -8,7 +8,14 @@ const styles = readFileSync('src/index.css', 'utf8');
 const setlists = readFileSync('src/components/SetlistsTab.tsx', 'utf8');
 
 test('past schedules remain gray even while expanded', () => {
-  assert.match(special, /isPast\s*\? `bg-slate-100\/60[\s\S]*?opacity-60/);
+  assert.match(special, /isPast\s*\? `bg-slate-100\/60/);
+  assert.doesNotMatch(special, /opacity-60/);
+  assert.match(special, /data-past=\{isPast \|\| undefined\}/);
+  assert.match(special, /data-past=\{isElapsed \|\| undefined\}/);
+  assert.match(special, /data-card-muted-content/);
+  assert.match(styles, /\.birthday-card\[data-past\] > :first-child,/);
+  assert.match(styles, /\[data-card-muted-content\],[\s\S]*?:not\(\[data-activity-actions\]\) \{ opacity: \.6; \}/);
+  assert.doesNotMatch(styles, /\.birthday-card\[data-past\]\s*,[^{]*\{[^}]*opacity/);
   assert.match(special, /isSelected \? 'ring-2 ring-slate-400 dark:ring-slate-600'/);
 });
 
