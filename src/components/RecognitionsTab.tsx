@@ -1,3 +1,4 @@
+import { BirthdayDatePicker } from './BirthdayDatePicker';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction, showAppMessage } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
@@ -539,18 +540,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   Birthday (Month and Day) *
                 </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <SheetSelect aria-label="Birthday month" required value={bdayForm.birthDate.slice(5,7)} onChange={e => {
-                    const month = e.target.value;
-                    const day = Math.min(Number(bdayForm.birthDate.slice(8)), new Date(2000, Number(month), 0).getDate());
-                    setBdayForm({ ...bdayForm, birthDate: `2000-${month}-${String(day).padStart(2, '0')}` });
-                  }} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
-                    {Array.from({ length: 12 }, (_, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{new Date(2000,i,1).toLocaleDateString('en-US',{month:'long'})}</option>)}
-                  </SheetSelect>
-                  <SheetSelect aria-label="Birthday day" required value={bdayForm.birthDate.slice(8)} onChange={e => setBdayForm({ ...bdayForm, birthDate: `2000-${bdayForm.birthDate.slice(5,7)}-${e.target.value}` })} className="w-full p-2.5 rounded-xl border bg-slate-50 dark:bg-slate-800 dark:border-slate-700 text-sm">
-                    {Array.from({ length: new Date(2000, Number(bdayForm.birthDate.slice(5,7)), 0).getDate() }, (_, i) => <option key={i} value={String(i+1).padStart(2,'0')}>{i+1}</option>)}
-                  </SheetSelect>
-                </div>
+                <BirthdayDatePicker value={bdayForm.birthDate} disabled={isSavingBirthday} onChange={birthDate => setBdayForm({ ...bdayForm, birthDate })} />
               </div>
 
               </div>

@@ -371,3 +371,12 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 /* Keep all four year digits visible at mobile text sizes. */
 .ui-calendar-year { justify-content: space-between; }
 .ui-calendar-year > span { flex: none; white-space: nowrap; overflow: visible; text-overflow: clip; }
+
+/* Birthday wheels share one sheet; repeated rows wrap without changing the stored year. */
+.birthday-wheel-column { min-width: 0; }
+.birthday-wheel-frame { position: relative; }
+.birthday-wheel-highlight { position: absolute; inset: 96px 0 auto; height: 48px; border-radius: .75rem; background: #2563eb18; border: 1px solid var(--ui-border); pointer-events: none; }
+.birthday-wheel { position: relative; height: 240px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scroll-snap-type: y mandatory; scrollbar-width: none; padding-block: 96px; mask-image: linear-gradient(transparent, #000 35%, #000 65%, transparent); }
+.birthday-wheel::-webkit-scrollbar { display: none; }
+.birthday-wheel:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: .75rem; }
+.birthday-wheel-row { height: 48px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-size: 1.125rem; white-space: nowrap; cursor: pointer; user-select: none; }
