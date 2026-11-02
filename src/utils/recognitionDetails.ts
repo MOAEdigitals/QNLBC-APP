@@ -1,6 +1,6 @@
 import type { AnniversaryCelebrant } from '../types.ts';
 
-/** Full dates stay one-time; the Sunday recognition week is Thursday–Wednesday. */
+/** Birthday and anniversary recognition week: Thursday–Wednesday. */
 export function recognitionWindow(now = new Date()) {
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   start.setDate(start.getDate() + (7 - start.getDay()) % 7 - 3);
@@ -8,15 +8,28 @@ export function recognitionWindow(now = new Date()) {
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return { start: ymd(start), end: ymd(end) };
 }
-export function isSpecialRecognitionWeek(date: string, now = new Date()) {
-  const {start,end}=recognitionWindow(now);
-  return date >= start && date < end;
+/** Exclusive end: Monday after the second Sunday on or after the event date. */
+export function specialRecognitionEnd(date: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const [year,month,day]=date.split('-').map(Number);
+  const end=new Date(year,month-1,day);
+  if (end.getFullYear()!==year || end.getMonth()!==month-1 || end.getDate()!==day) return null;
+  end.setDate(end.getDate() + (7-end.getDay())%7 + 8);
+  return `${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}-${String(end.getDate()).padStart(2,'0')}`;
+}
+function localDay(now: Date) {
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+export function isSpecialRecognitionActive(date: string, now = new Date()): boolean {
+  const end=specialRecognitionEnd(date), today=localDay(now);
+  return end !== null && date <= today && today < end;
 }
 export function partitionSpecialRecognitions<T>(items: T[], dateOf: (item:T)=>string, now=new Date()) {
-  const {start}=recognitionWindow(now);
+  const today=localDay(now);
+  const pending=(item:T) => { const end=specialRecognitionEnd(dateOf(item)); return end !== null && end > today; };
   return {
-    upcoming: items.filter(item=>dateOf(item)>=start).sort((a,b)=>dateOf(a).localeCompare(dateOf(b))),
-    past: items.filter(item=>dateOf(item)<start).sort((a,b)=>dateOf(b).localeCompare(dateOf(a))),
+    upcoming: items.filter(pending).sort((a,b)=>dateOf(a).localeCompare(dateOf(b))),
+    past: items.filter(item=>!pending(item)).sort((a,b)=>dateOf(b).localeCompare(dateOf(a))),
   };
 }
 /** Existing yearsCount is the count at the stored date, including legacy records. */

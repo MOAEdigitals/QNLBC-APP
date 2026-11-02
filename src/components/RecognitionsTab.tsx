@@ -1,4 +1,4 @@
-import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionWeek, partitionSpecialRecognitions } from '../utils/recognitionDetails';
+import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionActive, partitionSpecialRecognitions } from '../utils/recognitionDetails';
 import { BirthdayDatePicker } from './BirthdayDatePicker';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction, showAppMessage } from '../services/appDialogs';
@@ -418,7 +418,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       {subTab === 'special' && <div className="space-y-6">
         {!specialGroups.upcoming.length && !specialGroups.past.length && <p className="p-4 text-center text-xs text-slate-500">No special recognitions found.</p>}
         {[specialGroups.upcoming,specialGroups.past].map((items,index) => <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {monthList(items,item=>item.date,['recognition','recognitions']).render(item => <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isSpecialRecognitionWeek(item.date) || undefined} data-past={index === 1 || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+          {monthList(items,item=>item.date,['recognition','recognitions']).render(item => <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isSpecialRecognitionActive(item.date) || undefined} data-past={index === 1 || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={item.date} /><div className="min-w-0 flex-1 space-y-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.name}</h4><p className="app-card-secondary text-xs font-semibold text-indigo-600 dark:text-indigo-400">{item.recognitionType === 'Custom' ? item.customType : [item.recognitionType,item.customType].filter(Boolean).join(' · ')}</p>{item.description && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.description}</p>}</div></div>
             {recognitionActions(`special:${item.id}`,item.name,[item.name,item.recognitionType === 'Custom' ? item.customType : item.recognitionType,item.recognitionType !== 'Custom' && item.customType,formatDateStr(item.date),item.description].filter(Boolean).join('\n'),() => {
               setEditingSpecial(item); setSpecialForm({name:item.name,recognitionType:item.recognitionType,customType:item.customType || '',date:item.date,description:item.description || ''}); setIsAddingSpecial(true);
