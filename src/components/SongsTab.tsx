@@ -1638,7 +1638,7 @@ if (isEditing && !savingSongRef.current) {
                         {formatDateStr(s.date, { showDayOfWeek: true })} (Presider: {s.presider})
                       </option>
                     ))}
-                  <option value="NEW">Create Brand New Setlist with this song</option>
+                  <option value="NEW">New setlist with this song</option>
                 </SheetSelect>
               </div>
 
@@ -1777,7 +1777,7 @@ if (isEditing && !savingSongRef.current) {
               {/* Link Input Box with Attachment Icon on the farthest right */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Paste Web / YouTube Link or Attach Sound/Video File *
+                  Link or File *
                 </label>
                 <div className="relative flex items-center">
                   <input
@@ -1797,7 +1797,7 @@ if (isEditing && !savingSongRef.current) {
                       setAttachmentType('link');
                       setAttachmentLinkOrData(e.target.value);
                     }}
-                    placeholder="https://www.youtube.com/watch?v=... or direct audio/video link"
+                    placeholder="Paste link"
                     className="w-full pr-10 pl-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400"
                   />
                   {/* File Upload Trigger Icon at the farthest right */}
@@ -1952,7 +1952,7 @@ if (isEditing && !savingSongRef.current) {
                   rows={8}
                   value={editingSong.lyrics || ''}
                   onChange={(e) => setEditingSong({ ...editingSong, lyrics: e.target.value })}
-                  placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
+                  placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>

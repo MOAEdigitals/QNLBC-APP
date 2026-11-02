@@ -2713,7 +2713,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <fieldset disabled={isSavingSchedule} className="ui-form-body">
               <div>
                 <label htmlFor="schedule-performer-input" className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Singer / Performer Name(s) *
+                  Singer / Group *
                 </label>
                 <input
                   id="schedule-performer-input"
@@ -2727,14 +2727,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   value={editingSchedule.performerName || ''}
                   onChange={event => setEditingSchedule({ ...editingSchedule, performerName: event.target.value })}
-                  placeholder="Enter singer or group name"
+                  placeholder="Enter singer or group"
                   className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Scheduled Service Date *
+                  Date *
                 </label>
                 <SheetDateField
                   id="schedule-date-input"
@@ -2749,7 +2749,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Song Title (Optional / Autocomplete from library)
+                  Song Title
                 </label>
                 <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
                   <AutofillInput
@@ -2771,7 +2771,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     suggestions={songTitleSuggestions}
                     songs={songs}
                     setlists={setlists}
-                    placeholder="Select or enter song title (optional)"
+                    placeholder="Select or enter song"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
                   />
                 </div>
@@ -2779,7 +2779,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Minus-One Link (YouTube / Audio Cloud Link)
+                  Minus-One Link
                 </label>
                 <input
                   id="schedule-minus-one-link"
@@ -2793,7 +2793,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   value={editingSchedule.minusOneLink || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, minusOneLink: e.target.value })}
-                  placeholder="https://www.youtube.com/watch?v=..."
+                  placeholder="Paste link"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -2804,7 +2804,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               <div>
                 <div className="mb-1">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Lyrics / Performance Text (Optional)
+                    Lyrics
                   </label>
                 </div>
                 <AutoGrowTextarea
@@ -2819,7 +2819,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   rows={8}
                   value={editingSchedule.lyrics || ''}
                   onChange={(e) => setEditingSchedule({ ...editingSchedule, lyrics: e.target.value })}
-                  placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
+                  placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
@@ -2888,7 +2888,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     value={editingPractice.groupName || ''}
                     onChange={(val) => setEditingPractice({ ...editingPractice, groupName: val })}
                     suggestions={directoryNames}
-                    placeholder="Enter singer or group name"
+                    placeholder="Enter singer or group"
                     inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -2911,7 +2911,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   value={editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent : 'Sunday Service'}
                   onChange={(e) => setEditingPractice({ ...editingPractice, assignedEvent: e.target.value })}
-                  placeholder="Sunday Service / Event occasion"
+                  placeholder="Service or event"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white font-medium"
                 />
               </div>
@@ -2955,7 +2955,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   rows={9}
                   value={editingPractice.lyrics || ''}
                   onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
-                  placeholder="[Verse 1]&#10;Type lyrics here...&#10;&#10;[Chorus]&#10;..."
+                  placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
               </div>
@@ -3056,7 +3056,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               {/* URL or File Attachment with Paperclip Inside */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Paste Web / YouTube Link or Attach Sound/Video File *
+                  Link or File *
                 </label>
                 <div className="relative">
                   <input
@@ -3085,7 +3085,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           : 'link'
                       );
                     }}
-                    placeholder="https://... or click paperclip on the right"
+                    placeholder="Paste link"
                     className="w-full pl-3 pr-11 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                   />
                   <button
@@ -3106,9 +3106,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     <Paperclip className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  Paste YouTube or direct audio/video links, or click paperclip to attach files.
-                </p>
 
                 {/* Cloud Upload Progress Bar */}
                 {isUploadingCloudMedia && (
@@ -3412,7 +3409,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           setVocalPartAudioUrl(e.target.value);
                           setVocalPartFileName('');
                         }}
-                        placeholder="Paste audio link or click paperclip on the right..."
+                        placeholder="Paste audio link"
                         className="w-full pl-3 pr-11 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
                       />
                       <button
@@ -3429,9 +3426,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         <Paperclip className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="text-[11px] text-slate-400">
-                      Paste direct audio/media URL or click paperclip to attach files from device.
-                    </p>
 
                     {/* Cloud Upload Progress Bar */}
                     {isUploadingCloudMedia && (
@@ -3605,7 +3599,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   rows={8}
                   value={editingChoir.lyrics || ''}
                   onChange={(e) => setEditingChoir({ ...editingChoir, lyrics: e.target.value })}
-                  placeholder="Enter or paste choir arrangement lyrics here..."
+                  placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:text-sm"
                 />
               </div>

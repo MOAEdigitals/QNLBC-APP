@@ -4,8 +4,8 @@ import { Pencil, Plus, Search, X } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { saveDirectoryMember, type DirectoryMember } from '../services/directory';
 export function DirectoryAccountSelect({ members, value, accountId, onChange }: { members: DirectoryMember[]; value: string; accountId?: string; onChange: (id: string, name: string) => void }) {
-  return <label className="block text-sm font-medium">Church directory link (optional)<SheetSelect value={value} onChange={event => { const member = members.find(person => person.id === event.target.value); onChange(member?.id || '', member?.name || ''); }} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
-    <option value="">No directory link</option>{members.filter(member => member.active || member.id === value).map(member => <option key={member.id} value={member.id} disabled={!!member.linked_user_id && member.linked_user_id !== accountId}>{member.name}{member.linked_user_id && member.linked_user_id !== accountId ? ' — already linked to an account' : ''}</option>)}
+  return <label className="block text-sm font-medium">Directory link (optional)<SheetSelect value={value} onChange={event => { const member = members.find(person => person.id === event.target.value); onChange(member?.id || '', member?.name || ''); }} className="mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900">
+    <option value="">No directory link</option>{members.filter(member => member.active || member.id === value).map(member => <option key={member.id} value={member.id} disabled={!!member.linked_user_id && member.linked_user_id !== accountId}>{member.name}{member.linked_user_id && member.linked_user_id !== accountId ? ' — linked' : ''}</option>)}
   </SheetSelect></label>;
 }
 export function DirectoryManagement({ members, onRefresh }: { members: DirectoryMember[]; onRefresh: () => Promise<void> }) {

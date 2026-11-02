@@ -1178,7 +1178,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       {lyricsImporting ? 'Importing songs…' : 'Select Multiple .txt Files'}
                     </span>
                     <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                      One song per file. File name = song title.
+                      File name = song title.
                     </span>
                     <input
                       type="file"

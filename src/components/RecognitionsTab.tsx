@@ -538,7 +538,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Birthday (Month and Day) *
+                  Birthday *
                 </label>
                 <BirthdayDatePicker value={bdayForm.birthDate} disabled={isSavingBirthday} onChange={birthDate => setBdayForm({ ...bdayForm, birthDate })} />
               </div>
@@ -587,7 +587,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               <div className="ui-form-body">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Couple / Event / Ministry Title *
+                  Couple / Event *
                 </label>
                 <input
                   id="anniv-entry-title"
@@ -741,10 +741,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
                   {specialForm.recognitionType === 'Board Passer'
-                    ? 'Exam / License Name'
+                    ? 'Exam / License'
                     : specialForm.recognitionType === 'Newly Graduated'
-                    ? 'Degree / Course & Honors'
-                    : 'Specific Title / Subtitle'}
+                    ? 'Degree / Honors'
+                    : 'Title'}
                 </label>
                 <input
                   id="special-custom-title"
@@ -758,7 +758,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   data-lpignore="true"
                   value={specialForm.customType}
                   onChange={(e) => setSpecialForm({ ...specialForm, customType: e.target.value })}
-                  placeholder="Enter title, degree, or license details"
+                  placeholder="Enter title"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
@@ -780,7 +780,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Description / Details (Optional)
+                  Details
                 </label>
                 <textarea
                   id="special-recognition-details"
@@ -794,7 +794,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                   rows={2}
                   value={specialForm.description}
                   onChange={(e) => setSpecialForm({ ...specialForm, description: e.target.value })}
-                  placeholder="Enter recognition details and remarks"
+                  placeholder="Add details"
                   className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-white"
                 />
               </div>
