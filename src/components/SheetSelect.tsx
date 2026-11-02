@@ -1,11 +1,12 @@
-import React, { useId, useMemo, useRef, useState } from 'react';
+import React, { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
 
-type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'multiple' | 'size'>;
-export function SheetSelect({ children, value, defaultValue, onChange, disabled, required, className = '', id, name, form, ...props }: Props) {
+type Props = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'multiple' | 'size'> & { scrollToSelected?: boolean };
+export function SheetSelect({ children, value, defaultValue, onChange, disabled, required, className = '', id, name, form, scrollToSelected = false, ...props }: Props) {
   const generatedId = useId();
   const root = useRef<HTMLSpanElement>(null);
+  const selectedOption = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false), [query, setQuery] = useState(''), [title, setTitle] = useState('Choose an option');
   const [local, setLocal] = useState(String(defaultValue ?? ''));
   const selected = String(value ?? local);
@@ -20,6 +21,14 @@ export function SheetSelect({ children, value, defaultValue, onChange, disabled,
     });
     visit(children); return result;
   }, [children]);
+  useLayoutEffect(() => {
+    if (!open || !scrollToSelected) return;
+    const option = selectedOption.current;
+    const body = option?.closest<HTMLElement>('.ui-sheet-body');
+    if (!option || !body) return;
+    const searchHeight = body.querySelector('.ui-sheet-search')?.getBoundingClientRect().height || 0;
+    body.scrollTop += option.getBoundingClientRect().top - body.getBoundingClientRect().top - searchHeight;
+  }, [open, scrollToSelected, selected]);
   const label = options.find(option => option.value === selected)?.label || 'Choose an option';
   const close = () => { setOpen(false); setQuery(''); };
   const show = () => {
@@ -34,8 +43,8 @@ export function SheetSelect({ children, value, defaultValue, onChange, disabled,
     </button>
     <input type="text" tabIndex={-1} aria-hidden="true" className="ui-select-validation" name={name} form={form} value={selected} required={required} disabled={disabled} onChange={() => {}} onInvalid={event => { event.preventDefault(); show(); }} />
     <BottomSheet open={open} title={title} onClose={close} onBack={() => query ? setQuery('') : close()}>
-      {options.length > 7 && <label className="ui-sheet-search"><Search className="h-4 w-4 shrink-0" /><input type="search" aria-label={`Search ${title}`} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search options" autoComplete="off" />{query && <button type="button" aria-label="Clear options search" onClick={() => setQuery('')}><X className="h-4 w-4" /></button>}</label>}
-      <div className="ui-sheet-options">{options.filter(option => option.label.toLowerCase().includes(query.trim().toLowerCase())).map((option, index) => <button key={`${option.value}-${index}`} type="button" className="ui-sheet-option" disabled={option.disabled} aria-pressed={option.value === selected} onClick={() => {
+      {options.length > 7 && <label className="ui-sheet-search" style={scrollToSelected ? { position: 'sticky', top: 0, zIndex: 1, background: 'var(--ui-surface)' } : undefined}><Search className="h-4 w-4 shrink-0" /><input type="search" aria-label={`Search ${title}`} value={query} onChange={event => setQuery(event.target.value)} placeholder="Search options" autoComplete="off" />{query && <button type="button" aria-label="Clear options search" onClick={() => setQuery('')}><X className="h-4 w-4" /></button>}</label>}
+      <div className="ui-sheet-options">{options.filter(option => option.label.toLowerCase().includes(query.trim().toLowerCase())).map((option, index) => <button key={`${option.value}-${index}`} type="button" ref={option.value === selected ? selectedOption : undefined} className="ui-sheet-option" disabled={option.disabled} aria-pressed={option.value === selected} onClick={() => {
         setLocal(option.value); onChange?.({ target: { value: option.value }, currentTarget: { value: option.value } } as React.ChangeEvent<HTMLSelectElement>); close();
       }}><span className="min-w-0 flex-1 break-words">{option.label}</span>{option.value === selected && <Check className="h-5 w-5 shrink-0" />}</button>)}</div>
       {!options.some(option => option.label.toLowerCase().includes(query.trim().toLowerCase())) && <p className="p-6 text-center text-sm text-slate-400">No matching options.</p>}

@@ -73,6 +73,7 @@ interface AutofillInputProps {
   required?: boolean;
   type?: string;
   onSelectSuggestion?: (val: string) => void;
+  clearOnReselect?: boolean; // Toggle only the current field, never other selected setlist songs.
   id?: string;
   showAllOnFocus?: boolean;
   name?: string;
@@ -98,6 +99,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   required = false,
   type = 'search',
   onSelectSuggestion,
+  clearOnReselect = false,
   id,
   name,
   autoComplete = 'off',
@@ -676,8 +678,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       e.preventDefault();
       e.stopPropagation();
     }
-    onChange(item.title);
-    onSelectSuggestion?.(item.title);
+    const nextTitle = clearOnReselect && item.title.trim().toLowerCase() === lowerVal ? '' : item.title;
+    onChange(nextTitle);
+    onSelectSuggestion?.(nextTitle);
     closePicker();
     setHighlightedIndex(-1);
   };

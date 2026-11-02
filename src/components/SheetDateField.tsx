@@ -34,9 +34,9 @@ export function SheetDateField({ type = 'date', value, defaultValue, onChange, d
     <input type="text" className="ui-select-validation" tabIndex={-1} aria-hidden="true" data-field-type={type} value={selected} name={name} form={form} required={required} disabled={disabled} onChange={() => {}} onInvalid={event => { event.preventDefault(); show(); }} />
     <BottomSheet open={open} title={title} onClose={() => setOpen(false)}>
       {type !== 'time' && <div className="space-y-3 pt-2">
-        <div className="grid grid-cols-[minmax(0,1fr)_6rem] gap-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(8rem,max-content)] gap-3">
           <SheetSelect aria-label="Calendar month" value={page.month} onChange={event => setPage({ ...page, month: Number(event.target.value) })}>{Array.from({ length: 12 }, (_, month) => <option key={month} value={month}>{new Date(2000, month).toLocaleDateString('en-US', { month: 'long' })}</option>)}</SheetSelect>
-          <SheetSelect aria-label="Calendar year" value={page.year} onChange={event => setPage({ ...page, year: Number(event.target.value) })}>{Array.from({ length: 171 }, (_, i) => yearNow - 120 + i).concat(page.year < yearNow - 120 || page.year > yearNow + 50 ? [page.year] : []).sort((a,b) => a-b).map(year => <option key={year} value={year}>{year}</option>)}</SheetSelect>
+          <SheetSelect className="ui-calendar-year" scrollToSelected aria-label="Calendar year" value={page.year} onChange={event => setPage({ ...page, year: Number(event.target.value) })}>{Array.from({ length: 171 }, (_, i) => yearNow - 120 + i).concat(page.year < yearNow - 120 || page.year > yearNow + 50 ? [page.year] : []).sort((a,b) => b-a).map(year => <option key={year} value={year}>{year}</option>)}</SheetSelect>
         </div>
         <div className="ui-date-grid">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => <span key={day} className="py-2 text-center text-xs text-slate-400">{day.slice(0,1)}</span>)}
           {Array.from({ length: first }, (_, i) => <span key={`blank-${i}`} />)}

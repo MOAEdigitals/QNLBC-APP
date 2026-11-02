@@ -32,9 +32,9 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     { id: 'alpha', title: 'Alpha Grace', lyrics: '', categories: ['Choir'], createdAt: '2022-01-01' },
   ];
   const setlists = [{ date: '2020-01-01', welcomeSong: 'Amazing Grace' }, { date: '2021-01-01', welcomeSong: 'Zulu Grace' }];
-  function Harness() {
+  function Harness({ clearOnReselect = false }: { clearOnReselect?: boolean } = {}) {
     const [value, setValue] = React.useState('');
-    return React.createElement(exports.AutofillInput, { value, onChange: setValue, songs, setlists, suggestions: songs.map(s => s.title), showAllOnFocus: true, onSelectSuggestion: (title: string) => selected.push(title) });
+    return React.createElement(exports.AutofillInput, { value, onChange: setValue, clearOnReselect, selectedSongTitles: ['Alpha Grace'], songs, setlists, suggestions: songs.map(s => s.title), showAllOnFocus: true, onSelectSuggestion: (title: string) => selected.push(title) });
   }
   function pointer(target: Element, type: string, y = 100) {
     const event = new dom.window.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 40, clientY: y });
@@ -112,6 +112,23 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     assert.equal(selected.length, 1, 'cancelled scroll cannot select');
     await act(() => row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
     assert.equal(selected.length, 2, 'keyboard selection is not blocked by prior gestures');
+    assert.equal(selected.at(-1), 'Amazing Grace', 'ordinary pickers retain their existing selection behavior');
+    await act(() => root.render(React.createElement(Harness, { clearOnReselect: true })));
+    row = await openAndSearch();
+    await act(() => { pointer(row, 'pointerdown'); pointer(row, 'pointerup'); row.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, detail: 1 })); });
+    assert.equal(selected.at(-1), '', 'tapping the current song clears once, including its callback');
+    assert.equal(document.querySelector<HTMLInputElement>('#root input')!.value, '');
+    await openAndSearch();
+    row = [...document.querySelectorAll('[role="option"]')].find(row => row.textContent?.includes('Alpha Grace'))!;
+    await act(() => row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    assert.equal(selected.at(-1), 'Alpha Grace', 'a song selected in another field still fills this field');
+    row = await openAndSearch();
+    await act(() => row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    assert.equal(selected.at(-1), 'Amazing Grace', 'a different song replaces the current one');
+    row = await openAndSearch();
+    await act(() => row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+    assert.equal(selected.at(-1), '', 'keyboard activation of the selected row also clears');
+
   } finally {
     await act(() => root.unmount()); dom.window.close();
     names.forEach((name, i) => { if (saved[i]) Object.defineProperty(globalThis, name, saved[i]!); else delete (globalThis as any)[name]; });

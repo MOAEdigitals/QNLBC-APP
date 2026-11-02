@@ -367,3 +367,7 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 .setlist-expansion[data-expanded] { grid-template-rows: 1fr; opacity: 1; }
 .setlist-expansion-clip { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .setlist-expansion { transition: none; } }
+
+/* Keep all four year digits visible at mobile text sizes. */
+.ui-calendar-year { justify-content: space-between; }
+.ui-calendar-year > span { flex: none; white-space: nowrap; overflow: visible; text-overflow: clip; }

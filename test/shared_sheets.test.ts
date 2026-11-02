@@ -38,6 +38,20 @@ test('shared pickers retain required validation, disabled choices, nested time s
     assert.equal(document.querySelector('[role="dialog"]'), null);
     assert.deepEqual(changes, ['roger', '00:00'], 'Escape does not commit a new value');
     assert.ok(document.activeElement === document.querySelector('[aria-label="Reminder time"]'), 'focus returns to the time trigger');
+    await act(async () => root.render(React.createElement(SheetDateField, { type: 'date', value: '2026-11-08', 'aria-label': 'Scheduled date', onChange: (e: any) => changes.push(e.target.value) })));
+    await click(document.querySelector('[aria-label="Scheduled date"]')!);
+    const yearTrigger = document.querySelector('[aria-label="Calendar year"]')!;
+    assert.equal(yearTrigger.textContent, '2026');
+    assert.ok(yearTrigger.classList.contains('ui-calendar-year'), 'year has space reserved for all four digits');
+    await click(yearTrigger);
+    const years = [...document.querySelectorAll('[role="dialog"]')].at(-1)!.querySelectorAll<HTMLButtonElement>('.ui-sheet-option');
+    const values = [...years].map(button => Number(button.textContent));
+    assert.ok(values.every((year, index) => index === 0 || year < values[index - 1]), 'years run from latest to oldest');
+    assert.ok([...years].find(button => button.textContent === '2026')?.getAttribute('aria-pressed') === 'true');
+    await choose('2027');
+    await click(document.querySelector('[aria-label="November 8, 2027"]')!);
+    assert.equal(changes.at(-1), '2027-11-08', 'choosing a year updates the calendar without changing the month/day');
+
   } finally { await act(async () => root.unmount()); dom.window.close(); keys.forEach((key, i) => previous[i] ? Object.defineProperty(globalThis, key, previous[i]!) : delete (globalThis as any)[key]); }
 });
 

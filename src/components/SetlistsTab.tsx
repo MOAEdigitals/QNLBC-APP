@@ -795,14 +795,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       title: editingSetlist.title?.trim() || (setlistType === 'prayer_meeting' ? 'Midweek Prayer Meeting' : undefined),
       date: editingSetlist.date,
       presider: editingSetlist.presider?.trim() || undefined,
-      welcomeSong:
-        editingSetlist.welcomeSong !== undefined
-          ? (editingSetlist.welcomeSong.trim() || undefined)
-          : (setlistType === 'sunday' ? 'Napakaligaya' : undefined),
-      closingSong:
-        editingSetlist.closingSong !== undefined
-          ? (editingSetlist.closingSong.trim() || undefined)
-          : (setlistType === 'sunday' ? 'Give Thanks' : undefined),
+      welcomeSong: editingSetlist.welcomeSong?.trim() || undefined,
+      closingSong: editingSetlist.closingSong?.trim() || undefined,
       themeSong: editingSetlist.themeSong?.trim() || undefined,
       sundaySchool:
         setlistType === 'sunday'
@@ -1603,13 +1597,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                       <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
                         <AutofillInput
-                          value={editingSetlist.welcomeSong ?? 'Napakaligaya'}
+                          value={editingSetlist.welcomeSong ?? ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
                           suggestions={songTitleSuggestions}
                           allSuggestions={songTitleSuggestions}
                           defaultValue="Napakaligaya"
                           songs={songs}
                           selectedSongTitles={selectedSetlistSongTitles}
+                          clearOnReselect
                           showAllOnFocus
                           setlists={setlists}
                           showLastSung={false}
@@ -1629,13 +1624,14 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
                       <div className="p-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 shadow-xs">
                         <AutofillInput
-                          value={editingSetlist.closingSong ?? 'Give Thanks'}
+                          value={editingSetlist.closingSong ?? ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
                           suggestions={songTitleSuggestions}
                           allSuggestions={songTitleSuggestions}
                           defaultValue="Give Thanks"
                           songs={songs}
                           selectedSongTitles={selectedSetlistSongTitles}
+                          clearOnReselect
                           showAllOnFocus
                           setlists={setlists}
                           showLastSung={false}
@@ -1663,6 +1659,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           allSuggestions={songTitleSuggestions}
                           songs={songs}
                           selectedSongTitles={selectedSetlistSongTitles}
+                          clearOnReselect
                           showAllOnFocus
                           setlists={setlists}
                           showLastSung={false}
@@ -1751,6 +1748,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               selectedSongTitles={selectedSetlistSongTitles}
+                              clearOnReselect
                           showAllOnFocus
                               setlists={setlists}
                               showSongCategoryFilters
@@ -1855,6 +1853,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               suggestions={songTitleSuggestions}
                               songs={songs}
                               selectedSongTitles={selectedSetlistSongTitles}
+                              clearOnReselect
                           showAllOnFocus
                               setlists={setlists}
                               showSongCategoryFilters
@@ -1959,6 +1958,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             suggestions={songTitleSuggestions}
                             songs={songs}
                             selectedSongTitles={selectedSetlistSongTitles}
+                            clearOnReselect
                           showAllOnFocus
                             setlists={setlists}
                             showSongCategoryFilters
