@@ -348,3 +348,9 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 .ui-picker-search-field:focus { outline: 2px solid var(--ui-primary); outline-offset: -1px; }
 .ui-picker-options { padding: 0 1rem 1rem; }
 .ui-picker-options > [role="option"] { min-height: 48px; padding: .75rem .25rem; border-bottom: 1px solid var(--ui-border); }
+.ui-picker-top { padding: 0 1rem .75rem; }
+.ui-picker-drag-header { margin: 0 -1rem .75rem; padding: 0 1rem .25rem; border-bottom: 1px solid var(--ui-border); }
+.ui-picker-sort { border-left: 1px solid var(--ui-border); }
+.ui-picker-categories { padding: 0 1rem .75rem; }
+.ui-picker-chip { background: var(--ui-field); border: 1px solid var(--ui-border); color: var(--ui-muted); }
+.ui-picker-chip[aria-pressed="true"] { background: var(--ui-primary); border-color: var(--ui-primary); color: #fff; }

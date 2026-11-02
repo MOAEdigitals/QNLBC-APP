@@ -962,8 +962,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               }
             : { WebkitOverflowScrolling: 'touch' }}
         >
-          {isTouchPicker && <div className="shrink-0 p-3 space-y-3">
-            <div data-picker-drag-header className="touch-none select-none"
+          {isTouchPicker && <div className="ui-picker-top shrink-0">
+            <div data-picker-drag-header className="ui-picker-drag-header touch-none select-none"
               onPointerDown={event => {
                 if (event.button !== 0 || isPickerClosing) return;
                 pickerDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, lastY: event.clientY, lastTime: event.timeStamp, velocity: 0 };
@@ -999,14 +999,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               onPointerCancel={() => { pickerDragRef.current = null; setIsPickerDragging(false); setPickerDragY(0); }}>
             <button type="button" aria-label={isPickerFullscreen ? 'Reduce picker' : 'Expand picker to full screen'} aria-expanded={isPickerFullscreen}
               onClick={() => { if (ignoreHandleClickRef.current) { ignoreHandleClickRef.current = false; return; } setIsPickerFullscreen(current => !current); }}
-              className="flex h-11 w-full items-center justify-center cursor-grab active:cursor-grabbing"><span className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" /></button>
+              className="flex h-7 w-full items-center justify-center cursor-grab active:cursor-grabbing"><span className="h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" /></button>
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-slate-900 dark:text-white">{showSongCategoryFilters ? 'Songs' : 'Names and options'}</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{showSongCategoryFilters ? 'Songs' : 'Names and options'}</h2>
               <button type="button" aria-label="Close picker" onPointerDown={event => event.stopPropagation()} onClick={closePicker} className="h-11 w-11 flex items-center justify-center rounded-full text-slate-500 dark:text-slate-400"><X className="h-5 w-5" /></button>
             </div>
             </div>
             <div className="relative">
-              {showSongCategoryFilters && <div className="absolute right-0 top-0 z-20 text-slate-500">{sortControl}</div>}
+              {showSongCategoryFilters && <div className="ui-picker-sort absolute right-0 top-0 z-20 text-slate-500">{sortControl}</div>}
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
               {pickerQuery && <button type="button" aria-label="Clear picker search" onClick={() => setPickerQuery('')} className={`absolute top-0 z-20 h-11 w-10 flex items-center justify-center text-slate-400 ${showSongCategoryFilters ? 'right-11' : 'right-0'}`}><X className="h-4 w-4" /></button>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
@@ -1017,18 +1017,19 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
             </div>
           </div>}
           {isTouchPicker && showSongCategoryFilters && (
-            <div className="relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-2">
+            <div className="ui-picker-categories relative shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
 
               <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-none pb-0.5 touch-pan-x">
                 {SONG_PICKER_FILTERS.map((filter) => (
                   <button
                     key={filter.value}
+                    aria-pressed={songFilter === filter.value}
                     type="button"
                     onClick={() => {
                       onSongFilterChange?.(filter.value);
                       setHighlightedIndex(-1);
                     }}
-                    className={`shrink-0 h-7 px-2.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold ${
+                    className={`ui-picker-chip shrink-0 h-9 px-3 rounded-xl inline-flex items-center gap-1.5 text-xs font-semibold ${
                       songFilter === filter.value
                         ? 'bg-blue-600 text-white'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
@@ -1050,6 +1051,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 {SONG_PICKER_FILTERS.map((filter) => (
                   <button
                     key={filter.value}
+                    aria-pressed={songFilter === filter.value}
                     type="button"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={(event) => {
@@ -1058,7 +1060,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                       onSongFilterChange?.(filter.value);
                       setHighlightedIndex(-1);
                     }}
-                    className={`shrink-0 h-7 px-2.5 rounded-full inline-flex items-center gap-1 text-[11px] font-semibold transition-colors ${
+                    className={`ui-picker-chip shrink-0 h-9 px-3 rounded-xl inline-flex items-center gap-1.5 text-xs font-semibold transition-colors ${
                       songFilter === filter.value
                         ? 'bg-blue-600 text-white'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
