@@ -2,10 +2,19 @@ import { useEffect, useRef, useState } from 'react';
 let nextLayer = 0;
 const mountedLayers = new Set<string>();
 const layerStack: string[] = [];
+const handlers = new Map<string, (traversed: boolean) => void>();
 const removeLayer = (id: string) => { const index = layerStack.indexOf(id); if (index >= 0) layerStack.splice(index, 1); };
 export const isBackLayerMounted = (id: string) => mountedLayers.has(id) && layerStack.includes(id);
 const consumers = new WeakSet<Window>();
 const pendingBack = new WeakMap<Window, { id: string; state: { consuming: boolean }; notify: () => void }>();
+export const hasActiveBackLayer = () => layerStack.some(id => mountedLayers.has(id));
+export const isBackLayerTransitioning = () => pendingBack.has(window);
+export function dismissTopBackLayer(traversed = false) {
+  const id = layerStack.at(-1);
+  if (!id || !mountedLayers.has(id)) return false;
+  handlers.get(id)?.(traversed);
+  return true;
+}
 function installConsumer() {
   if (consumers.has(window)) return;
   consumers.add(window);
@@ -35,6 +44,11 @@ export function useBackLayer(active: boolean, close: () => void) {
   useEffect(() => {
     installConsumer();
     mountedLayers.add(id);
+    handlers.set(id, traversed => {
+      if (traversed) { state.current.pushed = false; removeLayer(id); }
+      state.current.close();
+      rerender(value => value + 1);
+    });
     const onPop = (event: PopStateEvent) => {
       const current = state.current;
       if (current.consuming) {
@@ -53,7 +67,7 @@ export function useBackLayer(active: boolean, close: () => void) {
     };
     window.addEventListener('popstate', onPop, true);
     return () => {
-      mountedLayers.delete(id); removeLayer(id); window.removeEventListener('popstate', onPop, true);
+      mountedLayers.delete(id); handlers.delete(id); removeLayer(id); window.removeEventListener('popstate', onPop, true);
       if (state.current.pushed && window.history.state?.localScreen === id) {
         state.current.pushed = false; state.current.consuming = true;
         pendingBack.set(window, { id, state: state.current, notify: () => rerender(value => value + 1) });

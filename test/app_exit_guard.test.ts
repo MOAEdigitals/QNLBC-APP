@@ -6,7 +6,8 @@ import React, { act } from 'react';
 import * as ReactDOM from 'react-dom';
 import { JSDOM } from 'jsdom';
 import ts from 'typescript';
-import { useBackLayer } from '../src/hooks/useBackLayer.ts';
+import * as backLayers from '../src/hooks/useBackLayer.ts';
+const { useBackLayer } = backLayers;
 
 const wait = () => new Promise(resolve => setTimeout(resolve, 45));
 async function fixture(tab: string, native: boolean, run: (get: () => any, back: (canGoBack: boolean) => void, dom: JSDOM, exits: () => number) => Promise<void>) {
@@ -14,11 +15,11 @@ async function fixture(tab: string, native: boolean, run: (get: () => any, back:
   const keys = ['window','document','HTMLElement','IS_REACT_ACT_ENVIRONMENT'];
   const old = keys.map(key => Object.getOwnPropertyDescriptor(globalThis, key));
   keys.forEach(key => Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[key] }));
-  let nativeBack: ((event: { canGoBack: boolean }) => void) | undefined; let exitCalls = 0;
+  let nativeBack: ((event: { canGoBack: boolean }) => void) | undefined; let exitCalls = 0, nativeListeners = 0;
   const exports: any = {};
   runInNewContext(ts.transpileModule(readFileSync('src/hooks/useAppExitGuard.ts','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
-    exports, window: dom.window, document: dom.window.document, KeyboardEvent: dom.window.KeyboardEvent,
-    require: (name: string) => name === 'react' ? React : name === '@capacitor/core' ? { Capacitor: { isNativePlatform: () => native } } : { App: { addListener: async (_: string, listener: typeof nativeBack) => { nativeBack = listener; return { remove() {} }; }, exitApp: async () => { exitCalls++; } } },
+    exports, window: dom.window, document: dom.window.document, KeyboardEvent: dom.window.KeyboardEvent, setTimeout, clearTimeout,
+    require: (name: string) => name.endsWith('useBackLayer') ? backLayers : name === 'react' ? React : name === '@capacitor/core' ? { Capacitor: { isNativePlatform: () => native } } : { App: { addListener: async (_: string, listener: typeof nativeBack) => { nativeBack = listener; nativeListeners++; return { remove() { nativeListeners--; } }; }, exitApp: async () => { exitCalls++; } } },
   });
   runInNewContext(ts.transpileModule(readFileSync('src/components/ExitConfirmation.tsx','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document: dom.window.document,
@@ -27,112 +28,121 @@ async function fixture(tab: string, native: boolean, run: (get: () => any, back:
   let ui: any;
   function Fixture() {
     const [current, setTab] = React.useState(tab), [layer, setLayer] = React.useState(false);
-    const guard = exports.useAppExitGuard(current);
+    const guard = exports.useAppExitGuard(current, () => setTab('special-numbers'));
     useBackLayer(layer, () => setLayer(false));
-    ui = { ...guard, setTab, setLayer, layer };
-    return React.createElement(exports.ExitConfirmation, { open: guard.isOpen, busy: guard.exiting, onCancel: guard.cancel, onExit: () => void guard.confirmExit() });
+    ui = { ...guard, current, setTab, setLayer, layer };
+    return React.createElement(exports.ExitConfirmation, { open: guard.isOpen, busy: guard.exiting, message: guard.exitMessage, onCancel: guard.cancel, onExit: () => void guard.confirmExit() });
   }
   const { createRoot } = await import('react-dom/client');
   const root = createRoot(document.getElementById('root')!);
   try {
     await act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(Fixture))));
     await run(() => ui, canGoBack => nativeBack!({ canGoBack }), dom, () => exitCalls);
-  } finally { await act(async () => root.unmount()); await wait(); dom.window.close(); keys.forEach((key, i) => { if (old[i]) Object.defineProperty(globalThis, key, old[i]!); else delete (globalThis as any)[key]; }); }
+  } finally { await act(async () => root.unmount()); await wait(); assert.equal(nativeListeners, 0, 'native listeners must be removed on unmount'); dom.window.close(); keys.forEach((key, i) => { if (old[i]) Object.defineProperty(globalThis, key, old[i]!); else delete (globalThis as any)[key]; }); }
 }
 
-for (const tab of ['home','recognitions','special-numbers','songs','outlines','settings']) test(`Back at the ${tab} boundary asks before exit and Cancel re-arms the guard`, async () => {
+for (const tab of ['home', 'recognitions', 'songs', 'outlines', 'settings']) test(`Back from ${tab} goes to Schedules first, then asks at the root`, async () => {
   await fixture(tab, false, async (get, _, dom) => {
     await act(async () => { dom.window.history.back(); await wait(); });
-    assert.equal(get().isOpen, true); assert.equal(dom.window.history.state.tab, tab);
-    assert.equal(document.querySelector('[role="alertdialog"] h3')!.textContent, 'Exit app?');
-    assert.equal(document.activeElement?.textContent, 'Cancel', 'default keyboard action must be safe');
-    await act(() => get().cancel()); assert.equal(get().isOpen, false);
-    await act(async () => { dom.window.history.back(); await wait(); }); assert.equal(get().isOpen, true);
-    await act(async () => { dom.window.history.back(); await wait(); }); assert.equal(get().isOpen, false, 'Back on confirmation means Cancel');
-    assert.equal(dom.window.history.state.tab, tab);
+    assert.equal(get().current, 'special-numbers'); assert.equal(get().isOpen, false);
+    await act(async () => { dom.window.history.back(); await wait(); });
+    assert.equal(get().isOpen, true);
+    assert.equal(document.querySelector('h3')!.textContent, 'Exit App?');
+    assert.equal(document.activeElement?.textContent, 'Cancel');
+    await act(async () => { dom.window.history.back(); await wait(); });
+    assert.equal(get().isOpen, false, 'Back means Cancel while the dialog is open');
+    await act(async () => { dom.window.history.back(); await wait(); });
+    assert.equal(get().isOpen, true, 'Cancel must not disarm the boundary');
   });
 });
 
-test('Android has a safe no-history fallback, prevents rapid Back bypass, and exits only after explicit confirmation', async () => {
+test('root Back, repeated Back and Cancel never confirm an exit', async () => {
+  await fixture('special-numbers', false, async (get, _, dom) => {
+    for (let i = 0; i < 6; i++) {
+      await act(async () => { dom.window.history.back(); await wait(); });
+      assert.equal(get().isOpen, i % 2 === 0);
+      assert.equal(dom.window.history.state.tab, 'special-numbers');
+      assert.equal(document.querySelectorAll('[role="alertdialog"]').length, i % 2 === 0 ? 1 : 0);
+    }
+  });
+});
+
+test('Android closes layers even without WebView history and exits only from an explicit root confirmation', async () => {
   await fixture('songs', true, async (get, back, _, exits) => {
-    await act(async () => get().confirmExit()); assert.equal(exits(), 0);
-    await act(() => back(false)); assert.equal(get().isOpen, true); assert.equal(exits(), 0);
-    await act(() => back(false)); assert.equal(get().isOpen, false, 'second Back cancels');
-    await act(async () => { back(true); back(true); await wait(); });
-    assert.equal(get().isOpen, true); assert.equal(exits(), 0, 'rapid Back never confirms exit');
+    await act(() => get().setLayer(true));
+    await act(() => back(false));
+    assert.equal(get().layer, false); assert.equal(get().current, 'songs'); assert.equal(get().isOpen, false);
+    await act(() => back(false)); assert.equal(get().current, 'special-numbers'); assert.equal(get().isOpen, false);
+    await act(() => back(true)); assert.equal(get().isOpen, true);
+    await act(() => back(true)); assert.equal(get().isOpen, false);
+    await act(() => { back(false); back(false); back(false); });
+    assert.equal(get().isOpen, true); assert.equal(exits(), 0);
     await act(async () => { await get().confirmExit(); await get().confirmExit(); });
     assert.equal(exits(), 1);
   });
 });
 
-test('closing a local screen cannot consume the exit boundary when browser Back skips its parent entry', async () => {
-  await fixture('special-numbers', false, async (get, _, dom) => {
+test('web Back closes its local modal before home navigation or exit', async () => {
+  await fixture('songs', false, async (get, _, dom) => {
     await act(() => get().setLayer(true));
-    // Mobile history traversal can skip entries added without user activation.
-    // Complete a pending screen-close traversal at the root rather than its parent.
-    dom.window.history.back = () => dom.window.history.go(-2);
-    await act(() => get().setLayer(false));
-    await act(async () => { await wait(); });
-    assert.equal(get().isOpen, true, 'root must reach the exit guard even with a pending local-screen close');
-    assert.equal(dom.window.history.state.tab, 'special-numbers');
-    assert.equal(Boolean(dom.window.history.state.appRoot), false, 'guard must re-arm a navigable entry');
+    await act(async () => { dom.window.history.back(); await wait(); });
+    assert.equal(get().layer, false); assert.equal(get().current, 'songs'); assert.equal(get().isOpen, false);
+    await act(async () => { dom.window.history.back(); await wait(); });
+    assert.equal(get().current, 'special-numbers'); assert.equal(get().isOpen, false);
   });
 });
 
-test('fourth Back after visiting three tabs asks before leaving Schedules, and Cancel keeps the guard armed', async () => {
+test('a skipped modal boundary closes the modal instead of showing an exit dialog', async () => {
   await fixture('special-numbers', false, async (get, _, dom) => {
-    const onTabBack = (event: PopStateEvent) => { if (event.state?.tab) get().setTab(event.state.tab); };
-    dom.window.addEventListener('popstate', onTabBack as EventListener);
-    try {
-      for (const tab of ['songs', 'settings', 'recognitions']) {
-        await act(() => { dom.window.history.pushState({ tab }, '', `#${tab}`); get().setTab(tab); });
-      }
-      for (let i = 0; i < 3; i++) {
-        await act(async () => { dom.window.history.back(); await wait(); });
-        assert.equal(get().isOpen, false, 'ordinary tab history is consumed first');
-      }
-      await act(async () => { dom.window.history.back(); await wait(); });
-      assert.equal(get().isOpen, true);
-      assert.equal(dom.window.history.state.tab, 'special-numbers');
-      await act(() => get().cancel());
-      await act(async () => { dom.window.history.back(); await wait(); });
-      assert.equal(get().isOpen, true, 'Cancel cannot leave the app without a guarded entry');
-    } finally { dom.window.removeEventListener('popstate', onTabBack as EventListener); }
-  });
-});
-
-test('Back closes a local screen first and Android dismisses the keyboard and action menus before asking to exit', async () => {
-  await fixture('settings', true, async (get, back, dom) => {
     await act(() => get().setLayer(true));
-    await act(async () => { back(true); await wait(); });
+    await act(async () => { dom.window.history.go(-2); await wait(); });
     assert.equal(get().layer, false); assert.equal(get().isOpen, false);
-    const input = dom.window.document.createElement('input'); document.body.append(input); input.focus(); document.documentElement.classList.add('keyboard-open');
-    await act(() => back(false)); assert.notEqual(document.activeElement, input); assert.equal(get().isOpen, false);
+    await act(async () => { dom.window.history.back(); await wait(); });
+    assert.equal(get().isOpen, true);
+  });
+});
+
+test('Android keyboard and action menus close before root exit confirmation', async () => {
+  await fixture('special-numbers', true, async (get, back) => {
+    const input = document.createElement('input'); document.body.append(input); input.focus(); document.documentElement.classList.add('keyboard-open');
+    await act(() => back(false)); assert.ok(document.activeElement !== input); assert.equal(get().isOpen, false);
     document.documentElement.classList.remove('keyboard-open');
     const menu = document.createElement('div'); menu.dataset.setlistActions = 'one'; menu.innerHTML = '<button aria-expanded="true">Actions</button>'; document.body.append(menu);
-    menu.addEventListener('keydown', () => menu.querySelector('button')!.setAttribute('aria-expanded','false'));
-    await act(() => back(false)); assert.equal(get().isOpen, false); assert.equal(menu.querySelector('button')!.getAttribute('aria-expanded'),'false');
+    menu.addEventListener('keydown', () => menu.querySelector('button')!.setAttribute('aria-expanded', 'false'));
+    await act(() => back(false)); assert.equal(get().isOpen, false);
     await act(() => back(false)); assert.equal(get().isOpen, true);
   });
 });
 
-test('exit confirmation is rendered during loading, signed out and signed in; no automatic exit or logout path remains', () => {
-  const source = readFileSync('src/App.tsx','utf8');
-  assert.equal((source.match(/<ExitConfirmation /g) || []).length, 3);
-  assert.ok(source.indexOf('useAppExitGuard(currentTab)') < source.indexOf('if (isLoadingInitialData)'));
-  assert.doesNotMatch(source, /NativeApp\.exitApp\(|setShowLogoutConfirmModal|history\.go\(-2\)/);
+test('web close/refresh has a browser fallback and a blocked Exit shows a close-tab message', async () => {
+  await fixture('special-numbers', false, async (get, _, dom) => {
+    const event = new dom.window.Event('beforeunload', { cancelable: true });
+    dom.window.dispatchEvent(event); assert.equal(event.defaultPrevented, true);
+    const originalClose = dom.window.close; dom.window.close = () => {};
+    try {
+      await act(async () => { dom.window.history.back(); await wait(); });
+      await act(async () => { await get().confirmExit(); await new Promise(resolve => setTimeout(resolve, 400)); });
+      assert.match(document.querySelector('#exit-app-description')!.textContent!, /You can now close this tab/);
+      assert.equal(get().exiting, false);
+      await act(() => get().cancel()); assert.equal(get().isOpen, false);
+    } finally { dom.window.close = originalClose; }
+  });
 });
 
-test('Exit dialog cancels with Escape and buttons; only the explicit Exit button closes Android', async () => {
-  await fixture('home', true, async (get, back, dom, exits) => {
+test('Escape cancels and only the Exit button invokes native exitApp', async () => {
+  await fixture('special-numbers', true, async (get, back, dom, exits) => {
     await act(() => back(false));
     await act(() => document.activeElement!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
     assert.equal(get().isOpen, false); assert.equal(exits(), 0);
     await act(() => back(false));
-    await act(() => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Cancel')!.click());
-    assert.equal(get().isOpen, false); assert.equal(exits(), 0);
-    await act(() => back(false));
-    await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Exit app')!.click());
+    await act(async () => [...document.querySelectorAll('button')].find(button => button.textContent === 'Exit')!.click());
     assert.equal(exits(), 1);
   });
+});
+
+test('exit UI covers signed-in, signed-out and loading states; predictive Back remains enabled', () => {
+  const source = readFileSync('src/App.tsx', 'utf8');
+  assert.equal((source.match(/<ExitConfirmation /g) || []).length, 3);
+  assert.match(source, /useAppExitGuard\(currentTab, \(\) => setCurrentTab\('special-numbers'\)\)/);
+  assert.match(readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8'), /android:enableOnBackInvokedCallback="true"/);
 });

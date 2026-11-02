@@ -329,8 +329,9 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 .ui-sheet-option:focus-visible, .ui-sheet-close:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
 .ui-sheet-actions { display: flex; gap: .75rem; justify-content: flex-end; padding-top: 1rem; }
 .ui-sheet-actions > button { flex: 1; }
-.ui-exit-confirmation { align-items: flex-end; padding: calc(var(--app-safe-top, 0px) + 12px) var(--app-safe-right, 0px) 0 var(--app-safe-left, 0px); }
-.ui-exit-confirmation > div { max-width: 36rem; border-radius: 1.25rem 1.25rem 0 0; padding-bottom: calc(1.25rem + var(--app-safe-bottom, 0px)); animation: ui-sheet-rise 220ms cubic-bezier(.22,1,.36,1); }
+.ui-exit-confirmation { align-items: center; padding: max(1rem, var(--app-safe-top, 0px)) 1rem; animation: ui-sheet-fade 180ms ease-out; }
+.ui-exit-confirmation > div { max-width: 24rem; border-radius: 1rem; animation: ui-exit-appear 180ms ease-out; }
+@keyframes ui-exit-appear { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 @keyframes ui-sheet-rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes ui-sheet-fade { from { background: #0000; } to { background: #0009; } }
 @media (prefers-reduced-motion: reduce) { .ui-bottom-sheet, .ui-bottom-sheet-backdrop, .ui-exit-confirmation > div { animation: none; transition: none; } }

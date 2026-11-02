@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
+import { dismissTopBackLayer, hasActiveBackLayer, isBackLayerTransitioning } from './useBackLayer';
 
+// Schedules is the landing/root screen; the route named "home" is Setlists.
+export const EXIT_HOME_TAB = 'special-numbers';
 function dismissOpenActions() {
   const menu = document.querySelector('details.ui-actions[open], [data-song-actions] button[aria-expanded="true"], [data-attachment-actions] button[aria-expanded="true"], [data-setlist-actions] button[aria-expanded="true"], [data-birthday-actions] button[aria-expanded="true"], [data-activity-actions] button[aria-expanded="true"], button[aria-label="Track options"][aria-expanded="true"]');
   if (!menu) return false;
@@ -9,62 +12,99 @@ function dismissOpenActions() {
   return true;
 }
 
-/** Own the final Back boundary for every screen, including authentication/loading. */
-export function useAppExitGuard(tab: string) {
-  const [isOpen, setOpen] = useState(false);
-  const [exiting, setExiting] = useState(false);
-  const latest = useRef({ tab, open: false, exiting: false });
-  latest.current.tab = tab;
-  const initialized = useRef(false);
-  const pendingBack = useRef(false);
-  const cancel = useCallback(() => { latest.current.open = false; setOpen(false); }, []);
-  const ask = useCallback(() => { latest.current.open = true; setOpen(true); }, []);
+/** Central exit boundary, sharing the screen/picker stack with useBackLayer. */
+export function useAppExitGuard(tab: string, onHome: () => void) {
+  const [isOpen, setOpen] = useState(false), [exiting, setExiting] = useState(false), [exitMessage, setExitMessage] = useState('');
+  const latest = useRef({ tab, onHome, open: false, exiting: false });
+  latest.current.tab = tab; latest.current.onHome = onHome;
+  const initialized = useRef(false), entryIndex = useRef(0);
+  const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancel = useCallback(() => {
+    latest.current.open = false; latest.current.exiting = false;
+    setOpen(false); setExiting(false); setExitMessage('');
+    if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+  }, []);
+  const ask = useCallback(() => { latest.current.open = true; setExitMessage(''); setOpen(true); }, []);
+  const goHome = useCallback(() => {
+    latest.current.tab = EXIT_HOME_TAB;
+    window.history.replaceState({ tab: EXIT_HOME_TAB }, '', `#${EXIT_HOME_TAB}`);
+    latest.current.onHome();
+  }, []);
   useLayoutEffect(() => {
-    // Layout initialization precedes child screens adding their passive Back layers.
+    const arm = () => window.history.pushState({ tab: latest.current.tab }, '', `#${latest.current.tab}`);
     if (!initialized.current) {
-      initialized.current = true;
-      window.history.replaceState({ appRoot: true }, '', window.location.href);
-      window.history.pushState({ tab: latest.current.tab }, '', `#${latest.current.tab}`);
+      initialized.current = true; entryIndex.current = window.history.length - 1;
+      window.history.replaceState({ appRoot: true }, '', window.location.href); arm();
     }
     const onPop = (event: PopStateEvent) => {
-      pendingBack.current = false;
       if (latest.current.exiting) return;
       const boundary = event.state?.appRoot || (!event.state?.tab && !event.state?.localScreen);
-      if (!boundary && !latest.current.open) return;
+      if (!latest.current.open && !boundary && (isBackLayerTransitioning() || hasActiveBackLayer())) return;
       event.stopImmediatePropagation();
-      // Re-arm before displaying the dialog: repeated Back cannot bypass the guard.
-      window.history.pushState({ tab: latest.current.tab }, '', `#${latest.current.tab}`);
-      if (latest.current.open) cancel(); else if (!dismissOpenActions()) ask();
+      // Re-arm before another Back can traverse the final entry.
+      arm();
+      if (latest.current.open) { cancel(); return; }
+      if (dismissTopBackLayer(true) || dismissOpenActions()) return;
+      if (latest.current.tab !== EXIT_HOME_TAB) { goHome(); return; }
+      ask();
     };
     window.addEventListener('popstate', onPop, true);
-    return () => window.removeEventListener('popstate', onPop, true);
-  }, [ask, cancel]);
+    // Chromium can skip entries created without user activation. Re-arm once
+    // from a trusted interaction, without replacing an open screen layer.
+    let activated = false;
+    const activate = (event: Event) => {
+      if (activated || !event.isTrusted || hasActiveBackLayer() || isBackLayerTransitioning() || latest.current.open) return;
+      activated = true; window.history.replaceState({ appRoot: true }, '', window.location.href); arm();
+    };
+    window.addEventListener('pointerdown', activate, true);
+    window.addEventListener('keydown', activate, true);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (latest.current.exiting || Capacitor.isNativePlatform()) return;
+      event.preventDefault(); event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    return () => {
+      window.removeEventListener('popstate', onPop, true);
+      window.removeEventListener('pointerdown', activate, true);
+      window.removeEventListener('keydown', activate, true);
+      window.removeEventListener('beforeunload', beforeUnload);
+      if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
+    };
+  }, [ask, cancel, goHome]);
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
     let disposed = false;
     const listener = NativeApp.addListener('backButton', event => {
       if (disposed || latest.current.exiting) return;
       if (latest.current.open) { cancel(); return; }
-      // Android normally consumes Back for the IME first; cover overlay keyboards too.
       const focused = document.activeElement as HTMLElement | null;
       if (document.documentElement.classList.contains('keyboard-open') && focused?.matches('input,textarea,[contenteditable="true"]')) { focused.blur(); return; }
-      if (dismissOpenActions()) return;
-      if (!event.canGoBack) { ask(); return; }
-      if (pendingBack.current) return;
-      pendingBack.current = true;
-      window.history.back();
+      if (isBackLayerTransitioning() || dismissOpenActions()) return;
+      if (hasActiveBackLayer()) {
+        // The top modal gets Back even when WebView reports no history.
+        dismissTopBackLayer(!event.canGoBack);
+        if (!event.canGoBack) window.history.replaceState({ tab: latest.current.tab }, '');
+        return;
+      }
+      if (latest.current.tab !== EXIT_HOME_TAB) { goHome(); return; }
+      ask();
     });
-    return () => { disposed = true; void listener.then(handle => handle.remove()); };
-  }, [ask, cancel]);
+    return () => { disposed = true; void listener.then(handle => handle.remove()).catch(() => {}); };
+  }, [ask, cancel, goHome]);
   const confirmExit = useCallback(async () => {
     if (!latest.current.open || latest.current.exiting) return;
     latest.current.exiting = true; setExiting(true);
     try {
-      if (Capacitor.isNativePlatform()) await NativeApp.exitApp();
-      else window.location.replace('about:blank');
+      if (Capacitor.isNativePlatform()) { await NativeApp.exitApp(); return; }
+      window.close();
+      if (window.closed) return;
+      if (entryIndex.current > 0) window.history.go(-(window.history.length - entryIndex.current));
+      fallbackTimer.current = setTimeout(() => {
+        latest.current.exiting = false; setExiting(false); setExitMessage('You can now close this tab.');
+      }, 350);
     } catch {
-      latest.current.exiting = false; setExiting(false);
+      latest.current.exiting = false; setExiting(false); setExitMessage('Unable to close automatically. You can now close this tab.');
     }
   }, []);
-  return { isOpen, exiting, cancel, confirmExit };
+  return { isOpen, exiting, exitMessage, cancel, confirmExit };
 }

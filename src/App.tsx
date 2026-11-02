@@ -151,7 +151,7 @@ export default function App() {
   // Active Tab & Browser Navigation (Preserved)
   const [currentTab, setCurrentTab] = useState<AppTab>(() => readSetlistShareId(window.location.href, window.location.href) ? 'home' : initialAppTab(window.location.hash));
 
-  const exitGuard = useAppExitGuard(currentTab);
+  const exitGuard = useAppExitGuard(currentTab, () => setCurrentTab('special-numbers'));
   const [isSettingsSectionOpen, setIsSettingsSectionOpen] = useState(false);
   const hideMainHeader = currentTab === 'settings' && isSettingsSectionOpen;
 
@@ -1306,7 +1306,7 @@ export default function App() {
   if (isLoadingInitialData) {
     return (
       <>
-        <ExitConfirmation open={exitGuard.isOpen} busy={exitGuard.exiting} onCancel={exitGuard.cancel} onExit={() => void exitGuard.confirmExit()} />
+        <ExitConfirmation open={exitGuard.isOpen} busy={exitGuard.exiting} message={exitGuard.exitMessage} onCancel={exitGuard.cancel} onExit={() => void exitGuard.confirmExit()} />
         <div role="status" aria-label="Loading QNLBC" className="min-h-dvh bg-white dark:bg-slate-950 flex flex-col gap-3 items-center justify-center">
           {!nativeSplashVisible && <><ChurchLogo className="w-36 h-36 object-contain" /><p className="text-base font-medium text-slate-600 dark:text-slate-300">New Life Baptist Church</p></>}
         </div>
@@ -1316,7 +1316,7 @@ export default function App() {
 
   // Unauthenticated Gate
   if (!currentUser) {
-    return <><AuthScreen onSignInSuccess={handleSignInSuccess} /><ExitConfirmation open={exitGuard.isOpen} busy={exitGuard.exiting} onCancel={exitGuard.cancel} onExit={() => void exitGuard.confirmExit()} /></>;
+    return <><AuthScreen onSignInSuccess={handleSignInSuccess} /><ExitConfirmation open={exitGuard.isOpen} busy={exitGuard.exiting} message={exitGuard.exitMessage} onCancel={exitGuard.cancel} onExit={() => void exitGuard.confirmExit()} /></>;
   }
 
   return (
@@ -1507,7 +1507,7 @@ export default function App() {
         statusInfo={dbStatus}
       />
 
-      <ExitConfirmation open={exitGuard.isOpen} busy={exitGuard.exiting} onCancel={exitGuard.cancel} onExit={() => void exitGuard.confirmExit()} />
+      <ExitConfirmation open={exitGuard.isOpen} busy={exitGuard.exiting} message={exitGuard.exitMessage} onCancel={exitGuard.cancel} onExit={() => void exitGuard.confirmExit()} />
     </div>
     </HeaderSearchProvider>
     </SwipeNavigationProvider>
