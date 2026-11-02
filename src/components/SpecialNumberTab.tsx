@@ -2005,14 +2005,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             </div>
           )}
 
-          {/* All Song Numbers Header List */}
+          {/* Song numbers grouped by month. */}
           <div className="space-y-3 pt-1">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                All song numbers ({filteredScheduleEntries.length})
-              </h3>
-            </div>
-
             {filteredScheduleEntries.length === 0 ? (
               <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
                 No special song numbers scheduled.
@@ -2022,10 +2016,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                 {monthList(filteredScheduleEntries, item => item.scheduledDate, ['song number', 'song numbers'], { archive: true, revealArchive: !!scheduleSearchQuery.trim(), revealDate: filteredScheduleEntries.find(item => item.id === selectedEntryId)?.scheduledDate }).render((item) => {
                   const isPast = isPastDate(item.scheduledDate);
                   const today = isToday(item.scheduledDate);
-                  const isSelected = selectedEntryId === item.id;
                   const isSoonest = !today && soonestEntry?.id === item.id;
                   const matchedSong = (item.songId ? songs.find(song => song.id === item.songId) : undefined)
                     || songs.find(song => song.title.trim().toLowerCase() === item.songTitle?.trim().toLowerCase());
+                  const canExpand = Boolean(matchedSong || item.lyrics?.trim() || (item.songTitle?.trim() && item.minusOneLink?.trim()));
+                  const isSelected = canExpand && selectedEntryId === item.id;
 
                   return (
                     <div
@@ -2034,6 +2029,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       data-past={isPast || undefined}
                       data-upcoming-card={today ? 'today' : isSoonest ? 'next-up' : !isPast && !today && item.id === followingEntry?.id ? 'upcoming' : undefined}
                       onClick={(e) => {
+                        if (!canExpand) return;
                         if (isSelected) {
                           setSelectedEntryId(null);
                         } else {
@@ -2045,7 +2041,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           setSelectedEntryId(item.id);
                         }
                       }}
-                      className={`app-date-card p-4 rounded-2xl border transition-all cursor-pointer ${
+                      className={`app-date-card p-4 rounded-2xl border transition-all ${canExpand ? 'cursor-pointer' : ''} ${
                         isPast
                           ? `bg-slate-100/60 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60 text-slate-500 ${
                               isSelected ? 'ring-2 ring-slate-400 dark:ring-slate-600' : ''
@@ -2120,6 +2116,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             <button type="button" onClick={() => onOpenSongDetail(matchedSong.id)} className="flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-3 text-left text-xs font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
                               <Music className="h-4 w-4 shrink-0 text-slate-500" /><span className="min-w-0 flex-1">View lyrics in Song Library</span><ExternalLink className="h-4 w-4 shrink-0 text-slate-400" />
                             </button>
+                          )}
+                          {!matchedSong && item.lyrics?.trim() && (
+                            <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">{item.lyrics}</p>
                           )}
                           {item.minusOneLink && !matchedSong && <p className="text-xs text-slate-500 dark:text-slate-400">Choose a song from the library in Edit to enable playback.</p>}
                         </div>
