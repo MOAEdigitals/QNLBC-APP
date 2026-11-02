@@ -55,10 +55,7 @@ export function BirthdayDatePicker({ value, onChange, disabled = false }: { valu
   const selectedDay = Number(value.slice(8, 10)) || 1;
   const show = () => { setMonth(selectedMonth); setDay(Math.min(selectedDay, daysInMonth(selectedMonth))); setOpen(true); };
   return <>
-    <div className="grid grid-cols-2 gap-3">
-      <button type="button" disabled={disabled} aria-label="Birthday month" aria-haspopup="dialog" aria-expanded={open} className="ui-sheet-select" onClick={show}><span className="min-w-0 flex-1 truncate">{months[selectedMonth - 1]}</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" /></button>
-      <button type="button" disabled={disabled} aria-label="Birthday day" aria-haspopup="dialog" aria-expanded={open} className="ui-sheet-select" onClick={show}><span className="min-w-0 flex-1">{selectedDay}</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" /></button>
-    </div>
+    <button type="button" disabled={disabled} aria-label="Birthday (month and day)" aria-haspopup="dialog" aria-expanded={open} className="ui-sheet-select" onClick={show}><span className="min-w-0 flex-1 truncate">{months[selectedMonth - 1]} {selectedDay}</span><ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" /></button>
     <BottomSheet open={open} title="Birthday" onClose={() => setOpen(false)}>
       <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3 py-3">
         <Wheel label="Month" selection={monthSelection} labels={months} value={month} onChange={next => { setMonth(next); setDay(previous => Math.min(previous, daysInMonth(next))); }} />

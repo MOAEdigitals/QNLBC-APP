@@ -19,7 +19,9 @@ test('birthday wheels wrap, clamp days, retain February 29, and cancel without s
   const key = async (label: string, key: string) => act(() => wheel(label).dispatchEvent(new dom.window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })));
   try {
     await act(() => root.render(React.createElement(BirthdayDatePicker, { value: '2000-12-31', onChange: (date: string) => changes.push(date) })));
-    await click('Birthday month');
+    assert.equal(document.querySelectorAll('#root button').length, 1, 'one combined birthday trigger');
+    assert.equal(document.querySelector('#root button')!.textContent, 'December 31');
+    await click('Birthday (month and day)');
     assert.equal(document.querySelectorAll('[role="dialog"]').length, 1);
     assert.equal(document.querySelectorAll('[role="spinbutton"]').length, 2, 'both wheels share one picker, with no year');
     await key('month', 'ArrowDown');
@@ -30,14 +32,14 @@ test('birthday wheels wrap, clamp days, retain February 29, and cancel without s
     await key('month', 'ArrowUp'); await key('day', 'End');
     await key('month', 'ArrowDown'); await click('Set birthday');
     assert.deepEqual(changes, ['2000-02-29']);
-    await click('Birthday day'); await key('month', 'ArrowDown'); await click('Cancel');
+    await click('Birthday (month and day)'); await key('month', 'ArrowDown'); await click('Cancel');
     assert.equal(changes.length, 1);
-    await click('Birthday month'); assert.equal(wheel('month').getAttribute('aria-valuetext'), 'December', 'cancelled draft does not replace the supplied value');
+    await click('Birthday (month and day)'); assert.equal(wheel('month').getAttribute('aria-valuetext'), 'December', 'cancelled draft does not replace the supplied value');
     // Commit immediately after scrolling, before the settling timer fires.
     const month = wheel('month'); month.scrollTop = (3 * 12 + 1) * 48;
     await act(() => month.dispatchEvent(new dom.window.Event('scroll', { bubbles: true })));
     await click('Set birthday'); assert.equal(changes.at(-1), '2000-02-29');
-    await click('Birthday month');
+    await click('Birthday (month and day)');
     const day = wheel('day'); day.scrollTop = (3 * 31 + 31) * 48;
     await act(async () => { day.dispatchEvent(new dom.window.Event('scroll', { bubbles: true })); await new Promise(resolve => setTimeout(resolve, 150)); });
     assert.equal(wheel('day').getAttribute('aria-valuenow'), '1', 'scroll wraps past the last day');
