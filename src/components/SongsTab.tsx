@@ -978,13 +978,14 @@ if (isEditing && !savingSongRef.current) {
             onClick={() => setIsSortMenuOpen((open) => !open)}
             aria-haspopup="menu"
             aria-expanded={isSortMenuOpen}
-            className="h-8 max-w-[158px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 flex items-center gap-1.5 text-xs font-semibold shadow-xs"
+            data-library-sort
+            aria-label={`Sort songs: ${SONG_SORT_OPTIONS.find(option => option.value === sortMode)?.label}`}
+            style={{ minHeight: 0 }}
+            className="relative max-w-[55vw] p-0 border-0 bg-transparent text-slate-500 dark:text-slate-400 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider cursor-pointer focus-visible:outline-2 focus-visible:outline-blue-500 before:absolute before:inset-x-0 before:-inset-y-2.5 before:content-['']"
           >
             <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">
-              {deferredSearchQuery.trim() && sortMode !== 'tracks-first'
-                ? 'Best Match'
-                : SONG_SORT_OPTIONS.find((option) => option.value === sortMode)?.shortLabel}
+              {SONG_SORT_OPTIONS.find((option) => option.value === sortMode)?.label}
             </span>
             <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} />
           </button>

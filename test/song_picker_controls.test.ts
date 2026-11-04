@@ -41,6 +41,8 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
     const labels: Record<string, string> = { az: 'Title: A–Z', za: 'Title: Z–A', relevance: 'Relevance' };
     const option = [...document.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]')].find(button => button.textContent === labels[value])!;
     await act(() => option.click());
+    assert.ok(document.querySelector('.ui-bottom-sheet[data-leaving]'), 'selection slides the sort sheet down');
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 220)); });
     assert.equal(document.querySelector('[role="menu"]'), null, 'selecting a sort collapses its menu');
   };
   try {
@@ -163,13 +165,13 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       await touch(header, 'pointermove', 100);
       await touch(header, 'pointerup', 100);
       assert.equal(dialog.getAttribute('data-picker-fullscreen'), 'true');
-      assert.equal((dialog as HTMLElement).style.height, `${window.innerHeight}px`);
+      assert.equal((dialog as HTMLElement).style.height, '100%', 'fullscreen follows the usable viewport, including an overlay keyboard');
       assert.equal(search.readOnly, true, 'expanding does not activate the keyboard');
       assert.equal(dialog.querySelector('[aria-label="Reduce list"]'), null, 'the separate Reduce button is removed');
 
       const top = (dialog.parentElement as HTMLElement).style.top;
-      assert.equal(top, 'max(var(--form-viewport-top, 0px), calc(var(--app-safe-top, 0px) + 12px))', 'expanded drag header stays below the system status bar with an extra gesture gap');
-      assert.equal((dialog.parentElement as HTMLElement).style.height, `calc(var(--form-viewport-height, ${window.innerHeight}px) - max(0px, calc(var(--app-safe-top, 0px) + 12px - var(--form-viewport-top, 0px))))`, 'safe top clearance is removed from available height so the bottom stays in view');
+      assert.equal(top, 'max(var(--form-viewport-top, 0px), var(--app-safe-top, 0px))', 'expanded picker covers the editor up to the system safe area');
+      assert.equal((dialog.parentElement as HTMLElement).style.height, `calc(var(--form-viewport-height, ${window.innerHeight}px) - max(0px, calc(var(--app-safe-top, 0px) - var(--form-viewport-top, 0px))))`, 'safe top clearance is removed from available height so the bottom stays in view');
       await act(() => window.dispatchEvent(new dom.window.Event('resize')));
       assert.equal((dialog.parentElement as HTMLElement).style.top, top, 'sheet does not flip around the field');
       await click(search);
@@ -181,7 +183,18 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       });
       assert.equal(selected, 'Original', 'search is not an edit to the saved field');
       assert.ok([...dialog.querySelectorAll('button')].some(button => button.textContent === 'Use “New custom name”'), 'custom values remain available without committing the search');
-      await click(dialog.querySelector('[aria-label="Close picker"]')!);
+      const viewport = dialog.closest('.ui-picker-viewport') as HTMLElement;
+      const rect = { top: 24, bottom: 444, left: 0, right: 393, width: 393, height: 420, x: 0, y: 24, toJSON() {} };
+      viewport.getBoundingClientRect = () => rect;
+      dialog.getBoundingClientRect = () => rect;
+      await act(() => (dialog.querySelector('[aria-label="Close picker"]') as HTMLButtonElement).click());
+      assert.equal(viewport.style.top, '24px');
+      assert.equal(viewport.style.height, '420px', 'closing freezes keyboard-adjusted viewport height before blur');
+      assert.equal((dialog as HTMLElement).style.height, '420px');
+      await act(() => window.dispatchEvent(new dom.window.Event('resize')));
+      assert.equal(viewport.style.height, '420px', 'keyboard resize cannot stretch the departing sheet');
+      assert.equal(viewport.style.transition, 'none');
+      await settleClose();
       assert.equal(selected, 'Original', 'closing discards the search');
       assert.equal(document.querySelector('[role="dialog"]'), null);
       await touch(input, 'pointerdown');
@@ -189,6 +202,8 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       assert.equal(document.querySelector('[role="dialog"] input')!.getAttribute('value'), '');
       const reopened = document.querySelector('[role="dialog"]')!;
       assert.equal(reopened.getAttribute('data-picker-fullscreen'), 'false');
+      await click(reopened.querySelector('input')!);
+      assert.equal(reopened.getAttribute('data-picker-fullscreen'), 'true', 'search activation expands without a manual swipe');
       const reopenedHeader = reopened.querySelector('[data-picker-drag-header]')!;
       await touch(reopenedHeader, 'pointerdown', 100);
       await touch(reopenedHeader, 'pointermove', 220);
@@ -293,9 +308,11 @@ test('uncontrolled song pickers offer categories, direct sorting and retain sele
       await click([...document.querySelectorAll('button')].find(button => button.textContent === 'Choir')!);
       assert.deepEqual(titles(), ['Blessed']);
       await act(() => field.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      await settleClose();
       await click(field);
       assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed'], 'reopening resets to All even while the field retains focus');
       await act(() => field.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+      await settleClose();
       await touch(field, 'pointerdown'); await touch(field, 'pointerup');
       assert.deepEqual(titles(), ['Zion', 'Amazing Grace', 'Blessed']);
       assert.equal(document.querySelector<HTMLTextAreaElement>('[role="dialog"] input')!.value, '', 'mobile browse query is empty even when a saved value exists');

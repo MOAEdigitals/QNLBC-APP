@@ -37,7 +37,7 @@ test('song handles require a hold, restrict the section, preserve row data and s
   const rows = [{ id: 'ss1', date: 'ss', displayOrder: 0, song: { title: 'First', songId: 'linked', notes: 'Keep this' } }, { id: 'ss2', date: 'ss', displayOrder: 1, song: { title: 'Second' } }, { id: 'ws1', date: 'ws', displayOrder: 0 }];
   function Harness() {
     const reorder = exports.useSetlistReorder(rows, async (...args: any[]) => { if (fail) throw new Error('Conflict: reload'); calls.push(args); }, true, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs' });
-    return React.createElement('div', {}, rows.map(row => React.createElement('div', { key: row.id, 'data-song-slot-id': row.id }, React.createElement('button', { id: row.id, ...reorder.handleProps(row) }, row.id))), React.createElement('p', { role: 'alert' }, reorder.error));
+    return React.createElement('div', { 'data-pressed': reorder.pressedId || '' }, rows.map(row => React.createElement('div', { key: row.id, 'data-song-slot-id': row.id }, React.createElement('button', { id: row.id, ...reorder.handleProps(row) }, row.id))), React.createElement('p', { role: 'alert' }, reorder.error));
   }
   const pointer = async (id: string, type: string, y = 0) => act(() => {
     const event = new dom.window.Event(type, { bubbles: true, cancelable: true });
@@ -46,6 +46,11 @@ test('song handles require a hold, restrict the section, preserve row data and s
   });
   try {
     await act(() => root.render(React.createElement(Harness)));
+    await pointer('ss1', 'pointerdown');
+    assert.equal(document.querySelector('[data-pressed]')!.getAttribute('data-pressed'), 'ss1', 'touch feedback starts before hold or movement');
+    await pointer('ss1', 'pointerup');
+    assert.equal(document.querySelector('[data-pressed]')!.getAttribute('data-pressed'), '', 'tap release clears feedback');
+    assert.equal(calls.length, 0, 'a tap does not reorder');
     hit = document.getElementById('ss2');
     await pointer('ss1', 'pointerdown'); clock += 50; await pointer('ss1', 'pointermove', 20); await pointer('ss1', 'pointerup', 20);
     assert.equal(calls.length, 0, 'early movement cancels a hold');

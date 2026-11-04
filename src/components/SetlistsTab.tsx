@@ -278,7 +278,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   }, isEditing, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs' });
   const songRowProps = (id: string) => ({
     'data-song-slot-id': id,
-    className: `relative flex items-center gap-2 rounded-lg ${songReorder.drag?.id === id ? 'opacity-50' : ''} ${songReorder.target?.id === id ? songReorder.target.edge === 'before' ? 'border-t-2 border-blue-500' : 'border-b-2 border-blue-500' : ''}`,
+    className: `relative flex items-center gap-2 rounded-lg ${(songReorder.pressedId === id || songReorder.drag?.id === id) ? 'opacity-50' : ''} ${songReorder.target?.id === id ? songReorder.target.edge === 'before' ? 'border-t-2 border-blue-500' : 'border-b-2 border-blue-500' : ''}`,
   });
   const songDragHandle = (section: string, index: number) => {
     const slot = songSlots.filter(slot => slot.date === section)[index];
@@ -1570,6 +1570,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           value={editingSetlist.presider || ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, presider: val })}
                           suggestions={directoryNames}
+                          clearOnReselect
                           placeholder="Enter presider's name"
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                         />
@@ -1693,6 +1694,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 })
                               }
                               suggestions={directoryNames}
+                              clearOnReselect
                               placeholder="Choose song leader"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
@@ -1798,6 +1800,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 })
                               }
                               suggestions={directoryNames}
+                              clearOnReselect
                               placeholder="Choose song leader"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
@@ -1905,6 +1908,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             })
                           }
                           suggestions={directoryNames}
+                          clearOnReselect
                           placeholder="Enter song leader's name"
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                         />

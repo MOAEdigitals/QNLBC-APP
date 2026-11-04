@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
@@ -16,6 +16,16 @@ export function BottomSheet({ open, title, children, onClose, onBack, role = 'di
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [offset, setOffset] = useState(0);
   const [leaving, setLeaving] = useState(false);
+  const [present, setPresent] = useState(open);
+  const reduceMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  // Selection-driven closes get the same exit transition as backdrop/back closes.
+  useLayoutEffect(() => {
+    if (open) { setPresent(true); setLeaving(false); return; }
+    if (!present || reduceMotion || leaving) { setPresent(false); return; }
+    setLeaving(true);
+    const exit = setTimeout(() => setPresent(false), 180);
+    return () => clearTimeout(exit);
+  }, [open, reduceMotion]);
   const close = () => {
     if (closing.current || !canDismiss.current) return;
     closing.current = true;
@@ -59,7 +69,7 @@ export function BottomSheet({ open, title, children, onClose, onBack, role = 'di
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [open]);
-  if (!open) return null;
+  if (!open && (!present || reduceMotion)) return null;
   return createPortal(<div className="ui-bottom-sheet-backdrop" data-leaving={leaving || undefined} data-no-swipe onPointerDown={event => { if (event.target === event.currentTarget) close(); }}>
     <div ref={sheet} role={role} aria-modal="true" aria-labelledby={id} className="ui-bottom-sheet" data-leaving={leaving || undefined} style={offset ? { transform: `translateY(${offset}px)` } : undefined}>
       <header className="ui-sheet-header" onPointerDown={event => {

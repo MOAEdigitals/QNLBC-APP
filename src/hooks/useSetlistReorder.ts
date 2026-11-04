@@ -11,6 +11,7 @@ type Gesture = { id: string; date: string; pointerId: number; startX: number; st
 export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlistOrder, enabled = false, options: { attribute?: string; holdDelay?: number; label?: string } = {}) {
   const attribute = options.attribute || 'data-setlist-drag-id';
   const [drag, setDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [pressedId, setPressedId] = useState<string | null>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -56,7 +57,7 @@ export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlis
     frame.current = requestAnimationFrame(autoScroll);
   };
 
-  const reset = () => { stopFrame(); gesture.current = null; setDrag(null); setTarget(null); };
+  const reset = () => { stopFrame(); gesture.current = null; setPressedId(null); setDrag(null); setTarget(null); };
   const persist = async (source: string, destination: Target) => {
     const state = current.current;
     if (saving.current || !state.enabled || !state.save) return;
@@ -85,7 +86,7 @@ export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlis
       event.preventDefault(); event.stopPropagation();
       if (event.button !== 0 || saving.current || !canDrag(item)) return;
       event.currentTarget.setPointerCapture?.(event.pointerId);
-      setError(''); setAnnouncement('');
+      setError(''); setAnnouncement(''); setPressedId(item.id);
       gesture.current = { id: item.id, date: item.date, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, moved: false, target: null, readyAt: Date.now() + (options.holdDelay || 0), scroll: event.currentTarget.closest<HTMLElement>('.ui-form-body') };
     },
     onPointerMove: event => {
@@ -119,5 +120,5 @@ export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlis
       if (destination) void persist(item.id, { id: destination.id, edge: direction < 0 ? 'before' : 'after' });
     },
   });
-  return { drag, target, busy, error, announcement, canDrag, handleProps };
+  return { drag, pressedId, target, busy, error, announcement, canDrag, handleProps };
 }

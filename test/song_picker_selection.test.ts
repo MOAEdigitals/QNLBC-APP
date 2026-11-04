@@ -32,9 +32,9 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     { id: 'alpha', title: 'Alpha Grace', lyrics: '', categories: ['Choir'], createdAt: '2022-01-01' },
   ];
   const setlists = [{ date: '2020-01-01', welcomeSong: 'Amazing Grace' }, { date: '2021-01-01', welcomeSong: 'Zulu Grace' }];
-  function Harness({ clearOnReselect = false }: { clearOnReselect?: boolean } = {}) {
+  function Harness({ clearOnReselect = false, namesOnly = false }: { clearOnReselect?: boolean; namesOnly?: boolean } = {}) {
     const [value, setValue] = React.useState('');
-    return React.createElement(exports.AutofillInput, { value, onChange: setValue, clearOnReselect, selectedSongTitles: ['Alpha Grace'], songs, setlists, suggestions: songs.map(s => s.title), showAllOnFocus: true, onSelectSuggestion: (title: string) => selected.push(title) });
+    return React.createElement(exports.AutofillInput, { value, onChange: setValue, clearOnReselect, selectedSongTitles: ['Alpha Grace'], songs: namesOnly ? undefined : songs, setlists, suggestions: namesOnly ? ['BRO ERIC', 'BRO JV'] : songs.map(s => s.title), showAllOnFocus: true, onSelectSuggestion: (title: string) => selected.push(title) });
   }
   function pointer(target: Element, type: string, y = 100) {
     const event = new dom.window.MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 40, clientY: y });
@@ -128,6 +128,23 @@ test('searched songs select on a fresh tap after scrolling; drags, cancellations
     row = await openAndSearch();
     await act(() => row.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
     assert.equal(selected.at(-1), '', 'keyboard activation of the selected row also clears');
+
+    await act(() => root.render(React.createElement(Harness, { key: 'names', clearOnReselect: true, namesOnly: true })));
+    const openNames = async () => {
+      const field = document.querySelector('#root input')!;
+      await act(() => { pointer(field, 'pointerdown'); pointer(field, 'pointerup'); });
+      return [...document.querySelectorAll('[role="option"]')].find(row => row.textContent?.includes('BRO ERIC'))!;
+    };
+    row = await openNames();
+    await act(() => { pointer(row, 'pointerdown'); pointer(row, 'pointerup'); });
+    assert.equal(document.querySelector<HTMLInputElement>('#root input')!.value, 'BRO ERIC');
+    row = await openNames();
+    assert.ok(row.querySelector('[aria-label="Selected name"]'), 'current directory name has a checkmark');
+    assert.equal(document.querySelectorAll('[aria-label="Selected name"]').length, 1);
+    await act(() => { pointer(row, 'pointerdown'); pointer(row, 'pointerup'); });
+    assert.equal(document.querySelector<HTMLInputElement>('#root input')!.value, '', 'reselecting a name clears the assignment');
+    await openNames();
+    assert.equal(document.querySelector('[aria-label="Selected name"]'), null, 'cleared names do not retain a checkmark');
 
   } finally {
     await act(() => root.unmount()); dom.window.close();

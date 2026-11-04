@@ -1,7 +1,7 @@
 import { pickerPlacement } from '../utils/pickerPlacement';
 import { BottomSheet } from './BottomSheet';
 import { useBackLayer } from '../hooks/useBackLayer';
-import React, { useState, useRef, useEffect, useMemo, useDeferredValue } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useDeferredValue, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { compareTracksFirst } from '../utils/songTracks';
 import { Song, Setlist } from '../types';
@@ -166,6 +166,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
   const pickerDragRef = useRef<{ pointerId: number; x: number; y: number; lastY: number; lastTime: number; velocity: number } | null>(null);
   const ignoreHandleClickRef = useRef(false);
   const pickerSearchRef = useRef<HTMLInputElement>(null);
+  const [isPickerEntering, setIsPickerEntering] = useState(true);
+  const [closingGeometry, setClosingGeometry] = useState<{
+    top: number; height: number; sheetHeight: number; distance: number;
+  } | null>(null);
   const [isPickerClosing, setIsPickerClosing] = useState(false);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishClosePicker = () => {
@@ -177,11 +181,25 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     setIsPickerFullscreen(false);
     setPickerDragY(0);
     setIsPickerClosing(false);
+    setIsPickerEntering(true);
+    setClosingGeometry(null);
     pickerDragRef.current = null;
     setIsPickerDragging(false);
   };
   const closePicker = () => {
     if (closeTimerRef.current) return;
+    // Freeze before blur: hiding the keyboard must not stretch a closing sheet.
+    const bounds = dropdownRef.current?.getBoundingClientRect();
+    const viewportBounds = dropdownRef.current?.closest('.ui-picker-viewport')?.getBoundingClientRect();
+    if (bounds && viewportBounds && bounds.height > 0 && viewportBounds.height > 0) {
+      setClosingGeometry({
+        top: viewportBounds.top,
+        height: viewportBounds.height,
+        sheetHeight: bounds.height,
+        distance: Math.max(bounds.height, window.innerHeight - bounds.top + 16),
+      });
+    }
+    setIsPickerEntering(false);
     pickerSearchRef.current?.blur();
     pickerDragRef.current = null;
     setIsPickerDragging(false);
@@ -211,6 +229,14 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
     width: number;
     maxHeight: number;
   } | null>(null);
+  useLayoutEffect(() => {
+    if (!isOpen || !isTouchPicker || !mobilePickerPosition) return;
+    if (!window.requestAnimationFrame || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { setIsPickerEntering(false); return; }
+    let second: number | undefined;
+    // Commit an offscreen frame before starting the entrance transition.
+    const first = window.requestAnimationFrame(() => { second = window.requestAnimationFrame(() => setIsPickerEntering(false)); });
+    return () => { window.cancelAnimationFrame(first); if (second !== undefined) window.cancelAnimationFrame(second); };
+  }, [isOpen, isTouchPicker, Boolean(mobilePickerPosition)]);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -667,10 +693,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       e.stopPropagation();
     }
     if (bestPrefixMatch) {
-      onChange(bestPrefixMatch);
-      onSelectSuggestion?.(bestPrefixMatch);
-      setIsOpen(false);
-      setHighlightedIndex(-1);
+      handleSelect({ title: bestPrefixMatch });
     }
   };
 
@@ -723,34 +746,23 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       if (highlightedIndex >= 0 && displayedItems[highlightedIndex]) {
         e.preventDefault();
         e.stopPropagation();
-        const selected = displayedItems[highlightedIndex].title;
-        onChange(selected);
-        onSelectSuggestion?.(selected);
-        setIsOpen(false);
-        setHighlightedIndex(-1);
+        handleSelect(displayedItems[highlightedIndex], e);
       } else if (bestPrefixMatch) {
         e.preventDefault();
         e.stopPropagation();
-        onChange(bestPrefixMatch);
-        onSelectSuggestion?.(bestPrefixMatch);
-        setIsOpen(false);
+        handleSelect({ title: bestPrefixMatch }, e);
       } else if (displayedItems.length > 0 && isOpen) {
         e.preventDefault();
         e.stopPropagation();
-        const selected = displayedItems[0].title;
-        onChange(selected);
-        onSelectSuggestion?.(selected);
-        setIsOpen(false);
+        handleSelect(displayedItems[0], e);
       }
     } else if (e.key === 'Tab') {
       if (bestPrefixMatch) {
         e.preventDefault();
-        onChange(bestPrefixMatch);
-        onSelectSuggestion?.(bestPrefixMatch);
-        setIsOpen(false);
+        handleSelect({ title: bestPrefixMatch }, e);
       }
     } else if (e.key === 'Escape') {
-      setIsOpen(false);
+      closePicker();
     }
   };
 
@@ -945,8 +957,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
           data-picker-fullscreen={isTouchPicker ? isPickerFullscreen : undefined}
           className={`${isTouchPicker ? `relative w-full mx-auto rounded-t-2xl ${isPickerFullscreen ? '' : 'max-w-xl'} motion-reduce:transition-none` : 'fixed z-[200] rounded-2xl'} bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden flex flex-col overscroll-contain isolate`}
           style={isTouchPicker ? {
-            height: isPickerFullscreen ? mobilePickerPosition.maxHeight : Math.min(mobilePickerPosition.maxHeight, Math.min(560, mobilePickerPosition.maxHeight - 16) + Math.max(0, -pickerDragY)),
-            transform: isPickerClosing ? 'translateY(100%)' : `translateY(${Math.max(0, pickerDragY)}px)`,
+            height: closingGeometry?.sheetHeight ?? (isPickerFullscreen ? '100%' : Math.min(mobilePickerPosition.maxHeight, Math.min(560, mobilePickerPosition.maxHeight - 16) + Math.max(0, -pickerDragY))),
+            transform: isPickerClosing ? `translateY(${closingGeometry?.distance ?? '100%'}${closingGeometry ? 'px' : ''})` : isPickerEntering ? 'translateY(100%)' : `translateY(${Math.max(0, pickerDragY)}px)`,
             pointerEvents: isPickerClosing ? 'none' : undefined,
             transition: isPickerDragging ? 'none' : `height 220ms cubic-bezier(0.22, 1, 0.36, 1), transform ${isPickerClosing ? pickerCloseMs : 220}ms cubic-bezier(0.22, 1, 0.36, 1)`,
             // Keep the drag header below Android's status-bar pull-down area, even when expanded.
@@ -1015,7 +1027,8 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
               <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
               {pickerQuery && <button type="button" aria-label="Clear picker search" onClick={() => setPickerQuery('')} className={`absolute top-0 z-20 h-11 w-10 flex items-center justify-center text-slate-400 ${showSongCategoryFilters ? 'right-11' : 'right-0'}`}><X className="h-4 w-4" /></button>}
               <input ref={pickerSearchRef} type="search" aria-label={showSongCategoryFilters ? 'Search songs' : 'Search names or enter a name'} placeholder={showSongCategoryFilters ? 'Search songs' : 'Search or enter a name'} value={pickerQuery} readOnly={isBrowseOnly}
-                onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); event.currentTarget.focus({ preventScroll: true }); }}
+                onFocus={() => { if (!isBrowseOnly) setIsPickerFullscreen(true); }}
+                onClick={event => { event.currentTarget.readOnly = false; setIsBrowseOnly(false); setIsPickerFullscreen(true); event.currentTarget.focus({ preventScroll: true }); }}
                 onChange={event => { setPickerQuery(event.target.value); setHighlightedIndex(-1); }}
                 onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); if (pickerQuery.trim()) handleSelect({ title: displayedItems.find(item => item.title.toLowerCase() === activeQuery)?.title || pickerQuery.trim() }); } }}
                 className={`ui-picker-search-field h-11 w-full rounded-xl bg-slate-100 dark:bg-slate-800 text-sm text-slate-900 dark:text-white pl-10 ${showSongCategoryFilters ? 'pr-20' : 'pr-11'}`} />
@@ -1135,7 +1148,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 <div className="flex items-center gap-2">
                   <div className="min-w-0 flex-1 flex items-center gap-2 text-[14px] font-medium text-slate-900 dark:text-white">
                     <span className="min-w-0 truncate">{item.title}</span>
-                    {selectedTitles.has(item.title.trim().toLowerCase()) && <span role="img" aria-label="Selected in this setlist" title="Selected in this setlist" className="shrink-0 text-emerald-600 dark:text-emerald-400"><Check className="h-4 w-4" aria-hidden="true" /></span>}
+                    {(selectedTitles.has(item.title.trim().toLowerCase()) || (!showSongCategoryFilters && clearOnReselect && item.title.trim().toLowerCase() === lowerVal)) && <span role="img" aria-label={showSongCategoryFilters ? 'Selected in this setlist' : 'Selected name'} title={showSongCategoryFilters ? 'Selected in this setlist' : 'Selected name'} className="shrink-0 text-emerald-600 dark:text-emerald-400"><Check className="h-4 w-4" aria-hidden="true" /></span>}
                   </div>
                   {item.songObj && Boolean(item.songObj.isStarred || (item.songObj as Song & { starred?: boolean }).starred) && (
                     <Star className="w-3.5 h-3.5 shrink-0 fill-yellow-400 text-yellow-500" aria-label="Starred" />
@@ -1161,8 +1174,9 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
         // Overlay keyboards do not resize visualViewport. Use the same keyboard
         // boundary as forms and BottomSheet, retaining measured geometry as fallback.
         if (isTouchPicker) return createPortal(<div className="ui-picker-viewport fixed z-[200] inset-x-0 flex flex-col justify-end" style={{
-          top: `max(var(--form-viewport-top, ${mobilePickerPosition.top}px), calc(var(--app-safe-top, 0px) + 12px))`,
-          height: `calc(var(--form-viewport-height, ${mobilePickerPosition.maxHeight}px) - max(0px, calc(var(--app-safe-top, 0px) + 12px - var(--form-viewport-top, ${mobilePickerPosition.top}px))))`,
+          transition: isPickerClosing ? 'none' : undefined,
+          top: closingGeometry?.top ?? `max(var(--form-viewport-top, ${mobilePickerPosition.top}px), var(--app-safe-top, 0px))`,
+          height: closingGeometry?.height ?? `calc(var(--form-viewport-height, ${mobilePickerPosition.maxHeight}px) - max(0px, calc(var(--app-safe-top, 0px) - var(--form-viewport-top, ${mobilePickerPosition.top}px))))`,
         }}>
           <button type="button" aria-label="Dismiss picker" onClick={closePicker} className="absolute inset-0 bg-black/50" />
           {dropdown}
