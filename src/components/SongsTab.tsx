@@ -11,6 +11,7 @@ import { compareTracksFirst } from '../utils/songTracks';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import { useHeaderSearch } from './HeaderSearch';
+import { useSearchResultsScroll } from '../hooks/useSearchResultsScroll';
 import { AutoGrowTextarea } from './AutoGrowTextarea';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useDeferredValue, useCallback } from 'react';
 import { Song, Setlist, SongAttachment, AttachmentCategory } from '../types';
@@ -136,8 +137,9 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 }) => {
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
-  useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search title, artist, or lyrics', label: 'Search songs' });
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const scrollToSearchResults = useSearchResultsScroll(searchQuery, deferredSearchQuery);
+  useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, onOpen: scrollToSearchResults, placeholder: 'Search title, artist, or lyrics', label: 'Search songs' });
   const [visibleResultCount, setVisibleResultCount] = useState(SONG_PAGE_SIZE);
   const [sortMode, setSortMode] = useState<SongSortMode>(sessionSongSort);
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);

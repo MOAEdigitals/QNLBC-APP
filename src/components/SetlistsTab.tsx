@@ -14,6 +14,7 @@ import { monthList } from './MonthSeparators';
 import { SetlistEditorSection } from './SetlistEditorSection';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { useHeaderSearch } from './HeaderSearch';
+import { useSearchResultsScroll } from '../hooks/useSearchResultsScroll';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
@@ -301,7 +302,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
   const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, placeholder: 'Search names, songs, dates, or setlists', label: 'Search setlists' });
+  const scrollToSearchResults = useSearchResultsScroll(searchQuery);
+  useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, onOpen: scrollToSearchResults, placeholder: 'Search names, songs, dates, or setlists', label: 'Search setlists' });
   const [isSaving, setIsSaving] = useState(false);
   const [songPickerFilter, setSongPickerFilter] = useState<SongPickerFilter>('all');
   const saveInProgressRef = useRef(false);
