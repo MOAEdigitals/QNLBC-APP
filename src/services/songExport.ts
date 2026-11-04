@@ -5,6 +5,7 @@ import { Share } from '@capacitor/share';
 import { supabase } from '../supabase';
 import { mapSongFromDB } from './supabaseData';
 import { cleanLeadingSongTitle } from '../utils/songLyrics';
+import { formatFreeShowLyrics } from '../utils/freeShowLyrics';
 
 async function readSongs(): Promise<Record<string, any>[]> {
   const songs: Record<string, any>[] = [];
@@ -15,7 +16,7 @@ async function readSongs(): Promise<Record<string, any>[]> {
     if (!data || data.length < 500) return songs;
   }
 }
-export async function buildSongsArchive(rows: Record<string, any>[]): Promise<Uint8Array> {
+export async function buildSongsArchive(rows: Record<string, any>[], format: 'backup' | 'freeshow' = 'backup'): Promise<Uint8Array> {
   const zip = new JSZip();
   const used = new Set<string>();
   for (const song of rows) {
@@ -25,28 +26,30 @@ export async function buildSongsArchive(rows: Record<string, any>[]): Promise<Ui
     used.add(name.toLowerCase());
     // Match the text-file import format: title in the filename, sections and lyrics inside.
     // Only strip a confirmed duplicate title heading, never a matching sung first line.
-    zip.file(`lyrics/${name}.txt`, cleanLeadingSongTitle(String(song.title || ''), String(song.lyrics || '')).replace(/\r\n/g, '\n'));
+    if (format === 'freeshow') zip.file(`${name}.txt`, formatFreeShowLyrics(String(song.title || 'Untitled'), String(song.lyrics || '')));
+    else zip.file(`lyrics/${name}.txt`, cleanLeadingSongTitle(String(song.title || ''), String(song.lyrics || '')).replace(/\r\n/g, '\n'));
   }
+  if (format === 'freeshow') return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
   zip.file('songs-backup.json', JSON.stringify({ format: 'qnlbc-songs-backup', version: 1, exportedAt: new Date().toISOString(),
     songs: rows.map(row => ({ ...mapSongFromDB(row), lyrics: row.lyrics || '' })), rawSongs: rows,
     scope: 'All current songs and lyrics. Media references are preserved; audio/video files are not embedded. Other church records and accounts are excluded.' }, null, 2));
   zip.file('README.txt', 'QNLBC songs-only backup\n\nlyrics/: one UTF-8 text file per song. Duplicate filenames have numbered suffixes; no songs were merged or removed.\nsongs-backup.json: song IDs, details, exact lyrics and original database rows. Extract this JSON for the existing JSON restore option.\nMedia links are included, but audio/video files are not downloaded. Use Full Data Export for a backup with recordings.\n');
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
 }
-export async function exportAllSongs(progress: (message: string) => void): Promise<number> {
+export async function exportAllSongs(progress: (message: string) => void, format: 'backup' | 'freeshow' = 'backup'): Promise<number> {
   progress('Loading all songs…');
   const rows = await readSongs();
   progress(`Verifying ${rows.length} songs…`);
   if (JSON.stringify(rows) !== JSON.stringify(await readSongs())) throw new Error('Songs changed during export. Please try again after editing has finished.');
   progress(`Preparing ${rows.length} songs…`);
-  const bytes = await buildSongsArchive(rows);
-  const filename = `QNLBC-Songs-${new Date().toISOString().slice(0,10)}.zip`;
+  const bytes = await buildSongsArchive(rows, format);
+  const filename = `QNLBC-${format === 'freeshow' ? 'FreeShow-Songs' : 'Songs'}-${new Date().toISOString().slice(0,10)}.zip`;
   if (Capacitor.isNativePlatform()) {
     // Android WebViews do not reliably download blob URLs. Use the native Save/Share sheet.
     let binary = '';
     for (let offset = 0; offset < bytes.length; offset += 16384) binary += String.fromCharCode(...bytes.subarray(offset, offset + 16384));
     const file = await Filesystem.writeFile({ path: filename, data: btoa(binary), directory: Directory.Cache });
-    await Share.share({ title: 'QNLBC songs backup', files: [file.uri], dialogTitle: 'Save songs backup' });
+    await Share.share({ title: format === 'freeshow' ? 'QNLBC FreeShow songs' : 'QNLBC songs backup', files: [file.uri], dialogTitle: format === 'freeshow' ? 'Save FreeShow songs' : 'Save songs backup' });
   } else {
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/zip' }));
     const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
