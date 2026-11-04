@@ -15,9 +15,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   useLayoutEffect(() => {
     const nav = navRef.current;
     if (!nav) return;
+    let previousHeight = 0;
     const measure = () => {
-      const height = nav.getBoundingClientRect().height;
-      if (height > 0) document.documentElement.style.setProperty('--app-bottom-nav-height', `${height}px`);
+      const height = Math.ceil(nav.getBoundingClientRect().height);
+      if (height <= 0 || height === previousHeight) return;
+      previousHeight = height;
+      document.documentElement.style.setProperty('--app-bottom-nav-height', `${height}px`);
     };
     measure();
     const observer = new ResizeObserver(measure);

@@ -1,3 +1,4 @@
+import { useScreenRefresh } from '../../hooks/usePullToRefresh';
 import { copyWithFeedback } from '../../services/clipboard';
 import { SheetDateField } from '../../components/SheetDateField';
 import { confirmAction } from '../../services/appDialogs';
@@ -78,6 +79,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
       if (alive.current) setLoading(false);
     }
   }
+  useScreenRefresh(refresh);
   useEffect(() => {
     alive.current = true; void refresh();
     const onFocus = () => { setToday(getTodayStr()); void refresh(); };

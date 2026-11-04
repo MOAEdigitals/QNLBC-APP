@@ -1,3 +1,4 @@
+import { useScreenRefresh } from '../../hooks/usePullToRefresh';
 import { copyWithFeedback } from '../../services/clipboard';
 import { calendarOverlays, EMPTY_OVERLAY_FILTERS } from './calendarOverlays';
 import { yearList } from '../../components/MonthSeparators';
@@ -104,6 +105,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     }
   };
 
+  useScreenRefresh(load);
   useEffect(() => { void load(); }, []);
   useEffect(() => {
     const refreshToday = () => setToday(todayKey());

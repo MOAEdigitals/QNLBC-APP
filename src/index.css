@@ -5,19 +5,20 @@
 /* Shared primary add action, anchored above navigation in every tab. */
 .qnlbc-app button.app-fab {
   margin: 0;
-  bottom: calc(var(--app-bottom-nav-height, calc(4.25rem + var(--app-safe-bottom))) + 12px);
+  bottom: calc(max(var(--app-bottom-nav-height, 0px), calc(4.25rem + var(--app-safe-bottom, 0px))) + 12px);
   right: max(1rem, var(--app-safe-right));
   background: #1d4ed8;
   color: #fff;
   border-color: #1d4ed8;
   box-shadow: 0 8px 24px #1d4ed840;
   --tw-ring-color: #1d4ed8;
+  transition-property: transform, background-color, box-shadow, opacity;
 }
 .qnlbc-app button.app-fab:hover { background: #1e40af; }
 .app-bottom-nav { padding-left: var(--app-safe-left); padding-right: var(--app-safe-right); }
 /* Android SystemBars resizes the WebView above the IME. Keep tabs out of that
    smaller viewport while preserving their measured height for layout. */
-.keyboard-open .app-bottom-nav { visibility: hidden; pointer-events: none; }
+.keyboard-open :is(.app-bottom-nav, .app-fab) { visibility: hidden; pointer-events: none; }
 /* Login uses the same unobscured viewport as modal forms, including overlay IMEs. */
 .auth-screen {
   position: fixed; inset: auto 0 auto 0; top: var(--form-viewport-top, 0px);
@@ -215,7 +216,7 @@ button.ui-settings-row { cursor: pointer; }
   body:has(.ui-form-screen) { overflow: hidden; }
   .ui-form-screen { padding: 0; align-items: stretch; background: var(--ui-surface); overflow: hidden; }
   .ui-form-screen > div:has(.ui-modal-form) { width: 100%; height: 100dvh; max-height: 100dvh; max-width: none; border: 0; border-radius: 0; margin: 0; }
-  body:has(.ui-form-screen) > #root nav.fixed { display: none; }
+  body:has(.ui-form-screen) > #root nav.fixed { visibility: hidden; pointer-events: none; }
   .practice-screen [id^="practice-track-"] > div:nth-of-type(1) { align-items: center; }
 }
 
@@ -407,3 +408,14 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 .birthday-wheel::-webkit-scrollbar { display: none; }
 .birthday-wheel:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: .75rem; }
 .birthday-wheel-row { height: 48px; display: flex; align-items: center; justify-content: center; scroll-snap-align: center; font-size: 1.125rem; white-space: nowrap; cursor: pointer; user-select: none; }
+
+/* Keep root overscroll from reloading drafts; the app owns pull-to-refresh. */
+html { overscroll-behavior-y: none; scrollbar-gutter: stable; }
+body { overscroll-behavior-y: none; }
+body:has(.ui-form-screen, .ui-viewport-screen, .ui-picker-viewport, .ui-bottom-sheet-backdrop) .app-fab { visibility: hidden; pointer-events: none; }
+/* Portal forms must also avoid mobile browser focus zoom. */
+:is(.ui-form-screen, .ui-viewport-screen, .ui-bottom-sheet, .ui-picker-viewport) :is(input:not([type=checkbox]):not([type=radio]), textarea) { font-size: 16px; }
+@media (max-width: 639px) {
+  :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), textarea, [contenteditable=true]) { font-size: 16px; }
+}
+.app-refresh-indicator { position: fixed; top: var(--app-safe-top, 0px); left: 50%; z-index: 45; display: flex; align-items: center; gap: .5rem; padding: .625rem .875rem; border: 1px solid var(--ui-border); border-radius: 999px; background: var(--ui-surface); color: var(--ui-accent); box-shadow: 0 4px 16px #0002; pointer-events: none; font-size: .8125rem; }

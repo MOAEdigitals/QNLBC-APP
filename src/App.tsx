@@ -1,3 +1,5 @@
+import { usePullToRefresh, refreshLocalScreens } from './hooks/usePullToRefresh';
+import { PullToRefreshIndicator } from './components/PullToRefreshIndicator';
 import { songTitleCase } from './utils/songTitleCase';
 import { showAppMessage } from './services/appDialogs';
 import { useAppExitGuard } from './hooks/useAppExitGuard';
@@ -543,6 +545,11 @@ export default function App() {
       console.warn('Error refreshing data from Supabase', e);
     }
   };
+
+  const pullRefresh = usePullToRefresh(async () => {
+    setRefreshError('');
+    await Promise.all([reloadAllData(), refreshLocalScreens(), notifications.refresh()]);
+  }, Boolean(currentUser) && !isLoadingInitialData && !isLoadingCoreData && !isPracticeDetailOpen);
 
   // Tab Navigation
   const handleNavigateTab = useCallback(
@@ -1328,6 +1335,7 @@ export default function App() {
     <SwipeNavigationProvider currentTab={currentTab} onNavigate={handleNavigateTab}>
     <HeaderSearchProvider>
     <div className="qnlbc-app min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col transition-colors">
+      <PullToRefreshIndicator {...pullRefresh} />
       {/* Sticky Top Header */}
       {isPracticeDetailOpen ? (
         <header data-app-header data-practice-detail-header="true" className="sticky top-0 z-40 bg-white dark:bg-slate-950">
