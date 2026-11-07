@@ -61,6 +61,7 @@ import {
 import { StagePrompterModal } from './StagePrompterModal';
 import {
   searchSong,
+  compareSongSearchResults,
   getSongUsageHistory,
   getSongUsageHistoryFromMap,
   buildSongUsageMap,
@@ -650,7 +651,7 @@ if (isEditing && !savingSongRef.current) {
       .filter((r) => r.matches);
 
     // When actively searching, sort by search match relevance score descending
-    results.sort((a, b) => sortMode === 'tracks-first' ? compareTracksFirst(a.song, b.song) : b.score - a.score);
+    results.sort((a, b) => compareSongSearchResults(a, b) || (sortMode === 'tracks-first' ? compareTracksFirst(a.song, b.song) : 0));
     return results;
   }, [categoryFilteredSongs, deferredSearchQuery, usageMap, sortMode]);
 

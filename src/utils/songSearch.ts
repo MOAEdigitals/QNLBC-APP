@@ -154,9 +154,13 @@ export interface SongSearchResult {
   lyricSnippet?: string;
 }
 
-/**
- * Searches a song across title, artist, and full lyrics with fuzzy tolerance
- */
+/** Keep title matches ahead of metadata/body matches, even with typo tolerance. */
+export function compareSongSearchResults(a: SongSearchResult, b: SongSearchResult): number {
+  const priority = { title: 0, artist: 1, lyrics: 2, none: 3 };
+  return priority[a.matchedField] - priority[b.matchedField] || b.score - a.score;
+}
+
+/** Searches a song across title, artist, and full lyrics with fuzzy tolerance. */
 export function searchSong(song: Song, query: string): SongSearchResult {
   if (!query || !query.trim()) {
     return {

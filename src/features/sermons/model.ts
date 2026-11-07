@@ -1,3 +1,5 @@
+import { fuzzyMatchString } from '../../utils/songSearch.ts';
+
 export interface SermonAttachment {
   id: string;
   name: string;
@@ -48,12 +50,14 @@ export function sermonSearchSnippet(row: SermonOutline, search: string): { befor
   if (end < body.length) { const space = body.lastIndexOf(' ', end); if (space > index + query.length) end = space; }
   return { before: `${start > 0 ? '…' : ''}${body.slice(start, index)}`, match: body.slice(index, index + query.length), after: `${body.slice(index + query.length, end)}${end < body.length ? '…' : ''}` };
 }
-/** Prefer title/preacher matches, then search the preaching's editable text. */
+/** Exact/partial/near title matches precede preacher and body-only matches. */
 export function sermonSearchRank(row: SermonOutline, search: string): number {
   const query = searchText(search);
   if (!query) return 0;
-  if (searchText(`${row.title} ${row.preacher}`).includes(query)) return 0;
-  return searchText(sermonBody(row)).includes(query) ? 1 : -1;
+  const title = fuzzyMatchString(row.title, query);
+  if (title.matches) return 100 - title.score;
+  if (searchText(`${row.title} ${row.preacher}`).includes(query)) return 200;
+  return searchText(sermonBody(row)).includes(query) ? 300 : -1;
 }
 export function filterSermons(rows: SermonOutline[], filter: 'upcoming' | 'past', today: string, search: string): SermonOutline[] {
   return rows.filter(row => (filter === 'past' ? row.service_date < today : row.service_date >= today)

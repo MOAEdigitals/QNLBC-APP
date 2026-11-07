@@ -20,6 +20,12 @@ test('blank outlines are rejected without mutating the input', () => {
 function row(date: string, title = date): SermonOutline {
   return { id: title, service_date: date, title, preacher: 'Marius', outline: '\t• John 3:16', author_id: 'author', status: 'published', revision: 1, created_at: '', updated_at: '' };
 }
+
+test('search prioritizes exact, partial and near titles over preacher/body matches across dates and archive years', () => {
+  const rows = [row('2026-11-15', 'Other teaching'), row('2026-11-08', 'Another lesson'), row('2026-01-01', 'Amazng Grace'), row('2026-10-18', 'My Amazing Grace'), row('2025-01-01', 'Amazing Grace')];
+  rows[0].outline = 'Amazing Grace'; rows[1].preacher = 'Amazing Grace';
+  assert.deepEqual(listSermons(rows, '2026-11-07', 'Amazing Grace').map(item => item.title), ['Amazing Grace', 'My Amazing Grace', 'Amazng Grace', 'Another lesson', 'Other teaching']);
+});
 test('archive separates pre-2026 references while retaining past and future church outlines in the main collection', () => {
   const rows = [row('2025-12-31'), row('2026-01-01'), row('2026-10-25'), row('2027-01-03'), row('2024-05-12')];
   const groups = groupSermonArchive(rows, '2026-10-26', '');

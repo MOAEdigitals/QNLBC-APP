@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fuzzyMatchString, searchSong } from '../src/utils/songSearch.ts';
+import { fuzzyMatchString, searchSong, compareSongSearchResults } from '../src/utils/songSearch.ts';
 import type { Song } from '../src/types.ts';
 
 test('fast search retains title, typo, initials, artist, lyrics and normalized matching', () => {
@@ -24,4 +24,16 @@ test('a different query never reuses another query’s cached match or typo dist
   assert.equal(fuzzyMatchString('Grace', 'grace').matches, true);
   assert.equal(fuzzyMatchString('Grace', 'absolutely unrelated').matches, false);
   assert.equal(fuzzyMatchString('Grace', 'grace').score, 100);
+});
+
+test('exact, partial and typo titles outrank artist and lyrics matches regardless of their raw score', () => {
+  const songs = [
+    { title: 'Unrelated', lyrics: 'Amazing Grace' },
+    { title: 'Other Song', artist: 'Amazing Grace', lyrics: '' },
+    { title: 'Amazng Grace', lyrics: '' },
+    { title: 'My Amazing Grace', lyrics: '' },
+    { title: 'Amazing Grace', lyrics: '' },
+  ] as Song[];
+  const results = songs.map(song => searchSong(song, 'Amazing Grace')).sort(compareSongSearchResults);
+  assert.deepEqual(results.map(result => result.song.title), ['Amazing Grace', 'My Amazing Grace', 'Amazng Grace', 'Other Song', 'Unrelated']);
 });
