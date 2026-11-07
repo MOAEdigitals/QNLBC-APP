@@ -1,4 +1,5 @@
 import { copyWithFeedback } from '../services/clipboard';
+import { formatFreeShowLyrics } from '../utils/freeShowLyrics';
 import { SongCategorySheet } from './SongCategorySheet';
 import { confirmAction } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
@@ -539,7 +540,7 @@ if (isEditing && !savingSongRef.current) {
     if (e) {
       e.stopPropagation();
     }
-    const textToCopy = `Title: ${song.title}${song.artist ? `\nArtist/Author: ${song.artist}` : ''}\n\n${song.lyrics || '(No lyrics available)'}`;
+    const textToCopy = formatFreeShowLyrics(song.title, song.lyrics || '');
     const request=++handleCopySongRequest.current;
     setCopiedSongId(null);
     if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
