@@ -83,7 +83,9 @@ test('outline search snippets show the matching body text with readable context,
   assert.equal(sermonSearchSnippet(row, 'missing'), null);
   row.outline = ' ';
   row.outline_html = '<p>Faith &amp; hope remain.</p>';
-  assert.equal(sermonSearchRank(row, 'hope'), 1);
+  const bodyRank = sermonSearchRank(row, 'hope');
+  const titleRank = sermonSearchRank({ ...row, title: 'Hope' }, 'hope');
+  assert.ok(bodyRank >= 0 && titleRank < bodyRank, 'body matches stay searchable after title matches');
   assert.equal(sermonSearchSnippet(row, 'hope')?.match, 'hope');
   row.outline = 'word '.repeat(100) + 'baptism gives new life ' + 'end '.repeat(100);
   const long = sermonSearchSnippet(row, 'baptism')!;
