@@ -2561,7 +2561,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             ) : null
           ) : (
             <div className="space-y-2.5">
-              {monthList(filteredChoirEntries, entry => entry.date, ['choir song', 'choir songs'], { archive: true, revealArchive: !!choirSearchQuery.trim(), revealDate: filteredChoirEntries.find(item => item.id === selectedChoirId)?.date }).render((entry) => {
+              {monthList(filteredChoirEntries, entry => entry.date, ['choir song', 'choir songs'], { archive: true, groupClassName: 'compact-agenda-group col-span-full', revealArchive: !!choirSearchQuery.trim(), revealDate: filteredChoirEntries.find(item => item.id === selectedChoirId)?.date }).render((entry) => {
                 const isPast = isPastDate(entry.date) && !isToday(entry.date);
                 const isElapsed = Boolean(entry.isDone || isPast);
                 const hasLyrics = Boolean(entry.lyrics?.trim());
@@ -2571,6 +2571,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   <div
                     key={entry.id}
                     id={`choir-card-${entry.id}`}
+                    data-choir-expanded={isLyricsExpanded || undefined}
                     data-past={isElapsed || undefined}
                     data-upcoming-card={!entry.isDone && isToday(entry.date) ? 'today' : choirUpcoming.get(entry.id)}
                     onClick={() => {
@@ -2581,22 +2582,22 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       }));
                       setSelectedChoirId(nextExpanded ? entry.id : null);
                     }}
-                    className={`app-date-card p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
+                    className={`compact-agenda-row app-date-card p-3 sm:p-4 rounded-2xl border transition-all cursor-pointer ${
                       isElapsed
                         ? 'bg-slate-100/50 dark:bg-slate-900/40 border-slate-200/60 dark:border-slate-800/60'
                         : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-xs'
                     }`}
                   >
                     {/* Surface-Level Row: Date & Title matching Setlists Tab visual hierarchy */}
-                    <div className="flex items-center justify-between gap-3 min-w-0">
+                    <div data-compact-agenda-header className="flex items-center justify-between gap-3 min-w-0">
                       <div data-card-muted-content className="flex items-center gap-3 min-w-0 flex-1">
                         {/* Date Badge */}
                         <CardDate date={entry.date} />
 
                         {/* Title & Scheduled Date */}
-                        <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                        <div className="min-w-0 flex-1 flex flex-wrap items-center gap-1.5">
                           <h4
-                            className={`app-card-title min-w-0 text-sm sm:text-base font-bold truncate ${
+                            className={`app-card-title min-w-0 break-words text-sm sm:text-base font-bold ${
                               isElapsed
                                 ? 'text-slate-500 dark:text-slate-400'
                                 : 'text-slate-900 dark:text-white'
@@ -2614,7 +2615,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                     {/* Expanded Lyrics */}
                     {isLyricsExpanded && (
                       <div
-                        className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 cursor-default"
+                        className="compact-agenda-detail mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 cursor-default"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {hasLyrics ? (

@@ -32,3 +32,15 @@ test('annual recognition grouping stays unchanged; selected practice detail bypa
   const detail = monthList(rows.slice(0, 1), dateOf, ['practice', 'practices'], { archive: true, hidden: true }).render((row: any) => React.createElement('article', { key: row.id }));
   assert.equal(detail[0].type, 'article');
 });
+
+test('compact month groups preserve every card and month order without grouping a selected detail', () => {
+  const { renderToStaticMarkup } = createRequire(import.meta.url)('react-dom/server');
+  const entries = [{ id: 'first', date: '2026-11-08' }, { id: 'second', date: '2026-11-15' }, { id: 'third', date: '2026-12-06' }];
+  const render = (options: any) => monthList(entries, dateOf, ['choir song', 'choir songs'], options).render((row: any) => React.createElement('article', { key: row.id }, row.id));
+  const document = new JSDOM(renderToStaticMarkup(React.createElement(React.Fragment, null, ...render({ groupClassName: 'compact-agenda-group' })))).window.document;
+  const groups = [...document.querySelectorAll('.compact-agenda-group')];
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map(group => [...group.querySelectorAll('article')].map(card => card.textContent)), [['first', 'second'], ['third']]);
+  assert.deepEqual([...document.querySelectorAll('[role="heading"]')].map(heading => heading.textContent), ['November 2026', 'December 2026']);
+  assert.ok(render({ hidden: true, groupClassName: 'compact-agenda-group' }).every((node: any) => node.type === 'article'));
+});

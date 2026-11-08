@@ -431,6 +431,29 @@ body { overscroll-behavior-y: none; }
 .activity-agenda-row > p { margin: .375rem .5rem .75rem 3rem; }
 .activity-agenda-row [data-activity-actions] { color: #526176; }
 .dark .activity-agenda-row [data-activity-actions] { color: #a5b2c7; }
+/* Shared compact agenda presentation; recognition rules and choir detail stay intact. */
+.compact-agenda-group { background: var(--ui-surface); border-radius: .875rem; }
+.qnlbc-app .compact-agenda-row.app-date-card { position: relative; padding: .1875rem .5rem; min-height: 50px; border: 0; border-radius: 0; box-shadow: none; }
+.qnlbc-app .compact-agenda-row:first-child { border-radius: .875rem .875rem 0 0; }
+.qnlbc-app .compact-agenda-row:last-child { border-radius: 0 0 .875rem .875rem; }
+.qnlbc-app .compact-agenda-row:only-child { border-radius: .875rem; }
+.compact-agenda-row + .compact-agenda-row::after { content: ''; position: absolute; top: 0; inset-inline: 3.5rem .75rem; height: 1px; background: var(--ui-border); pointer-events: none; }
+.compact-agenda-row .app-card-date { width: 1.75rem; }
+.compact-agenda-row .app-card-day { font-size: 1.125rem; font-weight: 600; }
+.compact-agenda-row .app-card-weekday { font-size: .625rem; }
+.compact-agenda-row .app-card-date + [aria-hidden="true"] { height: 22px; width: 2px; border-radius: 1px; background: var(--agenda-marker, var(--ui-primary)); }
+.recognitions-screen[data-recognition-section="birthdays"] { --agenda-marker: #f43f5e; }
+.recognitions-screen[data-recognition-section="special"] { --agenda-marker: #f59e0b; }
+.qnlbc-app .compact-agenda-row .app-card-title { font-size: .9375rem; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.compact-agenda-row > div:first-child, .compact-agenda-row [data-card-muted-content] { gap: .625rem; }
+.compact-agenda-row [data-birthday-actions] > button { display: grid; place-items: center; width: 44px; min-height: 44px; }
+.compact-agenda-row [data-birthday-actions] { color: #526176; }
+.dark .compact-agenda-row [data-birthday-actions] { color: #a5b2c7; }
+.compact-agenda-row [data-birthday-actions] > button { color: inherit; }
+.compact-agenda-row .ui-actions > summary { width: 44px; min-height: 44px; padding: 0; }
+.compact-agenda-detail { padding: .75rem .5rem .75rem 3rem; margin-top: .25rem; }
+.compact-agenda-row[data-choir-expanded] { cursor: default; }
+.compact-agenda-row [data-compact-agenda-header] { min-height: 44px; cursor: pointer; }
 .settings-navigation { display: grid; gap: 1.5rem; }
 .settings-group-heading { margin: 0 0 .5rem; padding-inline: .75rem; font-size: .875rem; line-height: 1.4; font-weight: 500; color: var(--ui-muted); }
 .settings-group-list { border-radius: .875rem; background: var(--ui-field); overflow: hidden; }
