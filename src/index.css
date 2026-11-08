@@ -412,6 +412,78 @@ body:has(.ui-bottom-sheet-backdrop) { overflow: hidden; }
 /* Keep root overscroll from reloading drafts; the app owns pull-to-refresh. */
 html { overscroll-behavior-y: none; scrollbar-gutter: stable; }
 body { overscroll-behavior-y: none; }
+
+/* iOS-inspired foundations: stable geometry, functional blue, restrained depth.
+   Keep user-selected typography, celebration states and Android back behavior. */
+:root {
+  --ui-motion-enter: 220ms;
+  --ui-motion-exit: 180ms;
+  --ui-motion-move: 200ms;
+  --ui-ease-enter: cubic-bezier(.22, .8, .25, 1);
+  --ui-ease-move: cubic-bezier(.4, 0, .2, 1);
+  --ui-selected-surface: #eaf1ff;
+}
+.dark { --ui-selected-surface: #1c3053; }
+.app-header-row { gap: .5rem; min-height: 60px; }
+.app-page-title { font-size: clamp(1.25rem, 4.8vw, 1.5rem); line-height: 1.25; overflow-wrap: anywhere; }
+.app-header-actions { flex-shrink: 0; gap: .125rem; margin-left: auto; }
+.app-header-actions > :is(button, details > summary) { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+.qnlbc-app [data-app-header] { border-bottom: 1px solid var(--ui-border); }
+.qnlbc-app .app-bottom-nav {
+  background: transparent; pointer-events: none;
+  padding: .5rem max(.5rem, var(--app-safe-right)) calc(.5rem + var(--app-safe-bottom)) max(.5rem, var(--app-safe-left));
+}
+.app-tab-bar {
+  pointer-events: auto; gap: .125rem; padding: .375rem;
+  overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin;
+  border: 1px solid var(--ui-border); border-radius: 1.75rem;
+  background: var(--ui-surface); box-shadow: 0 4px 18px #00000012;
+}
+.app-tab-item {
+  display: flex; flex: 1 0 auto; min-width: 44px; min-height: 56px;
+  flex-direction: column; align-items: center; justify-content: center; gap: .25rem;
+  padding: .375rem .125rem; border-radius: 1.375rem; cursor: pointer;
+  color: #526176; background: transparent;
+  transition: color var(--ui-motion-move) var(--ui-ease-move), background-color var(--ui-motion-move) var(--ui-ease-move);
+}
+.dark .app-tab-item { color: #a5b2c7; }
+.app-tab-item[aria-current="page"] { color: var(--ui-primary); background: var(--ui-selected-surface); font-weight: 600; }
+.dark .app-tab-item[aria-current="page"] { color: #a8c5ff; }
+.app-tab-icon { display: grid; place-items: center; min-height: 20px; }
+.app-tab-icon svg { flex-shrink: 0; }
+.app-nav-label { font-size: .625rem; letter-spacing: normal; line-height: 1.25; text-align: center; white-space: nowrap; }
+.qnlbc-app button.app-fab { background: var(--ui-primary); border-color: var(--ui-primary); box-shadow: none; }
+.qnlbc-app :is(.ui-primary, .ui-secondary, .ui-danger, .ui-back, .app-fab),
+.ui-sheet-close { transition: transform 150ms ease-out, background-color 150ms ease-out; }
+@media (hover: hover) {
+  .app-tab-item:not([aria-current]):hover { background: var(--ui-field); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .qnlbc-app :is(.ui-primary, .ui-secondary, .ui-danger, .ui-back, .app-fab):not(:disabled):active,
+  .app-header-actions > button:not(:disabled):active, .ui-sheet-close:not(:disabled):active { transform: scale(.97); }
+}
+.qnlbc-app :is(button, summary, input, textarea, [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--ui-accent); outline-offset: 3px;
+}
+.ui-actions > summary { min-width: 44px; min-height: 44px; justify-content: center; }
+.ui-actions-menu { transform-origin: top right; animation: ui-menu-appear 160ms ease-out; }
+@keyframes ui-menu-appear { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
+.ui-bottom-sheet { animation-duration: var(--ui-motion-enter); animation-timing-function: var(--ui-ease-enter); }
+.ui-bottom-sheet[data-dragging] { transition: none; animation: none; }
+.ui-bottom-sheet[data-leaving] { transition: transform var(--ui-motion-exit) ease-in; }
+.ui-sheet-header h2 { font-weight: 600; line-height: 1.4; }
+.ui-sheet-option:last-child, .ui-sheet-options > button:last-child { border-bottom: 0; }
+.ui-form-body :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea) { line-height: 1.5; }
+.app-card-day, .ui-date-day { font-variant-numeric: tabular-nums; }
+@media (prefers-contrast: more), (forced-colors: active) {
+  .app-tab-bar { box-shadow: none; border-width: 2px; }
+  .app-tab-item[aria-current="page"] { outline: 2px solid currentColor; outline-offset: -2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-tab-item, .ui-actions-menu, .ui-sheet-close, .ui-bottom-sheet,
+  .qnlbc-app :is(.ui-primary, .ui-secondary, .ui-danger, .ui-back, .app-fab) { animation: none; transition: none; }
+  .ui-bottom-sheet[data-leaving] { transition: none; }
+}
 body:has(.ui-form-screen, .ui-viewport-screen, .ui-picker-viewport, .ui-bottom-sheet-backdrop) .app-fab { visibility: hidden; pointer-events: none; }
 /* Portal forms must also avoid mobile browser focus zoom. */
 :is(.ui-form-screen, .ui-viewport-screen, .ui-bottom-sheet, .ui-picker-viewport) :is(input:not([type=checkbox]):not([type=radio]), textarea) { font-size: 16px; }
