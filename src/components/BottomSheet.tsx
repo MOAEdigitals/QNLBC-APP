@@ -15,7 +15,6 @@ export function BottomSheet({ open, title, children, onClose, onBack, role = 'di
   const canDismiss = useRef(dismissible); canDismiss.current = dismissible;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [offset, setOffset] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [present, setPresent] = useState(open);
   const reduceMotion = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -37,7 +36,7 @@ export function BottomSheet({ open, title, children, onClose, onBack, role = 'di
   useBackLayer(open, () => { if (onBack) onBack(); else close(); });
   useEffect(() => {
     if (!open) return;
-    closing.current = false; setLeaving(false); setOffset(0); setDragging(false); drag.current = null;
+    closing.current = false; setLeaving(false); setOffset(0);
     sheetStack.push(id);
     const previous = document.activeElement as HTMLElement | null;
     (sheet.current?.querySelector<HTMLElement>('[data-sheet-focus]') || sheet.current?.querySelector<HTMLElement>('button:not(:disabled)'))?.focus({ preventScroll: true });
@@ -72,16 +71,16 @@ export function BottomSheet({ open, title, children, onClose, onBack, role = 'di
   }, [open]);
   if (!open && (!present || reduceMotion)) return null;
   return createPortal(<div className="ui-bottom-sheet-backdrop" data-leaving={leaving || undefined} data-no-swipe onPointerDown={event => { if (event.target === event.currentTarget) close(); }}>
-    <div ref={sheet} role={role} aria-modal="true" aria-labelledby={id} className="ui-bottom-sheet" data-dragging={dragging || undefined} data-leaving={leaving || undefined} style={offset ? { transform: `translateY(${offset}px)` } : undefined}>
+    <div ref={sheet} role={role} aria-modal="true" aria-labelledby={id} className="ui-bottom-sheet" data-leaving={leaving || undefined} style={offset ? { transform: `translateY(${offset}px)` } : undefined}>
       <header className="ui-sheet-header" onPointerDown={event => {
         if (event.button !== 0 || (event.target as Element).closest('button')) return;
-        drag.current = { y: event.clientY, time: event.timeStamp }; setDragging(true); event.currentTarget.setPointerCapture?.(event.pointerId);
+        drag.current = { y: event.clientY, time: event.timeStamp }; event.currentTarget.setPointerCapture?.(event.pointerId);
       }} onPointerMove={event => { if (drag.current) setOffset(Math.max(0, event.clientY - drag.current.y)); }} onPointerUp={event => {
-        const start = drag.current; drag.current = null; setDragging(false); if (!start) return;
+        const start = drag.current; drag.current = null; if (!start) return;
         const distance = event.clientY - start.y;
         if (distance > 72 || (distance > 30 && distance / Math.max(1, event.timeStamp - start.time) > .55)) close();
         else setOffset(0);
-      }} onPointerCancel={() => { drag.current = null; setDragging(false); setOffset(0); }}>
+      }} onPointerCancel={() => { drag.current = null; setOffset(0); }}>
         <div aria-hidden="true" className="ui-sheet-handle" />
         <div className="flex items-center justify-between gap-3"><h2 id={id} className="min-w-0 font-bold text-lg">{title}</h2><button type="button" aria-label={`Close ${title}`} disabled={!dismissible} onClick={close} className="ui-sheet-close"><X className="h-5 w-5" /></button></div>
       </header>

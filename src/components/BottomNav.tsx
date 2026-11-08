@@ -61,21 +61,32 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       aria-label="Main navigation"
       className="app-bottom-nav fixed bottom-0 left-0 right-0 z-40 bg-white dark:bg-slate-950 pb-[var(--app-safe-bottom)] no-print"
     >
-      <div className="app-tab-bar max-w-4xl mx-auto flex items-center justify-around px-0 sm:px-2 py-1.5">
+      <div className="max-w-4xl mx-auto flex items-center justify-around px-0 sm:px-2 py-1.5">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
 
           return (
             <button
-              type="button"
               key={tab.id}
               onClick={() => onChangeTab(tab.id)}
               aria-current={isActive ? 'page' : undefined}
-              className="app-tab-item"
+              className={`flex-1 min-w-0 h-14 flex flex-col items-center justify-center py-1 px-0 rounded-xl transition-colors relative ${
+                isActive
+                  ? 'text-slate-950 dark:text-white font-semibold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
             >
-              <span className="app-tab-icon" aria-hidden="true"><Icon className="w-5 h-5" /></span>
-              <span className="app-nav-label">
+              <div>
+                <div
+                  className={`p-1.5 rounded-lg transition-transform ${
+                    isActive ? 'scale-110 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white' : ''
+                  }`}
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+              </div>
+              <span className="app-nav-label w-full leading-tight mt-0.5 text-center whitespace-nowrap">
                 {tab.label}
               </span>
             </button>

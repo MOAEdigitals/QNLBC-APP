@@ -3,7 +3,6 @@ import { confirmAction, showAppMessage } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
 import { SongExport } from './SongExport';
 import { NotificationSoundSettings } from './NotificationSoundSettings';
-import { SettingsNavigation } from './SettingsNavigation';
 import { AdminAnnouncements } from './AdminAnnouncements';
 import { NotificationScheduleSettings } from './NotificationScheduleSettings';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
@@ -764,7 +763,13 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
         {settingsSection && <button type="button" className="ui-back" onClick={() => { if (selectedMemberId) { setSelectedMemberId(null); setEditingMemberId(null); } else setSettingsSection(null); }}>{selectedMemberId ? '← All accounts' : '← Settings'}</button>}
         <h2 className="text-2xl font-semibold">{selectedMemberId ? 'Member account' : settingsSection ? sectionLabels[settingsSection] : 'Settings'}</h2>
       </header>}
-      {!settingsSection && <SettingsNavigation isAdmin={isAdmin} onSelect={section => { if (section === 'members') setPeopleTab('accounts'); setSettingsSection(section); }} />}
+      {!settingsSection && <nav aria-label="Settings sections" className="divide-y divide-slate-200 dark:divide-slate-800">
+        {['account', 'appearance', ...(isAdmin ? ['members', 'announcements', 'notificationSchedules', 'data'] : [])].map(section => (
+          <button key={section} type="button" className="ui-settings-row" onClick={() => { if (section === 'members') setPeopleTab('accounts'); setSettingsSection(section); }}>
+            <span>{sectionLabels[section]}</span><span aria-hidden="true">›</span>
+          </button>
+        ))}
+      </nav>}
       {isAdmin && settingsSection === 'members' && !selectedMemberId && <div role="tablist" aria-label="People & Accounts sections" className="grid grid-cols-2 gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700 dark:bg-slate-800" onKeyDown={event => {
         if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
@@ -808,7 +813,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             )}
 
-            <div className="settings-profile-summary flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="relative shrink-0">
                 <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full ring-3 ring-white dark:ring-slate-800 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-bold text-xl overflow-hidden shadow-xs">
                   {currentUser.avatar ? (
@@ -844,7 +849,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
 
               <div className="flex-1 space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
                   <h4 className="text-base font-bold text-slate-900 dark:text-white">
                     {currentUser.name || currentUser.username}
                   </h4>
@@ -896,17 +901,31 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
 
         {!isAppearanceCollapsed && (
           <div className="p-4 sm:p-5 pt-0 space-y-4 border-t border-slate-100 dark:border-slate-800">
-            <fieldset className="settings-appearance-options">
-              <legend className="settings-group-heading">Display mode</legend>
-              <div className="settings-segmented-control">
-                {(['light', 'dark'] as const).map(mode => <button key={mode} type="button" aria-pressed={theme === mode}
-                  onClick={() => { if (theme !== mode) onToggleTheme(); }}>
-                  {mode === 'light' ? <Sun aria-hidden="true" className="h-5 w-5" /> : <Moon aria-hidden="true" className="h-5 w-5" />}
-                  <span>{mode === 'light' ? 'Light' : 'Dark'}</span>
-                  {theme === mode && <Check aria-hidden="true" className="h-4 w-4" />}
-                </button>)}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+              <div>
+                <span className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white block">
+                  Display mode
+                </span>
+
               </div>
-            </fieldset>
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
+              >
+                {theme === 'dark' ? (
+                  <>
+                    <Sun className="w-4 h-4 text-amber-500" />
+                    <span>Light Mode</span>
+                  </>
+                ) : (
+                  <>
+                    <Moon className="w-4 h-4 text-slate-700" />
+                    <span>Dark Mode</span>
+                  </>
+                )}
+              </button>
+            </div>
 
             {/* Targeted Cache & Legacy Storage Tool */}
             <div className="space-y-2">

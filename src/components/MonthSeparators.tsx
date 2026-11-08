@@ -41,16 +41,14 @@ export function groupByMonth<T>(items: T[], dateOf: (item: T) => string | undefi
   return [...groups.values()];
 }
 // Keep the list's first-seen month order and card order within each month.
-export function monthList<T>(items: T[], dateOf: (item: T) => string | undefined, noun: [string, string], options: { annual?: boolean; hidden?: boolean; archive?: boolean; revealArchive?: boolean; revealDate?: string; groupClassName?: string } = {}) {
+export function monthList<T>(items: T[], dateOf: (item: T) => string | undefined, noun: [string, string], options: { annual?: boolean; hidden?: boolean; archive?: boolean; revealArchive?: boolean; revealDate?: string } = {}) {
   return { render(renderItem: (item: T) => React.ReactNode): React.ReactNode[] {
     if (options.hidden) return items.map(renderItem);
     const renderMonths = (entries: T[]) => groupByMonth(entries, dateOf, options.annual).flatMap(group => [
       <div key={`month-${group.key}`} className="col-span-full flex items-center gap-3 px-1 pt-3 first:pt-0" role="heading" aria-level={3}>
         <span className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">{group.label}</span>
         <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-      </div>, ...(options.groupClassName
-        ? [<div key={`rows-${group.key}`} className={options.groupClassName}>{group.items.map(renderItem)}</div>]
-        : group.items.map(renderItem)),
+      </div>, ...group.items.map(renderItem),
     ]);
     return options.archive ? yearList(items, dateOf, renderMonths, { reveal: options.revealArchive, revealYear: options.revealDate?.slice(0, 4) }) : renderMonths(items);
   } };
