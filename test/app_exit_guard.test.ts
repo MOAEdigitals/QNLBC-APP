@@ -7,6 +7,7 @@ import * as ReactDOM from 'react-dom';
 import { JSDOM } from 'jsdom';
 import ts from 'typescript';
 import * as backLayers from '../src/hooks/useBackLayer.ts';
+import * as unsavedForms from '../src/utils/unsavedForms.ts';
 const { useBackLayer } = backLayers;
 
 const wait = () => new Promise(resolve => setTimeout(resolve, 45));
@@ -19,7 +20,7 @@ async function fixture(tab: string, native: boolean, run: (get: () => any, back:
   const exports: any = {};
   runInNewContext(ts.transpileModule(readFileSync('src/hooks/useAppExitGuard.ts','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
     exports, window: dom.window, document: dom.window.document, KeyboardEvent: dom.window.KeyboardEvent, setTimeout, clearTimeout,
-    require: (name: string) => name.endsWith('useBackLayer') ? backLayers : name === 'react' ? React : name === '@capacitor/core' ? { Capacitor: { isNativePlatform: () => native } } : { App: { addListener: async (_: string, listener: typeof nativeBack) => { nativeBack = listener; nativeListeners++; return { remove() { nativeListeners--; } }; }, exitApp: async () => { exitCalls++; } } },
+    require: (name: string) => name.endsWith('unsavedForms') ? unsavedForms : name.endsWith('useBackLayer') ? backLayers : name === 'react' ? React : name === '@capacitor/core' ? { Capacitor: { isNativePlatform: () => native } } : { App: { addListener: async (_: string, listener: typeof nativeBack) => { nativeBack = listener; nativeListeners++; return { remove() { nativeListeners--; } }; }, exitApp: async () => { exitCalls++; } } },
   });
   runInNewContext(ts.transpileModule(readFileSync('src/components/ExitConfirmation.tsx','utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document: dom.window.document,
@@ -114,10 +115,10 @@ test('Android keyboard and action menus close before root exit confirmation', as
   });
 });
 
-test('web close/refresh has a browser fallback and a blocked Exit shows a close-tab message', async () => {
+test('ordinary web close/refresh is unblocked and a blocked explicit Exit shows a close-tab message', async () => {
   await fixture('special-numbers', false, async (get, _, dom) => {
     const event = new dom.window.Event('beforeunload', { cancelable: true });
-    dom.window.dispatchEvent(event); assert.equal(event.defaultPrevented, true);
+    dom.window.dispatchEvent(event); assert.equal(event.defaultPrevented, false);
     const originalClose = dom.window.close; dom.window.close = () => {};
     try {
       await act(async () => { dom.window.history.back(); await wait(); });

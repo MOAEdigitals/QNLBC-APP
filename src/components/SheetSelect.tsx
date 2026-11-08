@@ -39,7 +39,7 @@ export function SheetSelect({ children, value, defaultValue, onChange, disabled,
   };
   return <span ref={root} className="ui-sheet-select-root">
     <button {...props as unknown as React.ButtonHTMLAttributes<HTMLButtonElement>} id={id || generatedId} type="button" disabled={disabled} className={`ui-sheet-select ${className}`} aria-haspopup="dialog" aria-expanded={open} aria-required={required || undefined} onClick={show} onKeyDown={event => { if (['ArrowDown', 'ArrowUp'].includes(event.key)) { event.preventDefault(); show(); } }}>
-      <span className="min-w-0 flex-1 truncate">{label}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+      <span className="min-w-0 flex-1 break-words">{label}</span><ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
     </button>
     <input type="text" tabIndex={-1} aria-hidden="true" className="ui-select-validation" name={name} form={form} value={selected} required={required} disabled={disabled} onChange={() => {}} onInvalid={event => { event.preventDefault(); show(); }} />
     <BottomSheet open={open} title={title} onClose={close} onBack={() => query ? setQuery('') : close()}>

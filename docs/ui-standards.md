@@ -16,6 +16,15 @@ Restore point before this refinement: Git tag `restore/qnlbc-before-ios-ui-2026-
 
 ## Existing interaction rules
 
+### Grouped settings and selection, November 8
+
+- Follow [Apple Lists and tables](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables) for succinct grouped rows and disclosure indicators. Personal settings and admin settings are separate groups; admin visibility and existing destinations are unchanged. Raw line icons aid scanning without decorative icon tiles.
+- Appearance exposes explicit Light/Dark choices with a selected checkmark. Tapping the already-selected mode does nothing. Do not add a System option until it is implemented in the actual theme preference model.
+- Notification sound uses a full-row switch with an accessible name and checked state. It preserves the existing account-specific setting and explicit Test sound action. Do not change notification delivery, permissions, volume or read rules during this styling change.
+- Shared select triggers wrap long selected labels instead of truncating them. Keep the date/year-specific sizing rules, native validation bridge, keyboard navigation and top-sheet dismissal.
+- Activities uses a compact month agenda inspired by the user's Organized screenshot: one grouped surface, 18px day numbers, smaller weekdays, inset separators, a small activity marker and 44px action targets. Let long titles/time/status wrap and grow; do not set a fixed row height or clip floating menus. Preserve upcoming/past/special styles, calendar filters, data order, year archives and description/actions behavior. This compact density is scoped to Activities, not forced onto lyrics/setlist detail cards.
+- Browser close/refresh warnings protect edited active forms, not every page visit. Snapshot form fields on opening, including sheet values and rich text; exclude login/search and empty optional controls. Undo, reset and closed/hidden forms stop warning. Never log/persist snapshots. The existing web/native Back/Exit boundary remains independent and an explicitly confirmed Exit bypasses the browser fallback.
+
 - Use `SheetSelect` for selection fields; retain option values, disabled choices and required validation. Native HTML select menus are not part of the app UI.
 - Use `SheetDateField` for date, local date/time and time fields. Its change values retain the existing ISO date and 24-hour time formats.
 - Use `BottomSheet` for pickers and filtered lists on desktop and mobile. Include a handle, title, close action, clear selection states and optional search. Back, Escape and backdrop dismiss the top sheet; keyboard focus returns to the opener.

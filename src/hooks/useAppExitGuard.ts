@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Capacitor } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
 import { dismissTopBackLayer, hasActiveBackLayer, isBackLayerTransitioning } from './useBackLayer';
+import { installUnsavedFormWarning } from '../utils/unsavedForms';
 
 // Schedules is the landing/root screen; the route named "home" is Setlists.
 export const EXIT_HOME_TAB = 'special-numbers';
@@ -58,16 +59,14 @@ export function useAppExitGuard(tab: string, onHome: () => void) {
     };
     window.addEventListener('pointerdown', activate, true);
     window.addEventListener('keydown', activate, true);
-    const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (latest.current.exiting || Capacitor.isNativePlatform()) return;
-      event.preventDefault(); event.returnValue = '';
-    };
-    window.addEventListener('beforeunload', beforeUnload);
+    const stopUnsavedWarning = !Capacitor.isNativePlatform()
+      ? installUnsavedFormWarning(window, document, () => latest.current.exiting)
+      : () => {};
     return () => {
       window.removeEventListener('popstate', onPop, true);
       window.removeEventListener('pointerdown', activate, true);
       window.removeEventListener('keydown', activate, true);
-      window.removeEventListener('beforeunload', beforeUnload);
+      stopUnsavedWarning();
       if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
     };
   }, [ask, cancel, goHome]);
