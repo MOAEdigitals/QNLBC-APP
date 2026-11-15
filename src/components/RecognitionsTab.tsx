@@ -336,7 +336,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           style={celebrationConfetti(item.id)}
                           data-birthday-celebrant={isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
-                          className={`birthday-card relative flex min-h-[50px] items-center justify-between gap-2 px-2.5 py-[3px] first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:ml-[72px] after:border-t after:border-slate-200 dark:after:border-slate-800' : ''} ${birthdayMenuId === item.id ? 'z-30' : ''}`}
+                          className={`birthday-card relative flex min-h-[50px] items-center justify-between gap-2 px-2.5 py-[3px] first:rounded-t-[20px] last:rounded-b-[20px] ${birthdayMenuId === item.id ? 'z-30' : ''}`}
                         >
                           <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 self-stretch">
                             <div className="-mr-0.5 mt-3.5 flex w-8 shrink-0 flex-col items-center self-start" aria-label={item.birthDate.slice(5)}>
@@ -357,6 +357,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             </div>
                           </div>
 
+                          {index > 0 && <span aria-hidden="true" className="birthday-row-separator pointer-events-none absolute inset-x-0 top-0 z-10 ml-[72px] h-px bg-slate-200 dark:bg-slate-800" />}
                           <div data-birthday-actions={item.id} className="relative shrink-0">
                             <button
                               type="button"

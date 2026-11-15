@@ -112,13 +112,13 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
   opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }
-.birthday-card[data-birthday-celebrant]::after,
-.birthday-card[data-birthday-celebrant] + .birthday-card::after {
-  border-color: #94a3b8;
+.birthday-card[data-birthday-celebrant] + .birthday-card[data-birthday-celebrant] > .birthday-row-separator {
+  margin-left: 0;
+  height: 2px;
+  background-color: #64748b;
 }
-.dark .birthday-card[data-birthday-celebrant]::after,
-.dark .birthday-card[data-birthday-celebrant] + .birthday-card::after {
-  border-color: #64748b;
+.dark .birthday-card[data-birthday-celebrant] + .birthday-card[data-birthday-celebrant] > .birthday-row-separator {
+  background-color: #94a3b8;
 }
 /* Fade content only: opacity on a card also fades its floating actions and menu. */
 .qnlbc-app .birthday-card[data-past] > :first-child,
