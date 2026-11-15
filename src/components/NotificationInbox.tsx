@@ -19,24 +19,51 @@ const categories = {
   recognition: { label: 'Recognition', Icon: Bell },
 };
 
-function notificationBody(item: AssignmentNotification, now: Date) {
-  if (item.kind === 'announcement') return item.body;
+function notificationCopy(item: AssignmentNotification, now: Date) {
+  if (item.kind === 'announcement') return { title: item.title, body: item.body };
   const body = item.body
     .replace(/(?:^|(?<=[.!?\n]))\s*(?:tap|touch|click)(?: here)? to (?:view|see|open|check)(?: (?:the|your|this))? set\s*list[.!]?\s*$/i, '')
     .trim();
-  if (item.setlist_id && item.service_date && /^(?:Reminder:\s*)?You are (?:assigned|no longer assigned) as .+ for .+\.$/i.test(body)) {
-    const serviceDate = new Date(`${item.service_date}T12:00:00+08:00`);
-    if (!Number.isNaN(serviceDate.getTime())) {
-      return item.service_date === manilaDate.format(now) ? 'Today' : serviceDateLabel.format(serviceDate);
-    }
+  const serviceDate = new Date(`${item.service_date}T12:00:00+08:00`);
+  const date = Number.isNaN(serviceDate.getTime()) ? '' : serviceDateLabel.format(serviceDate);
+  const today = item.service_date === manilaDate.format(now);
+  const tomorrow = item.service_date === manilaDate.format(now.getTime() + 86_400_000);
+  const suffix = date ? ` on ${date}` : '';
+  const role = /^(?:New assignment|Assignment updated|Assignment removed|Assignment reminder):\s*(.+)$/i.exec(item.title)?.[1];
+  if (role) {
+    if (item.kind === 'assigned') return { title: 'You’re on the setlist!', body: `You’re assigned as ${role}${suffix}.` };
+    if (item.kind === 'updated') return { title: 'Your service date changed', body: `You’re still on the setlist as ${role}${date ? ` for ${date}` : ''}.` };
+    if (item.kind === 'removed') return { title: 'Your assignment was removed', body: `You’re off the setlist${date ? ` for ${date}` : ''}.` };
+    if (item.kind === 'practice') return { title: tomorrow ? 'You’re on tomorrow’s setlist!' : 'Setlist reminder', body: `You’re assigned as ${role}${tomorrow ? '' : suffix}.` };
   }
-  if (item.service_date !== manilaDate.format(now)) return body;
-  return body.replace(/\btomorrow(?:,\s+\w+\s+\d{1,2}(?:,\s*\d{4})?)?/i, 'today').replace(/\bon\s+(?:(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\w*,?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}(?:,\s*\d{4})?\b/gi, 'today');
+  const name = /^(?:Service reminder|Event reminder|Birthday reminder|Birthday today|Anniversary reminder|Recognition reminder):\s*(.+)$/i.exec(item.title)?.[1];
+  if (!name) return { title: item.title, body };
+  if (item.kind === 'event') {
+    const time = /\bat (\d{1,2}:\d{2}\s*[AP]M)\.?$/i.exec(body)?.[1];
+    const prayer = /prayer\s*meeting|midweek\s*prayer/i.test(name);
+    return {
+      title: today ? `${name} is today!` : tomorrow ? `${name} is tomorrow!` : name,
+      body: today || tomorrow
+        ? prayer ? `Let’s pray together${time ? ` at ${time}` : ''}.` : `See you${time ? ` at ${time}` : ' there'}!`
+        : [date, time].filter(Boolean).join(' · '),
+    };
+  }
+  if (item.kind === 'birthday') return { title: today ? `It’s ${name}’s birthday today! 🎉` : `${name}’s birthday 🎉`, body: today ? 'Let’s greet them a happy birthday!' : date };
+  if (item.kind === 'anniversary') {
+    const wedding = /—\s*Wedding anniversary\b/i.test(body);
+    const title = wedding && !/wedding anniversary/i.test(name) ? `${name}’s wedding anniversary` : name;
+    return { title: today ? `Today we celebrate ${title}!` : title, body: today ? wedding ? 'Happy wedding anniversary!' : 'Let’s give thanks together!' : date };
+  }
+  if (item.kind === 'recognition') {
+    const achievement = /\s—\s(.+) on .+\.$/.exec(body)?.[1];
+    return { title: `Congratulations, ${name}!`, body: achievement ? `Let’s celebrate ${achievement}!` : 'Let’s celebrate together!' };
+  }
+  return { title: item.title, body };
 }
 
-function notificationPreview(item: AssignmentNotification, now: Date) {
-  const body = notificationBody(item, now).replace(/\s+/g, ' ').trim();
-  if (body.toLowerCase() === item.title.trim().toLowerCase()) return '';
+function notificationPreview(copy: { title: string; body: string }) {
+  const body = copy.body.replace(/\s+/g, ' ').trim();
+  if (body.toLowerCase() === copy.title.trim().toLowerCase()) return '';
   const characters = Array.from(body);
   if (characters.length <= 110) return body;
   const excerpt = characters.slice(0, 110).join('');
@@ -47,6 +74,7 @@ function notificationPreview(item: AssignmentNotification, now: Date) {
 export function NotificationInbox({ items, unreadCount, loading, error, pushStatus, onMarkRead, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
   const now = new Date();
   const [detail, setDetail] = useState<AssignmentNotification | null>(null);
+  const detailCopy = detail && notificationCopy(detail, now);
   const [opening, setOpening] = useState<string | null>(null);
   const [readError, setReadError] = useState('');
   const [hidden, setHidden] = useState<string[]>([]);
@@ -106,14 +134,14 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
   return <div role="dialog" aria-modal="true" aria-labelledby="notifications-title" className="ui-viewport-screen fixed inset-0 z-[190] bg-white dark:bg-slate-950 flex flex-col" style={{ paddingTop: 'var(--app-safe-top)', paddingBottom: 'var(--app-safe-bottom)' }}>
     <header className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 p-4">
       <button type="button" aria-label={detail ? 'Back to notifications' : 'Close notifications'} className="grid h-11 w-11 shrink-0 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => detail ? setDetail(null) : onClose()}><ArrowLeft className="h-5 w-5" /></button>
-      <h2 id="notifications-title" className="min-w-0 flex-1 truncate text-xl font-bold">{detail ? detail.title : 'Notifications'}</h2>
+      <h2 id="notifications-title" className="min-w-0 flex-1 truncate text-xl font-bold">{detailCopy?.title ?? 'Notifications'}</h2>
       {!detail && <div className="flex">
         <div className="relative" ref={menu}><button type="button" aria-label="Notification options" aria-haspopup="menu" aria-expanded={menuOpen} className="h-11 w-11 grid place-items-center" onClick={() => setMenuOpen(value => !value)}><MoreHorizontal className="h-5 w-5" /></button>
           {menuOpen && <div role="menu" aria-label="Notification options" className="absolute right-0 top-full z-10 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"><button type="button" role="menuitem" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" disabled={!unreadCount || !!opening || markingAll} onClick={() => void markAll()}><CheckCheck className="h-4 w-4" />Mark all as read</button><button type="button" role="menuitem" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800" disabled={loading} onClick={() => { setMenuOpen(false); void onRefresh(); }}><RefreshCw className="h-4 w-4" />Refresh</button></div>}
         </div>
       </div>}
     </header>
-    {detail ? <article className="mx-auto w-full max-w-xl flex-1 overflow-y-auto whitespace-pre-wrap break-words p-5">{notificationBody(detail, now)}</article> : <div className="mx-auto w-full max-w-xl flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+    {detailCopy ? <article className="mx-auto w-full max-w-xl flex-1 overflow-y-auto whitespace-pre-wrap break-words p-5">{detailCopy.body}</article> : <div className="mx-auto w-full max-w-xl flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
 
       {!!deleted.length && <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 px-3 text-sm shadow-sm"><span role="status">{deleted.length === 1 ? 'Notification cleared.' : `${deleted.length} notifications cleared.`}</span><button type="button" className="min-h-11 px-3 font-semibold text-blue-700 dark:text-blue-300" disabled={!!opening || markingAll} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">
@@ -133,8 +161,9 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
             </div>
             {group.map(item => {
               const { label: category, Icon } = categories[item.kind] ?? categories.recognition;
-              const preview = notificationPreview(item, now);
-              return <SwipeNotification key={item.id} disabled={!!opening || markingAll} label={item.title} onDelete={() => void remove([item.id])} onOpen={() => void open(item)} unread={!item.read_at}>
+              const copy = notificationCopy(item, now);
+              const preview = notificationPreview(copy);
+              return <SwipeNotification key={item.id} disabled={!!opening || markingAll} label={copy.title} onDelete={() => void remove([item.id])} onOpen={() => void open(item)} unread={!item.read_at}>
                 <span className="flex items-center gap-2 border-b border-slate-900/5 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300">
                   <span className="grid size-5 shrink-0 place-items-center rounded-md bg-blue-600 text-white"><Icon className="size-3.5" aria-hidden="true" /></span>
                   <span className="flex-1 font-medium">{category}</span>
@@ -142,7 +171,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
                 </span>
                 <span className="relative block py-2.5 pl-7 pr-12">
                   {!item.read_at && <><span aria-hidden="true" className="absolute left-3 top-4 size-2 rounded-full bg-blue-500" /><span className="sr-only">Unread: </span></>}
-                  <span className="block break-words text-sm font-semibold">{item.title}</span>
+                  <span className="block break-words text-sm font-semibold">{copy.title}</span>
                   {preview && <span className="mt-0.5 line-clamp-2 break-words text-sm text-slate-600 dark:text-slate-300">{preview}</span>}
                 </span>
               </SwipeNotification>;
