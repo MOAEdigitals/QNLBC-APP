@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Bell, CalendarDays, Cake, ClipboardList, Heart, Megaphone, Music2, RefreshCw, Trash2, MoreHorizontal, CheckCheck, X } from 'lucide-react';
+import { ArrowLeft, Award, Bell, Calendar, CalendarDays, Cake, Heart, Megaphone, Play, RefreshCw, Trash2, MoreHorizontal, CheckCheck, X } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { dismissNotification, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
 interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onMarkRead: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void; onClose: () => void }
@@ -8,16 +8,16 @@ const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', h
 const manilaShortDate = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long', month: 'short', day: 'numeric' });
 const serviceDateLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 const categories = {
-  assigned: { label: 'Setlist', Icon: ClipboardList },
-  updated: { label: 'Setlist', Icon: ClipboardList },
-  removed: { label: 'Setlist', Icon: ClipboardList },
-  practice: { label: 'Practice', Icon: Music2 },
-  backup_setlist: { label: 'Setlist', Icon: ClipboardList },
+  assigned: { label: 'Setlist', Icon: CalendarDays },
+  updated: { label: 'Setlist', Icon: CalendarDays },
+  removed: { label: 'Setlist', Icon: CalendarDays },
+  practice: { label: 'Practice', Icon: Play },
+  backup_setlist: { label: 'Setlist', Icon: CalendarDays },
   announcement: { label: 'Announcement', Icon: Megaphone },
   birthday: { label: 'Birthday', Icon: Cake },
-  event: { label: 'Schedule', Icon: CalendarDays },
+  event: { label: 'Schedule', Icon: Calendar },
   anniversary: { label: 'Anniversary', Icon: Heart },
-  recognition: { label: 'Recognition', Icon: Bell },
+  recognition: { label: 'Recognition', Icon: Award },
 };
 
 function notificationCopy(item: AssignmentNotification, now: Date) {
@@ -49,7 +49,7 @@ function notificationCopy(item: AssignmentNotification, now: Date) {
         : [date, time].filter(Boolean).join(' · '),
     };
   }
-  if (item.kind === 'birthday') return { title: today ? `It’s ${name}’s birthday today! 🎉` : `${name}’s birthday 🎉`, body: today ? 'Let’s greet them a happy birthday!' : date };
+  if (item.kind === 'birthday') return { title: today ? `It’s ${name}’s birthday today!` : `${name}’s birthday`, body: today ? 'Let’s greet them a happy birthday!' : date };
   if (item.kind === 'anniversary') {
     const wedding = /—\s*Wedding anniversary\b/i.test(body);
     const title = wedding && !/wedding anniversary/i.test(name) ? `${name}’s wedding anniversary` : name;
