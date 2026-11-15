@@ -6,6 +6,7 @@ interface Props { items: AssignmentNotification[]; unreadCount: number; loading:
 const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
 const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' });
 const manilaShortDate = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long', month: 'short', day: 'numeric' });
+const serviceDateLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 const categories = {
   assigned: { label: 'Setlist', Icon: ClipboardList },
   updated: { label: 'Setlist', Icon: ClipboardList },
@@ -20,9 +21,27 @@ const categories = {
 
 function notificationBody(item: AssignmentNotification, now: Date) {
   if (item.kind === 'announcement') return item.body;
-  const body = item.body.replace(/\s+Tap to view the setlist\.$/i, '');
+  const body = item.body
+    .replace(/(?:^|(?<=[.!?\n]))\s*(?:tap|touch|click)(?: here)? to (?:view|see|open|check)(?: (?:the|your|this))? set\s*list[.!]?\s*$/i, '')
+    .trim();
+  if (item.setlist_id && item.service_date && /^(?:Reminder:\s*)?You are (?:assigned|no longer assigned) as .+ for .+\.$/i.test(body)) {
+    const serviceDate = new Date(`${item.service_date}T12:00:00+08:00`);
+    if (!Number.isNaN(serviceDate.getTime())) {
+      return item.service_date === manilaDate.format(now) ? 'Today' : serviceDateLabel.format(serviceDate);
+    }
+  }
   if (item.service_date !== manilaDate.format(now)) return body;
   return body.replace(/\btomorrow(?:,\s+\w+\s+\d{1,2}(?:,\s*\d{4})?)?/i, 'today').replace(/\bon\s+(?:(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\w*,?\s+)?(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}(?:,\s*\d{4})?\b/gi, 'today');
+}
+
+function notificationPreview(item: AssignmentNotification, now: Date) {
+  const body = notificationBody(item, now).replace(/\s+/g, ' ').trim();
+  if (body.toLowerCase() === item.title.trim().toLowerCase()) return '';
+  const characters = Array.from(body);
+  if (characters.length <= 110) return body;
+  const excerpt = characters.slice(0, 110).join('');
+  const boundary = excerpt.lastIndexOf(' ');
+  return `${boundary > 80 ? excerpt.slice(0, boundary) : excerpt}…`;
 }
 
 export function NotificationInbox({ items, unreadCount, loading, error, pushStatus, onMarkRead, onEnable, onRefresh, onOpen, onCalendar, onClose }: Props) {
@@ -114,6 +133,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
             </div>
             {group.map(item => {
               const { label: category, Icon } = categories[item.kind] ?? categories.recognition;
+              const preview = notificationPreview(item, now);
               return <SwipeNotification key={item.id} disabled={!!opening || markingAll} label={item.title} onDelete={() => void remove([item.id])} onOpen={() => void open(item)} unread={!item.read_at}>
                 <span className="flex items-center gap-2 border-b border-slate-900/5 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300">
                   <span className="grid size-5 shrink-0 place-items-center rounded-md bg-blue-600 text-white"><Icon className="size-3.5" aria-hidden="true" /></span>
@@ -123,7 +143,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
                 <span className="relative block py-2.5 pl-7 pr-12">
                   {!item.read_at && <><span aria-hidden="true" className="absolute left-3 top-4 size-2 rounded-full bg-blue-500" /><span className="sr-only">Unread: </span></>}
                   <span className="block break-words text-sm font-semibold">{item.title}</span>
-                  <span className="mt-0.5 line-clamp-2 break-words text-sm text-slate-600 dark:text-slate-300">{notificationBody(item, now)}</span>
+                  {preview && <span className="mt-0.5 line-clamp-2 break-words text-sm text-slate-600 dark:text-slate-300">{preview}</span>}
                 </span>
               </SwipeNotification>;
             })}

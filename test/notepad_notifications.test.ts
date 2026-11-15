@@ -122,7 +122,7 @@ test('notification panel marks a tapped card or all cards read without deleting 
   const read: any[] = []; let opened = '';
   await fixture('src/components/NotificationInbox.tsx', { createNotificationReadTimer: () => { throw Error('Opening the inbox must not start automatic read timers'); } }, async (exports, root, dom) => {
     await act(async () => root.render(React.createElement(exports.NotificationInbox, {
-      items: [{ id: 'one', title: 'Sunday Service', body: 'Today', kind: 'event', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
+      items: [{ id: 'one', title: 'Sunday Service', body: 'Service starts at 10 AM. Touch to see setlist.', kind: 'event', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
       unreadCount: 1, loading: false, error: '', pushStatus: 'web', onMarkRead: async (ids?: string[]) => { read.push(ids); },
       onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onCalendar: (kind: string) => { opened = kind; }, onClose() {},
     })));
@@ -130,6 +130,8 @@ test('notification panel marks a tapped card or all cards read without deleting 
     await act(() => document.dispatchEvent(new dom.window.Event('visibilitychange')));
     assert.equal(read.length, 0, 'returning to the panel also preserves unread notifications');
     assert.match(document.querySelector('#root')!.textContent!, /Unread:/);
+    assert.match(document.querySelector('#root')!.textContent!, /Service starts at 10 AM\./);
+    assert.doesNotMatch(document.querySelector('#root')!.textContent!, /Touch to see setlist/);
     await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Sunday Service'))!.click());
     assert.deepEqual(Array.from(read[0]), ['one']); assert.equal(opened, 'event');
     assert.equal(document.querySelector('[role="menu"]'), null, 'bulk action is hidden in the header menu');
