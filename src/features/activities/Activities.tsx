@@ -302,7 +302,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
             const firstOfDay = group.items[index - 1]?.activityDate !== item.activityDate;
             return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!past && !isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:ml-[72px] before:border-t before:border-slate-200 dark:before:border-slate-800' : ''} ${item.activityDate === today ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${openMenu === item.id ? 'z-30' : ''}`}>
             <div data-activity-card-header className="flex min-h-[50px] items-center gap-2.5 px-2.5 py-[3px]">
-              <div className="-mr-0.5 mt-3.5 flex w-8 shrink-0 flex-col items-center self-start" aria-label={item.activityDate}>
+              <div className="-mr-0.5 flex w-8 shrink-0 flex-col items-center justify-center self-stretch" aria-label={item.activityDate}>
                 {firstOfDay && <><span className="text-lg leading-none font-semibold tabular-nums">{date.getDate()}</span><span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></>}
               </div>
               <span aria-hidden="true" className={`h-[22px] w-[3px] shrink-0 rounded-full ${isRoutineActivity(item.title) ? 'bg-blue-500' : 'bg-amber-500'}`} />

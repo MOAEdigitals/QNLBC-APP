@@ -38,7 +38,15 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   try {
     await act(async () => { root.render(React.createElement(Harness)); });
     const cards = () => [...document.querySelectorAll('article[id^="activity-card-"]')].map(element => element.querySelector('h4')!.textContent);
+    const visibleDateLabels = () => [...document.querySelectorAll(`article [aria-label="${day}"]`)].map(element => element.textContent);
+    const checkFirstDateLabel = () => {
+      const labels = visibleDateLabels();
+      assert.equal(labels.length, cards().length);
+      assert.ok(labels[0]?.startsWith(String(now.getDate())));
+      assert.ok(labels.slice(1).every(text => text === ''));
+    };
     assert.equal(cards().length, 3);
+    checkFirstDateLabel();
     assert.ok(!cards().includes('Song Leaders & Choir Practice'));
     await act(() => (document.querySelector('[aria-label="Filter activities"]') as HTMLButtonElement).click());
     assert.equal(document.querySelector('[aria-label="Filter activities"]')!.getAttribute('aria-expanded'), 'true');
@@ -65,6 +73,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.equal(cards().length, 4, 'practice can still be enabled manually');
     await act(() => checkbox('Prayer meetings').click());
     assert.ok(!cards().includes('Midweek Prayer Meeting'));
+    checkFirstDateLabel();
     assert.ok(document.querySelector(`[aria-label="${day}, 3 activities"]`));
     await act(() => checkbox('Choir & song leader practice').click());
     assert.ok(!cards().includes('Song Leaders & Choir Practice'));
