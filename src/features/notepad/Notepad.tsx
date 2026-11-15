@@ -1,8 +1,8 @@
 import { confirmAction } from '../../services/appDialogs';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Plus, Search, X, Trash2, RotateCcw, NotebookPen } from 'lucide-react';
+import { ArrowLeft, Plus, Search, X, Trash2, RotateCcw } from 'lucide-react';
 import { useBackLayer } from '../../hooks/useBackLayer';
-import { loadNotes, saveNote, setNoteDeleted, type PersonalNote } from './data';
+import { loadNotes, purgeNotes, saveNote, setNoteDeleted, type PersonalNote } from './data';
 const button = 'min-h-11 min-w-11 rounded-xl px-3 flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50';
 interface Editor { id: string; title: string; body: string; original?: PersonalNote }
 export default function Notepad({ userId, onClose }: { userId: string; onClose: () => void }) {
@@ -34,6 +34,13 @@ export default function Notepad({ userId, onClose }: { userId: string; onClose: 
   }
   function closeSearch() { searchInput.current?.blur(); setQuery(''); setSearchOpen(false); }
   useBackLayer(true, () => { if (!lock.current) onClose(); });
+  function closeTrash() {
+    if (lock.current) return;
+    closeSearch();
+    setTrash(false);
+    setError('');
+  }
+  useBackLayer(trash, closeTrash);
   useBackLayer(!!editor, closeEditor);
   useBackLayer(!editor && (searchOpen || !!query), closeSearch);
   const update = (note: PersonalNote) => setNotes(rows => [note, ...rows.filter(row => row.id !== note.id)].sort((a, b) => b.updated_at.localeCompare(a.updated_at)));
@@ -51,9 +58,26 @@ export default function Notepad({ userId, onClose }: { userId: string; onClose: 
     catch (e) { if (live.current) setError((e as Error).message); }
     finally { lock.current = false; if (live.current) setBusy(false); }
   }
+  async function permanentlyDelete(note?: PersonalNote) {
+    if (lock.current) return;
+    const message = note ? 'Permanently delete this note?' : 'Permanently delete all notes in Trash?';
+    if (!(await confirmAction(message)) || lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      const remaining = await purgeNotes(userId, note);
+      if (live.current) setNotes(remaining);
+    } catch (e) {
+      if (live.current) setError((e as Error).message);
+    } finally {
+      lock.current = false;
+      if (live.current) setBusy(false);
+    }
+  }
   const visible = notes.filter(note => !!note.deleted_at === trash && `${note.title}\n${note.body}`.toLowerCase().includes(query.trim().toLowerCase()));
   return <section role="dialog" aria-modal="true" aria-label="Notepad" data-no-swipe className="ui-viewport-screen fixed inset-0 z-[180] flex flex-col bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100" onKeyDown={e => {
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (editor) closeEditor(); else if (searchOpen || query) closeSearch(); else if (!lock.current) onClose(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (editor) closeEditor(); else if (searchOpen || query) closeSearch(); else if (trash) closeTrash(); else if (!lock.current) onClose(); }
     if (e.key === 'Tab') {
       const controls = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input, textarea')).filter(x => x.offsetParent !== null);
       const first = controls[0], last = controls.at(-1);
@@ -62,11 +86,11 @@ export default function Notepad({ userId, onClose }: { userId: string; onClose: 
     }
   }}>
     <header className="shrink-0 border-b border-slate-200 dark:border-slate-800 pt-[var(--app-safe-top)]"><div className="max-w-4xl mx-auto flex items-center gap-2 px-3 py-2">
-      <button ref={closeButton} className={button} aria-label={editor ? 'Back to notes' : 'Close notepad'} disabled={busy} onClick={() => editor ? closeEditor() : onClose()}><ArrowLeft className="w-5 h-5" /></button>
+      <button ref={closeButton} className={button} aria-label={editor || trash ? 'Back to notes' : 'Close notepad'} disabled={busy} onClick={() => editor ? closeEditor() : trash ? closeTrash() : onClose()}><ArrowLeft className="w-5 h-5" /></button>
       <h2 className="text-lg font-semibold flex-1">{editor ? 'Edit note' : trash ? 'Recently deleted' : 'Notepad'}</h2>
       {editor ? <><button className={button} disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>{editor.original && <button className={button} aria-label="Delete note" disabled={busy} onClick={() => void removeOrRestore(editor.original!, true)}><Trash2 className="w-5 h-5" /></button>}</> : <>
         <button className={button} aria-label="Search notes" onClick={() => { setSearchOpen(true); requestAnimationFrame(() => searchInput.current?.focus()); }}><Search className="w-5 h-5" /></button>
-        <button className={button} aria-label={trash ? 'Show notes' : 'Recently deleted'} onClick={() => { closeSearch(); setTrash(value => !value); }}><NotebookPen className="w-5 h-5" /></button>
+        {trash ? notes.some(note => note.deleted_at) && <button className={button + ' text-rose-600 dark:text-rose-400'} disabled={busy} onClick={() => void permanentlyDelete()}>Delete all</button> : <button className={button} aria-label="Recently deleted" onClick={() => { closeSearch(); setTrash(true); }}><Trash2 className="w-5 h-5" /></button>}
       </>}
     </div></header>
     {error && <p role="alert" className="max-w-4xl mx-auto w-full p-3 text-sm text-rose-600">{error}{!editor && <button className="ml-3 underline" onClick={() => void refresh()}>Retry</button>}</p>}
@@ -75,10 +99,11 @@ export default function Notepad({ userId, onClose }: { userId: string; onClose: 
       <textarea aria-label="Note text" maxLength={200000} disabled={busy} value={editor.body} onChange={e => setEditor(previous => previous ? { ...previous, body: e.target.value } : previous)} placeholder="Write your note…" className="flex-1 min-h-0 w-full resize-none bg-transparent text-lg leading-relaxed outline-none pb-6" />
     </div> : <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-28"><div className="max-w-4xl mx-auto">
       {searchOpen && <div className="flex items-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 px-3 my-3"><input ref={searchInput} type="search" aria-label="Find notes" value={query} onChange={e => setQuery(e.target.value)} className="flex-1 min-w-0 bg-transparent min-h-11 outline-none" placeholder="Search notes" /><button className={button} aria-label="Close note search" onClick={closeSearch}><X className="w-4 h-4" /></button></div>}
+      {trash && notes.some(note => note.deleted_at) && <p className="pt-3 text-sm text-slate-500 dark:text-slate-400">Notes are permanently deleted after 30 days.</p>}
       {loading && <p role="status" className="py-4 text-sm text-slate-500">Loading notes…</p>}
       {!loading && !visible.length && <p className="py-12 text-center text-slate-500">{query ? 'No matching notes.' : trash ? 'No deleted notes.' : 'No notes yet.'}</p>}
       <div className="grid gap-3 sm:grid-cols-2 py-3">{visible.map(note => <article key={note.id} className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
-        {trash ? <><h3 className="font-semibold break-words">{note.title}</h3><p className="whitespace-pre-wrap line-clamp-3 text-sm mt-2">{note.body}</p><button className={`${button} mt-2`} disabled={busy} onClick={() => void removeOrRestore(note, false)}><RotateCcw className="w-4 h-4" />Restore</button></> : <button className="w-full text-left" onClick={() => { setError(''); setEditor({ id: note.id, title: note.title, body: note.body, original: note }); }}><h3 className="font-semibold break-words">{note.title}</h3><p className="whitespace-pre-wrap line-clamp-4 text-sm mt-2 text-slate-500 dark:text-slate-400 break-words">{note.body}</p></button>}
+        {trash ? <><h3 className="font-semibold break-words">{note.title}</h3><p className="whitespace-pre-wrap line-clamp-3 text-sm mt-2">{note.body}</p><div className="mt-2 flex flex-wrap gap-2"><button className={button} disabled={busy} onClick={() => void removeOrRestore(note, false)}><RotateCcw className="w-4 h-4" />Restore</button><button className={button + ' text-rose-600 dark:text-rose-400'} disabled={busy} onClick={() => void permanentlyDelete(note)}><Trash2 className="w-4 h-4" />Delete</button></div></> : <button className="w-full text-left" onClick={() => { setError(''); setEditor({ id: note.id, title: note.title, body: note.body, original: note }); }}><h3 className="font-semibold break-words">{note.title}</h3><p className="whitespace-pre-wrap line-clamp-4 text-sm mt-2 text-slate-500 dark:text-slate-400 break-words">{note.body}</p></button>}
       </article>)}</div>
     </div></div>}
     {!editor && !trash && <button aria-label="Add note" onClick={() => { setError(''); setEditor({ id: crypto.randomUUID(), title: '', body: '' }); }} className="absolute right-4 bottom-[calc(1.5rem+var(--app-safe-bottom))] w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg"><Plus className="w-6 h-6" /></button>}

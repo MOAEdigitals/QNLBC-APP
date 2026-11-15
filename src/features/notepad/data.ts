@@ -38,3 +38,11 @@ export async function setNoteDeleted(note: PersonalNote, deleted: boolean): Prom
   if (error || !data) throw new Error('The note could not be updated. Refresh and try again.');
   return data;
 }
+
+export async function purgeNotes(userId: string, note?: PersonalNote): Promise<PersonalNote[]> {
+  const base = supabase.from('personal_notes').delete().eq('user_id', userId).not('deleted_at', 'is', null);
+  const query = note ? base.eq('id', note.id).eq('revision', note.revision) : base;
+  const { error } = await query;
+  if (error) throw new Error('Unable to delete notes. Please try again.');
+  return loadNotes(userId);
+}
