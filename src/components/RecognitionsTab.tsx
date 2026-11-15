@@ -259,7 +259,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
       {/* The selected section expands to show its label; the others remain one-tap icons. */}
-      <div className="recognition-tabs flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      <div className={`recognition-tabs flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 ${subTab === 'birthdays' ? 'mx-auto w-full max-w-[640px]' : ''}`}>
         {/* Birthdays */}
         <button
           type="button"
@@ -313,7 +313,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
       {/* SUBTAB 1: BIRTHDAYS */}
       {subTab === 'birthdays' && (
-        <div className="space-y-6">
+        <div className="mx-auto w-full max-w-[640px] space-y-6">
           {/* Celebrants Section - Directly below search bar */}
           <div className="space-y-3">
             {filteredBirthdays.length === 0 ? (
@@ -325,24 +325,27 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             ) : (
               <div className="space-y-6">
                 {birthdayMonths.map(({ key, month, items }) => (
-                  <section key={key} aria-labelledby={`birthday-month-${key}`} className="space-y-3">
-                    <div className="flex items-center gap-3 px-1">
-                      <h3 id={`birthday-month-${key}`} className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">
-                        {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
-                      </h3>
-                      <div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {items.map((item) => (
+                  <section key={key} aria-labelledby={`birthday-month-${key}`} className="space-y-2">
+                    <h3 id={`birthday-month-${key}`} className="px-1 text-base font-bold">
+                      {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
+                    </h3>
+                    <div className="rounded-[20px] bg-white dark:bg-slate-900">
+                      {items.map((item, index) => (
                         <div
                           key={item.id}
                           style={celebrationConfetti(item.id)}
                           data-birthday-celebrant={isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
-                          className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                          className={`birthday-card relative flex min-h-[50px] items-center justify-between gap-2 px-2.5 py-[3px] first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:ml-[72px] after:border-t after:border-slate-200 dark:after:border-slate-800' : ''} ${birthdayMenuId === item.id ? 'z-30' : ''}`}
                         >
-                          <div className="flex min-w-0 flex-1 items-center space-x-3">
-                            <CardDate date={`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`} />
+                          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                            <div className="flex w-8 shrink-0 flex-col items-center leading-none" aria-label={item.birthDate.slice(5)}>
+                              {items[index - 1]?.birthDate.slice(5) !== item.birthDate.slice(5) && <>
+                                <span className="text-lg font-bold tabular-nums">{Number(item.birthDate.slice(8))}</span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400">{parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                              </>}
+                            </div>
+                            <span aria-hidden="true" className="h-[22px] w-[3px] shrink-0 rounded-full bg-rose-500" />
                             <div className="min-w-0 flex-1">
                               <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="app-card-title flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
                                 <span className="truncate">
@@ -361,7 +364,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                               aria-haspopup="menu"
                               aria-expanded={birthdayMenuId === item.id}
                               onClick={() => setBirthdayMenuId(birthdayMenuId === item.id ? null : item.id)}
-                              className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"
+                              className="grid size-11 place-items-center rounded-xl text-slate-500 hover:text-indigo-600 cursor-pointer"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </button>

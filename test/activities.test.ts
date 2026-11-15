@@ -18,12 +18,12 @@ test('activities show a month calendar with one dot per activity date occurrence
   assert.match(source, /activity-card-\$\{first\.id\}/);
   assert.doesNotMatch(source, /onClick=\{\(\) => canAdd && openNew\(key\)\}/);
   assert.match(source, /setSelectedDate\(date\)/);
-  assert.match(source, /isSelected \? 'bg-indigo-100/);
+  assert.match(source, /isSelected \? 'bg-blue-600/);
 });
 
 test('activities use compact month-grouped cards and a minimal editor', () => {
   assert.match(source, /groupActivityMonths\(filteredItems, today\)/);
-  assert.match(source, /const color = 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'/);
+  assert.match(source, /firstOfDay = group\.items\[index - 1\]\?\.activityDate !== item\.activityDate/);
   assert.doesNotMatch(source, /monthColors\[/);
   assert.match(source, />Title<input required/);
   assert.match(source, />Date<SheetDateField required/);

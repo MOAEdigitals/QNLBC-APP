@@ -8,7 +8,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 test('Schedules keeps every subtab one tap away and labels only the selected item on mobile', () => {
   const source = read('src/components/SpecialNumberTab.tsx');
   const styles = read('src/index.css');
-  assert.match(source, /aria-label="Schedules sections" className="flex gap-1\.5/);
+  assert.match(source, /aria-label="Schedules sections" className=\{`flex gap-1\.5/);
   assert.match(source, /activeSubTab === 'schedules' \? 'flex-1' : 'w-11 shrink-0'/);
   assert.match(source, /activeSubTab === 'practice' \? 'flex-1' : 'w-11 shrink-0'/);
   assert.match(source, /activeSubTab === 'activities' \? 'inline' : 'hidden'/);
