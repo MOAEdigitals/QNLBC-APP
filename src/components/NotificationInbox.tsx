@@ -12,6 +12,7 @@ const categories = {
   updated: { label: 'Setlist', Icon: ClipboardList },
   removed: { label: 'Setlist', Icon: ClipboardList },
   practice: { label: 'Practice', Icon: Music2 },
+  backup_setlist: { label: 'Setlist', Icon: ClipboardList },
   announcement: { label: 'Announcement', Icon: Megaphone },
   birthday: { label: 'Birthday', Icon: Cake },
   event: { label: 'Schedule', Icon: CalendarDays },

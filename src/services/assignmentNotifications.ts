@@ -2,7 +2,7 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { PushNotifications, type PermissionStatus } from '@capacitor/push-notifications';
 import { supabase } from '../supabase';
 export interface AssignmentNotification {
-  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement' | 'birthday' | 'event' | 'anniversary' | 'recognition';
+  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement' | 'birthday' | 'event' | 'anniversary' | 'recognition' | 'backup_setlist';
   title: string; body: string; service_date: string | null; read_at: string | null; created_at: string;
 }
 export type PushStatus = 'web' | 'setup' | 'prompt' | 'denied' | 'enabled' | 'error';
