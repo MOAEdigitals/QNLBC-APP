@@ -171,7 +171,14 @@ test('clearing a Manila day affects only its cards and Undo restores them', asyn
   const item = (id: string, created_at: string) => ({ id, created_at, title: id, body: id, kind: 'event', read_at: null });
   await fixture('src/components/NotificationInbox.tsx', {
     dismissNotification: async (id: string, dismissed: boolean) => { updates.push([id, dismissed]); },
-  }, async (exports, root) => {
+  }, async (exports, root, dom) => {
+    let expireUndo: (() => void) | undefined;
+    const setTimeout = dom.window.setTimeout.bind(dom.window);
+    dom.window.setTimeout = ((callback: () => void, delay: number) => {
+      if (delay !== 2000) return setTimeout(callback, delay);
+      expireUndo = callback;
+      return 0;
+    }) as typeof dom.window.setTimeout;
     await act(() => root.render(React.createElement(exports.NotificationInbox, {
       items: [item('Before midnight', '2026-11-11T15:59:00Z'), item('Morning', '2026-11-11T23:00:00Z'), item('After midnight', '2026-11-11T16:01:00Z')],
       unreadCount: 3, loading: false, error: '', pushStatus: 'web',
@@ -187,5 +194,9 @@ test('clearing a Manila day affects only its cards and Undo restores them', asyn
     await act(() => Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Undo')!.click());
     assert.deepEqual(updates.slice(2), [['Morning', false], ['After midnight', false]]);
     assert.equal(document.querySelectorAll('section').length, 2);
+    await act(() => document.querySelector('section button')!.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })));
+    assert.ok(expireUndo);
+    await act(() => expireUndo!());
+    assert.doesNotMatch(document.querySelector('#root')!.textContent!, /Undo/);
   });
 });

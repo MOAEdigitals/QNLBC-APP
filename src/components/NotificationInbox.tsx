@@ -80,6 +80,11 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
   const [readError, setReadError] = useState('');
   const [hidden, setHidden] = useState<string[]>([]);
   const [deleted, setDeleted] = useState<string[]>([]);
+  useEffect(() => {
+    if (!deleted.length) return;
+    const timeout = window.setTimeout(() => setDeleted([]), 2000);
+    return () => window.clearTimeout(timeout);
+  }, [deleted]);
   const deleting = useRef(false);
   const visible = items.filter(item => !hidden.includes(item.id));
   const today = manilaDate.format(now);
@@ -113,7 +118,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
       if (undo) setDeleted(ids.filter(id => !succeeded.includes(id)));
       else if (succeeded.length) setDeleted(succeeded);
       if (succeeded.length < ids.length) setReadError('Some notifications could not be updated. Please try again.');
-      if (succeeded.length) await onRefresh();
+      if (succeeded.length) void onRefresh().catch(e => setReadError((e as Error).message));
     } catch (e) { setReadError((e as Error).message); }
     finally { deleting.current = false; setOpening(null); }
   };
@@ -144,7 +149,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
     </header>
     {detailCopy ? <article className="mx-auto w-full max-w-xl flex-1 overflow-y-auto whitespace-pre-wrap break-words p-5">{detailCopy.body}</article> : <div className="mx-auto w-full max-w-xl flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
 
-      {!!deleted.length && <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 px-3 text-sm shadow-sm"><span role="status">{deleted.length === 1 ? 'Notification cleared.' : `${deleted.length} notifications cleared.`}</span><button type="button" className="min-h-11 px-3 font-semibold text-blue-700 dark:text-blue-300" disabled={!!opening || markingAll} onClick={() => void remove(deleted, true)}>Undo</button></div>}
+      {!!deleted.length && <div className="fixed inset-x-4 bottom-[calc(var(--app-safe-bottom)+1rem)] z-20 mx-auto flex max-w-xl items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 px-3 text-sm shadow-md"><span role="status">{deleted.length === 1 ? 'Notification cleared.' : `${deleted.length} notifications cleared.`}</span><button type="button" className="min-h-11 px-3 font-semibold text-blue-700 dark:text-blue-300" disabled={!!opening || markingAll} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">
         <p>{pushStatus === 'setup' ? 'Android push notifications are not available in this build.' : pushStatus === 'denied' ? 'Notifications are blocked. Allow notifications for QNLBC App in Android Settings.' : pushStatus === 'error' ? 'Could not enable Android notifications. Please try again.' : 'Receive church notifications even when the app is closed.'}</p>
         {pushStatus !== 'setup' && <button type="button" className="ui-primary" onClick={() => void onEnable()}>Enable notifications</button>}
