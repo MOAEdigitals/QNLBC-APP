@@ -57,6 +57,14 @@ test('formatter finds multiple Bible references and preserves offsets, prefixes 
 });
 
 const { renderOutline } = await import('../src/features/sermons/formatting.ts');
+test('reader lets wrapped lines use normal spacing even when pasted HTML has a fixed line height', () => {
+  const html = '<p style="line-height:8px"><span style="font-size:24px;line-height:10px">First line</span><br>Second line</p>';
+  const doc = new JSDOM(renderOutline(html, '')).window.document;
+  assert.equal(doc.querySelector('p')?.style.lineHeight, '');
+  assert.equal(doc.querySelector('span')?.style.lineHeight, '');
+  assert.equal(doc.querySelector('span')?.style.fontSize, '24px');
+  assert.ok(doc.querySelector('p > br'));
+});
 test('asterisk pairs render bold with increasing sizes and preserve paragraph layout', () => {
   const result = new JSDOM(renderOutline(null, '*Bold* **Larger** ***Heading***\n\nNormal')).window.document;
   const marks = [...result.querySelectorAll('strong')];

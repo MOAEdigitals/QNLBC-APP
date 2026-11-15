@@ -39,6 +39,10 @@ export function sanitizeOutline(html: string): string {
 export function renderOutline(html: string | null | undefined, text: string): string {
   const root = document.createElement('div');
   root.innerHTML = html ? sanitizeOutline(html) : plainTextHtml(text);
+  // Use the reader's font-relative spacing when pasted text wraps or changes size.
+  root.querySelectorAll<HTMLElement>('[style]').forEach(element => {
+    element.style.removeProperty('line-height');
+  });
   const walker = document.createTreeWalker(root, 4);
   const nodes: Text[] = [];
   while (walker.nextNode()) nodes.push(walker.currentNode as Text);

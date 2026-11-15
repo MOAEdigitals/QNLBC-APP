@@ -245,7 +245,6 @@ button.ui-settings-row { cursor: pointer; }
 .dark .sermon-prose [data-outline-highlight] [data-outline-ink] { color: var(--outline-highlight-ink) !important; }
 
 .sermon-prose p { margin: 0 0 .35em; min-height: 1em; }
-.sermon-prose p:has(> br:only-child) { min-height: .5em; line-height: .5em; margin-bottom: .15em; }
 .sermon-prose p:last-child { margin-bottom: 0; }
 .sermon-prose strong, .sermon-prose b { font-weight: 700; }
 .sermon-prose ul { list-style: disc; padding-left: 1.6em; margin: .35em 0 .5em; }
