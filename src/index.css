@@ -112,6 +112,12 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
   opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }
+.special-screen [data-special-activity='true'] + [data-special-activity='true']::before {
+  border-color: rgb(100 116 139 / 32%);
+}
+.dark .special-screen [data-special-activity='true'] + [data-special-activity='true']::before {
+  border-color: rgb(148 163 184 / 32%);
+}
 .birthday-card[data-birthday-celebrant] + .birthday-card[data-birthday-celebrant] > .birthday-row-separator {
   background-color: rgb(100 116 139 / 32%);
 }
