@@ -18,15 +18,17 @@ export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlis
   const [announcement, setAnnouncement] = useState('');
   const gesture = useRef<Gesture | null>(null);
   const frame = useRef<number | null>(null);
+  const hold = useRef<number | null>(null);
   const saving = useRef(false);
   const alive = useRef(true);
   const current = useRef({ items, save, enabled });
   current.current = { items, save, enabled };
 
   const stopFrame = () => { if (frame.current !== null) cancelAnimationFrame(frame.current); frame.current = null; };
+  const stopHold = () => { if (hold.current !== null) window.clearTimeout(hold.current); hold.current = null; };
   useEffect(() => {
     alive.current = true;
-    return () => { alive.current = false; stopFrame(); gesture.current = null; };
+    return () => { alive.current = false; stopFrame(); stopHold(); gesture.current = null; };
   }, []);
 
   const locateTarget = () => {
@@ -57,7 +59,7 @@ export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlis
     frame.current = requestAnimationFrame(autoScroll);
   };
 
-  const reset = () => { stopFrame(); gesture.current = null; setPressedId(null); setDrag(null); setTarget(null); };
+  const reset = () => { stopFrame(); stopHold(); gesture.current = null; setPressedId(null); setDrag(null); setTarget(null); };
   const persist = async (source: string, destination: Target) => {
     const state = current.current;
     if (saving.current || !state.enabled || !state.save) return;
@@ -87,7 +89,16 @@ export function useSetlistReorder(items: OrderedSetlistCard[], save?: SaveSetlis
       if (event.button !== 0 || saving.current || !canDrag(item)) return;
       event.currentTarget.setPointerCapture?.(event.pointerId);
       setError(''); setAnnouncement(''); setPressedId(item.id);
-      gesture.current = { id: item.id, date: item.date, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, moved: false, target: null, readyAt: Date.now() + (options.holdDelay || 0), scroll: event.currentTarget.closest<HTMLElement>('.ui-form-body') };
+      const active: Gesture = { id: item.id, date: item.date, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, moved: false, target: null, readyAt: Date.now() + (options.holdDelay || 0), scroll: event.currentTarget.closest<HTMLElement>('.ui-form-body') };
+      gesture.current = active;
+      if (options.holdDelay) {
+        hold.current = window.setTimeout(() => {
+          hold.current = null;
+          if (gesture.current !== active) return;
+          active.moved = true;
+          setDrag({ id: active.id, x: active.x, y: active.y });
+        }, options.holdDelay);
+      }
     },
     onPointerMove: event => {
       const active = gesture.current;

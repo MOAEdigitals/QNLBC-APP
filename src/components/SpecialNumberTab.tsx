@@ -610,7 +610,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   const startRecording = async () => {
     setRecordingError(null);
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
         setRecordingError('Microphone recording is not supported on this browser or platform.');
         return;
       }
@@ -668,7 +668,17 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }, 1000);
     } catch (err: any) {
       console.error('Error starting audio recording:', err);
-      setRecordingError(err?.message || 'Could not access microphone. Please grant permission.');
+      mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+      if (err?.name === 'NotAllowedError') {
+        setRecordingError('Microphone access was blocked. Check microphone access in Android or browser settings.');
+      } else if (err?.name === 'NotReadableError') {
+        setRecordingError('Microphone unavailable. Close other apps using it and try again.');
+      } else if (err?.name === 'NotFoundError') {
+        setRecordingError('No microphone found.');
+      } else {
+        setRecordingError('Could not start recording. Please try again.');
+      }
       setIsRecording(false);
     }
   };
@@ -1913,7 +1923,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       </div>
 
       {activeSubTab === 'activities' && (
-        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
+        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
       )}
 
       {/* ========================================================================= */}

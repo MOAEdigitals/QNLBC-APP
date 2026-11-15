@@ -20,10 +20,14 @@ test('one setlist stays expanded across tab remounts until its header or another
   dom.window.scrollTo = ((...args: any[]) => { scrollCalls.push(args); }) as any;
   dom.window.HTMLElement.prototype.scrollIntoView = () => {};
   let remembered: string[] = [];
+  let wallClock = Date.parse(dates.getTodayStr() + 'T11:59:59+08:00');
+  class SetlistClock extends Date {
+    static now() { return wallClock; }
+  }
   const compile = (file: string, dependencies: any) => {
     const exports: any = {};
     runInNewContext(ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText, {
-      exports, window: dom.window, document: dom.window.document, sessionStorage: dom.window.sessionStorage, setTimeout, clearTimeout,
+      exports, Date: SetlistClock, window: dom.window, document: dom.window.document, sessionStorage: dom.window.sessionStorage, setTimeout, clearTimeout,
       requestAnimationFrame: () => 1, cancelAnimationFrame() {},
       require: (name: string) => name === 'react' ? React : dependencies[name] || new Proxy({}, { get: () => () => null }),
     });
@@ -44,6 +48,12 @@ test('one setlist stays expanded across tab remounts until its header or another
     assert.equal(document.querySelector('#setlist-card-old-one [aria-label^="Reorder"]'), null);
     assert.equal(document.querySelectorAll('[data-upcoming-card]').length, 1, 'only the top card receives a gradient, including when several cards are Today');
     assert.equal(document.querySelector('[data-upcoming-card]')?.id, 'setlist-card-one');
+    assert.equal(document.getElementById('setlist-card-one')?.hasAttribute('data-past'), false);
+    wallClock += 1000;
+    await act(() => root.render(null));
+    await act(() => render());
+    assert.equal(document.getElementById('setlist-card-one')?.hasAttribute('data-past'), true);
+    assert.notEqual(document.querySelector('[data-upcoming-card]')?.id, 'setlist-card-one');
     assert.ok(document.getElementById('setlist-card-one'), document.body.innerHTML.slice(0, 3000));
     await clickHeader('one');
     assert.equal(open('one'), true); assert.equal(open('two'), false);

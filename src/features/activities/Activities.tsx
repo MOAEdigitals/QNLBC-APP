@@ -38,6 +38,18 @@ function todayKey() {
   return dateKey(new Date());
 }
 
+const DEFAULT_GATHERING_FILTERS = { prayer: true, sunday: true, practice: false, other: true };
+
+function readActivityFilters<T extends Record<string, boolean>>(key: string, defaults: T): T {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    return Object.fromEntries(Object.entries(defaults).map(([name, value]) =>
+      [name, typeof saved?.[name] === 'boolean' ? saved[name] : value])) as T;
+  } catch {
+    return defaults;
+  }
+}
+
 export default function Activities({ currentUser, collapseSignal, birthdays = [], onLoadBirthdays }: { currentUser: UserAccount | null; collapseSignal?: number; birthdays?: BirthdayCelebrant[]; onLoadBirthdays?: () => Promise<void> }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
@@ -61,10 +73,25 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const [showTime, setShowTime] = useState(false);
   const [showDescription, setShowDescription] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [overlayFilters, setOverlayFilters] = useState(EMPTY_OVERLAY_FILTERS);
+  const filterKey = 'qnlbc.activity-filters.' + (currentUser?.id || 'guest');
+  const [overlayFilters, setOverlayFilters] = useState(() => readActivityFilters(filterKey + '.overlays', EMPTY_OVERLAY_FILTERS));
   const [dateDetails, setDateDetails] = useState<string | null>(null);
   const [birthdaysLoading, setBirthdaysLoading] = useState(false);
-  const [gatheringFilters, setGatheringFilters] = useState({ prayer: true, sunday: true, practice: false, other: true });
+  const [gatheringFilters, setGatheringFilters] = useState(() => readActivityFilters(filterKey + '.gatherings', DEFAULT_GATHERING_FILTERS));
+  useEffect(() => {
+    try {
+      localStorage.setItem(filterKey + '.overlays', JSON.stringify(overlayFilters));
+      localStorage.setItem(filterKey + '.gatherings', JSON.stringify(gatheringFilters));
+    } catch { /* The active filters still work without storage. */ }
+  }, [filterKey, overlayFilters, gatheringFilters]);
+  useEffect(() => {
+    if (!overlayFilters.birthday || !onLoadBirthdays) return;
+    let active = true;
+    setBirthdaysLoading(true);
+    void onLoadBirthdays().catch(() => { if (active) setLoadError('Could not load birthdays.'); })
+      .finally(() => { if (active) setBirthdaysLoading(false); });
+    return () => { active = false; setBirthdaysLoading(false); };
+  }, [overlayFilters.birthday, onLoadBirthdays]);
   const savingRef = useRef(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const lastProcessedSignalRef = useRef<number>(0);
@@ -81,15 +108,11 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
             {([['ph', 'PH holidays', 'bg-cyan-500'], ['local', 'Local holidays (Nueva Ecija)', 'bg-violet-500'], ['birthday', 'Birthdays', 'bg-rose-500']] as const).map(([key, label, color]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={overlayFilters[key]} onChange={() => {
               const enabled = !overlayFilters[key];
               setOverlayFilters(value => ({ ...value, [key]: enabled }));
-              if (key === 'birthday' && enabled && onLoadBirthdays) {
-                setBirthdaysLoading(true);
-                void onLoadBirthdays().catch(() => setLoadError('Could not load birthdays.')).finally(() => setBirthdaysLoading(false));
-              }
             }} /><i aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />{label}</label>)}
           </div>
         </div></BottomSheet>
       </div>
-    ), [showFilters, gatheringFilters, overlayFilters, onLoadBirthdays]);
+    ), [showFilters, gatheringFilters, overlayFilters]);
   useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities',
     label: 'Search activities', beforeSearch: activityFilter, onOpen: scrollToResults });
 

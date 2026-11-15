@@ -431,13 +431,10 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
     // 1. If empty query OR matching default value
     if (!activeQuery || (cleanDefault && activeQuery === cleanDefault)) {
-      if (filteredSuggestions && filteredSuggestions.length > 0) {
-        return filteredSuggestions.map((s) => buildItem(s, 'none', undefined, 100));
-      }
-      if (filteredSongs.length > 0) {
-        return filteredSongs.map((s) => buildItem(s.title, 'none', undefined, 100));
-      }
-      return [];
+      const titles = filteredSuggestions.length ? filteredSuggestions : filteredSongs.map(song => song.title);
+      const currentTitle = clearOnReselect && lowerVal && !activeQuery
+        && !titles.some(title => title.trim().toLowerCase() === lowerVal) ? value.trim() : '';
+      return (currentTitle ? [currentTitle, ...titles] : titles).map(title => buildItem(title, 'none', undefined, 100));
     }
 
     // 2. If songs array is available, search across all songs in the library
@@ -499,7 +496,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
 
     results.sort((a, b) => (b.score || 0) - (a.score || 0));
     return results;
-  }, [isOpen, activeQuery, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap]);
+  }, [isOpen, activeQuery, cleanDefault, suggestions, filteredSuggestions, allSuggestions, filteredSongs, showSongCategoryFilters, usageMap, clearOnReselect, lowerVal, value]);
 
   const displayedItems = useMemo(() => {
     const ordered = !showSongCategoryFilters || songSort === 'relevance' ? matchedItems : [...matchedItems].sort((a, b) => {
@@ -511,8 +508,23 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
       }
       return (songSort === 'az' ? 1 : -1) * a.title.localeCompare(b.title);
     });
-    return ordered.slice(0, activeQuery ? 30 : browseLimit);
-  }, [matchedItems, songSort, showSongCategoryFilters, activeQuery, browseLimit]);
+    const currentIndex = clearOnReselect && !activeQuery && lowerVal
+      ? ordered.findIndex(item => item.title.trim().toLowerCase() === lowerVal)
+      : -1;
+    return ordered.slice(0, activeQuery ? 30 : Math.max(browseLimit, currentIndex + 1));
+  }, [matchedItems, songSort, showSongCategoryFilters, activeQuery, browseLimit, clearOnReselect, lowerVal]);
+
+  const positionedAtSelection = useRef(false);
+  useLayoutEffect(() => {
+    if (!isOpen) { positionedAtSelection.current = false; return; }
+    if (!clearOnReselect || !lowerVal || activeQuery || positionedAtSelection.current) return;
+    const list = pickerListRef.current;
+    const selected = list?.querySelector<HTMLElement>('[data-current-picker-value]');
+    if (!list || !selected) return;
+    positionedAtSelection.current = true;
+    list.scrollTop += selected.getBoundingClientRect().top - list.getBoundingClientRect().top
+      - (list.clientHeight - selected.offsetHeight) / 2;
+  }, [isOpen, clearOnReselect, lowerVal, activeQuery, displayedItems]);
 
   // Keep exactly one autocomplete picker open across the entire setlist editor.
   useEffect(() => {
@@ -1112,6 +1124,7 @@ const AutofillInputComponent: React.FC<AutofillInputProps> = ({
                 key={item.title + idx}
                 role="option"
                 aria-selected={isSelected}
+                data-current-picker-value={item.title.trim().toLowerCase() === lowerVal || undefined}
                 tabIndex={0}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') handleSelect(item, event); }}
                 onPointerDown={event => {

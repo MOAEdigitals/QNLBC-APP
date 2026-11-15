@@ -42,6 +42,15 @@ test('saved and edited activities sort by complete date then time without changi
 });
 
 
+test('Sunday Service leads same-date activities in both upcoming and past sections', () => {
+  const items = [
+    { id: 'fellowship', title: 'Fellowship', activityDate: '2026-11-15', activityTime: '08:00' },
+    { id: 'service', title: 'Sunday Service', activityDate: '2026-11-15', activityTime: '09:00' },
+  ];
+  assert.deepEqual(sortActivities(items).map(item => item.id), ['service', 'fellowship']);
+  assert.deepEqual(orderActivityList(items, '2026-11-16').map(item => item.id), ['service', 'fellowship']);
+});
+
 test('month headings keep expired October cards below November and December of the same year', () => {
   const items = [
     { id: 'past-oct', title: 'Old October', activityDate: '2026-10-20' },

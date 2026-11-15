@@ -354,7 +354,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
       {/* TOP HEADER CONTROLS */}
       <header
-        className={`px-4 py-3 sm:px-6 border-b backdrop-blur-md flex items-center justify-between gap-2 shrink-0 ${themeStyles.headerBg}`}
+        className={`px-4 pb-3 pt-[calc(.75rem+var(--app-safe-top))] sm:px-6 border-b backdrop-blur-md flex items-center justify-between gap-2 shrink-0 ${themeStyles.headerBg}`}
       >
         {/* Left: title only */}
         <h1 className="min-w-0 truncate text-base font-black tracking-tight sm:text-xl">{song.title}</h1>
@@ -406,7 +406,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           <button
             type="button"
             onClick={handleExit}
-            className="p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 transition-transform active:scale-95 shadow-md cursor-pointer"
+            className="min-h-11 min-w-11 justify-center p-2 sm:px-3 sm:py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1 transition-transform active:scale-95 shadow-md cursor-pointer"
             title="Exit Stage Prompter (Esc)"
           >
             <X className="w-5 h-5" />

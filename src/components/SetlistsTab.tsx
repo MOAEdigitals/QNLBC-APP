@@ -268,7 +268,25 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     (editingSetlist?.[section]?.songs || []).map((song, index) => ({
       id: `${section}:${song.id || index}`, date: section, displayOrder: index, song,
     }))), [editingSetlist]);
+  const songPositionsBeforeDrop = useRef<Map<string, number> | null>(null);
+  useLayoutEffect(() => {
+    const positions = songPositionsBeforeDrop.current;
+    songPositionsBeforeDrop.current = null;
+    if (!positions || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    for (const row of document.querySelectorAll<HTMLElement>('[data-song-slot-id]')) {
+      const top = positions.get(row.dataset.songSlotId || '');
+      if (top === undefined) continue;
+      const from = top - row.getBoundingClientRect().top;
+      if (Math.abs(from) < 1) continue;
+      row.animate?.([{ transform: `translateY(${from}px)` }, { transform: 'translateY(0)' }],
+        { duration: 170, easing: 'ease-out' });
+    }
+  }, [songSlots]);
   const songReorder = useSetlistReorder(songSlots, async (section, ids) => {
+    songPositionsBeforeDrop.current = new Map(
+      Array.from(document.querySelectorAll<HTMLElement>('[data-song-slot-id]'),
+        row => [row.dataset.songSlotId || '', row.getBoundingClientRect().top]),
+    );
     const songs = ids.map(id => songSlots.find(slot => slot.id === id)!.song);
     setEditingSetlist(previous => {
       if (!previous) return previous;
@@ -279,7 +297,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   }, isEditing, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs' });
   const songRowProps = (id: string) => ({
     'data-song-slot-id': id,
-    className: `relative flex items-center gap-2 rounded-lg ${(songReorder.pressedId === id || songReorder.drag?.id === id) ? 'opacity-50' : ''} ${songReorder.target?.id === id ? songReorder.target.edge === 'before' ? 'border-t-2 border-blue-500' : 'border-b-2 border-blue-500' : ''}`,
+    className: `relative flex items-center gap-2 rounded-lg ${(songReorder.pressedId === id || songReorder.drag?.id === id) ? 'opacity-50' : ''} ${songReorder.target?.id === id ? songReorder.target.edge === 'before' ? 'before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-0.5 before:bg-blue-500 before:pointer-events-none' : 'after:absolute after:inset-x-0 after:bottom-0 after:z-10 after:h-0.5 after:bg-blue-500 after:pointer-events-none' : ''}`,
   });
   const songDragHandle = (section: string, index: number) => {
     const slot = songSlots.filter(slot => slot.date === section)[index];
@@ -452,10 +470,26 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   // Sort upcoming soonest first, then past below
   const sortedSetlists = useMemo(
-    () => orderSameDateSetlists(sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date)),
+    () => orderSameDateSetlists(sortUpcomingFirst<Setlist>(setlists, (s: Setlist) => s.date))
+      .sort((a, b) => a.date === b.date && new Date(a.date + 'T12:00:00+08:00').getUTCDay() === 0
+        ? Number((b.type || 'sunday') === 'sunday') - Number((a.type || 'sunday') === 'sunday')
+        : 0),
     [setlists]
   );
-  const featuredId = featuredSetlistCardId(setlists, getTodayStr());
+  const [clock, setClock] = useState(Date.now);
+  const isCompleted = (item: Setlist) => (item.type || 'sunday') === 'sunday'
+    ? clock >= Date.parse(item.date + 'T12:00:00+08:00')
+    : isPastDate(item.date);
+  const featuredId = featuredSetlistCardId(sortedSetlists.filter(item => !isCompleted(item)), getTodayStr());
+  useEffect(() => {
+    const update = () => setClock(Date.now());
+    const timer = window.setInterval(update, 1000 * 15);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, []);
   const reorder = useSetlistReorder(sortedSetlists, onReorderSetlists, canReorder);
   const searchableSetlists = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase();
@@ -880,10 +914,10 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         ) : (
           <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
             {monthList(searchableSetlists, item => item.date, ['setlist', 'setlists'], { archive: true, revealArchive: !!searchQuery.trim(), revealDate: searchableSetlists.find(item => item.id === initialSelectedSetlistId)?.date }).render((item) => {
-              const isPast = isPastDate(item.date);
-              const today = isToday(item.date);
+              const isPast = isCompleted(item);
+              const today = !isPast && isToday(item.date);
               const isSelected = expandedSetlistIds.includes(item.id);
-              const isSoonest = !today && soonestUpcoming?.id === item.id;
+              const isSoonest = !today && soonestUpcoming?.id === item.id && !isPast;
 
               return (
                 <div
@@ -968,7 +1002,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       className="flex items-center space-x-1.5 text-slate-400 shrink-0 ml-2 relative"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {!isPast && reorder.canDrag(item) && <button {...reorder.handleProps(item)} aria-label={`Reorder ${item.title || 'setlist'} on ${item.date}. Drag or use arrow keys.`} className="flex h-11 w-8 shrink-0 touch-none items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-grab active:cursor-grabbing disabled:opacity-50"><GripVertical className="h-4 w-4" aria-hidden="true" /></button>}
+                      {!isPastDate(item.date) && reorder.canDrag(item) && <button {...reorder.handleProps(item)} aria-label={`Reorder ${item.title || 'setlist'} on ${item.date}. Drag or use arrow keys.`} className="flex h-11 w-8 shrink-0 touch-none items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-grab active:cursor-grabbing disabled:opacity-50"><GripVertical className="h-4 w-4" aria-hidden="true" /></button>}
 
 
                       <button
@@ -1445,6 +1479,13 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
             <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="ui-modal-form">
               <span className="sr-only" role="status">{songReorder.announcement}</span>
+              {songReorder.drag && createPortal(
+                <div aria-hidden="true" className="pointer-events-none fixed z-[2100] max-w-[calc(100vw-2rem)] truncate rounded-xl border border-blue-400 bg-white px-4 py-2 text-sm font-semibold shadow-lg dark:bg-slate-800 dark:text-white"
+                  style={{ left: Math.max(12, Math.min(songReorder.drag.x, window.innerWidth - 190)), top: Math.max(0, songReorder.drag.y - 48) }}>
+                  {songSlots.find(slot => slot.id === songReorder.drag?.id)?.song.title || 'Song slot'}
+                </div>,
+                document.body,
+              )}
               {songReorder.error && <p role="alert" className="text-sm text-red-500">{songReorder.error}</p>}
 
               <div className="ui-form-body">

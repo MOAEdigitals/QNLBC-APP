@@ -946,9 +946,9 @@ if (isEditing && !savingSongRef.current) {
       <div className="flex items-center gap-1.5 flex-wrap overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs pt-0.5">
         {[
           { value: 'all', label: 'All' },
+          { value: 'Starred', label: 'Starred' },
           ...allCategories.map(value => ({ value, label: value === 'Hymn' ? 'Hymns' : value })),
           ...(categoryCounts.uncategorized > 0 ? [{ value: 'uncategorized', label: 'Uncategorized' }] : []),
-          { value: 'Starred', label: 'Starred' },
         ].map(({ value, label }) => (
           <button key={value} type="button" aria-pressed={categoryFilter === value}
             onClick={() => setCategoryFilter(value)}

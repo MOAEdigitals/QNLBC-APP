@@ -18,10 +18,15 @@ export function isPastActivity(activityDate: string, today: string): boolean {
   return activityDate < today;
 }
 
+function sundayServiceOrder(a: ChurchActivity, b: ChurchActivity): number {
+  if (new Date(a.activityDate + 'T12:00:00+08:00').getUTCDay() !== 0) return 0;
+  return Number(activityKind(b.title) === 'sunday') - Number(activityKind(a.title) === 'sunday');
+}
+
 export function sortActivities(items: ChurchActivity[]): ChurchActivity[] {
   return [...items].sort((a, b) => {
     const dateOrder = a.activityDate.localeCompare(b.activityDate);
-    return dateOrder || (a.activityTime || '').localeCompare(b.activityTime || '');
+    return dateOrder || sundayServiceOrder(a, b) || (a.activityTime || '').localeCompare(b.activityTime || '');
   });
 }
 
@@ -40,7 +45,7 @@ export function orderActivityList(items: ChurchActivity[], today: string): Churc
     return aUpcoming ? aYear.localeCompare(bYear) : bYear.localeCompare(aYear);
   }).flatMap(([, entries]) => [
     ...entries.filter(item => !isPastActivity(item.activityDate, today)),
-    ...entries.filter(item => isPastActivity(item.activityDate, today)).reverse(),
+    ...entries.filter(item => isPastActivity(item.activityDate, today)).reverse().sort((a, b) => b.activityDate.localeCompare(a.activityDate) || sundayServiceOrder(a, b)),
   ]);
 }
 
