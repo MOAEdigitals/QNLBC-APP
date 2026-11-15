@@ -163,3 +163,27 @@ test('failed marking keeps the notification unread and offers a retry', async ()
     }
   });
 });
+
+test('clearing a Manila day affects only its cards and Undo restores them', async () => {
+  const updates: [string, boolean][] = [];
+  const item = (id: string, created_at: string) => ({ id, created_at, title: id, body: id, kind: 'event', read_at: null });
+  await fixture('src/components/NotificationInbox.tsx', {
+    dismissNotification: async (id: string, dismissed: boolean) => { updates.push([id, dismissed]); },
+  }, async (exports, root) => {
+    await act(() => root.render(React.createElement(exports.NotificationInbox, {
+      items: [item('Before midnight', '2026-11-11T15:59:00Z'), item('Morning', '2026-11-11T23:00:00Z'), item('After midnight', '2026-11-11T16:01:00Z')],
+      unreadCount: 3, loading: false, error: '', pushStatus: 'web',
+      onMarkRead: async () => {}, onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onClose() {},
+    })));
+    const groups = document.querySelectorAll('section');
+    assert.equal(groups.length, 2);
+    assert.match(groups[0].textContent!, /Morning.*After midnight/);
+    await act(() => groups[0].querySelector('button')!.click());
+    assert.deepEqual(updates, [['Morning', true], ['After midnight', true]]);
+    assert.equal(document.querySelectorAll('section').length, 1);
+    assert.match(document.querySelector('section')!.textContent!, /Before midnight/);
+    await act(() => Array.from(document.querySelectorAll('button')).find(button => button.textContent === 'Undo')!.click());
+    assert.deepEqual(updates.slice(2), [['Morning', false], ['After midnight', false]]);
+    assert.equal(document.querySelectorAll('section').length, 2);
+  });
+});

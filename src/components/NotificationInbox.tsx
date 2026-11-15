@@ -1,11 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Bell, RefreshCw, Trash2, MoreHorizontal, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Bell, CalendarDays, Cake, ClipboardList, Heart, Megaphone, Music2, RefreshCw, Trash2, MoreHorizontal, CheckCheck, X } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { dismissNotification, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
 interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onMarkRead: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void; onClose: () => void }
 const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
 const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' });
-const manilaShortDate = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' });
+const manilaShortDate = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long', month: 'short', day: 'numeric' });
+const categories = {
+  assigned: { label: 'Setlist', Icon: ClipboardList },
+  updated: { label: 'Setlist', Icon: ClipboardList },
+  removed: { label: 'Setlist', Icon: ClipboardList },
+  practice: { label: 'Practice', Icon: Music2 },
+  announcement: { label: 'Announcement', Icon: Megaphone },
+  birthday: { label: 'Birthday', Icon: Cake },
+  event: { label: 'Schedule', Icon: CalendarDays },
+  anniversary: { label: 'Anniversary', Icon: Heart },
+  recognition: { label: 'Recognition', Icon: Bell },
+};
 
 function notificationBody(item: AssignmentNotification, now: Date) {
   if (item.kind === 'announcement') return item.body;
@@ -19,9 +30,19 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
   const [detail, setDetail] = useState<AssignmentNotification | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [readError, setReadError] = useState('');
-  const [hidden, setHidden] = useState<string[]>([]), [deleted, setDeleted] = useState<AssignmentNotification | null>(null);
+  const [hidden, setHidden] = useState<string[]>([]);
+  const [deleted, setDeleted] = useState<string[]>([]);
   const deleting = useRef(false);
   const visible = items.filter(item => !hidden.includes(item.id));
+  const today = manilaDate.format(now);
+  const yesterday = manilaDate.format(now.getTime() - 86_400_000);
+  const groups = new Map<string, AssignmentNotification[]>();
+  for (const item of visible.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))) {
+    const day = manilaDate.format(new Date(item.created_at));
+    const group = groups.get(day);
+    if (group) group.push(item);
+    else groups.set(day, [item]);
+  }
   const [menuOpen, setMenuOpen] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const menu = useRef<HTMLDivElement>(null);
@@ -34,13 +55,17 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
     window.addEventListener('keydown', escape);
     return () => { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('click', outside, true); window.removeEventListener('keydown', escape); };
   }, [menuOpen]);
-  const remove = async (item: AssignmentNotification, undo = false) => {
-    if (deleting.current) return;
-    deleting.current = true; setOpening(item.id); setReadError('');
+  const remove = async (ids: string[], undo = false) => {
+    if (deleting.current || opening || markingAll) return;
+    deleting.current = true; setOpening(ids[0]); setReadError('');
     try {
-      await dismissNotification(item.id, !undo);
-      setHidden(ids => undo ? ids.filter(id => id !== item.id) : [...ids, item.id]);
-      setDeleted(undo ? null : item); await onRefresh();
+      const results = await Promise.allSettled(ids.map(id => dismissNotification(id, !undo)));
+      const succeeded = ids.filter((_, index) => results[index].status === 'fulfilled');
+      setHidden(previous => undo ? previous.filter(id => !succeeded.includes(id)) : [...previous, ...succeeded]);
+      if (undo) setDeleted(ids.filter(id => !succeeded.includes(id)));
+      else if (succeeded.length) setDeleted(succeeded);
+      if (succeeded.length < ids.length) setReadError('Some notifications could not be updated. Please try again.');
+      if (succeeded.length) await onRefresh();
     } catch (e) { setReadError((e as Error).message); }
     finally { deleting.current = false; setOpening(null); }
   };
@@ -71,19 +96,40 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
     </header>
     {detail ? <article className="mx-auto w-full max-w-xl flex-1 overflow-y-auto whitespace-pre-wrap break-words p-5">{notificationBody(detail, now)}</article> : <div className="mx-auto w-full max-w-xl flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
 
-      {deleted && <div role="status" className="flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 p-3 text-sm"><span>Notification deleted.</span><button className="min-h-11 px-3 font-semibold underline" disabled={!!opening} onClick={() => void remove(deleted, true)}>Undo</button></div>}
+      {!!deleted.length && <div className="sticky top-0 z-10 flex items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 px-3 text-sm shadow-sm"><span role="status">{deleted.length === 1 ? 'Notification cleared.' : `${deleted.length} notifications cleared.`}</span><button type="button" className="min-h-11 px-3 font-semibold text-blue-700 dark:text-blue-300" disabled={!!opening || markingAll} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">
         <p>{pushStatus === 'setup' ? 'Android push notifications are not available in this build.' : pushStatus === 'denied' ? 'Notifications are blocked. Allow notifications for QNLBC App in Android Settings.' : pushStatus === 'error' ? 'Could not enable Android notifications. Please try again.' : 'Receive church notifications even when the app is closed.'}</p>
         {pushStatus !== 'setup' && <button type="button" className="ui-primary" onClick={() => void onEnable()}>Enable notifications</button>}
       </div>}
       {(error || readError) && <p role="alert" className="text-sm text-rose-600">{error || readError}</p>}
-      {loading && !visible.length ? <p role="status">Loading notifications…</p> : !error && !visible.length ? <div className="grid justify-items-center gap-3 py-14 text-slate-500 dark:text-slate-400"><Bell className="h-7 w-7" aria-hidden="true" /><p>No notifications yet.</p></div> : <div className="space-y-2">{visible.map(item => <SwipeNotification key={item.id} disabled={!!opening} label={item.title} onDelete={() => void remove(item)} onOpen={() => void open(item)} unread={!item.read_at}>
-        <div className="flex min-w-0 items-start gap-2">
-          <p className={`min-w-0 flex-1 break-words text-sm ${item.read_at ? 'font-medium' : 'font-semibold'}`}>{!item.read_at && <><span aria-hidden="true" className="mr-2 inline-block h-2 w-2 rounded-full bg-blue-500" /><span className="sr-only">Unread: </span></>}{item.title}</p>
-          <time dateTime={item.created_at} className="shrink-0 text-xs text-slate-500 dark:text-slate-400">{manilaDate.format(new Date(item.created_at)) === manilaDate.format(now) ? manilaTime.format(new Date(item.created_at)) : manilaShortDate.format(new Date(item.created_at))}</time>
-        </div>
-        <p className="line-clamp-2 break-words text-sm text-slate-600 dark:text-slate-300">{notificationBody(item, now)}</p>
-      </SwipeNotification>)}</div>}
+      {loading && !visible.length ? <p role="status">Loading notifications…</p> : !error && !visible.length ? <div className="grid justify-items-center gap-3 py-14 text-slate-500 dark:text-slate-400"><Bell className="h-7 w-7" aria-hidden="true" /><p>No notifications yet.</p></div> : <div className="space-y-4">
+        {Array.from(groups, ([day, group]) => {
+          const label = day === today ? 'Today' : day === yesterday ? 'Yesterday' : manilaShortDate.format(new Date(group[0].created_at));
+          return <section key={day} aria-labelledby={`notification-day-${day}`} className="space-y-2">
+            <div className="flex items-center justify-between pl-1">
+              <h3 id={`notification-day-${day}`} className="text-lg font-semibold">{label}</h3>
+              <button type="button" aria-label={`Clear notifications for ${label}`} disabled={!!opening || markingAll} onClick={() => void remove(group.map(item => item.id))} className="grid h-11 w-11 place-items-center rounded-full text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800">
+                <span className="grid size-6 place-items-center rounded-full bg-slate-100 dark:bg-slate-800"><X className="size-3.5" aria-hidden="true" /></span>
+              </button>
+            </div>
+            {group.map(item => {
+              const { label: category, Icon } = categories[item.kind] ?? categories.recognition;
+              return <SwipeNotification key={item.id} disabled={!!opening || markingAll} label={item.title} onDelete={() => void remove([item.id])} onOpen={() => void open(item)} unread={!item.read_at}>
+                <span className="flex items-center gap-2 border-b border-slate-900/5 bg-slate-100/80 px-3 py-2 text-xs text-slate-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300">
+                  <span className="grid size-5 shrink-0 place-items-center rounded-md bg-blue-600 text-white"><Icon className="size-3.5" aria-hidden="true" /></span>
+                  <span className="flex-1 font-medium">{category}</span>
+                  <time dateTime={item.created_at} className="shrink-0 tabular-nums">{manilaTime.format(new Date(item.created_at))}</time>
+                </span>
+                <span className="relative block py-2.5 pl-7 pr-12">
+                  {!item.read_at && <><span aria-hidden="true" className="absolute left-3 top-4 size-2 rounded-full bg-blue-500" /><span className="sr-only">Unread: </span></>}
+                  <span className="block break-words text-sm font-semibold">{item.title}</span>
+                  <span className="mt-0.5 line-clamp-2 break-words text-sm text-slate-600 dark:text-slate-300">{notificationBody(item, now)}</span>
+                </span>
+              </SwipeNotification>;
+            })}
+          </section>;
+        })}
+      </div>}
     </div>}
   </div>;
 }
@@ -108,7 +154,7 @@ export function SwipeNotification({ children, label, disabled, onDelete, onOpen,
     if (p && !disabled && Math.abs(dx) >= 88 && Math.abs(dx) > Math.abs(dy) * 1.5) { suppressClick.current = true; onDelete(); }
   }} onPointerCancel={() => { start.current = null; setOffset(0); }}>
     <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-white text-sm">Delete</span>
-    <button type="button" disabled={disabled} onClick={() => { if (!suppressClick.current) onOpen(); }} style={{ transform: `translateX(${offset}px)` }} className={`relative w-full rounded-xl border p-3 pr-14 text-left space-y-1 ${offset === 0 ? 'motion-safe:transition-transform motion-safe:duration-150' : ''} ${unread ? 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-slate-800' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>{children}</button>
-    <button type="button" disabled={disabled} aria-label={`Delete notification: ${label}`} onClick={onDelete} className="absolute top-3 right-2 w-10 h-10 grid place-items-center rounded-lg text-slate-500 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-slate-800"><Trash2 className="w-4 h-4" /></button>
+    <button type="button" disabled={disabled} onClick={() => { if (!suppressClick.current) onOpen(); }} style={{ transform: `translateX(${offset}px)` }} className={`relative block w-full overflow-hidden rounded-xl border text-left ${offset === 0 ? 'motion-safe:transition-transform motion-safe:duration-150' : ''} ${unread ? 'border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-slate-800' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>{children}</button>
+    <button type="button" disabled={disabled} aria-label={`Delete notification: ${label}`} onClick={onDelete} className="absolute bottom-1 right-1 w-10 h-10 grid place-items-center rounded-lg text-slate-500 hover:bg-rose-100 hover:text-rose-600 dark:hover:bg-slate-800"><Trash2 className="w-4 h-4" /></button>
   </div>;
 }
