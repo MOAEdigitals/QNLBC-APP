@@ -37,7 +37,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   }
   try {
     await act(async () => { root.render(React.createElement(Harness)); });
-    const cards = () => [...document.querySelectorAll('article[id^="activity-card-"]')].map(element => element.querySelector('h3')!.textContent);
+    const cards = () => [...document.querySelectorAll('article[id^="activity-card-"]')].map(element => element.querySelector('h4')!.textContent);
     assert.equal(cards().length, 3);
     assert.ok(!cards().includes('Song Leaders & Choir Practice'));
     await act(() => (document.querySelector('[aria-label="Filter activities"]') as HTMLButtonElement).click());

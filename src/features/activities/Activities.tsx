@@ -7,7 +7,6 @@ import { confirmAction } from '../../services/appDialogs';
 import { BottomSheet } from '../../components/BottomSheet';
 import { UpcomingBadge } from '../../components/UpcomingBadge';
 import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
-import { CardDate } from '../../components/CardDate';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { BirthdayCelebrant, ChurchActivity, UserAccount } from '../../types';
@@ -255,15 +254,17 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     }
   };
 
-  return <div className="relative space-y-4 pb-16" onClick={() => setOpenMenu(null)}>
-    <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-900">
-      <header className="mb-3 flex items-center justify-between">
-        <button type="button" className={action} aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-5 w-5" /></button>
-        <h2 className="text-base font-bold">{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
-        <button type="button" className={action} aria-label="Next month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() + 1, 1))}><ChevronRight className="h-5 w-5" /></button>
+  return <div className="relative mx-auto w-full max-w-[640px] space-y-6 pb-16" onClick={() => setOpenMenu(null)}>
+    <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
+      <header className="mb-1.5 flex items-center justify-between">
+        <h2 className="text-xl font-bold">{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+        <div className="flex text-blue-600 dark:text-blue-400">
+          <button type="button" className="grid size-11 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" className="grid size-11 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Next month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></button>
+        </div>
       </header>
       <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400" aria-hidden="true">{['S','M','T','W','T','F','S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
-      <div className="mt-1 grid grid-cols-7 gap-y-1">
+      <div className="mt-1.5 grid grid-cols-7 auto-rows-[48px]">
         {calendarDays.map((day, index) => {
           if (!day) return <span key={`blank-${index}`} />;
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
@@ -274,7 +275,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
           const isSelected = key === selectedDate;
           const isCurrentDay = key === today;
           return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}${extraLabel}`}>
-            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isCurrentDay ? 'bg-indigo-600 text-white dark:bg-indigo-300 dark:text-slate-950 font-bold' : isSelected ? 'bg-indigo-100 font-bold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200' : ''}`}>{day}</span>
+            <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-blue-600 font-bold text-white' : isCurrentDay ? 'font-bold text-blue-600 dark:text-blue-400' : ''}`}>{day}</span>
             <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${kind === 'ph' ? 'bg-cyan-500' : kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} />)}</span>
           </button>;
         })}
@@ -293,17 +294,26 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {yearList(activityGroups, group => group.items[0]?.activityDate, groups => groups.map(group => {
 
-        const color = 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800';
         return <section key={group.key} className="space-y-2">
-          <div className="flex items-center gap-3 px-1 pt-2"><span className="text-sm font-bold">{group.label}</span><span className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>
-          {group.items.map(item => { const date = localDate(item.activityDate); const expanded = expandedActivity === item.id; const past = isPastActivity(item.activityDate, today); return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`app-date-card relative scroll-mt-4 rounded-2xl border px-3 py-2.5 text-slate-800 dark:text-slate-200 ${color} ${openMenu === item.id ? 'z-30' : 'z-0'}`}>
-            <div data-activity-card-header className="flex min-h-11 items-center gap-3">
-              <CardDate date={item.activityDate} />
-              <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h3 className="app-card-title min-w-0 break-words text-sm font-semibold">{item.title}</h3><UpcomingBadge status={!past && (item.id === nextActivityId || item.id === followingActivityId) ? item.activityDate === today ? 'today' : item.id === nextActivityId ? 'next-up' : 'upcoming' : undefined} /></div>{item.activityTime && <p className="app-card-secondary mt-1 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+          <h3 className="px-1 text-base font-bold">{group.label}</h3>
+          <div className="rounded-[20px] bg-white dark:bg-slate-900">
+          {group.items.map((item, index) => {
+            const date = localDate(item.activityDate);
+            const expanded = expandedActivity === item.id;
+            const past = isPastActivity(item.activityDate, today);
+            const firstOfDay = group.items[index - 1]?.activityDate !== item.activityDate;
+            return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:ml-[72px] before:border-t before:border-slate-200 dark:before:border-slate-800' : ''} ${item.activityDate === today ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${openMenu === item.id ? 'z-30' : ''}`}>
+            <div data-activity-card-header className="flex min-h-[50px] items-center gap-2.5 px-2.5 py-[3px]">
+              <div className="flex w-8 shrink-0 flex-col items-center leading-none" aria-label={item.activityDate}>
+                {firstOfDay && <><span className="text-lg font-bold tabular-nums">{date.getDate()}</span><span className="text-[10px] text-slate-500 dark:text-slate-400">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></>}
+              </div>
+              <span aria-hidden="true" className={`h-[22px] w-[3px] shrink-0 rounded-full ${isRoutineActivity(item.title) ? 'bg-blue-500' : 'bg-amber-500'}`} />
+              <div className={`min-w-0 flex-1 ${past ? 'text-slate-500 dark:text-slate-400' : ''}`}><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h4 className="min-w-0 break-words text-sm font-semibold">{item.title}</h4><UpcomingBadge status={!past && (item.id === nextActivityId || item.id === followingActivityId) ? item.activityDate === today ? 'today' : item.id === nextActivityId ? 'next-up' : 'upcoming' : undefined} /></div>{item.activityTime && <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
               <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} aria-expanded={openMenu === item.id} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreHorizontal className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
-            {expanded && item.description && <p className="mt-2 whitespace-pre-wrap break-words border-t border-slate-200 dark:border-slate-700 pt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{item.description}</p>}
+            {expanded && item.description && <p className="ml-[72px] whitespace-pre-wrap break-words border-t border-slate-200 py-2.5 pr-4 text-sm leading-relaxed text-slate-700 dark:border-slate-700 dark:text-slate-300">{item.description}</p>}
           </article>; })}
+          </div>
         </section>;
       }), { reveal: !!search.trim(), currentYear: Number(today.slice(0, 4)), gridClass: 'space-y-3 px-3 pb-3' })}
     </div>}

@@ -1866,7 +1866,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
       {/* The selected section expands to show its label; the others remain one-tap icons. */}
-      <div role="group" aria-label="Schedules sections" className="flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+      <div role="group" aria-label="Schedules sections" className={`flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 ${activeSubTab === 'activities' ? 'mx-auto w-full max-w-[640px]' : ''}`}>
         <button type="button" onClick={() => setActiveSubTab('activities')} aria-pressed={activeSubTab === 'activities'} aria-label="Activities" title="Activities"
           className={`ui-category-pill relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${activeSubTab === 'activities' ? 'flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'w-11 shrink-0 text-slate-600 dark:text-slate-400'} sm:flex-1 sm:w-auto`}>
           <Calendar className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
