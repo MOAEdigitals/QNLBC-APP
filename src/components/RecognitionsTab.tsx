@@ -338,16 +338,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
                           className={`birthday-card relative flex min-h-[50px] items-center justify-between gap-2 px-2.5 py-[3px] first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'after:pointer-events-none after:absolute after:inset-x-0 after:top-0 after:ml-[72px] after:border-t after:border-slate-200 dark:after:border-slate-800' : ''} ${birthdayMenuId === item.id ? 'z-30' : ''}`}
                         >
-                          <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                            <div className="flex w-8 shrink-0 flex-col items-center leading-none" aria-label={item.birthDate.slice(5)}>
+                          <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 self-stretch">
+                            <div className="-mr-0.5 mt-3.5 flex w-8 shrink-0 flex-col items-center self-start" aria-label={item.birthDate.slice(5)}>
                               {items[index - 1]?.birthDate.slice(5) !== item.birthDate.slice(5) && <>
-                                <span className="text-lg font-bold tabular-nums">{Number(item.birthDate.slice(8))}</span>
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400">{parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                <span className="text-lg leading-none font-semibold tabular-nums">{Number(item.birthDate.slice(8))}</span>
+                                <span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' })}</span>
                               </>}
                             </div>
                             <span aria-hidden="true" className="h-[22px] w-[3px] shrink-0 rounded-full bg-rose-500" />
                             <div className="min-w-0 flex-1">
-                              <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="app-card-title flex min-w-0 items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                              <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="app-card-title flex min-w-0 items-center gap-2 text-[17px]/[22px] font-medium text-slate-900 dark:text-white">
                                 <span className="truncate">
                                 {item.name}
                                 </span>
