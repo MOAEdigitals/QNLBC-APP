@@ -341,7 +341,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 self-stretch">
                             <div className="-mr-0.5 mt-3.5 flex w-8 shrink-0 flex-col items-center self-start" aria-label={item.birthDate.slice(5)}>
                               {items[index - 1]?.birthDate.slice(5) !== item.birthDate.slice(5) && <>
-                                <span className="text-lg leading-none font-semibold tabular-nums">{Number(item.birthDate.slice(8))}</span>
+                                <span className="text-base leading-none font-semibold tabular-nums">{Number(item.birthDate.slice(8))}</span>
                                 <span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' })}</span>
                               </>}
                             </div>
