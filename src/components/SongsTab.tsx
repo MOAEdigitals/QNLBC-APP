@@ -615,6 +615,43 @@ if (isEditing && !savingSongRef.current) {
     return { Hymn: hymn, Special: special, Contemporary: contemporary, Choir: choir, Tagalog: tagalog, uncategorized, starred };
   }, [songs]);
 
+  const categoryBarRef = useRef<HTMLDivElement>(null);
+  const hasUncategorized = categoryCounts.uncategorized > 0;
+  useLayoutEffect(() => {
+    const bar = categoryBarRef.current;
+    if (!bar) return;
+
+    let active = true;
+    const fitCategories = () => {
+      if (!active) return;
+      bar.removeAttribute('data-wrap-labels');
+      const buttons = Array.from(bar.children) as HTMLElement[];
+      const naturalRows = new Set(buttons.map(button => button.offsetTop));
+      if (naturalRows.size > 2 || buttons.some(button => button.offsetWidth > bar.clientWidth)) {
+        bar.setAttribute('data-wrap-labels', '');
+      }
+    };
+
+    fitCategories();
+    let width = bar.getBoundingClientRect().width;
+    const observer = new ResizeObserver(() => {
+      const nextWidth = bar.getBoundingClientRect().width;
+      if (nextWidth === width) return;
+      width = nextWidth;
+      fitCategories();
+    });
+    observer.observe(bar);
+    void document.fonts?.ready.then(fitCategories);
+    document.fonts?.addEventListener('loadingdone', fitCategories);
+    window.addEventListener('resize', fitCategories);
+    return () => {
+      active = false;
+      observer.disconnect();
+      document.fonts?.removeEventListener('loadingdone', fitCategories);
+      window.removeEventListener('resize', fitCategories);
+    };
+  }, [allCategories, hasUncategorized]);
+
   // Category Filtered Songs (multi-category compatible)
   const categoryFilteredSongs = useMemo(() => {
     if (categoryFilter === 'all') return sortedSongs;
@@ -943,17 +980,17 @@ if (isEditing && !savingSongRef.current) {
       )}
 
       {/* Categories share the theme accent only when selected. */}
-      <div role="group" aria-label="Song categories" className="flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 py-1 scrollbar-none text-xs sm:flex-wrap">
+      <div ref={categoryBarRef} role="group" aria-label="Song categories" className="song-category-bar relative flex min-w-0 flex-wrap gap-1.5 py-1 text-xs">
         {[
           { value: 'all', label: 'All' },
-          { value: 'Starred', label: 'Starred' },
           ...allCategories.map(value => ({ value, label: value === 'Hymn' ? 'Hymns' : value })),
-          ...(categoryCounts.uncategorized > 0 ? [{ value: 'uncategorized', label: 'Uncategorized' }] : []),
+          ...(hasUncategorized ? [{ value: 'uncategorized', label: 'Uncategorized' }] : []),
+          { value: 'Starred', label: 'Starred' },
         ].map(({ value, label }) => (
           <button key={value} type="button" aria-pressed={categoryFilter === value}
             onClick={() => setCategoryFilter(value)}
-            className="ui-category-pill flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 font-semibold transition-colors cursor-pointer select-none">
-            {value === 'Starred' && <Star aria-hidden="true" className="size-3.5 text-yellow-400" fill="currentColor" />}
+            className="ui-category-pill flex min-h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 font-semibold transition-colors cursor-pointer select-none">
+            {value === 'Starred' && <Star aria-hidden="true" className="size-3.5 shrink-0 text-yellow-400" fill="currentColor" />}
             <span>{label}</span>
           </button>
         ))}

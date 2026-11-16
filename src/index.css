@@ -184,6 +184,18 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
   .app-subtab-content { animation: none; }
 }
 .songs-screen > .ui-page-header h2 { margin: 0; }
+.song-category-bar[data-wrap-labels] {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.song-category-bar[data-wrap-labels] > button {
+  min-width: 0;
+  padding: .25rem .375rem;
+  gap: .25rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
 .ui-revamp button[class~="bg-slate-900"], .ui-primary {
   background: #1d4ed8; color: #fff; border: 1px solid #1d4ed8;
 }
