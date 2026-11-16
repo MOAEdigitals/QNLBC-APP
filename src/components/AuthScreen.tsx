@@ -163,7 +163,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             New Life Baptist Church
           </h2>
-          <p className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-400">
+          <p className="auth-tagline mt-1 font-medium text-slate-600 dark:text-slate-400">
             Reach the Lost · Teach the Brethren · Preach Christ to all
           </p>
         </div>
@@ -258,7 +258,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
           </form>
 
           <div className="auth-footer mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 text-center">
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="auth-footer-copy text-slate-500 dark:text-slate-400">
               Church ministry portal for Quezon New Life Baptist Church.
             </p>
           </div>
