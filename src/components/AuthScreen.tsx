@@ -157,14 +157,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
     <div className="auth-screen bg-slate-50 dark:bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors">
       <div className="sm:mx-auto sm:w-full sm:max-w-md px-4">
         <div className="auth-brand flex flex-col items-center text-center">
-          <div className="auth-logo w-16 h-16 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 shadow-sm flex items-center justify-center mb-4 overflow-hidden">
+          <div className="auth-logo size-[72px] rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2 shadow-sm flex items-center justify-center mb-4 overflow-hidden">
             <ChurchLogo className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             New Life Baptist Church
           </h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 font-medium">
-            Worship Ministry & Program Portal • Quezon, N.E.
+          <p className="mt-1 whitespace-nowrap text-[clamp(0.5rem,2.7vw,0.75rem)] font-normal text-slate-600 dark:text-slate-400">
+            Reach the Lost · Teach the Brethren · Preach Christ to all
           </p>
         </div>
       </div>
@@ -259,7 +259,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
 
           <div className="auth-footer mt-6 pt-5 border-t border-slate-100 dark:border-slate-800 text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Authorized church ministry portal for New Life Baptist Church.
+              Church ministry portal for Quezon New Life Baptist Church.
             </p>
           </div>
         </div>
