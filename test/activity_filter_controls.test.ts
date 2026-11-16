@@ -46,6 +46,9 @@ test('Schedules filter controls hide matching cards and calendar dots, including
       assert.ok(labels.slice(1).every(text => text === ''));
     };
     assert.equal(cards().length, 3);
+    const colors = () => [...document.querySelector<HTMLButtonElement>(`[aria-label="${day}, 3 activities"]`)!.querySelectorAll('[data-calendar-activity]')]
+      .map(dot => dot.className.split(' ').find(name => name.startsWith('bg-')));
+    assert.equal(new Set(colors()).size, 3, 'activity types on one day have distinct dot colors');
     checkFirstDateLabel();
     assert.ok(!cards().includes('Song Leaders & Choir Practice'));
     const filterButton = () => document.querySelector<HTMLButtonElement>('[aria-label="Filter activities"]')!;

@@ -19,6 +19,12 @@ import { useCalendarSwipe } from './useCalendarSwipe';
 
 const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-base text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white';
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
+const activityColors = {
+  sunday: 'bg-blue-500',
+  prayer: 'bg-emerald-500',
+  practice: 'bg-orange-500',
+  other: 'bg-amber-400',
+} as const;
 
 
 function localDate(value: string) {
@@ -162,9 +168,13 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
       return !query || `${item.title} ${item.description || ''}`.toLowerCase().includes(query);
     }), today);
   }, [items, search, gatheringFilters, today]);
-  const counts = useMemo(() => {
-    const result = new Map<string, number>();
-    for (const item of filteredItems) result.set(item.activityDate, (result.get(item.activityDate) || 0) + 1);
+  const activitiesByDate = useMemo(() => {
+    const result = new Map<string, ChurchActivity[]>();
+    for (const item of filteredItems) {
+      const entries = result.get(item.activityDate);
+      if (entries) entries.push(item);
+      else result.set(item.activityDate, [item]);
+    }
     return result;
   }, [filteredItems]);
   const overlays = useMemo(() => calendarOverlays(month.getFullYear(), birthdays, overlayFilters, search), [month, birthdays, overlayFilters, search]);
@@ -262,17 +272,22 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
 
   return <div className="relative mx-auto w-full max-w-[640px] space-y-6 pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
-      <header className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
+      <header className="-mb-2 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button>
         <h2 className="text-center text-xl font-bold">{calendarMonthLabel}</h2>
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Next month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></button>
       </header>
       <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400" aria-hidden="true">{['S','M','T','W','T','F','S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
-      <div className="mt-0.5 grid grid-cols-7 auto-rows-[48px]">
+      <div className="grid grid-cols-7 auto-rows-[48px]">
         {calendarDays.map((day, index) => {
           if (!day) return <span key={`blank-${index}`} />;
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
-          const count = counts.get(key) || 0;
+          const dayActivities = activitiesByDate.get(key) || [];
+          const count = dayActivities.length;
+          const activityKinds = dayActivities.map(item => activityKind(item.title));
+          const distinctKinds = Array.from(new Set(activityKinds));
+          const dots = [...distinctKinds, ...activityKinds.filter((kind, index) => activityKinds.indexOf(kind) !== index)]
+            .slice(0, Math.max(3, distinctKinds.length));
           const entries = overlaysByDate.get(key) || [];
           const kinds = ['ph', 'local', 'birthday'] as const;
           const extraLabel = kinds.map(kind => { const total = entries.filter(entry => entry.kind === kind).length; return total ? `, ${total} ${kind === 'birthday' ? 'birthday' : kind === 'local' ? 'local holiday' : 'PH holiday'}${total > 1 ? 's' : ''}` : ''; }).join('');
@@ -280,7 +295,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
           const isCurrentDay = key === today;
           return <button key={key} aria-current={isCurrentDay ? 'date' : undefined} type="button" onClick={() => showActivitiesForDate(key)} className="flex min-h-11 flex-col items-center justify-center rounded-xl text-sm hover:bg-slate-50 dark:hover:bg-slate-800" aria-label={`${key}${count ? `, ${count} ${count === 1 ? 'activity' : 'activities'}` : ''}${extraLabel}`}>
             <span className={`flex h-8 w-8 items-center justify-center rounded-full ${isSelected ? 'bg-blue-600 font-bold text-white' : isCurrentDay ? 'font-bold text-blue-600 dark:text-blue-400' : ''}`}>{day}</span>
-            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{Array.from({ length: Math.min(count, 3) }, (_, dot) => <i key={dot} className="h-1 w-1 rounded-full bg-amber-500" />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${kind === 'ph' ? 'bg-cyan-500' : kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} />)}</span>
+            <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{dots.map((kind, dot) => <i key={dot} data-calendar-activity={kind} className={`h-1 w-1 rounded-full ${activityColors[kind]}`} />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${kind === 'ph' ? 'bg-cyan-500' : kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} />)}</span>
           </button>;
         })}
       </div>
@@ -290,7 +305,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     <BottomSheet open={!!dateDetails} title={dateDetails ? localDate(dateDetails).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''} onClose={() => setDateDetails(null)}>
       <div className="divide-y divide-slate-200 dark:divide-slate-700">
         {(overlaysByDate.get(dateDetails || '') || []).map(entry => <div key={entry.id} className="flex gap-3 py-3"><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${entry.kind === 'ph' ? 'bg-cyan-500' : entry.kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} /><div className="min-w-0"><p className="font-semibold">{entry.title}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{entry.detail}{entry.kind === 'ph' ? ' · Philippines' : ''}</p>{entry.source && <a href={entry.source} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-600 dark:text-blue-400">Official source</a>}</div></div>)}
-        {filteredItems.filter(item => item.activityDate === dateDetails).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); const card = document.getElementById(`activity-card-${item.id}`); if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), true); }}><i aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" /><span className="font-semibold">{item.title}</span></button>)}
+        {(activitiesByDate.get(dateDetails || '') || []).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); const card = document.getElementById(`activity-card-${item.id}`); if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), true); }}><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${activityColors[activityKind(item.title)]}`} /><span className="font-semibold">{item.title}</span></button>)}
       </div>
     </BottomSheet>
     {activityFilterSheet}
@@ -313,8 +328,8 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
               <div className="-mr-0.5 flex w-8 shrink-0 flex-col items-center justify-center self-stretch" aria-label={item.activityDate}>
                 {firstOfDay && <><span className="text-lg leading-none font-semibold tabular-nums">{date.getDate()}</span><span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></>}
               </div>
-              <span aria-hidden="true" className={`h-[22px] w-[3px] shrink-0 rounded-full ${isRoutineActivity(item.title) ? 'bg-blue-500' : 'bg-amber-500'}`} />
-              <div className={`min-w-0 flex-1 ${past ? 'text-slate-500 dark:text-slate-400' : ''}`}><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h4 className="min-w-0 break-words text-[17px]/[22px] font-medium">{item.title}</h4><UpcomingBadge status={!past && (item.id === nextActivityId || item.id === followingActivityId) ? item.activityDate === today ? 'today' : item.id === nextActivityId ? 'next-up' : 'upcoming' : undefined} /></div>{item.activityTime && <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+              <span aria-hidden="true" className={`h-[22px] w-[3px] shrink-0 rounded-full ${activityColors[activityKind(item.title)]}`} />
+              <div className={`min-w-0 flex-1 ${past ? 'text-slate-500 dark:text-slate-400' : ''}`}><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h4 className={`min-w-0 break-words text-[17px]/[22px] font-medium ${past ? 'line-through' : ''}`}>{item.title}</h4><UpcomingBadge status={!past && (item.id === nextActivityId || item.id === followingActivityId) ? item.activityDate === today ? 'today' : item.id === nextActivityId ? 'next-up' : 'upcoming' : undefined} /></div>{item.activityTime && <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
               <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} aria-expanded={openMenu === item.id} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreHorizontal className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
             </div>
             {expanded && item.description && <p className="ml-[72px] whitespace-pre-wrap break-words border-t border-slate-200 py-2.5 pr-4 text-sm leading-relaxed text-slate-700 dark:border-slate-700 dark:text-slate-300">{item.description}</p>}

@@ -294,11 +294,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
       const program = previous[key];
       return program ? { ...previous, [key]: { ...program, songs } } : previous;
     });
-  }, isEditing, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs' });
-  const songRowProps = (id: string) => ({
-    'data-song-slot-id': id,
-    className: `relative flex items-center gap-2 rounded-lg ${(songReorder.pressedId === id || songReorder.drag?.id === id) ? 'opacity-50' : ''} ${songReorder.target?.id === id ? songReorder.target.edge === 'before' ? 'before:absolute before:inset-x-0 before:top-0 before:z-10 before:h-0.5 before:bg-blue-500 before:pointer-events-none' : 'after:absolute after:inset-x-0 after:bottom-0 after:z-10 after:h-0.5 after:bg-blue-500 after:pointer-events-none' : ''}`,
-  });
+  }, isEditing, { attribute: 'data-song-slot-id', holdDelay: 350, label: 'Songs', livePreview: true });
+  const songRowProps = (id: string) => {
+    const lifted = songReorder.drag?.id === id;
+    const shift = songReorder.rowOffsets[id];
+    return {
+      'data-song-slot-id': id,
+      className: `relative flex items-center gap-2 rounded-lg ${lifted ? 'z-20 bg-white shadow-lg ring-1 ring-blue-400 dark:bg-slate-900' : songReorder.drag ? 'motion-safe:transition-transform motion-safe:duration-150 motion-safe:ease-out' : songReorder.pressedId === id ? 'opacity-50' : ''}`,
+      style: shift === undefined ? undefined : { transform: `translateY(${shift}px)` },
+    };
+  };
   const songDragHandle = (section: string, index: number) => {
     const slot = songSlots.filter(slot => slot.date === section)[index];
     if (!slot || !songReorder.canDrag(slot)) return null;
@@ -1155,7 +1160,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
                                 <SetlistPerson avatars={directoryAvatars} role="Sunday School" name={item.sundaySchool?.songLeader} />
 
-                                 <div className="space-y-1.5">
+                                 <div className="space-y-0.5">
                                   {(item.sundaySchool?.songs || []).map((song, idx) => {
                                     const matchedSong =
                                       song.songId ? songs.find((s) => s.id === song.songId) : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
@@ -1165,7 +1170,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       <div
                                         key={song.id || idx}
                                         onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
-                                        className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
+                                        className={`px-2.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             : ''
@@ -1201,7 +1206,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                               <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
                                 <SetlistPerson avatars={directoryAvatars} role="Worship Service" name={item.worshipService?.songLeader} />
 
-                                 <div className="space-y-1.5">
+                                 <div className="space-y-0.5">
                                   {(item.worshipService?.songs || []).map((song, idx) => {
                                     const matchedSong =
                                       song.songId ? songs.find((s) => s.id === song.songId) : songs.find((s) => s.title.trim().toLowerCase() === song.title.trim().toLowerCase());
@@ -1211,7 +1216,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                       <div
                                         key={song.id || idx}
                                         onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
-                                        className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
+                                        className={`px-2.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             : ''
@@ -1247,7 +1252,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     return (
                                       <div
                                         onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
-                                        className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
+                                        className={`px-2.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             : ''
@@ -1344,7 +1349,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           </div>
 
                           {/* Program Songs */}
-                          <div className="space-y-1.5">
+                          <div className="space-y-0.5">
                             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
                               Program Songs:
                             </span>
@@ -1357,7 +1362,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                 <div
                                   key={song.id || idx}
                                   onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
-                                  className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
+                                  className={`px-2.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                     targetSongId
                                       ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                                       : ''
@@ -1391,7 +1396,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                                     return (
                                       <div
                                         onClick={() => (targetSongId ? handleOpenSong(targetSongId, item.id) : null)}
-                                        className={`px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
+                                        className={`px-2.5 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-between transition-colors ${
                                           targetSongId
                                             ? 'cursor-pointer hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'
                                             : ''
@@ -1479,13 +1484,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
             <form onSubmit={handleSave} autoComplete="off" data-form-type="other" className="ui-modal-form">
               <span className="sr-only" role="status">{songReorder.announcement}</span>
-              {songReorder.drag && createPortal(
-                <div aria-hidden="true" className="pointer-events-none fixed z-[2100] max-w-[calc(100vw-2rem)] truncate rounded-xl border border-blue-400 bg-white px-4 py-2 text-sm font-semibold shadow-lg dark:bg-slate-800 dark:text-white"
-                  style={{ left: Math.max(12, Math.min(songReorder.drag.x, window.innerWidth - 190)), top: Math.max(0, songReorder.drag.y - 48) }}>
-                  {songSlots.find(slot => slot.id === songReorder.drag?.id)?.song.title || 'Song slot'}
-                </div>,
-                document.body,
-              )}
               {songReorder.error && <p role="alert" className="text-sm text-red-500">{songReorder.error}</p>}
 
               <div className="ui-form-body">

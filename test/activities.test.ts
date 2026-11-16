@@ -9,8 +9,8 @@ const data = fs.readFileSync(path.join(root, 'src/features/activities/data.ts'),
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20261006_church_activities.sql'), 'utf8').replace(/\r\n/g, '\n');
 const descriptionMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20261007_activity_descriptions.sql'), 'utf8').replace(/\r\n/g, '\n');
 
-test('activities show a month calendar with one dot per activity date occurrence', () => {
-  assert.match(source, /Array\.from\(\{ length: Math\.min\(count, 3\) \}/);
+test('activities show color-coded calendar dots by activity type', () => {
+  assert.match(source, /data-calendar-activity=\{kind\}/);
   assert.match(source, /grid grid-cols-7/);
   assert.match(source, /Previous month/);
   assert.match(source, /Next month/);

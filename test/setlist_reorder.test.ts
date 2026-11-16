@@ -27,7 +27,8 @@ test('song handles require a hold, restrict the section, preserve row data and s
   keys.forEach(key => Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[key] }));
   const require = createRequire(import.meta.url), React = require('react'), { act } = React;
   const root = require('react-dom/client').createRoot(document.getElementById('root'));
-  let clock = 0, hit: Element | null = null, calls: any[] = [], fail = false;
+  let clock = 0, hit: Element | null = null, calls: any[] = [], fail = false, livePreview = false;
+  let offsets: Record<string, number>;
   const exports: any = {};
   runInNewContext(ts.transpileModule(readFileSync('src/hooks/useSetlistReorder.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
     exports, Error, window: dom.window, document, Date: { now: () => clock }, requestAnimationFrame: () => 1, cancelAnimationFrame() {},
@@ -36,7 +37,8 @@ test('song handles require a hold, restrict the section, preserve row data and s
   (document as any).elementFromPoint = () => hit;
   const rows = [{ id: 'ss1', date: 'ss', displayOrder: 0, song: { title: 'First', songId: 'linked', notes: 'Keep this' } }, { id: 'ss2', date: 'ss', displayOrder: 1, song: { title: 'Second' } }, { id: 'ws1', date: 'ws', displayOrder: 0 }];
   function Harness() {
-    const reorder = exports.useSetlistReorder(rows, async (...args: any[]) => { if (fail) throw new Error('Conflict: reload'); calls.push(args); }, true, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs' });
+    const reorder = exports.useSetlistReorder(rows, async (...args: any[]) => { if (fail) throw new Error('Conflict: reload'); calls.push(args); }, true, { attribute: 'data-song-slot-id', holdDelay: 250, label: 'Songs', livePreview });
+    offsets = reorder.rowOffsets;
     return React.createElement('div', { 'data-pressed': reorder.pressedId || '' }, rows.map(row => React.createElement('div', { key: row.id, 'data-song-slot-id': row.id }, React.createElement('button', { id: row.id, ...reorder.handleProps(row) }, row.id))), React.createElement('p', { role: 'alert' }, reorder.error));
   }
   const pointer = async (id: string, type: string, y = 0) => act(() => {
@@ -68,6 +70,27 @@ test('song handles require a hold, restrict the section, preserve row data and s
     fail = true;
     await act(() => document.getElementById('ss1')!.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
     assert.equal(document.querySelector('[role="alert"]')!.textContent, 'Conflict: reload');
+
+    fail = false;
+    livePreview = true;
+    await act(() => root.render(React.createElement(Harness)));
+    for (const [index, row] of rows.entries()) {
+      const top = index * 50;
+      const element = document.querySelector<HTMLElement>(`[data-song-slot-id="${row.id}"]`)!;
+      element.getBoundingClientRect = () => new dom.window.DOMRect(0, top, 200, 44);
+    }
+    await pointer('ss1', 'pointerdown', 22);
+    clock += 350;
+    await pointer('ss1', 'pointermove', 75);
+    assert.equal(offsets.ss1, 53, 'the whole lifted row follows the pointer');
+    assert.equal(offsets.ss2, -50, 'the neighboring row slides into the opening before drop');
+    assert.equal(calls.length, 2, 'preview does not commit the order');
+    await pointer('ss1', 'pointermove', 122);
+    assert.equal(offsets.ss2, undefined, 'the preview resets outside its section');
+    await pointer('ss1', 'pointermove', 75);
+    await pointer('ss1', 'pointerup', 75);
+    assert.deepEqual(Array.from(calls[2][1]), ['ss2', 'ss1']);
+    assert.equal(Object.keys(offsets).length, 0);
   } finally {
     await act(() => root.unmount()); dom.window.close();
     keys.forEach((key, index) => { if (saved[index]) Object.defineProperty(globalThis, key, saved[index]!); else delete (globalThis as any)[key]; });
