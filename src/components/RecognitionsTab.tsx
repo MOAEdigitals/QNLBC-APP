@@ -308,7 +308,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                             <span aria-hidden="true" className="h-[22px] w-[3px] shrink-0 rounded-full bg-rose-500" />
                             <div className="min-w-0 flex-1">
                               <h4 title={[item.name, item.ministryOrGroup].filter(Boolean).join(' · ')} className="app-card-title flex min-w-0 items-center gap-2 text-[17px]/[22px] font-medium text-slate-900 dark:text-white">
-                                <span className="truncate">
+                                <span className="birthday-name truncate">
                                 {item.name}
                                 </span>
                                 {isBirthdayRecognitionWeek(item.birthDate) && <span className="sr-only">Greet this coming Sunday</span>}

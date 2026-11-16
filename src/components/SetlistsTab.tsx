@@ -472,6 +472,16 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   // Memoized directory names for autocomplete (reacts immediately to real-time cloud changes)
   const directoryNames = useMemo(() => getAllDirectoryNames(savedNames), [savedNames, isEditing]);
   const songTitleSuggestions = useMemo(() => songs.map((s) => s.title), [songs]);
+  const editorSongPickerProps = {
+    suggestions: songTitleSuggestions,
+    songs,
+    selectedSongTitles: selectedSetlistSongTitles,
+    clearOnReselect: true,
+    showAllOnFocus: true,
+    setlists,
+    songFilter: songPickerFilter,
+    onSongFilterChange: setSongPickerFilter,
+  };
 
   // Sort upcoming soonest first, then past below
   const sortedSetlists = useMemo(
@@ -1632,14 +1642,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.welcomeSong ?? ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, welcomeSong: val })}
-                          suggestions={songTitleSuggestions}
-                          allSuggestions={songTitleSuggestions}
+                          {...editorSongPickerProps}
                           defaultValue="Napakaligaya"
-                          songs={songs}
-                          selectedSongTitles={selectedSetlistSongTitles}
-                          clearOnReselect
-                          showAllOnFocus
-                          setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select welcome song..."
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
@@ -1659,14 +1663,8 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.closingSong ?? ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, closingSong: val })}
-                          suggestions={songTitleSuggestions}
-                          allSuggestions={songTitleSuggestions}
+                          {...editorSongPickerProps}
                           defaultValue="Give Thanks"
-                          songs={songs}
-                          selectedSongTitles={selectedSetlistSongTitles}
-                          clearOnReselect
-                          showAllOnFocus
-                          setlists={setlists}
                           showLastSung={false}
                           placeholder="Type or select closing song..."
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white font-medium"
@@ -1688,13 +1686,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <AutofillInput
                           value={editingSetlist.themeSong || ''}
                           onChange={(val) => setEditingSetlist({ ...editingSetlist, themeSong: val })}
-                          suggestions={songTitleSuggestions}
-                          allSuggestions={songTitleSuggestions}
-                          songs={songs}
-                          selectedSongTitles={selectedSetlistSongTitles}
-                          clearOnReselect
-                          showAllOnFocus
-                          setlists={setlists}
+                          {...editorSongPickerProps}
                           showLastSung={false}
                           placeholder="Type or select theme song..."
                           inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
@@ -1779,15 +1771,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             <AutofillInput
                               value={s.title}
                               onChange={(val) => handleUpdateSongSlot('sundaySchool', idx, val)}
-                              suggestions={songTitleSuggestions}
-                              songs={songs}
-                              selectedSongTitles={selectedSetlistSongTitles}
-                              clearOnReselect
-                          showAllOnFocus
-                              setlists={setlists}
-                              showSongCategoryFilters
-                              songFilter={songPickerFilter}
-                              onSongFilterChange={setSongPickerFilter}
+                              {...editorSongPickerProps}
                               placeholder="Song Title"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
@@ -1885,15 +1869,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             <AutofillInput
                               value={s.title}
                               onChange={(val) => handleUpdateSongSlot('worshipService', idx, val)}
-                              suggestions={songTitleSuggestions}
-                              songs={songs}
-                              selectedSongTitles={selectedSetlistSongTitles}
-                              clearOnReselect
-                          showAllOnFocus
-                              setlists={setlists}
-                              showSongCategoryFilters
-                              songFilter={songPickerFilter}
-                              onSongFilterChange={setSongPickerFilter}
+                              {...editorSongPickerProps}
                               placeholder="Song Title"
                               inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                             />
@@ -1991,15 +1967,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                           <AutofillInput
                             value={s.title}
                             onChange={(val) => handleUpdateSongSlot('program', idx, val)}
-                            suggestions={songTitleSuggestions}
-                            songs={songs}
-                            selectedSongTitles={selectedSetlistSongTitles}
-                            clearOnReselect
-                          showAllOnFocus
-                            setlists={setlists}
-                            showSongCategoryFilters
-                            songFilter={songPickerFilter}
-                            onSongFilterChange={setSongPickerFilter}
+                            {...editorSongPickerProps}
                             placeholder="Song Title"
                             inputClassName="p-1.5 text-xs sm:text-sm text-slate-900 dark:text-white"
                           />

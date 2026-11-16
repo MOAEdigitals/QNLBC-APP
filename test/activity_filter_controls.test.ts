@@ -57,6 +57,9 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     await act(() => filterButton().click());
     assert.equal(document.querySelector('[aria-label="Filter activities"]')!.getAttribute('aria-expanded'), 'true');
     const checkbox = (label: string) => [...document.querySelectorAll('label')].find(element => element.textContent === label)!.querySelector('input')!;
+    for (const [label, color] of [['Prayer meetings', 'bg-emerald-500'], ['Sunday service', 'bg-blue-500'], ['Choir & song leader practice', 'bg-orange-500'], ['Other events', 'bg-amber-400']]) {
+      assert.ok(checkbox(label).nextElementSibling?.classList.contains(color));
+    }
     assert.equal(checkbox('Prayer meetings').checked, true);
     assert.equal(checkbox('Sunday service').checked, true);
     assert.equal(checkbox('Other events').checked, true);

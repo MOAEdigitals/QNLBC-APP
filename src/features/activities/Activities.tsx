@@ -111,7 +111,13 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   );
   const activityFilterSheet = (
         <BottomSheet open={showFilters} title="Filter activities" onClose={() => setShowFilters(false)}><div className="space-y-1">
-          {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
+          {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => (
+            <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm">
+              <input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />
+              <i aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${activityColors[key]}`} />
+              {label}
+            </label>
+          ))}
           <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
             {([['ph', 'PH holidays', 'bg-cyan-500'], ['local', 'Local holidays (Nueva Ecija)', 'bg-violet-500'], ['birthday', 'Birthdays', 'bg-rose-500']] as const).map(([key, label, color]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={overlayFilters[key]} onChange={() => {
               const enabled = !overlayFilters[key];
@@ -270,7 +276,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     }
   };
 
-  return <div className="relative mx-auto w-full max-w-[640px] space-y-6 pb-16" onClick={() => setOpenMenu(null)}>
+  return <div className="relative mx-auto w-full max-w-[640px] space-y-2 pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
       <header className="-mb-2 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button>
