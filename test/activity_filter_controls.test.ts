@@ -48,7 +48,10 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.equal(cards().length, 3);
     checkFirstDateLabel();
     assert.ok(!cards().includes('Song Leaders & Choir Practice'));
-    await act(() => (document.querySelector('[aria-label="Filter activities"]') as HTMLButtonElement).click());
+    const filterButton = () => document.querySelector<HTMLButtonElement>('[aria-label="Filter activities"]')!;
+    assert.equal(searchConfig.beforeSearch, undefined);
+    assert.equal(filterButton().previousElementSibling, document.querySelector('[data-activity-results] h3'));
+    await act(() => filterButton().click());
     assert.equal(document.querySelector('[aria-label="Filter activities"]')!.getAttribute('aria-expanded'), 'true');
     const checkbox = (label: string) => [...document.querySelectorAll('label')].find(element => element.textContent === label)!.querySelector('input')!;
     assert.equal(checkbox('Prayer meetings').checked, true);
@@ -81,6 +84,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.deepEqual(cards(), ['Sunday Service']);
     await act(() => checkbox('Sunday service').click());
     assert.equal(cards().length, 0);
+    assert.ok(filterButton(), 'filters remain accessible when every activity is hidden');
     assert.ok(document.querySelector(`[aria-label="${day}"]`), 'calendar has no dots for filtered-out cards');
     await act(() => checkbox('Prayer meetings').click());
     assert.deepEqual(cards(), ['Midweek Prayer Meeting']);

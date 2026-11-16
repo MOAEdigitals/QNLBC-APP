@@ -8,7 +8,7 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { UpcomingBadge } from '../../components/UpcomingBadge';
 import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, Filter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, ListFilter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { BirthdayCelebrant, ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
 import { deleteActivity, fetchActivities, saveActivity } from './data';
@@ -92,15 +92,18 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     return () => { active = false; setBirthdaysLoading(false); };
   }, [overlayFilters.birthday, onLoadBirthdays]);
   const savingRef = useRef(false);
-  const filterRef = useRef<HTMLDivElement>(null);
   const lastProcessedSignalRef = useRef<number>(0);
   const canAdd = currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd;
   const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
   const canDelete = currentUser?.role === 'admin' || !!currentUser?.permissions?.canDelete;
 
-  const activityFilter = useMemo(() => (
-      <div ref={filterRef} className="relative">
-        <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(value => !value)}><Filter className="h-5 w-5" /></button>
+  const renderActivityFilterHeading = (label: string) => (
+    <div className="flex min-h-11 items-center justify-between gap-2 pl-1">
+      <h3 className="text-base font-bold">{label}</h3>
+      <button type="button" className="flex size-11 shrink-0 items-center justify-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Filter activities" title="Filter activities" aria-expanded={showFilters} onClick={() => setShowFilters(true)}><ListFilter aria-hidden="true" className="size-5" /></button>
+    </div>
+  );
+  const activityFilterSheet = (
         <BottomSheet open={showFilters} title="Filter activities" onClose={() => setShowFilters(false)}><div className="space-y-1">
           {([['prayer', 'Prayer meetings'], ['sunday', 'Sunday service'], ['practice', 'Choir & song leader practice'], ['other', 'Other events']] as const).map(([key, label]) => <label key={key} className="flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm"><input type="checkbox" checked={gatheringFilters[key]} onChange={() => setGatheringFilters(value => ({ ...value, [key]: !value[key] }))} />{label}</label>)}
           <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-700">
@@ -110,10 +113,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
             }} /><i aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${color}`} />{label}</label>)}
           </div>
         </div></BottomSheet>
-      </div>
-    ), [showFilters, gatheringFilters, overlayFilters]);
+  );
   useHeaderSearch({ value: search, onChange: setSearch, placeholder: 'Search activities',
-    label: 'Search activities', beforeSearch: activityFilter, onOpen: scrollToResults });
+    label: 'Search activities', onOpen: scrollToResults });
 
   const load = async () => {
     try {
@@ -175,6 +177,10 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const followingActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today) && item.id !== nextActivityId)?.id;
   // Completed dates stay at the end of their year, after every upcoming month.
   const activityGroups = groupActivityMonths(filteredItems, today);
+  const currentYear = Number(today.slice(0, 4));
+  const firstVisibleGroup = activityGroups.find(group => Number(group.key.slice(0, 4)) >= currentYear)
+    ?? (search.trim() ? activityGroups[0] : undefined);
+  const calendarMonthLabel = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
     if (!openMenu) return;
@@ -258,7 +264,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
       <header className="mb-1.5 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button>
-        <h2 className="text-center text-xl font-bold">{month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+        <h2 className="text-center text-xl font-bold">{calendarMonthLabel}</h2>
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Next month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></button>
       </header>
       <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400" aria-hidden="true">{['S','M','T','W','T','F','S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
@@ -287,13 +293,15 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
         {filteredItems.filter(item => item.activityDate === dateDetails).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); const card = document.getElementById(`activity-card-${item.id}`); if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), true); }}><i aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" /><span className="font-semibold">{item.title}</span></button>)}
       </div>
     </BottomSheet>
+    {activityFilterSheet}
     <div ref={resultsRef} data-activity-results>
+    {!firstVisibleGroup && renderActivityFilterHeading(calendarMonthLabel)}
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {yearList(activityGroups, group => group.items[0]?.activityDate, groups => groups.map(group => {
 
         return <section key={group.key} className="space-y-2">
-          <h3 className="px-1 text-base font-bold">{group.label}</h3>
+          {group === firstVisibleGroup ? renderActivityFilterHeading(group.label) : <h3 className="px-1 text-base font-bold">{group.label}</h3>}
           <div className="rounded-[20px] bg-white dark:bg-slate-900">
           {group.items.map((item, index) => {
             const date = localDate(item.activityDate);
@@ -313,7 +321,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
           </article>; })}
           </div>
         </section>;
-      }), { reveal: !!search.trim(), currentYear: Number(today.slice(0, 4)), gridClass: 'space-y-3 px-3 pb-3' })}
+      }), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
     </div>}
     </div>
 
