@@ -30,17 +30,27 @@ function database() {
   let failAttachments = false;
   let failInsert = false;
   let loseInsertResponse = false;
+  let reserveNextPosition = false;
   const supabase = {
     from(table: string) {
       let action = 'select';
       let payload: any;
+      let descendingPosition = false;
       const filters: Array<(row: any) => boolean> = [];
       const execute = () => {
         if (table === 'attachments' && failAttachments) return { data: null, error: new Error('Attachment sync failed') };
         let found = rows[table].filter(row => filters.every(filter => filter(row)));
+        if (descendingPosition) found.sort((a, b) => b.position - a.position);
         if (action === 'insert') {
           if (table === 'vocal_parts' && failInsert) return { data: null, error: new Error('Persistence unavailable') };
           const row = { ...payload, id: payload.id || `attachment-${rows[table].length}`, revision: 1, created_at: '2026-09-18' };
+          if (table === 'vocal_parts' && reserveNextPosition) {
+            reserveNextPosition = false;
+            rows.vocal_parts.push({ id: 'concurrent-part', practice_id: row.practice_id, position: row.position });
+          }
+          if (table === 'vocal_parts' && rows.vocal_parts.some(item => item.practice_id === row.practice_id && item.position === row.position)) {
+            return { data: null, error: { code: '23505', message: 'duplicate key violates vocal_parts_practice_id_position_key' } };
+          }
           if (rows[table].some(item => item.id === row.id)) return { data: null, error: new Error('Duplicate primary key') };
           rows[table].push(row);
           found = [row];
@@ -58,7 +68,7 @@ function database() {
         select() { return query; },
         eq(key: string, value: unknown) { filters.push(row => row[key] === value); return query; },
         is(key: string, value: unknown) { filters.push(row => (row[key] ?? null) === value); return query; },
-        order() { return query; },
+        order(key: string, options: { ascending: boolean }) { descendingPosition = key === 'position' && !options.ascending; return query; },
         limit() { return query; },
         insert(value: unknown) { action = 'insert'; payload = value; return query; },
         update(value: unknown) { action = 'update'; payload = value; return query; },
@@ -83,6 +93,7 @@ function database() {
     failAttachments: (value: boolean) => { failAttachments = value; },
     failInsert: (value: boolean) => { failInsert = value; },
     loseInsertResponse: (value: boolean) => { loseInsertResponse = value; },
+    reserveNextPosition: () => { reserveNextPosition = true; },
   };
 }
 
@@ -237,13 +248,14 @@ it('retry after a lost insert response reuses the row; another modal may add the
   db.loseInsertResponse(false);
   await ui.tap();
   assert.equal(db.counts.inserts, 1);
-  await db.save(practiceId, { id: '33333333-3333-4333-8333-333333333333', partLabel: 'Soprano' }, 1);
+  await db.save(practiceId, { id: '33333333-3333-4333-8333-333333333333', partLabel: 'Soprano' });
   assert.equal(db.rows.vocal_parts.length, 2);
 });
 
 it('editing reuses the existing UUID and attachment metadata', async () => {
   const db = database();
-  const part = await db.save(practiceId, { id: partId, partLabel: 'Soprano', audioUrl: 'https://audio.example/old' }, 0);
+  db.rows.vocal_parts.push({ id: 'deleted-part', practice_id: practiceId, position: 6, deleted_at: '2026-09-18' });
+  const part = await db.save(practiceId, { id: partId, partLabel: 'Soprano', audioUrl: 'https://audio.example/old' });
   const ui = modal(db.save);
   ui.context.open({ id: practiceId, vocalParts: [part] }, 0);
   ui.context.vocalPartAudioUrl = 'https://audio.example/new';
@@ -252,6 +264,19 @@ it('editing reuses the existing UUID and attachment metadata', async () => {
   assert.equal(db.counts.updates, 1);
   assert.equal(db.rows.attachments.length, 1);
   assert.equal(db.rows.attachments[0].external_url, 'https://audio.example/new');
+  assert.equal(db.rows.vocal_parts.find(row => row.id === partId).position, 7);
+});
+
+it('a new recording appends after deleted positions and retries a concurrent position collision', async () => {
+  const db = database();
+  db.rows.vocal_parts.push({ id: 'deleted-part', practice_id: practiceId, position: 4, deleted_at: '2026-09-18' });
+  db.reserveNextPosition();
+  const ui = modal(db.save);
+  await ui.tap();
+  assert.equal(db.rows.vocal_parts.find(row => row.id === 'concurrent-part').position, 5);
+  assert.equal(db.rows.vocal_parts.find(row => row.id === partId).position, 6);
+  assert.equal(db.rows.attachments[0].owner_id, partId);
+  assert.equal(ui.context.isAddingVocalPartModal, false);
 });
 
 it('modal renders error feedback, no success popup, and disables controls while saving', () => {

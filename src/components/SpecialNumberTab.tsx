@@ -115,8 +115,7 @@ interface SpecialNumberTabProps {
   onSavePracticeEntry?: (entry: Partial<PracticeGroupEntry>, isNew?: boolean) => Promise<PracticeGroupEntry | void> | void;
   onSavePracticeVocalPart?: (
     practiceId: string,
-    part: PracticePartTrack,
-    position?: number
+    part: PracticePartTrack
   ) => Promise<PracticePartTrack | void> | void;
   onDeletePracticeVocalPart?: (part: PracticePartTrack) => Promise<void> | void;
   onSavePracticeTrack?: (
@@ -1819,11 +1818,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       }
 
       if (onSavePracticeVocalPart) {
-        await onSavePracticeVocalPart(
-          liveGroup.id,
-          partObj,
-          editingVocalPartIndex !== null ? editingVocalPartIndex : currentList.length - 1
-        );
+        await onSavePracticeVocalPart(liveGroup.id, partObj);
       } else if (onSavePracticeEntry) {
         await onSavePracticeEntry({
           ...liveGroup,

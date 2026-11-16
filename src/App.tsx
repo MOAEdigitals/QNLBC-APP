@@ -1005,13 +1005,12 @@ export default function App() {
 
   const handleSavePracticeVocalPart = async (
     practiceId: string,
-    part: import('./types').PracticePartTrack,
-    position?: number
+    part: import('./types').PracticePartTrack
   ) => {
     if (!requirePermission('upload')) {
       throw new Error('Your account does not have UPLOAD permission.');
     }
-    const savedPart = await supabaseSavePracticeVocalPart(practiceId, part, position);
+    const savedPart = await supabaseSavePracticeVocalPart(practiceId, part);
     setPracticeEntries((entries) => entries.map((entry) => {
       if (entry.id !== practiceId) return entry;
       const parts = [...(entry.vocalParts?.length ? entry.vocalParts : entry.parts || [])];

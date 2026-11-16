@@ -1125,6 +1125,32 @@ async function syncOwnerAttachments(
   }
 }
 
+async function insertPracticeVocalPart(payload: { practice_id: string; label: string; custom_label: string | null; name: string | null; notes: string | null; id?: string }) {
+  let position = 0;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    // Deleted rows also occupy their positions under the database constraint.
+    const { data: latest, error: lookupError } = await supabase
+      .from('vocal_parts')
+      .select('position')
+      .eq('practice_id', payload.practice_id)
+      .order('position', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    position = Math.max(position, latest ? Number(latest.position) + 1 : 0);
+
+    const { data, error } = await supabase
+      .from('vocal_parts').insert({ ...payload, position }).select('*').single();
+    if (data && !error) return data;
+    if (error?.code !== '23505' || !error.message.includes('vocal_parts_practice_id_position_key')) {
+      throw error || new Error('No vocal part returned after insert');
+    }
+    // A concurrent insert or a row hidden by RLS can occupy the candidate.
+    position++;
+  }
+  throw new Error('Could not save this vocal part. Your recording is ready. Tap Save to retry.');
+}
+
 async function syncPracticeVocalParts(
   practiceId: string,
   parts: PracticePartTrack[]
@@ -1135,14 +1161,11 @@ async function syncPracticeVocalParts(
     .eq('practice_id', practiceId)
     .is('deleted_at', null);
 
-  if (fetchPartsErr) {
-    console.warn('Failed to fetch existing vocal parts:', formatSupabaseError(fetchPartsErr));
-  }
+  if (fetchPartsErr) throw fetchPartsErr;
 
   const keptPartIds = new Set<string>();
 
-  for (let i = 0; i < parts.length; i++) {
-    const p = parts[i];
+  for (const p of parts) {
     const hasPartUUID = isUUID(p.id);
 
     const partPayload = {
@@ -1151,7 +1174,6 @@ async function syncPracticeVocalParts(
       custom_label: (p.customLabel || p.custom_label)?.trim() || null,
       name: p.name?.trim() || null,
       notes: p.notes?.trim() || null,
-      position: i,
     };
 
     const matchPart = hasPartUUID ? existingParts?.find((ep) => ep.id === p.id) : null;
@@ -1167,19 +1189,9 @@ async function syncPracticeVocalParts(
       }
       persistedPartId = matchPart.id;
     } else {
-      const { data: savedPart, error: partErr } = await supabase
-        .from('vocal_parts')
-        .insert(partPayload)
-        .select('*')
-        .single();
-      if (!partErr && savedPart) {
-        keptPartIds.add(savedPart.id);
-        persistedPartId = savedPart.id;
-      } else if (partErr) {
-        throw partErr;
-      } else {
-        throw new Error('No vocal part returned after insert');
-      }
+      const savedPart = await insertPracticeVocalPart(partPayload);
+      keptPartIds.add(savedPart.id);
+      persistedPartId = savedPart.id;
     }
 
     const audioUrl = (p.audioUrl || p.urlOrData || '').trim();
@@ -1221,8 +1233,7 @@ async function syncPracticeVocalParts(
  */
 export async function savePracticeVocalPart(
   practiceId: string,
-  part: PracticePartTrack,
-  requestedPosition?: number
+  part: PracticePartTrack
 ): Promise<PracticePartTrack> {
   if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
   if (!practiceId || !isUUID(practiceId)) {
@@ -1239,29 +1250,14 @@ export async function savePracticeVocalPart(
   if (parentError) throw parentError;
   if (!parent) throw new Error('Practice no longer exists or could not be accessed.');
 
-  const existingResult = isUUID(part.id)
-    ? await supabase
-        .from('vocal_parts')
-        .select('*')
-        .eq('id', part.id)
-        .eq('practice_id', practiceId)
-        .is('deleted_at', null)
-        .maybeSingle()
-    : { data: null, error: null };
+  const existingResult = await supabase
+    .from('vocal_parts')
+    .select('id')
+    .eq('id', part.id)
+    .eq('practice_id', practiceId)
+    .is('deleted_at', null)
+    .maybeSingle();
   if (existingResult.error) throw existingResult.error;
-
-  let position = requestedPosition;
-  if (position === undefined || position < 0) {
-    const { data: positions, error: positionError } = await supabase
-      .from('vocal_parts')
-      .select('position')
-      .eq('practice_id', practiceId)
-      .is('deleted_at', null)
-      .order('position', { ascending: false })
-      .limit(1);
-    if (positionError) throw positionError;
-    position = positions?.length ? Number(positions[0].position) + 1 : 0;
-  }
 
   const payload = {
     practice_id: practiceId,
@@ -1269,7 +1265,6 @@ export async function savePracticeVocalPart(
     custom_label: (part.customLabel || part.custom_label)?.trim() || null,
     name: part.name?.trim() || null,
     notes: part.notes?.trim() || null,
-    position,
   };
 
   const { data: savedPart, error: saveError } = existingResult.data
@@ -1281,7 +1276,7 @@ export async function savePracticeVocalPart(
         .single()
     // Reuse the modal's UUID even if a previous attempt saved the row but failed
     // while syncing attachments (or the insert response was lost).
-    : await supabase.from('vocal_parts').insert({ ...payload, id: part.id }).select('*').single();
+    : { data: await insertPracticeVocalPart({ ...payload, id: part.id }), error: null };
 
   if (saveError || !savedPart) {
     throw saveError || new Error('No vocal part returned after save');
