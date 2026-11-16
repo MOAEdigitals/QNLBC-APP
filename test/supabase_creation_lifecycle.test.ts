@@ -96,7 +96,7 @@ describe('Supabase record creation lifecycle', () => {
 
   it('saves member vocal contributions without updating the parent practice', () => {
     assert.ok(dataLayer.includes('export async function savePracticeVocalPart'));
-    assert.ok(app.includes('supabaseSavePracticeVocalPart(practiceId, part, position)'));
+    assert.ok(app.includes('supabaseSavePracticeVocalPart(practiceId, part)'));
     const memberSave = dataLayer.slice(
       dataLayer.indexOf('export async function savePracticeVocalPart'),
       dataLayer.indexOf('export async function createPracticeEntry')
