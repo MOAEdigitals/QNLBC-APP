@@ -8,11 +8,11 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 test('Schedules keeps every subtab one tap away and labels only the selected item on mobile', () => {
   const source = read('src/components/SpecialNumberTab.tsx');
   const styles = read('src/index.css');
-  assert.match(source, /aria-label="Schedules sections" className=\{`flex gap-1\.5/);
-  assert.match(source, /activeSubTab === 'schedules' \? 'flex-1' : 'w-11 shrink-0'/);
-  assert.match(source, /activeSubTab === 'practice' \? 'flex-1' : 'w-11 shrink-0'/);
-  assert.match(source, /activeSubTab === 'activities' \? 'inline' : 'hidden'/);
-  assert.match(source, /aria-label="Activities"[\s\S]*?aria-label="Song Numbers"[\s\S]*?aria-label="Choir"[\s\S]*?aria-label="Practice"/);
+  assert.match(source, /aria-label="Schedules sections" className="app-subtabs/);
+  assert.match(source, /'Activities',[\s\S]*?'Song Numbers',[\s\S]*?'Choir',[\s\S]*?'Practice',/);
+  assert.match(source, /aria-pressed=\{activeSubTab === key\}/);
+  assert.match(styles, /transition: flex-grow 200ms/);
+  assert.match(styles, /\[aria-pressed="true"\] \.app-subtab-label/);
   assert.doesNotMatch(source, /\{ schedules: 'Song Numbers', practice: 'Practice'/);
   assert.doesNotMatch(styles, /\.practice-screen > div:first-child > button/);
 });
@@ -31,8 +31,8 @@ test('main and recognition navigation do not render numeric bubbles', () => {
 
 test('Recognitions keeps every subtab one tap away and labels only the selected item on mobile', () => {
   const source = read('src/components/RecognitionsTab.tsx');
-  assert.match(source, /recognition-tabs flex gap-1\.5/);
-  assert.match(source, /subTab === 'birthdays' \? 'flex-1' : 'w-11 shrink-0'/);
-  assert.match(source, /subTab === 'anniversaries' \? 'inline' : 'hidden'/);
+  assert.match(source, /aria-label="Recognitions sections" className="app-subtabs/);
+  assert.match(source, /aria-pressed=\{subTab === key\}/);
+  assert.match(source, /className="app-subtab-label"/);
   assert.doesNotMatch(source, /aria-label="Visitors"/);
 });

@@ -1860,65 +1860,22 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   return (
     <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
-      {/* The selected section expands to show its label; the others remain one-tap icons. */}
-      <div role="group" aria-label="Schedules sections" className={`flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 ${activeSubTab === 'activities' ? 'mx-auto w-full max-w-[640px]' : ''}`}>
-        <button type="button" onClick={() => setActiveSubTab('activities')} aria-pressed={activeSubTab === 'activities'} aria-label="Activities" title="Activities"
-          className={`ui-category-pill relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${activeSubTab === 'activities' ? 'flex-1 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs' : 'w-11 shrink-0 text-slate-600 dark:text-slate-400'} sm:flex-1 sm:w-auto`}>
-          <Calendar className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
-          <span className={`${activeSubTab === 'activities' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Activities</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('schedules')}
-          aria-pressed={activeSubTab === 'schedules'}
-          aria-label="Song Numbers"
-          title="Song Numbers"
-          className={`ui-category-pill relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeSubTab === 'schedules' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            activeSubTab === 'schedules'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Mic2 className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
-          <span className={`${activeSubTab === 'schedules' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Song Numbers</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('choir')}
-          aria-pressed={activeSubTab === 'choir'}
-          aria-label="Choir"
-          title="Choir"
-          className={`ui-category-pill relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeSubTab === 'choir' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            activeSubTab === 'choir'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Users className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
-          <span className={`${activeSubTab === 'choir' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Choir</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSubTab('practice')}
-          aria-pressed={activeSubTab === 'practice'}
-          aria-label="Practice"
-          title="Practice"
-          className={`ui-category-pill relative min-w-0 min-h-11 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors cursor-pointer ${activeSubTab === 'practice' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            activeSubTab === 'practice'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Play className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" />
-          <span className={`${activeSubTab === 'practice' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Practice</span>
-        </button>
+      <div role="group" aria-label="Schedules sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
+        {([
+          ['activities', 'Activities', Calendar],
+          ['schedules', 'Song Numbers', Mic2],
+          ['choir', 'Choir', Users],
+          ['practice', 'Practice', Play],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" className="ui-category-pill app-subtab" aria-label={label} aria-pressed={activeSubTab === key} onClick={() => setActiveSubTab(key)}>
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="app-subtab-label">{label}</span>
+          </button>
+        ))}
       </div>
 
       {activeSubTab === 'activities' && (
-        <React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense>
+        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
       )}
 
       {/* ========================================================================= */}
@@ -1926,7 +1883,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* SCHEDULES SUB-TAB */}
       {/* ========================================================================= */}
       {activeSubTab === 'schedules' && (
-        <div className="space-y-4">
+        <div className="app-subtab-content space-y-4">
 
           {/* Vacant Fellowship / Event Alerts */}
           {vacantEvents.length > 0 && (
@@ -2096,7 +2053,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* PRACTICE SUB-TAB (Singing Groups, Vocal Parts & Practice Stems) */}
       {/* ========================================================================= */}
       {activeSubTab === 'practice' && (
-        <div className="space-y-4">
+        <div className="app-subtab-content space-y-4">
           {/* Cloud Media Sync Banner & Feedback */}
           {syncStatusBanner && (
             <div
@@ -2556,7 +2513,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* CHOIR SUB-TAB */}
       {/* ========================================================================= */}
       {activeSubTab === 'choir' && (
-        <div className="space-y-4">
+        <div className="app-subtab-content space-y-4">
           {/* Choir Songs Lineup List */}
           {filteredChoirEntries.length === 0 ? (
             choirSearchQuery ? (

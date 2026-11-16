@@ -943,7 +943,7 @@ if (isEditing && !savingSongRef.current) {
       )}
 
       {/* Categories share the theme accent only when selected. */}
-      <div className="flex items-center gap-1.5 flex-wrap overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs pt-0.5">
+      <div role="group" aria-label="Song categories" className="flex min-w-0 items-center gap-1.5 overflow-x-auto px-1 py-1 scrollbar-none text-xs sm:flex-wrap">
         {[
           { value: 'all', label: 'All' },
           { value: 'Starred', label: 'Starred' },
@@ -952,8 +952,8 @@ if (isEditing && !savingSongRef.current) {
         ].map(({ value, label }) => (
           <button key={value} type="button" aria-pressed={categoryFilter === value}
             onClick={() => setCategoryFilter(value)}
-            className="ui-category-pill px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl font-semibold transition-colors cursor-pointer select-none whitespace-nowrap flex items-center gap-1.5">
-                  {value === 'Starred' && <Star className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" />}
+            className="ui-category-pill flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 font-semibold transition-colors cursor-pointer select-none">
+            {value === 'Starred' && <Star aria-hidden="true" className="size-3.5 text-yellow-400" fill="currentColor" />}
             <span>{label}</span>
           </button>
         ))}

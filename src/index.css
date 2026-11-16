@@ -112,17 +112,13 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
   opacity: .7;
 }
 .birthday-card[data-birthday-celebrant] > div { position: relative; }
-.special-screen [data-special-activity='true'] + [data-special-activity='true']::before {
-  border-color: rgb(100 116 139 / 32%);
+.special-screen [data-special-activity='true'] + [data-special-activity='true'],
+.birthday-card[data-birthday-celebrant] + .birthday-card[data-birthday-celebrant] {
+  margin-block-start: 4px;
 }
-.dark .special-screen [data-special-activity='true'] + [data-special-activity='true']::before {
-  border-color: rgb(148 163 184 / 32%);
-}
+.special-screen [data-special-activity='true'] + [data-special-activity='true']::before,
 .birthday-card[data-birthday-celebrant] + .birthday-card[data-birthday-celebrant] > .birthday-row-separator {
-  background-color: rgb(100 116 139 / 32%);
-}
-.dark .birthday-card[data-birthday-celebrant] + .birthday-card[data-birthday-celebrant] > .birthday-row-separator {
-  background-color: rgb(148 163 184 / 32%);
+  display: none;
 }
 /* Fade content only: opacity on a card also fades its floating actions and menu. */
 .qnlbc-app .birthday-card[data-past] > :first-child,
@@ -150,9 +146,42 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
 .ui-screen > div[class*="rounded-2xl"] { border-width: 1px; }
 .ui-screen .lyrics-awake { color: var(--ui-accent); }
 .setlists-screen [id^="setlist-card-"] { border-radius: .75rem; box-shadow: none; }
-.recognition-tabs button { min-width: 0; }
+.app-subtabs .app-subtab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 44px;
+  flex: 0 0 44px;
+  overflow: hidden;
+  border-radius: .75rem;
+  font-size: .75rem;
+  font-weight: 600;
+  transition: flex-grow 200ms ease-in-out, background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+.app-subtabs .app-subtab[aria-pressed="true"] { flex-grow: 1; }
+.app-subtab-label {
+  min-width: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition: max-width 200ms ease-in-out, margin-inline-start 200ms ease-in-out, opacity 130ms ease;
+}
+.app-subtab[aria-pressed="true"] .app-subtab-label {
+  margin-inline-start: .375rem;
+  max-width: 8rem;
+  opacity: 1;
+}
+.app-subtab-content { animation: app-subtab-fade-in 160ms ease-out; }
+@keyframes app-subtab-fade-in { from { opacity: .65; } to { opacity: 1; } }
 @media (min-width: 640px) {
-  .recognition-tabs button { min-width: 8.5rem; }
+  .app-subtabs .app-subtab { flex: 1 1 0; font-size: .875rem; }
+  .app-subtab .app-subtab-label { margin-inline-start: .375rem; max-width: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-subtabs .app-subtab, .app-subtab-label { transition: none; }
+  .app-subtab-content { animation: none; }
 }
 .songs-screen > .ui-page-header h2 { margin: 0; }
 .ui-revamp button[class~="bg-slate-900"], .ui-primary {

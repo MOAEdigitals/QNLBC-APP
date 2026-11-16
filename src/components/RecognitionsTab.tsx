@@ -258,62 +258,22 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen recognitions-screen space-y-5">
-      {/* The selected section expands to show its label; the others remain one-tap icons. */}
-      <div className={`recognition-tabs flex gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1.5 rounded-2xl border border-slate-200 dark:border-slate-700/80 ${subTab === 'birthdays' ? 'mx-auto w-full max-w-[640px]' : ''}`}>
-        {/* Birthdays */}
-        <button
-          type="button"
-          aria-label="Birthdays"
-          aria-pressed={subTab === 'birthdays'}
-          title="Birthdays"
-          onClick={() => setSubTab('birthdays')}
-          className={`ui-category-pill relative min-w-0 flex items-center justify-center gap-2 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${subTab === 'birthdays' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            subTab === 'birthdays'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Cake className="w-4 h-4" />
-          <span className={`${subTab === 'birthdays' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Birthdays</span>
-        </button>
-
-        <button
-          type="button"
-          aria-label="Special"
-          aria-pressed={subTab === 'special'}
-          title="Special"
-          onClick={() => setSubTab('special')}
-          className={`ui-category-pill relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'special' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            subTab === 'special'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Award className="w-4 h-4" />
-          <span className={`${subTab === 'special' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Special</span>
-        </button>
-
-        <button
-          type="button"
-          aria-label="Anniversaries"
-          aria-pressed={subTab === 'anniversaries'}
-          title="Anniversaries"
-          onClick={() => setSubTab('anniversaries')}
-          className={`ui-category-pill relative min-w-0 flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${subTab === 'anniversaries' ? 'flex-1' : 'w-11 shrink-0'} sm:flex-1 sm:w-auto ${
-            subTab === 'anniversaries'
-              ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-          }`}
-        >
-          <Heart className="w-4 h-4" />
-          <span className={`${subTab === 'anniversaries' ? 'inline' : 'hidden'} sm:inline whitespace-nowrap`}>Anniversaries</span>
-        </button>
-
-</div>
+      <div role="group" aria-label="Recognitions sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
+        {([
+          ['birthdays', 'Birthdays', Cake],
+          ['special', 'Special', Award],
+          ['anniversaries', 'Anniversaries', Heart],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" className="ui-category-pill app-subtab" aria-label={label} aria-pressed={subTab === key} onClick={() => setSubTab(key)}>
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="app-subtab-label">{label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* SUBTAB 1: BIRTHDAYS */}
       {subTab === 'birthdays' && (
-        <div className="mx-auto w-full max-w-[640px] space-y-6">
+        <div className="app-subtab-content mx-auto w-full max-w-[640px] space-y-6">
           {/* Celebrants Section - Directly below search bar */}
           <div className="space-y-3">
             {filteredBirthdays.length === 0 ? (
@@ -402,7 +362,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         </div>
       )}
 
-      {subTab === 'anniversaries' && <div className="space-y-6">
+      {subTab === 'anniversaries' && <div className="app-subtab-content space-y-6">
         {!filteredAnniversaries.length && <p className="p-4 text-center text-xs text-slate-500">No anniversaries found.</p>}
         {anniversaryMonths.map(({key,month,items}) => <section key={key} className="space-y-3">
           <div className="flex items-center gap-3 px-1"><h3 className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">{new Date(2000,month,1).toLocaleDateString('en-US',{month:'long'})}</h3><div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>
@@ -419,7 +379,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
         </section>)}
       </div>}
 
-      {subTab === 'special' && <div className="space-y-6">
+      {subTab === 'special' && <div className="app-subtab-content space-y-6">
         {!specialGroups.upcoming.length && !specialGroups.past.length && <p className="p-4 text-center text-xs text-slate-500">No special recognitions found.</p>}
         {[specialGroups.upcoming,specialGroups.past].map((items,index) => <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {monthList(items,item=>item.date,['recognition','recognitions']).render(item => <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isSpecialRecognitionActive(item.date) || undefined} data-past={index === 1 || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
