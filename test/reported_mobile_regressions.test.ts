@@ -11,11 +11,12 @@ test('Android branding and keyboard behavior stay app-like', () => {
   assert.match(read('index.html'), /interactive-widget=overlays-content/);
 });
 
-test('activity filters live in the header, dismiss outside, and preserve description formatting', () => {
+test('activity filters live beside the first month, dismiss outside, and preserve description formatting', () => {
   const activities = read('src/features/activities/Activities.tsx');
   assert.match(activities, /<BottomSheet open=\{showFilters\}/);
   assert.match(activities, /document\.addEventListener\('pointerdown', close, true\)/);
-  assert.match(activities, /beforeSearch:/);
+  assert.match(activities, /group === firstVisibleGroup \? renderActivityFilterHeading\(group.label\)/);
+  assert.match(activities, /<ListFilter aria-hidden="true"/);
   assert.match(activities, /aria-label="Filter activities"/);
   assert.match(activities, /whitespace-pre-wrap break-words/);
 });
