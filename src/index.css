@@ -149,41 +149,31 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
 .ui-screen > div[class*="rounded-2xl"] { border-width: 1px; }
 .ui-screen .lyrics-awake { color: var(--ui-accent); }
 .setlists-screen [id^="setlist-card-"] { border-radius: .75rem; box-shadow: none; }
+.app-subtabs { container-type: inline-size; }
 .app-subtabs .app-subtab {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 0;
   min-height: 44px;
-  flex: 0 0 44px;
-  overflow: hidden;
+  flex: 1 0 auto;
+  gap: .375rem;
+  padding-inline: .25rem;
   border-radius: .75rem;
   font-size: .75rem;
   font-weight: 600;
-  transition: flex-grow 200ms ease-in-out, background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
 }
-.app-subtabs .app-subtab[aria-pressed="true"] { flex-grow: 1; }
-.app-subtab-label {
-  min-width: 0;
-  max-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  opacity: 0;
-  transition: max-width 200ms ease-in-out, margin-inline-start 200ms ease-in-out, opacity 130ms ease;
-}
-.app-subtab[aria-pressed="true"] .app-subtab-label {
-  margin-inline-start: .375rem;
-  max-width: 8rem;
-  opacity: 1;
+.app-subtab-label { white-space: nowrap; }
+@container (width < 340px) {
+  .app-subtab > svg { display: none; }
 }
 .app-subtab-content { animation: app-subtab-fade-in 160ms ease-out; }
 @keyframes app-subtab-fade-in { from { opacity: .65; } to { opacity: 1; } }
 @media (min-width: 640px) {
   .app-subtabs .app-subtab { flex: 1 1 0; font-size: .875rem; }
-  .app-subtab .app-subtab-label { margin-inline-start: .375rem; max-width: none; opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .app-subtabs .app-subtab, .app-subtab-label { transition: none; }
+  .app-subtabs .app-subtab { transition: none; }
   .app-subtab-content { animation: none; }
 }
 .songs-screen > .ui-page-header h2 { margin: 0; }
