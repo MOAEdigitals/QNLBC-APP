@@ -163,7 +163,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onSignInSuccess }) => {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             New Life Baptist Church
           </h2>
-          <p className="mt-1 whitespace-nowrap text-[clamp(0.5rem,2.7vw,0.75rem)] font-normal text-slate-600 dark:text-slate-400">
+          <p className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-400">
             Reach the Lost · Teach the Brethren · Preach Christ to all
           </p>
         </div>
