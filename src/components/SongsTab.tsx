@@ -104,6 +104,7 @@ export function getSongCategories(song: Song): SongCategory[] {
 
 interface SongsTabProps {
   userId?: string;
+  readOnly?: boolean;
   songs: Song[];
   canManageCategories?: boolean;
   setlists: Setlist[];
@@ -123,6 +124,7 @@ interface SongsTabProps {
 
 export const SongsTab: React.FC<SongsTabProps> = ({
   userId,
+  readOnly = false,
   songs,
   canManageCategories = false,
   setlists,
@@ -167,6 +169,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     return () => { active = false; void supabase.removeChannel(channel); };
   }, []);
   const createCategory = async () => {
+    if (readOnly) return;
     const name = newCategory?.trim();
     if (!name || categoryLock.current) return;
     if (['all', 'starred', 'uncategorized', ...allCategories.map(value => value.toLowerCase())].includes(name.toLowerCase()) || name.includes(',')) {
@@ -214,7 +217,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   useEffect(() => {
     try {
-      localStorage.setItem('worship_incard_font_size', inCardFontSize.toString());
+      if (!readOnly) localStorage.setItem('worship_incard_font_size', inCardFontSize.toString());
     } catch {}
   }, [inCardFontSize]);
 
@@ -754,6 +757,7 @@ if (isEditing && !savingSongRef.current) {
 
   const handleSaveSongForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (readOnly) return;
     if (!editingSong || !editingSong.title?.trim() || savingSongRef.current) return;
 
     const formattedTitle = formatDuplicateTitle(editingSong.title.trim(), songs, editingSong.id);
@@ -971,7 +975,7 @@ if (isEditing && !savingSongRef.current) {
   };
 
   return (
-    <div className="ui-revamp ui-screen songs-screen space-y-4 relative">
+    <div data-read-only={readOnly || undefined} className="ui-revamp ui-screen songs-screen space-y-4 relative">
       <LyricsScreenAwake active={!!selectedSongId && !isStagePrompterOpen && !isEditing} />
 
       {addedNotice && (
@@ -1173,7 +1177,7 @@ if (isEditing && !savingSongRef.current) {
 
                     <button
                       type="button"
-                      onClick={(e) => handleToggleStar(song, e)}
+                      disabled={readOnly} onClick={(e) => handleToggleStar(song, e)}
                       className={`p-2 rounded-xl transition-all cursor-pointer select-none ${
                         song.isStarred || (song as any).starred
                           ? 'text-yellow-400 hover:text-yellow-500 hover:bg-yellow-50/80 dark:hover:bg-yellow-950/30'
@@ -1220,14 +1224,14 @@ if (isEditing && !savingSongRef.current) {
                             setIsAddToSetlistOpen(true);
                           }}
                           className="p-2 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 flex shrink-0 items-center justify-center shadow-xs hover:bg-slate-800 dark:hover:bg-white cursor-pointer"
-                          title="Add to Setlist"
+                          disabled={readOnly} title="Add to Setlist"
                           aria-label="Add to Setlist"
                         >
                           <CalendarPlus className="w-4 h-4" />
                         </button>
 
                         {/* Category Button (Icon Only) */}
-                        <div data-song-categories={song.id} className="relative" onClick={(e) => e.stopPropagation()}>
+                        <div data-offline-write data-song-categories={song.id} className="relative" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => setCategoryPickerSongId(categoryPickerSongId === song.id ? null : song.id)}
@@ -1238,7 +1242,7 @@ if (isEditing && !savingSongRef.current) {
                             <Tag className="w-4 h-4 opacity-80" />
                           </button>
 
-                          {categoryPickerSongId === song.id && <SongCategorySheet key={song.id} categories={allCategories} selected={getSongCategories(song)} onClose={() => setCategoryPickerSongId(null)} onSave={categories => onSaveSong({ ...song, categories, category: categories.length ? categories.join(', ') : undefined })} />}
+                          {!readOnly && categoryPickerSongId === song.id && <SongCategorySheet key={song.id} categories={allCategories} selected={getSongCategories(song)} onClose={() => setCategoryPickerSongId(null)} onSave={categories => onSaveSong({ ...song, categories, category: categories.length ? categories.join(', ') : undefined })} />}
                         </div>
 
                         {/* In-Card Font Stepper A- / A+ */}
@@ -1298,7 +1302,7 @@ if (isEditing && !savingSongRef.current) {
                       </div>
 
                       {/* 3-Dot Menu Button (Anchored at the far right) */}
-                      <div data-song-actions={song.id} className="relative ml-auto shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <div data-offline-write data-song-actions={song.id} className="relative ml-auto shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => setOpenMenuSongId(isMenuOpen ? null : song.id)}
@@ -1355,7 +1359,7 @@ if (isEditing && !savingSongRef.current) {
                     </div>
 
                     {/* VIDEO / SOUND PLAYER (Placed right after the lyrics with Repeat / Loop button) */}
-                    {activeMedia && (
+                    {activeMedia && !readOnly && (
                       <div id={`song-player-${song.id}`} className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3">
                         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                           <div className="flex items-center space-x-2 min-w-0">
@@ -1474,7 +1478,7 @@ if (isEditing && !savingSongRef.current) {
                     )}
 
                     {/* Categorized Attachments (Plus One & Minus One) */}
-                    {hasAttachments && (
+                    {hasAttachments && !readOnly && (
                       <div className="space-y-4 pt-1">
                         {/* Plus One (+1) Section */}
                         {plusOneList.length > 0 && (
@@ -1653,7 +1657,7 @@ if (isEditing && !savingSongRef.current) {
       )}
 
       {/* MODAL 1: ADD TO SETLIST */}
-      {isAddToSetlistOpen && selectedSong && (
+      {!readOnly && isAddToSetlistOpen && selectedSong && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -1754,7 +1758,7 @@ if (isEditing && !savingSongRef.current) {
       )}
 
       {/* MODAL 2: ADD ATTACHMENT / TRACKS */}
-      {isAddingAttachment && selectedSong && (
+      {!readOnly && isAddingAttachment && selectedSong && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -2020,7 +2024,7 @@ if (isEditing && !savingSongRef.current) {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSavingSong}
+                  disabled={readOnly || isSavingSong}
                   className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs font-semibold shadow-xs cursor-pointer"
                 >
                   {isSavingSong ? 'Saving…' : 'Save Song'}
@@ -2035,13 +2039,14 @@ if (isEditing && !savingSongRef.current) {
       {/* Stage Prompter Modal for Stage Worship Leaders */}
       <StagePrompterModal
         userId={userId}
+        readOnly={readOnly}
         isOpen={isStagePrompterOpen}
         onClose={() => setIsStagePrompterOpen(false)}
         song={stagePrompterSong}
       />
 
       {/* Floating Action Button (FAB) for New Song - Circular & anchored at lower-right */}
-      {!isEditing && !isStagePrompterOpen && (
+      {!readOnly && !isEditing && !isStagePrompterOpen && (
         <button
           type="button"
           onClick={handleStartCreateSong}

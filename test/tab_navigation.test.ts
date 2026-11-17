@@ -22,5 +22,5 @@ test('Outlines is fifth in bottom navigation and absent from Schedules sections'
  const schedules=readFileSync('src/components/SpecialNumberTab.tsx','utf8');
  assert.doesNotMatch(schedules,/setActiveSubTab\('outlines'\)|<SermonOutlines/);
  const app=readFileSync('src/App.tsx','utf8');
- assert.match(app,/currentTab === 'outlines' && <SermonOutlines currentUser=\{currentUser\} collapseSignal=\{collapseSignals.outlines\}/);
+ assert.match(app,/currentTab === 'outlines' && !offlineReadOnly && <SermonOutlines currentUser=\{currentUser\} collapseSignal=\{collapseSignals.outlines\}/);
 });

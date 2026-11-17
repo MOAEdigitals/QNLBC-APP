@@ -173,6 +173,7 @@ function SetlistPerson({ role, name, avatars }: { role: string; name?: string; a
 }
 
 interface SetlistsTabProps {
+  readOnly?: boolean;
   directoryAvatars?: Record<string, string>;
   setlists: Setlist[];
   songs: Song[];
@@ -191,6 +192,7 @@ interface SetlistsTabProps {
 }
 
 export const SetlistsTab: React.FC<SetlistsTabProps> = ({
+  readOnly = false,
   directoryAvatars = {},
   setlists,
   songs,
@@ -872,7 +874,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     saveInProgressRef.current = true;
     setIsSaving(true);
     try {
-      if (await onSaveSetlist(finalSetlist)) {
+      if (!readOnly && await onSaveSetlist(finalSetlist)) {
         setIsEditing(false);
         setEditingSetlist(null);
         setEditPromptMsg(null);
@@ -1070,6 +1072,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                             type="button"
                             onClick={async () => {
                               setOpenMenuSetlistId(null);
+                              if (readOnly) return;
                               if ((await confirmAction(`Remove this setlist for ${item.date}?`))) {
                                 onDeleteSetlist(item.id);
                                 if (selectedSetlistId === item.id) setSelectedSetlistId(null);
@@ -2012,7 +2015,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={readOnly || isSaving}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white text-white shadow-xs cursor-pointer"
                 >
                   {isSaving ? 'Saving…' : 'Save Setlist'}
@@ -2023,7 +2026,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
         </div>
       )}
 
-      {!isEditing && (
+      {!readOnly && !isEditing && (
         <div onClick={(event) => event.stopPropagation()}>
           {showTypeSelector && (
             <BottomSheet open title="New setlist" onClose={() => setShowTypeSelector(false)}><div className="ui-sheet-options">

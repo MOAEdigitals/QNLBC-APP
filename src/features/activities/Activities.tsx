@@ -55,7 +55,8 @@ function readActivityFilters<T extends Record<string, boolean>>(key: string, def
   }
 }
 
-export default function Activities({ currentUser, collapseSignal, birthdays = [], onLoadBirthdays }: { currentUser: UserAccount | null; collapseSignal?: number; birthdays?: BirthdayCelebrant[]; onLoadBirthdays?: () => Promise<void> }) {
+export default function Activities({ currentUser, collapseSignal, birthdays = [], onLoadBirthdays, onActivitiesChanged, offlineItems }: { currentUser: UserAccount | null; collapseSignal?: number; birthdays?: BirthdayCelebrant[]; onLoadBirthdays?: () => Promise<void>; onActivitiesChanged?: () => void; offlineItems?: ChurchActivity[] }) {
+  const readOnly = offlineItems !== undefined;
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
   const [monthDirection, setMonthDirection] = useState<1 | -1 | null>(null);
@@ -66,8 +67,8 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const calendarRef = useCalendarSwipe(changeMonth);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [today, setToday] = useState(todayKey);
-  const [items, setItems] = useState<ChurchActivity[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<ChurchActivity[]>(offlineItems || []);
+  const [loading, setLoading] = useState(!readOnly);
   const [loadError, setLoadError] = useState('');
   const [search, setSearch] = useState('');
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -89,11 +90,12 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const [birthdaysLoading, setBirthdaysLoading] = useState(false);
   const [gatheringFilters, setGatheringFilters] = useState(() => readActivityFilters(filterKey + '.gatherings', DEFAULT_GATHERING_FILTERS));
   useEffect(() => {
+    if (readOnly) return;
     try {
       localStorage.setItem(filterKey + '.overlays', JSON.stringify(overlayFilters));
       localStorage.setItem(filterKey + '.gatherings', JSON.stringify(gatheringFilters));
     } catch { /* The active filters still work without storage. */ }
-  }, [filterKey, overlayFilters, gatheringFilters]);
+  }, [filterKey, overlayFilters, gatheringFilters, readOnly]);
   useEffect(() => {
     if (!overlayFilters.birthday || !onLoadBirthdays) return;
     let active = true;
@@ -104,9 +106,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   }, [overlayFilters.birthday, onLoadBirthdays]);
   const savingRef = useRef(false);
   const lastProcessedSignalRef = useRef<number>(0);
-  const canAdd = currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd;
-  const canEdit = currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit;
-  const canDelete = currentUser?.role === 'admin' || !!currentUser?.permissions?.canDelete;
+  const canAdd = !readOnly && (currentUser?.role === 'admin' || !!currentUser?.permissions?.canAdd);
+  const canEdit = !readOnly && (currentUser?.role === 'admin' || !!currentUser?.permissions?.canEdit);
+  const canDelete = !readOnly && (currentUser?.role === 'admin' || !!currentUser?.permissions?.canDelete);
 
   const renderActivityFilterHeading = (label: string) => (
     <div className="flex min-h-11 items-center justify-between gap-2 pl-1">
@@ -135,6 +137,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     label: 'Search activities', onOpen: scrollToResults });
 
   const load = async () => {
+    if (offlineItems) { setItems(offlineItems); return; }
     try {
       setLoadError('');
       setItems(sortActivities(await fetchActivities()));
@@ -147,7 +150,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   };
 
   useScreenRefresh(load);
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [offlineItems]);
   useEffect(() => {
     const refreshToday = () => setToday(todayKey());
     const timer = window.setInterval(refreshToday, 60_000);
@@ -256,6 +259,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     setSaveError('');
     try {
       const saved = await saveActivity(editor.item, editor.isNew);
+      onActivitiesChanged?.();
       setItems(previous => sortActivities(editor.isNew ? [...previous, saved] : previous.map(item => item.id === saved.id ? saved : item)));
       setMonth(new Date(localDate(saved.activityDate).getFullYear(), localDate(saved.activityDate).getMonth(), 1));
       setSelectedDate(saved.activityDate);
@@ -274,6 +278,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     if (!(await confirmAction(`Delete “${item.title}”?`))) return;
     try {
       await deleteActivity(item.id);
+      onActivitiesChanged?.();
       setItems(previous => previous.filter(existing => existing.id !== item.id));
     } catch (error) {
       console.error('Failed to delete activity:', error);

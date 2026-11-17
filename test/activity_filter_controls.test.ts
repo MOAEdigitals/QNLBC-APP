@@ -101,6 +101,12 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.equal(cards().length, 0);
     assert.equal(scrollTargets.length, 2, 'typing aligns the filtered or empty results instead of the calendar');
     assert.equal(scrollTargets.at(-1), document.querySelector('[data-activity-results]'));
+    await act(() => root.render(React.createElement(exports.default, {
+      currentUser: { id: 'offline-admin', role: 'admin', username: 'admin' },
+      offlineItems: items,
+    })));
+    assert.ok(cards().includes('Sunday Service'));
+    assert.equal(document.querySelector('[aria-label="Add activity"]'), null);
   } finally {
     await act(() => root.unmount()); dom.window.close();
     keys.forEach((key, index) => { if (saved[index]) Object.defineProperty(globalThis, key, saved[index]!); else delete (globalThis as any)[key]; });

@@ -78,16 +78,17 @@ export function resolveItemLyrics(
 // -------------------------------------------------------------
 // PROFILES & AUTHENTICATION
 // -------------------------------------------------------------
-export async function fetchCurrentUserProfile(userId: string): Promise<UserAccount | null> {
+export async function fetchCurrentUserProfile(userId: string, surfaceConnectionError = false): Promise<UserAccount | null> {
   if (!isSupabaseConfigured() || !userId) return null;
 
-  const { data, error } = await supabase
+  const { data, error, status } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', userId)
     .single();
 
   if (error || !data) {
+    if (surfaceConnectionError && error && (status === 0 || status === 429 || status >= 500)) throw error;
     console.warn('Failed to load profile for user', userId, error);
     return null;
   }

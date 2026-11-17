@@ -187,6 +187,7 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
   .app-subtab-content { animation: none; }
 }
 .songs-screen > .ui-page-header h2 { margin: 0; }
+[data-read-only] [data-offline-write] { display: none; }
 .song-category-bar[data-wrap-labels] {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

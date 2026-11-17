@@ -104,6 +104,7 @@ interface SpecialNumberTabProps {
   birthdays?: BirthdayCelebrant[];
   onLoadBirthdays?: () => Promise<void>;
   currentUser: UserAccount | null;
+  onActivitiesChanged?: () => void;
   specialNumbers: SpecialNumberEntry[];
   practiceEntries?: PracticeGroupEntry[];
   choirEntries?: ChoirEntry[];
@@ -152,6 +153,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   birthdays = [],
   onLoadBirthdays,
   currentUser,
+  onActivitiesChanged,
   specialNumbers,
   practiceEntries = [],
   choirEntries = [],
@@ -1875,7 +1877,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       </div>
 
       {activeSubTab === 'activities' && (
-        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
+        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} onActivitiesChanged={onActivitiesChanged} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
       )}
 
       {/* ========================================================================= */}

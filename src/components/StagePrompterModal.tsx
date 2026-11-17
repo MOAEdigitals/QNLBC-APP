@@ -15,6 +15,7 @@ import {
 
 interface StagePrompterModalProps {
   userId?: string;
+  readOnly?: boolean;
   isOpen: boolean;
   onClose: () => void;
   song: Song | null;
@@ -47,6 +48,7 @@ interface ParsedSection {
 
 export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   userId,
+  readOnly = false,
   isOpen,
   onClose,
   song,
@@ -72,7 +74,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     const next = lyricsAlignment === 'left' ? 'center' : 'left';
     setLyricsAlignment(next);
     try {
-      localStorage.setItem(ALIGNMENT_STORAGE_KEY, next);
+      if (!readOnly) localStorage.setItem(ALIGNMENT_STORAGE_KEY, next);
     } catch {}
   };
 
@@ -212,7 +214,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   // Save preferences
   useEffect(() => {
     try {
-      localStorage.setItem('worship_stage_font_index', fontSizeIndex.toString());
+      if (!readOnly) localStorage.setItem('worship_stage_font_index', fontSizeIndex.toString());
     } catch {}
   }, [fontSizeIndex]);
 
@@ -342,6 +344,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     setRepeatOverride({ key: preferenceKey, enabled });
     setSequenceStep(null);
     try {
+      if (readOnly) return;
       if (enabled) localStorage.setItem(preferenceKey, 'true');
       else localStorage.removeItem(preferenceKey);
     } catch {}

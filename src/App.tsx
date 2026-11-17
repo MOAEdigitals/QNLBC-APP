@@ -32,9 +32,12 @@ import {
   SpecialNumberEntry,
   PracticeGroupEntry,
   ChoirEntry,
+  ChurchActivity,
   DatabaseStatusInfo,
 } from './types';
-import { supabase } from './supabase';
+import { clearDeviceAuthSession, supabase } from './supabase';
+import { fetchActivities } from './features/activities/data';
+import { androidSignedOut, clearOfflineLibrary, isAndroidOfflineLibrary, readOfflineLibrary, setAndroidSignedOut, writeOfflineLibrary } from './services/androidOfflineLibrary';
 import {
   fetchSetlists,
   saveSetlist as supabaseSaveSetlist,
@@ -102,6 +105,7 @@ cleanupLegacyStorage();
 const SetlistsTab = lazy(() => import('./components/SetlistsTab').then((module) => ({ default: module.SetlistsTab })));
 const RecognitionsTab = lazy(() => import('./components/RecognitionsTab').then((module) => ({ default: module.RecognitionsTab })));
 const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then((module) => ({ default: module.SpecialNumberTab })));
+const Activities = lazy(() => import('./features/activities/Activities'));
 const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
 const SermonOutlines = React.lazy(() => import('./features/sermons/SermonOutlines'));
 const Notepad = React.lazy(() => import('./features/notepad/Notepad'));
@@ -121,6 +125,8 @@ export default function App() {
   useEffect(() => { void requestInitialPushPermission().catch(() => {}); }, []);
   // 1. Auth and Loading States
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const currentAccountRef = useRef(currentUser);
+  currentAccountRef.current = currentUser;
   const signedInUserIdRef = useRef<string | null>(null);
   signedInUserIdRef.current = currentUser?.id || null;
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -128,6 +134,14 @@ export default function App() {
   const [isLoadingInitialData, setIsLoadingInitialData] = useState<boolean>(true);
   const [isLoadingCoreData, setIsLoadingCoreData] = useState(true);
   const coreLoadEpoch = useRef(0);
+  const [offlineReadOnly, setOfflineReadOnly] = useState(false);
+  const [offlineActivities, setOfflineActivities] = useState<ChurchActivity[]>([]);
+  const offlineReadOnlyRef = useRef(false);
+  const setReadOnly = useCallback((value: boolean) => {
+    offlineReadOnlyRef.current = value;
+    setOfflineReadOnly(value);
+  }, []);
+  const signingOutRef = useRef(androidSignedOut());
 
   // Connection Status
   const [dbStatus, setDbStatus] = useState<DatabaseStatusInfo>(() =>
@@ -227,13 +241,34 @@ export default function App() {
   };
   const loadedSectionsRef = useRef<Set<AppTab>>(new Set());
   const sectionLoadPromisesRef = useRef<Partial<Record<AppTab, Promise<void>>>>({});
+  const snapshotTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(snapshotTimer.current), []);
+  const scheduleOfflineSync = () => {
+    if (!isAndroidOfflineLibrary() || offlineReadOnlyRef.current || signingOutRef.current) return;
+    const account = currentAccountRef.current;
+    if (!account) return;
+    window.clearTimeout(snapshotTimer.current);
+    snapshotTimer.current = window.setTimeout(async () => {
+      if (offlineReadOnlyRef.current || signedInUserIdRef.current !== account.id || signingOutRef.current) return;
+      const epoch = coreLoadEpoch.current;
+      try {
+        const [latestSongs, latestSetlists, activities] = await Promise.all([fetchSongs(), fetchSetlists(), fetchActivities()]);
+        if (epoch !== coreLoadEpoch.current || signedInUserIdRef.current !== account.id || offlineReadOnlyRef.current || signingOutRef.current) return;
+        setOfflineActivities(activities);
+        await writeOfflineLibrary(account, latestSongs, latestSetlists, activities);
+      } catch (error) {
+        console.warn('Offline library sync failed', error);
+      }
+    }, 1000);
+  };
 
-  const loadCoreData = useCallback(async () => {
+  const loadCoreData = useCallback(async (profile?: UserAccount, keepVisible = false) => {
     const own = ++coreLoadEpoch.current;
-    setIsLoadingCoreData(true);
+    if (!keepVisible) setIsLoadingCoreData(true);
+    let complete = true;
     const [serverSetlists, serverSongs, serverSavedNames] = await Promise.all([
-      fetchSetlists().catch(() => preserveOnRefreshFailure('setlists')),
-      fetchSongs().catch(() => preserveOnRefreshFailure('songs')),
+      fetchSetlists().catch(() => { complete = false; return preserveOnRefreshFailure('setlists'); }),
+      fetchSongs().catch(() => { complete = false; return preserveOnRefreshFailure('songs'); }),
       fetchMinistrySavedNames().catch(() => preserveOnRefreshFailure('savedNames')),
     ]);
     if (own !== coreLoadEpoch.current) return;
@@ -243,6 +278,13 @@ export default function App() {
     loadedSectionsRef.current.add('home');
     loadedSectionsRef.current.add('songs');
     setIsLoadingCoreData(false);
+    if (profile && complete && isAndroidOfflineLibrary()) {
+      void fetchActivities().then(async activities => {
+        if (own !== coreLoadEpoch.current || signingOutRef.current || offlineReadOnlyRef.current) return;
+        setOfflineActivities(activities);
+        await writeOfflineLibrary(profile, serverSongs, serverSetlists, activities);
+      }).catch(error => console.warn('Offline library sync failed', error));
+    }
   }, []);
 
   const loadTabData = useCallback((tab: AppTab): Promise<void> => {
@@ -287,12 +329,43 @@ export default function App() {
   // 4. Initial Authoritative Load and Session Management
   useEffect(() => {
     let isMounted = true;
+    let authCheck = 0;
     cleanupLegacyStorage();
 
+    const android = isAndroidOfflineLibrary();
+    const restoreOffline = async (expectedUserId?: string, finishLoading = true) => {
+      const check = authCheck;
+      setReadOnly(true);
+      const snapshot = await readOfflineLibrary();
+      if (!isMounted || check !== authCheck || signingOutRef.current || !offlineReadOnlyRef.current) return;
+      if (snapshot && (!expectedUserId || snapshot.user.id === expectedUserId)) {
+        if (!signedInUserIdRef.current) {
+          setCurrentUser({ ...snapshot.user, role: 'user', active: true });
+          setSetlists(snapshot.setlists);
+          setSongs(snapshot.songs);
+        }
+        setOfflineActivities(snapshot.activities);
+      } else if (!finishLoading) {
+        return;
+      }
+      setIsLoadingCoreData(false);
+      setIsLoadingInitialData(false);
+    };
+
     async function initSessionAndData() {
+      const check = ++authCheck;
+      if (signingOutRef.current) { setIsLoadingInitialData(false); return; }
+      if (android && !window.navigator.onLine) {
+        await restoreOffline(signedInUserIdRef.current || undefined);
+        return;
+      }
+      let userId: string | undefined;
       try {
         const { data: sessionData, error: sessionErr } = await supabase.auth.getSession();
+        if (!isMounted || check !== authCheck || signingOutRef.current) return;
+        if (android && sessionErr && (!sessionErr.status || sessionErr.status >= 500 || sessionErr.status === 429)) throw sessionErr;
         if (sessionErr || !sessionData?.session?.user) {
+          if (android) await clearOfflineLibrary();
           if (isMounted) {
             setCurrentUser(null);
             setIsLoadingInitialData(false);
@@ -300,10 +373,12 @@ export default function App() {
           return;
         }
 
-        const userId = sessionData.session.user.id;
-        const profile = await fetchCurrentUserProfile(userId);
+        userId = sessionData.session.user.id;
+        const profile = await fetchCurrentUserProfile(userId, android);
+        if (!isMounted || check !== authCheck || signingOutRef.current) return;
 
         if (!profile || !profile.active) {
+          if (android) await clearOfflineLibrary();
           setNotificationInboxOpen(false);
           await disableAssignmentPush().catch(error => console.warn(error.message));
           await supabase.auth.signOut();
@@ -321,24 +396,51 @@ export default function App() {
         // Load only the shared data required by the primary Setlists and Songs views.
         // Secondary sections fetch their authoritative data when first opened.
         if (isMounted) {
+          const keepVisible = Boolean(signedInUserIdRef.current === profile.id);
+          setReadOnly(false);
+          setRefreshError('');
           setIsLoadingInitialData(false);
-          void loadCoreData();
+          void loadCoreData(profile, keepVisible);
         }
       } catch (err) {
         console.error('Failed to initialize authoritative data:', err);
+        if (android && isMounted && check === authCheck && !signingOutRef.current) {
+          await restoreOffline(userId || signedInUserIdRef.current || undefined);
+          return;
+        }
         if (isMounted) {
           setIsLoadingInitialData(false);
         }
       }
     }
 
-    initSessionAndData();
+    if (android && !signingOutRef.current && window.navigator.onLine) {
+      void restoreOffline(undefined, false).then(() => { if (isMounted) void initSessionAndData(); });
+    } else {
+      void initSessionAndData();
+    }
+    const goOffline = () => {
+      authCheck++;
+      coreLoadEpoch.current++;
+      void restoreOffline(signedInUserIdRef.current || undefined);
+    };
+    const reconnect = () => { if (document.visibilityState === 'visible') void initSessionAndData(); };
+    const retry = android ? window.setInterval(() => {
+      if (offlineReadOnlyRef.current && window.navigator.onLine && document.visibilityState === 'visible') reconnect();
+    }, 30_000) : undefined;
+    if (android) {
+      window.addEventListener('offline', goOffline);
+      window.addEventListener('online', reconnect);
+      document.addEventListener('visibilitychange', reconnect);
+    }
 
     // Listen to Supabase Auth changes
     const { data: authSub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
+      if (event === 'SIGNED_OUT' || (!android && !session)) {
         if (isMounted) {
+          authCheck++;
           coreLoadEpoch.current++;
+          if (android) void clearOfflineLibrary().catch(console.warn);
           setIsLoadingCoreData(false);
           loadedSectionsRef.current.clear();
           sectionLoadPromisesRef.current = {};
@@ -355,7 +457,7 @@ export default function App() {
           setUsers([]);
           setIsLoadingInitialData(false);
         }
-      } else if (event === 'SIGNED_IN' && session) {
+      } else if (event === 'SIGNED_IN' && session && !offlineReadOnlyRef.current && !signingOutRef.current) {
         // Auth callbacks run under Supabase's session lock; defer database calls.
         window.setTimeout(() => { void (async () => {
           const epoch = coreLoadEpoch.current;
@@ -370,12 +472,14 @@ export default function App() {
     // Realtime changes listener
     const unsubRealtime = subscribeSupabaseRealtime({
       onSetlistsChange: async () => {
+        if (offlineReadOnlyRef.current || signingOutRef.current) return;
         const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
-        if (isMounted) setSetlists(fresh);
+        if (isMounted && !offlineReadOnlyRef.current && !signingOutRef.current) { setSetlists(fresh); scheduleOfflineSync(); }
       },
       onSongsChange: async () => {
+        if (offlineReadOnlyRef.current || signingOutRef.current) return;
         const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
-        if (isMounted) setSongs(fresh);
+        if (isMounted && !offlineReadOnlyRef.current && !signingOutRef.current) { setSongs(fresh); scheduleOfflineSync(); }
       },
       onSpecialNumbersChange: async () => {
         if (!loadedSectionsRef.current.has('special-numbers')) return;
@@ -430,15 +534,21 @@ export default function App() {
 
     return () => {
       isMounted = false;
+      if (android) {
+        window.clearInterval(retry);
+        window.removeEventListener('offline', goOffline);
+        window.removeEventListener('online', reconnect);
+        document.removeEventListener('visibilitychange', reconnect);
+      }
       authSub.subscription.unsubscribe();
       unsubRealtime();
     };
-  }, [loadCoreData]);
+  }, [loadCoreData, setReadOnly]);
 
   useEffect(() => {
-    if (!currentUser || isLoadingInitialData) return;
+    if (!currentUser || isLoadingInitialData || offlineReadOnly) return;
     void loadTabData(currentTab);
-  }, [currentTab, currentUser, isLoadingInitialData, loadTabData]);
+  }, [currentTab, currentUser, isLoadingInitialData, loadTabData, offlineReadOnly]);
 
   // Resolve shared links only after normal authentication and authorized data loading.
   useEffect(() => {
@@ -549,7 +659,7 @@ export default function App() {
   const pullRefresh = usePullToRefresh(async () => {
     setRefreshError('');
     await Promise.all([reloadAllData(), refreshLocalScreens(), notifications.refresh()]);
-  }, Boolean(currentUser) && !isLoadingInitialData && !isLoadingCoreData && !isPracticeDetailOpen);
+  }, Boolean(currentUser) && !offlineReadOnly && !isLoadingInitialData && !isLoadingCoreData && !isPracticeDetailOpen);
 
   // Tab Navigation
   const handleNavigateTab = useCallback(
@@ -652,6 +762,13 @@ export default function App() {
 
   // Auth Handlers
   const handleSignInSuccess = async (user: UserAccount) => {
+    if (isAndroidOfflineLibrary()) {
+      await clearOfflineLibrary().catch(console.warn);
+      setAndroidSignedOut(false);
+      signingOutRef.current = false;
+      setReadOnly(false);
+      setOfflineActivities([]);
+    }
     outlineCache.current = null;
     rememberedSetlists.current = null;
     setInitialSelectedSetlistId(null);
@@ -667,13 +784,21 @@ export default function App() {
     setIsLoadingInitialData(false);
     loadedSectionsRef.current.clear();
     sectionLoadPromisesRef.current = {};
-    void loadCoreData();
+    void loadCoreData(user);
     setCurrentTab('special-numbers');
     tabHistoryRef.current = ['special-numbers'];
     window.history.replaceState({ tab: 'special-numbers' }, '', '#special-numbers');
   };
 
   const handleSignOut = async () => {
+    const wasOffline = isAndroidOfflineLibrary() && (offlineReadOnlyRef.current || !window.navigator.onLine);
+    if (isAndroidOfflineLibrary()) {
+      signingOutRef.current = true;
+      setAndroidSignedOut(true);
+      coreLoadEpoch.current++;
+      setOfflineActivities([]);
+      await clearOfflineLibrary().catch(console.warn);
+    }
     outlineCache.current = null;
     pendingSharedSetlist.current = null;
     setSharedSetlistError('');
@@ -688,8 +813,13 @@ export default function App() {
       localStorage.removeItem('nlbc_selected_setlist_id_v1');
     } catch {}
     setNotificationInboxOpen(false);
-    await disableAssignmentPush().catch(error => console.warn(error.message));
-    await supabase.auth.signOut();
+    if (!wasOffline) {
+      await disableAssignmentPush().catch(error => console.warn(error.message));
+      await supabase.auth.signOut();
+    }
+    if (isAndroidOfflineLibrary()) {
+      try { clearDeviceAuthSession(); } catch {}
+    }
     loadedSectionsRef.current.clear();
     sectionLoadPromisesRef.current = {};
     setCurrentUser(null);
@@ -711,6 +841,7 @@ export default function App() {
   };
 
   const hasPermission = (permission: 'add' | 'edit' | 'delete' | 'upload') => {
+    if (isAndroidOfflineLibrary() && (offlineReadOnlyRef.current || !window.navigator.onLine || signingOutRef.current)) return false;
     if (currentUser?.role === 'admin') return true;
     const key = {
       add: 'canAdd',
@@ -732,6 +863,7 @@ export default function App() {
     if (!requirePermission('edit')) throw new Error('Setlist edit permission is required.');
     try {
       const saved = await supabaseSaveSetlistOrder(date, orderedIds, revisions);
+      scheduleOfflineSync();
       const changes = new Map(saved.map(item => [item.id, item]));
       setSetlists(previous => previous.map(item => {
         const change = changes.get(item.id);
@@ -750,6 +882,7 @@ export default function App() {
 
     try {
       const saved = await supabaseSaveSetlist(newOrUpdated, isNew);
+      scheduleOfflineSync();
       setSetlists((prev) =>
         isNew
           ? [saved, ...prev.filter((s) => s.id !== newOrUpdated.id && s.id !== saved.id)]
@@ -773,6 +906,7 @@ export default function App() {
 
     try {
       await supabaseDeleteSetlist(id, target?.revision || 1);
+      scheduleOfflineSync();
     } catch (err: any) {
       console.error('Failed to delete setlist from Supabase:', err);
       const fresh = await fetchSetlists().catch(() => preserveOnRefreshFailure('setlists'));
@@ -790,6 +924,7 @@ export default function App() {
 
     try {
       const saved = await supabaseSaveSong(newOrUpdated, isNew);
+      scheduleOfflineSync();
       setSongs((prev) =>
         isNew
           ? [...prev.filter((s) => s.id !== newOrUpdated.id && s.id !== saved.id), saved]
@@ -811,6 +946,7 @@ export default function App() {
         const isNew = !songs.some((existing) => existing.id === song.id);
         if (!requirePermission(isNew ? 'add' : 'edit')) return;
         const saved = await supabaseSaveSong(song, isNew);
+        scheduleOfflineSync();
         setSongs((prev) => {
           const withoutDraft = prev.filter((s) => s.id !== song.id && s.id !== saved.id);
           return [...withoutDraft, saved];
@@ -828,6 +964,7 @@ export default function App() {
 
     try {
       await supabaseDeleteSong(id, target?.revision || 1);
+      scheduleOfflineSync();
     } catch (err: any) {
       console.error('Failed to delete song from Supabase:', err);
       const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
@@ -1355,26 +1492,28 @@ export default function App() {
         </header>
       ) : hideMainHeader ? null : (
         <Navbar
+          online={isAndroidOfflineLibrary() ? !offlineReadOnly : undefined}
           currentUser={currentUser}
           users={users}
           currentTab={currentTab}
           onNavigateToSettings={() => handleNavigateTab('settings')}
-          onOpenNotifications={() => { setNotificationInboxOpen(true); void notifications.refresh(); }}
-          onOpenNotepad={() => setNotepadOpen(true)}
+          onOpenNotifications={offlineReadOnly ? undefined : () => { setNotificationInboxOpen(true); void notifications.refresh(); }}
+          onOpenNotepad={offlineReadOnly ? undefined : () => setNotepadOpen(true)}
           unreadNotifications={notifications.unreadCount}
         />
       )}
 
-      {isNotificationInboxOpen && <NotificationInbox key={currentUser.id} {...notifications} onMarkRead={notifications.markRead} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
-      {isNotepadOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
+      {isNotificationInboxOpen && !offlineReadOnly && <NotificationInbox key={currentUser.id} {...notifications} onMarkRead={notifications.markRead} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
+      {isNotepadOpen && !offlineReadOnly && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28" style={hideMainHeader ? { paddingTop: 'calc(var(--app-safe-top, 0px) + 1.25rem)' } : undefined}>
         {sharedSetlistError && currentTab === 'home' && <div role="alert" className="mb-4 rounded-xl border border-amber-300 p-3 text-sm">{sharedSetlistError}<button type="button" className="ml-3 underline" onClick={() => setSharedSetlistError('')}>Dismiss</button></div>}
-        {refreshError && <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 p-3 text-sm"><span>{refreshError}</span><button type="button" className="ui-secondary" onClick={() => { setRefreshError(''); void reloadAllData(); }}>Retry</button></div>}
+        {refreshError && !offlineReadOnly && <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 p-3 text-sm"><span>{refreshError}</span><button type="button" className="ui-secondary" onClick={() => { setRefreshError(''); void reloadAllData(); }}>Retry</button></div>}
         <Suspense fallback={<TabLoadingSkeleton />}>
         {currentTab === 'home' && (isLoadingCoreData ? <TabLoadingSkeleton /> : (
           <SetlistsTab
+            readOnly={offlineReadOnly}
             directoryAvatars={directoryAvatars}
             setlists={linkedSetlists}
             songs={songs}
@@ -1395,7 +1534,7 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'recognitions' && (!loadedSectionsRef.current.has('recognitions') ? <TabLoadingSkeleton /> : (
+        {currentTab === 'recognitions' && !offlineReadOnly && (!loadedSectionsRef.current.has('recognitions') ? <TabLoadingSkeleton /> : (
           <RecognitionsTab
             birthdays={birthdays}
             anniversaries={anniversaries}
@@ -1413,8 +1552,10 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'special-numbers' && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
+        {currentTab === 'special-numbers' && offlineReadOnly && <Activities currentUser={currentUser} offlineItems={offlineActivities} collapseSignal={collapseSignals['special-numbers']} />}
+        {currentTab === 'special-numbers' && !offlineReadOnly && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
+            onActivitiesChanged={scheduleOfflineSync}
             birthdays={birthdays}
             onLoadBirthdays={loadCalendarBirthdays}
             currentUser={currentUser}
@@ -1450,6 +1591,7 @@ export default function App() {
 
         {currentTab === 'songs' && (isLoadingCoreData ? <TabLoadingSkeleton /> : (
           <SongsTab
+            readOnly={offlineReadOnly}
             userId={currentUser.id}
               canManageCategories={currentUser?.role === 'admin'}
             songs={songs}
@@ -1469,10 +1611,12 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'outlines' && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines}
+        {currentTab === 'outlines' && !offlineReadOnly && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines}
           initialRows={outlineCache.current?.userId === currentUser.id ? outlineCache.current.rows : undefined}
           onRowsChange={rows => { outlineCache.current = { userId: currentUser.id, rows }; }} />}
-        {currentTab === 'settings' && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
+        {offlineReadOnly && (currentTab === 'recognitions' || currentTab === 'outlines') && <p className="text-sm text-slate-500">This section requires a connection.</p>}
+        {currentTab === 'settings' && offlineReadOnly && <button type="button" className="ui-secondary" onClick={() => void handleSignOut()}>Sign out</button>}
+        {currentTab === 'settings' && !offlineReadOnly && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
           <SettingsTab
             onSectionOpenChange={setIsSettingsSectionOpen}
             currentUser={currentUser}
