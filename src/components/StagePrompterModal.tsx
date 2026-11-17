@@ -81,6 +81,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sectionButtonsRef = useRef<HTMLDivElement>(null);
   const jumpScrollTopRef = useRef<number | null>(null);
   const sectionElementsRef = useRef(new Map<string, HTMLElement>());
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
@@ -400,6 +401,16 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     };
   }, [isOpen, song?.id, parsedSections]);
 
+  useEffect(() => {
+    const strip = sectionButtonsRef.current;
+    const selected = strip?.querySelector('[aria-current="location"]');
+    if (!strip || !selected) return;
+    const bounds = strip.getBoundingClientRect();
+    const button = selected.getBoundingClientRect();
+    if (button.left < bounds.left) strip.scrollLeft += button.left - bounds.left;
+    else if (button.right > bounds.right) strip.scrollLeft += button.right - bounds.right;
+  }, [activeSectionId, showNext, isOpen]);
+
   if (!isOpen || !song) return null;
 
   const currentFont = FONT_SIZES[fontSizeIndex];
@@ -525,7 +536,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           <span className="hidden sm:block mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Jump To:
           </span>
-          <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+          <div ref={sectionButtonsRef} className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           {namedSections.map((s) => {
             const selected = activeSectionId === s.id;
             const { text, surface } = SECTION_COLORS[s.kind ?? 'verse'];
@@ -540,7 +551,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 aria-label={`Jump to ${s.title}`}
                 aria-current={selected ? 'location' : undefined}
                 onClick={() => jumpToSection(s.id)}
-                className={`min-h-11 min-w-11 flex-1 sm:flex-none px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer shrink-0 ${buttonColor} ${selected && sectionColor ? 'outline outline-2 -outline-offset-2 outline-current' : ''}`}
+                className={`min-h-11 min-w-11 flex-[1_0_auto] sm:flex-none px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer ${buttonColor} ${selected && sectionColor ? 'outline outline-2 -outline-offset-2 outline-current' : ''}`}
               >
                 {s.shortLabel || s.title}
               </button>
@@ -587,8 +598,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 data-lyrics-dimmed={dimmed || undefined}
                 className={`motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out ${dimmed ? 'opacity-65' : ''}`}
               >
-                <div className="relative space-y-3">
-                {focused && <span aria-hidden="true" data-lyrics-focus-outline className="pointer-events-none absolute -inset-x-3 inset-y-0 rounded-xl border border-slate-500 dark:border-white/80" />}
+                <div data-lyrics-focus-outline={focused || undefined} className={`-mx-3 space-y-3 rounded-xl border px-[11px] py-2 motion-safe:transition-colors motion-safe:duration-200 ${focused ? 'border-slate-500 dark:border-white/80' : 'border-transparent'}`}>
                 {section.type === 'section' && section.title && (
                   <div className="pt-2">
                     <span
@@ -599,7 +609,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                   </div>
                 )}
                 <div
-                  className={`font-sans whitespace-pre-wrap font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass} ${section.kind === 'chorus' ? text : ''}`}
+                  className={`font-sans whitespace-pre-wrap break-words font-medium tracking-normal ${currentFont.cssClass} ${section.kind === 'chorus' ? text : ''}`}
                 >
                   {section.lines.join('\n')}
                 </div>
