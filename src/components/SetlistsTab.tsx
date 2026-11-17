@@ -1088,7 +1088,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                   {/* IN-PLACE EXPANDED ACCORDION CONTENT */}
                   <SetlistExpansion expanded={isSelected}>{() => (
                     <div
-                      className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 cursor-default"
+                      className="mt-3 pt-3 border-t border-slate-200/45 dark:border-slate-800/45 space-y-3 cursor-default"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {/* Sunday Service Layout */}
