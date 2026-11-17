@@ -28,7 +28,7 @@ const primary = 'min-h-11 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm 
 interface OutlineEditor { input: SermonInput; original?: SermonOutline; newId: string }
 interface PendingFile { id: string; file: File }
 
-export default function SermonOutlines({ currentUser, collapseSignal, initialRows, onRowsChange }: { currentUser: UserAccount | null; collapseSignal?: number; initialRows?: SermonOutline[]; onRowsChange?: (rows: SermonOutline[]) => void }) {
+export default function SermonOutlines({ currentUser, collapseSignal, initialRows, onRowsChange, readOnly = false, onContentChanged }: { currentUser: UserAccount | null; collapseSignal?: number; initialRows?: SermonOutline[]; onRowsChange?: (rows: SermonOutline[]) => void; readOnly?: boolean; onContentChanged?: () => void }) {
   const [rows, setRows] = useState<SermonOutline[]>(() => initialRows || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,9 +53,9 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
   const lastProcessedSignalRef = useRef<number>(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const isAdmin = currentUser?.role === 'admin';
-  const canAdd = !!currentUser?.active && (isAdmin || !!currentUser?.permissions?.canAdd);
-  const canEdit = (row: SermonOutline) => !!currentUser?.active && (isAdmin || (row.author_id === currentUser.id && !!currentUser.permissions?.canEdit));
-  const canDelete = (row: SermonOutline) => !!currentUser?.active && (isAdmin || (row.author_id === currentUser.id && !!currentUser.permissions?.canDelete));
+  const canAdd = !readOnly && !!currentUser?.active && (isAdmin || !!currentUser?.permissions?.canAdd);
+  const canEdit = (row: SermonOutline) => !readOnly && !!currentUser?.active && (isAdmin || (row.author_id === currentUser.id && !!currentUser.permissions?.canEdit));
+  const canDelete = (row: SermonOutline) => !readOnly && !!currentUser?.active && (isAdmin || (row.author_id === currentUser.id && !!currentUser.permissions?.canDelete));
   const selected = rows.find(row => row.id === selectedId);
   const { current, archive } = groupSermonArchive(rows, today, search);
   const visibleCount = current.length + archive.length;
@@ -67,7 +67,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
   useEffect(() => { if (ready) onRowsChange?.(rows); }, [ready, rows, onRowsChange]);
 
   async function refresh() {
-    if (loadingLock.current) return;
+    if (readOnly || loadingLock.current) return;
     loadingLock.current = true; setLoading(true);
     try {
       const result = await loadSermons();
@@ -154,6 +154,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
       const input = { ...editor.input, outline_html: colorOutlineVerses(editor.input.outline_html, editor.input.outline), attachments: uploaded, status };
       const saved = await saveSermon(input, currentUser.id, editor.original, editor.newId);
       if (!alive.current) return;
+      onContentChanged?.();
       setRows(previous => [...previous.filter(row => row.id !== saved.id), saved]);
       const savedPaths = new Set(saved.attachments?.map(item => item.path));
       void removeUnusedSermonFiles((editor.original?.attachments || []).filter(item => !savedPaths.has(item.path)).map(item => item.path));
@@ -168,6 +169,7 @@ export default function SermonOutlines({ currentUser, collapseSignal, initialRow
     saveLock.current = true; setSaving(true); setCopyMessage('');
     try {
       await deleteSermon(row);
+      onContentChanged?.();
       setRows(previous => previous.filter(item => item.id !== row.id));
       if (selectedId === row.id) closeReader();
       void removeUnusedSermonFiles((row.attachments || []).map(item => item.path));

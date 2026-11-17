@@ -48,6 +48,7 @@ import {
 
 
 interface RecognitionsTabProps {
+  readOnly?: boolean;
   birthdays: BirthdayCelebrant[];
   anniversaries: AnniversaryCelebrant[];
   visitors: Visitor[];
@@ -64,6 +65,7 @@ interface RecognitionsTabProps {
 }
 
 export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
+  readOnly = false,
   birthdays,
   anniversaries,
   specialRecognitions,
@@ -242,8 +244,8 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       <button type="button" aria-label={`Actions for ${name}`} aria-haspopup="menu" aria-expanded={birthdayMenuId === key} onClick={() => setBirthdayMenuId(birthdayMenuId === key ? null : key)} className="p-1.5 text-slate-500 hover:text-indigo-600 cursor-pointer"><MoreHorizontal className="w-4 h-4" /></button>
       {birthdayMenuId === key && <div role="menu" aria-label={`${name} actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
         <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => { setBirthdayMenuId(null); await copyWithFeedback(copy); }}><Copy className="w-4 h-4" />Copy</button>
-        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setBirthdayMenuId(null); setRecognitionSaveError(''); edit(); }}><Pencil className="w-4 h-4" />Edit</button>
-        <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={async () => { setBirthdayMenuId(null); if (await confirmAction(`Remove ${name}?`)) remove(); }}><Trash2 className="w-4 h-4" />Delete</button>
+        {!readOnly && <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => { setBirthdayMenuId(null); setRecognitionSaveError(''); edit(); }}><Pencil className="w-4 h-4" />Edit</button>}
+        {!readOnly && <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={async () => { setBirthdayMenuId(null); if (await confirmAction(`Remove ${name}?`)) remove(); }}><Trash2 className="w-4 h-4" />Delete</button>}
       </div>}
     </div>
   );
@@ -336,17 +338,17 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                                     setBirthdayMenuId(null);
                                     await copyWithFeedback(`${item.name} — ${parseDate(item.birthDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`);
                                   }}><Copy className="w-4 h-4" />Copy</button>
-                                  <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => {
+                                  {!readOnly && <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => {
                                     setBirthdayMenuId(null);
                                     setEditingBirthday(item);
                                     setBdayForm({ name: item.name, birthDate: `2000-${item.birthDate.slice(5)}`, notes: item.notes || '' });
                                     setBirthdaySaveError('');
                                     setIsAddingBirthday(true);
-                                  }}><Pencil className="w-4 h-4" />Edit</button>
-                                  <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => {
+                                  }}><Pencil className="w-4 h-4" />Edit</button>}
+                                  {!readOnly && <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => {
                                     setBirthdayMenuId(null);
                                     onDeleteBirthday(item.id);
-                                  }}><Trash2 className="w-4 h-4" />Delete</button>
+                                  }}><Trash2 className="w-4 h-4" />Delete</button>}
                                 </div>
                               </>
                             )}
@@ -392,7 +394,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       </div>}
 
       {/* MODAL 1: ADD BIRTHDAY */}
-      {isAddingBirthday && (
+      {!readOnly && isAddingBirthday && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -468,7 +470,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       )}
 
       {/* MODAL 2: ADD ANNIVERSARY */}
-      {isAddingAnniversary && (
+      {!readOnly && isAddingAnniversary && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -574,7 +576,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       )}
 
       {/* MODAL 4: ADD SPECIAL RECOGNITION */}
-      {isAddingSpecial && (
+      {!readOnly && isAddingSpecial && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -716,7 +718,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
       )}
 
       {/* Floating Action Button (FAB) for Add Celebrant / Anniversary / Special */}
-      {!isAnyModalOpen && (
+      {!readOnly && !isAnyModalOpen && (
         <button
           type="button"
           onClick={() => {

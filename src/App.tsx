@@ -32,12 +32,11 @@ import {
   SpecialNumberEntry,
   PracticeGroupEntry,
   ChoirEntry,
-  ChurchActivity,
   DatabaseStatusInfo,
 } from './types';
 import { clearDeviceAuthSession, supabase } from './supabase';
 import { fetchActivities } from './features/activities/data';
-import { androidSignedOut, clearOfflineLibrary, isAndroidOfflineLibrary, readOfflineLibrary, setAndroidSignedOut, writeOfflineLibrary } from './services/androidOfflineLibrary';
+import { androidSignedOut, clearOfflineLibrary, isAndroidOfflineLibrary, readOfflineLibrary, setAndroidSignedOut, writeOfflineLibrary, type OfflineLibrary } from './services/androidOfflineLibrary';
 import {
   fetchSetlists,
   saveSetlist as supabaseSaveSetlist,
@@ -105,7 +104,7 @@ cleanupLegacyStorage();
 const SetlistsTab = lazy(() => import('./components/SetlistsTab').then((module) => ({ default: module.SetlistsTab })));
 const RecognitionsTab = lazy(() => import('./components/RecognitionsTab').then((module) => ({ default: module.RecognitionsTab })));
 const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then((module) => ({ default: module.SpecialNumberTab })));
-const Activities = lazy(() => import('./features/activities/Activities'));
+const OfflineSchedules = lazy(() => import('./components/OfflineSchedules'));
 const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
 const SermonOutlines = React.lazy(() => import('./features/sermons/SermonOutlines'));
 const Notepad = React.lazy(() => import('./features/notepad/Notepad'));
@@ -135,7 +134,8 @@ export default function App() {
   const [isLoadingCoreData, setIsLoadingCoreData] = useState(true);
   const coreLoadEpoch = useRef(0);
   const [offlineReadOnly, setOfflineReadOnly] = useState(false);
-  const [offlineActivities, setOfflineActivities] = useState<ChurchActivity[]>([]);
+  const [offlineLibrary, setOfflineLibrary] = useState<OfflineLibrary | null>(null);
+  const offlineText = offlineLibrary?.text;
   const offlineReadOnlyRef = useRef(false);
   const setReadOnly = useCallback((value: boolean) => {
     offlineReadOnlyRef.current = value;
@@ -254,8 +254,7 @@ export default function App() {
       try {
         const [latestSongs, latestSetlists, activities] = await Promise.all([fetchSongs(), fetchSetlists(), fetchActivities()]);
         if (epoch !== coreLoadEpoch.current || signedInUserIdRef.current !== account.id || offlineReadOnlyRef.current || signingOutRef.current) return;
-        setOfflineActivities(activities);
-        await writeOfflineLibrary(account, latestSongs, latestSetlists, activities);
+        await writeOfflineLibrary(account, latestSongs, latestSetlists, activities, () => epoch === coreLoadEpoch.current && signedInUserIdRef.current === account.id && !offlineReadOnlyRef.current && !signingOutRef.current);
       } catch (error) {
         console.warn('Offline library sync failed', error);
       }
@@ -281,8 +280,7 @@ export default function App() {
     if (profile && complete && isAndroidOfflineLibrary()) {
       void fetchActivities().then(async activities => {
         if (own !== coreLoadEpoch.current || signingOutRef.current || offlineReadOnlyRef.current) return;
-        setOfflineActivities(activities);
-        await writeOfflineLibrary(profile, serverSongs, serverSetlists, activities);
+        await writeOfflineLibrary(profile, serverSongs, serverSetlists, activities, () => own === coreLoadEpoch.current && !signingOutRef.current && !offlineReadOnlyRef.current);
       }).catch(error => console.warn('Offline library sync failed', error));
     }
   }, []);
@@ -344,9 +342,10 @@ export default function App() {
           setSetlists(snapshot.setlists);
           setSongs(snapshot.songs);
         }
-        setOfflineActivities(snapshot.activities);
-      } else if (!finishLoading) {
-        return;
+        setOfflineLibrary(snapshot);
+      } else {
+        setOfflineLibrary(null);
+        if (!finishLoading) return;
       }
       setIsLoadingCoreData(false);
       setIsLoadingInitialData(false);
@@ -482,36 +481,43 @@ export default function App() {
         if (isMounted && !offlineReadOnlyRef.current && !signingOutRef.current) { setSongs(fresh); scheduleOfflineSync(); }
       },
       onSpecialNumbersChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('special-numbers')) return;
         const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
         if (isMounted) setSpecialNumbers(fresh);
       },
       onChoirChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('special-numbers')) return;
         const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
         if (isMounted) setChoirEntries(fresh);
       },
       onPracticeChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('special-numbers')) return;
         const fresh = await fetchPracticeEntries().catch(() => preserveOnRefreshFailure('practiceEntries'));
         if (isMounted) setPracticeEntries(fresh);
       },
       onBirthdaysChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchBirthdays().catch(() => preserveOnRefreshFailure('birthdays'));
         if (isMounted) setBirthdays(fresh);
       },
       onAnniversariesChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchAnniversaries().catch(() => preserveOnRefreshFailure('anniversaries'));
         if (isMounted) setAnniversaries(fresh);
       },
       onVisitorsChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchVisitors().catch(() => preserveOnRefreshFailure('visitors'));
         if (isMounted) setVisitors(fresh);
       },
       onRecognitionsChange: async () => {
+        scheduleOfflineSync();
         if (!loadedSectionsRef.current.has('recognitions')) return;
         const fresh = await fetchSpecialRecognitions().catch(() => preserveOnRefreshFailure('specialRecognitions'));
         if (isMounted) setSpecialRecognitions(fresh);
@@ -767,7 +773,7 @@ export default function App() {
       setAndroidSignedOut(false);
       signingOutRef.current = false;
       setReadOnly(false);
-      setOfflineActivities([]);
+      setOfflineLibrary(null);
     }
     outlineCache.current = null;
     rememberedSetlists.current = null;
@@ -796,7 +802,7 @@ export default function App() {
       signingOutRef.current = true;
       setAndroidSignedOut(true);
       coreLoadEpoch.current++;
-      setOfflineActivities([]);
+      setOfflineLibrary(null);
       await clearOfflineLibrary().catch(console.warn);
     }
     outlineCache.current = null;
@@ -1498,13 +1504,13 @@ export default function App() {
           currentTab={currentTab}
           onNavigateToSettings={() => handleNavigateTab('settings')}
           onOpenNotifications={offlineReadOnly ? undefined : () => { setNotificationInboxOpen(true); void notifications.refresh(); }}
-          onOpenNotepad={offlineReadOnly ? undefined : () => setNotepadOpen(true)}
+          onOpenNotepad={() => setNotepadOpen(true)}
           unreadNotifications={notifications.unreadCount}
         />
       )}
 
       {isNotificationInboxOpen && !offlineReadOnly && <NotificationInbox key={currentUser.id} {...notifications} onMarkRead={notifications.markRead} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
-      {isNotepadOpen && !offlineReadOnly && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
+      {isNotepadOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id + (offlineReadOnly ? (offlineLibrary ? '-offline' : '-restoring') : '')} offlineNotes={offlineReadOnly ? offlineText?.notes ?? [] : undefined} onContentChanged={scheduleOfflineSync} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3.5 sm:px-6 py-5 pb-28" style={hideMainHeader ? { paddingTop: 'calc(var(--app-safe-top, 0px) + 1.25rem)' } : undefined}>
@@ -1534,12 +1540,13 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'recognitions' && !offlineReadOnly && (!loadedSectionsRef.current.has('recognitions') ? <TabLoadingSkeleton /> : (
+        {currentTab === 'recognitions' && (!offlineReadOnly && !loadedSectionsRef.current.has('recognitions') ? <TabLoadingSkeleton /> : (
           <RecognitionsTab
-            birthdays={birthdays}
-            anniversaries={anniversaries}
-            visitors={visitors}
-            specialRecognitions={specialRecognitions}
+            readOnly={offlineReadOnly}
+            birthdays={offlineReadOnly ? offlineText?.birthdays ?? [] : birthdays}
+            anniversaries={offlineReadOnly ? offlineText?.anniversaries ?? [] : anniversaries}
+            visitors={offlineReadOnly ? offlineText?.visitors ?? [] : visitors}
+            specialRecognitions={offlineReadOnly ? offlineText?.recognitions ?? [] : specialRecognitions}
             onSaveBirthday={handleSaveBirthday}
             onDeleteBirthday={handleDeleteBirthday}
             onSaveAnniversary={handleSaveAnniversary}
@@ -1552,7 +1559,7 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'special-numbers' && offlineReadOnly && <Activities currentUser={currentUser} offlineItems={offlineActivities} collapseSignal={collapseSignals['special-numbers']} />}
+        {currentTab === 'special-numbers' && offlineReadOnly && <OfflineSchedules user={currentUser} library={offlineLibrary} songs={songs} collapseSignal={collapseSignals['special-numbers']} />}
         {currentTab === 'special-numbers' && !offlineReadOnly && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
             onActivitiesChanged={scheduleOfflineSync}
@@ -1611,10 +1618,10 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'outlines' && !offlineReadOnly && <SermonOutlines currentUser={currentUser} collapseSignal={collapseSignals.outlines}
-          initialRows={outlineCache.current?.userId === currentUser.id ? outlineCache.current.rows : undefined}
-          onRowsChange={rows => { outlineCache.current = { userId: currentUser.id, rows }; }} />}
-        {offlineReadOnly && (currentTab === 'recognitions' || currentTab === 'outlines') && <p className="text-sm text-slate-500">This section requires a connection.</p>}
+        {currentTab === 'outlines' && <SermonOutlines key={offlineReadOnly ? (offlineLibrary ? 'offline' : 'restoring') : 'online'} readOnly={offlineReadOnly} currentUser={currentUser} collapseSignal={collapseSignals.outlines}
+          initialRows={offlineReadOnly ? offlineText?.outlines ?? [] : outlineCache.current?.userId === currentUser.id ? outlineCache.current.rows : undefined}
+          onRowsChange={offlineReadOnly ? undefined : rows => { outlineCache.current = { userId: currentUser.id, rows }; }}
+          onContentChanged={scheduleOfflineSync} />}
         {currentTab === 'settings' && offlineReadOnly && <button type="button" className="ui-secondary" onClick={() => void handleSignOut()}>Sign out</button>}
         {currentTab === 'settings' && !offlineReadOnly && (!loadedSectionsRef.current.has('settings') ? <TabLoadingSkeleton /> : (
           <SettingsTab

@@ -1,4 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { fetchBirthdays, fetchAnniversaries, fetchVisitors, fetchSpecialRecognitions, fetchSpecialNumbers, fetchChoirEntries, fetchPracticeEntries } from './supabaseData';
+import { loadSermons } from '../features/sermons/data';
+import { loadNotes } from '../features/notepad/data';
 import type { ChurchActivity, Setlist, Song, UserAccount } from '../types';
 
 const library = registerPlugin<{
@@ -23,11 +26,46 @@ export const setAndroidSignedOut = (signedOut: boolean) => {
 
 type OfflineAccount = Pick<UserAccount, 'id' | 'username' | 'displayName'>;
 
+async function fetchTextSections(userId: string, previous?: TextSections) {
+  async function refresh<T>(label: string, read: () => Promise<T>, cached?: T) {
+    try { return await read(); }
+    catch (error) {
+      console.warn('Offline section sync failed', label, error);
+      return cached;
+    }
+  }
+  const [birthdays, anniversaries, visitors, recognitions, songNumbers, choir, practice, outlines, notes] = await Promise.all([
+    refresh('birthdays', fetchBirthdays, previous?.birthdays),
+    refresh('anniversaries', fetchAnniversaries, previous?.anniversaries),
+    refresh('visitors', fetchVisitors, previous?.visitors),
+    refresh('recognitions', fetchSpecialRecognitions, previous?.recognitions),
+    refresh('song numbers', async () => (await fetchSpecialNumbers()).map(({ minusOneLink, minus_one_link, ...row }) => row), previous?.songNumbers),
+    refresh('choir', async () => (await fetchChoirEntries()).map(({ mediaAttachments, ...row }) => row), previous?.choir),
+    refresh('practice', async () => (await fetchPracticeEntries()).map(({ attachments, customAttachments, parts, vocalParts, ...row }) => row), previous?.practice),
+    refresh('outlines', async () => (await loadSermons()).map(({ attachments, ...row }) => row), previous?.outlines),
+    refresh('notes', () => loadNotes(userId), previous?.notes),
+  ]);
+  return { birthdays, anniversaries, visitors, recognitions, songNumbers, choir, practice, outlines, notes };
+}
+
+interface TextSections {
+  birthdays?: Awaited<ReturnType<typeof fetchBirthdays>>;
+  anniversaries?: Awaited<ReturnType<typeof fetchAnniversaries>>;
+  visitors?: Awaited<ReturnType<typeof fetchVisitors>>;
+  recognitions?: Awaited<ReturnType<typeof fetchSpecialRecognitions>>;
+  songNumbers?: Awaited<ReturnType<typeof fetchSpecialNumbers>>;
+  choir?: Awaited<ReturnType<typeof fetchChoirEntries>>;
+  practice?: Awaited<ReturnType<typeof fetchPracticeEntries>>;
+  outlines?: Awaited<ReturnType<typeof loadSermons>>;
+  notes?: Awaited<ReturnType<typeof loadNotes>>;
+}
+
 export interface OfflineLibrary {
   user: OfflineAccount;
   songs: Song[];
   setlists: Setlist[];
   activities: ChurchActivity[];
+  text?: TextSections;
 }
 
 export async function readOfflineLibrary(): Promise<OfflineLibrary | null> {
@@ -44,10 +82,18 @@ export async function readOfflineLibrary(): Promise<OfflineLibrary | null> {
   return null;
 }
 
-export async function writeOfflineLibrary(user: OfflineAccount, songs: Song[], setlists: Setlist[], activities: ChurchActivity[]) {
+let latestSync = 0;
+
+export async function writeOfflineLibrary(user: OfflineAccount, songs: Song[], setlists: Setlist[], activities: ChurchActivity[], isCurrent: () => boolean) {
+  if (!isCurrent()) return;
+  const sync = ++latestSync;
+  const previous = await readOfflineLibrary();
+  if (!isCurrent()) return;
+  const text = await fetchTextSections(user.id, previous?.user.id === user.id ? previous.text : undefined);
+  if (sync !== latestSync || !isCurrent()) return;
   const { id, username, displayName } = user;
   const textSongs = songs.map(({ attachments, minusOneLink, minus_one_link, ...song }) => song);
-  await library.write({ value: JSON.stringify({ user: { id, username, displayName }, songs: textSongs, setlists, activities }) });
+  await library.write({ value: JSON.stringify({ user: { id, username, displayName }, songs: textSongs, setlists, activities, text }) });
 }
 
 export const clearOfflineLibrary = () => isAndroidOfflineLibrary() ? library.clear() : Promise.resolve();
