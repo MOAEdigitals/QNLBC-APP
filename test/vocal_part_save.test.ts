@@ -280,7 +280,7 @@ it('a new recording appends after deleted positions and retries a concurrent pos
 });
 
 it('modal renders error feedback, no success popup, and disables controls while saving', () => {
-  const modalMarkup = component.slice(component.indexOf('{isAddingVocalPartModal && vocalPartModalGroup && ('), component.indexOf('{/* CHOIR MODAL'));
+  const modalMarkup = component.slice(component.indexOf('{!readOnly && isAddingVocalPartModal && vocalPartModalGroup && ('), component.indexOf('{/* CHOIR MODAL'));
   assert.doesNotMatch(component, /Vocal part saved\./);
   assert.doesNotMatch(modalMarkup, /role="status"/);
   assert.match(modalMarkup, /role="alert"/);
