@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { songResolver, linkSongEntry, linkSetlist } from '../src/utils/linkedSongs.ts';
+import { songResolver, linkSongEntry, linkSetlist, linkPracticeEntry } from '../src/utils/linkedSongs.ts';
 
 const song = { id: 'song-1', title: 'New title', previousTitles: ['Old title'], lyrics: 'Updated verse', updatedAt: '' };
 
@@ -50,4 +50,16 @@ test('song category filters retain Starred without the removed add-category shor
   assert.ok(source.includes("{ value: 'Starred', label: 'Starred' }"));
   assert.ok(source.includes('allCategories.map'));
   assert.doesNotMatch(source, /aria-label="Add category"/);
+});
+
+test('practice-specific lyrics survive library changes, including a cleared lyric field', () => {
+  const practice = { id: 'practice', groupName: '', songId: song.id, songTitle: 'Old title', lyrics: 'Custom verse', createdAt: '', updatedAt: '' };
+  const resolve = songResolver([song]);
+  assert.equal(linkPracticeEntry(practice, resolve).lyrics, song.lyrics);
+
+  const custom = linkPracticeEntry({ ...practice, lyricsMode: 'custom', lyricsSnapshot: 'Custom verse' }, resolve);
+  assert.equal(custom.songTitle, song.title);
+  assert.equal(custom.lyricsMode, 'custom');
+  assert.equal(custom.lyrics, 'Custom verse');
+  assert.equal(linkPracticeEntry({ ...practice, lyrics_mode: 'custom', lyrics: '', lyrics_snapshot: null }, resolve).lyrics, '');
 });

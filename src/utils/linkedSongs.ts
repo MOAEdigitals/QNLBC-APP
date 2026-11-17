@@ -1,4 +1,4 @@
-import type { Song, Setlist, SetlistSongItem } from '../types';
+import type { Song, Setlist, SetlistSongItem, PracticeGroupEntry } from '../types';
 
 export function songResolver(songs: Song[]) {
   const byId = new Map(songs.map(song => [song.id, song]));
@@ -27,6 +27,18 @@ export function linkSongEntry<T extends SongUse>(entry: T, resolve: Resolver): T
   return song ? { ...entry, songId: song.id, song_id: song.id, songTitle: song.title,
     song_title: song.title, lyrics: song.lyrics, lyricsMode: 'live', lyrics_mode: 'live',
     lyricsSnapshot: song.lyrics, lyrics_snapshot: song.lyrics } : entry;
+}
+
+export function linkPracticeEntry(entry: PracticeGroupEntry, resolve: Resolver): PracticeGroupEntry {
+  const mode = entry.lyricsMode ?? entry.lyrics_mode;
+  if (mode !== 'custom' && mode !== 'snapshot') return linkSongEntry(entry, resolve);
+
+  const song = resolve(entry.songId || entry.song_id, entry.songTitle || entry.song_title);
+  return {
+    ...entry,
+    ...(song && { songId: song.id, song_id: song.id, songTitle: song.title, song_title: song.title }),
+    lyrics: entry.lyricsSnapshot ?? entry.lyrics_snapshot ?? entry.lyrics,
+  };
 }
 
 export function linkSetlist(setlist: Setlist, resolve: Resolver): Setlist {

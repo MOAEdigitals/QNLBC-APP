@@ -1091,6 +1091,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
 
     if (matchedSong) effectiveSongId = matchedSong.id;
+    const lyricsMode = editingPractice.lyricsMode ?? editingPractice.lyrics_mode ?? 'live';
+    const lyrics = lyricsMode === 'live'
+      ? editingPractice.lyrics || matchedSong?.lyrics || ''
+      : editingPractice.lyrics ?? '';
 
     const entryToSave: Partial<PracticeGroupEntry> = {
       ...(isNew ? {} : { id: editingPractice.id }),
@@ -1103,9 +1107,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       practiceDate: isNew ? undefined : editingPractice.practiceDate || undefined,
       practiceTime: isNew ? undefined : editingPractice.practiceTime || undefined,
       targetDate: editingPractice.targetDate || undefined,
-      lyrics: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
-      lyricsMode: editingPractice.lyricsMode || 'live',
-      lyricsSnapshot: editingPractice.lyrics || (matchedSong ? matchedSong.lyrics : '') || null,
+      lyrics,
+      lyricsMode,
+      lyricsSnapshot: lyrics,
       notes: editingPractice.notes?.trim() || '',
       customAttachments: editingPractice.customAttachments || [],
       vocalParts: editingPractice.vocalParts || [],
@@ -1141,7 +1145,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         ...prev,
         songTitle: matched.title,
         songId: matched.id,
-        lyrics: matched.lyrics || prev?.lyrics || '',
+        lyrics: prev?.songId === matched.id ? prev.lyrics : matched.lyrics || '',
+        lyricsMode: prev?.songId === matched.id ? prev.lyricsMode : 'live',
       }));
     } else {
       setEditingPractice((prev) => ({
@@ -2881,7 +2886,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   rows={9}
                   value={editingPractice.lyrics || ''}
-                  onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value })}
+                  onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value, lyricsMode: 'custom' })}
                   placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />

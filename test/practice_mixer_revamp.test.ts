@@ -95,8 +95,8 @@ test('practice lyrics auto-grow without an expand control', () => {
   assert.doesNotMatch(practiceTab, /setIsPracticeModalLyricsExpanded/);
   assert.doesNotMatch(practiceTab, /Edit lyrics full screen/);
   assert.match(practiceTab, /value=\{editingPractice\.lyrics \|\| ''\}/);
-  assert.match(practiceTab, /onChange=\{\(e\) => setEditingPractice\(\{ \.\.\.editingPractice, lyrics: e\.target\.value \}\)\}/);
-  assert.match(practiceTab, /lyricsSnapshot: editingPractice\.lyrics/);
+  assert.match(practiceTab, /lyrics: e\.target\.value, lyricsMode: 'custom'/);
+  assert.match(practiceTab, /lyricsSnapshot: lyrics/);
 });
 
 test('voice and backing-track forms no longer ask for a singer or track name', () => {

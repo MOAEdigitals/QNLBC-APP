@@ -10,7 +10,7 @@ import { NotificationInbox } from './components/NotificationInbox';
 import { disableAssignmentPush, requestInitialPushPermission } from './services/assignmentNotifications';
 import { SwipeNavigationProvider } from './components/SwipeNavigation';
 import { readSetlistShareId } from './utils/setlistSharing';
-import { songResolver, linkSetlist, linkSongEntry } from './utils/linkedSongs';
+import { songResolver, linkSetlist, linkSongEntry, linkPracticeEntry } from './utils/linkedSongs';
 import { initialAppTab } from './utils/tabNavigation';
 import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
 import { App as NativeApp } from '@capacitor/app';
@@ -228,7 +228,7 @@ export default function App() {
   const linkedSetlists = useMemo(() => setlists.map(entry => linkSetlist(entry, resolveLibrarySong)), [setlists, resolveLibrarySong]);
   const linkedSpecialNumbers = useMemo(() => (offlineReadOnly ? offlineText?.songNumbers ?? [] : specialNumbers).map(entry => linkSongEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, specialNumbers, resolveLibrarySong]);
   const linkedChoirEntries = useMemo(() => (offlineReadOnly ? offlineText?.choir ?? [] : choirEntries).map(entry => linkSongEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, choirEntries, resolveLibrarySong]);
-  const linkedPracticeEntries = useMemo(() => (offlineReadOnly ? offlineText?.practice ?? [] : practiceEntries).map(entry => linkSongEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, practiceEntries, resolveLibrarySong]);
+  const linkedPracticeEntries = useMemo(() => (offlineReadOnly ? offlineText?.practice ?? [] : practiceEntries).map(entry => linkPracticeEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, practiceEntries, resolveLibrarySong]);
 
   const [savedNames, setSavedNames] = useState<string[]>([]);
   const [refreshError, setRefreshError] = useState('');
@@ -1104,6 +1104,7 @@ export default function App() {
     if (isActuallyNew) {
       try {
         const saved = await supabaseCreatePracticeEntry(entry);
+        scheduleOfflineSync();
         setPracticeEntries((prev) => [saved, ...prev.filter((p) => p.id !== saved.id)]);
         return saved;
       } catch (err: any) {
@@ -1116,6 +1117,7 @@ export default function App() {
     } else {
       try {
         const saved = await supabaseUpdatePracticeEntry(entry.id!, entry);
+        scheduleOfflineSync();
         setPracticeEntries((prev) => prev.map((p) => (p.id === entry.id ? saved : p)));
         return saved;
       } catch (err: any) {
