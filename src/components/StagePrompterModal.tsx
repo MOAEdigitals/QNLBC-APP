@@ -542,9 +542,9 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             const selected = activeSectionId === s.id;
             const { text, surface } = SECTION_COLORS[s.kind ?? 'verse'];
             const sectionColor = surface ? `${text} ${surface}` : '';
-            const buttonColor = sectionColor || (selected
-              ? 'bg-sky-400 text-slate-950 border-sky-400'
-              : s.kind === 'verse' ? themeStyles.sectionBadge : themeStyles.jumpPill);
+            const hasSectionColor = Boolean(sectionColor && (selected || s.kind === 'chorus'));
+            const buttonColor = hasSectionColor ? sectionColor
+              : selected ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.jumpPill;
             return (
               <button
                 key={s.id}
@@ -552,7 +552,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 aria-label={`Jump to ${s.title}`}
                 aria-current={selected ? 'location' : undefined}
                 onClick={() => jumpToSection(s.id)}
-                className={`min-h-11 min-w-11 flex-[1_0_auto] sm:flex-none px-1.5 sm:px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer ${buttonColor} ${selected && sectionColor ? 'outline outline-2 -outline-offset-2 outline-current' : ''}`}
+                className={`min-h-11 min-w-11 flex-[1_0_auto] sm:flex-none px-1.5 sm:px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer ${buttonColor} ${selected && hasSectionColor ? 'outline outline-2 -outline-offset-2 outline-current' : ''}`}
               >
                 {s.shortLabel || s.title}
               </button>

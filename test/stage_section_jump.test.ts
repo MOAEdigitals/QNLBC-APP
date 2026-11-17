@@ -62,7 +62,7 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   assert.ok('minHeight' in sections.at(-1).props.style, 'last section reserves space to reach the viewport top');
   assert.match(nodes.find(node => node.tag === 'span' && node.children.includes('Chorus')).props.className, /text-amber-900/);
   assert.match(nodes.find(node => node.tag === 'span' && node.children.includes('Verse 1')).props.className, /text-sky-900/);
-  assert.match(nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.className, /bg-sky-100/);
+  assert.match(nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.className, /bg-slate-100/);
   const nav = nodes.find(node => node.tag === 'nav');
   assert.match(nav.props.className, /order-3/);
   assert.match(nav.props.className, /var\(--app-safe-bottom,0px\)\+0\.75rem/);
@@ -126,7 +126,7 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
     const content = nodes.filter(node => node.tag === 'section').map(node => node.children[0])
       .find(node => node.children.some((child: any) => child?.children?.some((badge: any) => badge?.children?.includes(label))));
     const textClass = new RegExp(`text-${color}-900`);
-    assert.match(jump.props.className, textClass);
+    assert.match(jump.props.className, color === 'amber' ? textClass : /bg-slate-100/);
     assert.match(content.children.find((child: any) => child?.children?.[0]?.children?.includes(label)).children[0].props.className, textClass);
     const lyricsClass = content.children.at(-1).props.className;
     if (color === 'amber') assert.match(lyricsClass, textClass);
@@ -136,6 +136,12 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
     next().props.onClick();
     assert.equal(target.top, position);
     renderSong('alice', 'one', repeatedChorusOne);
+    const active = nodes.find(node => node.props['aria-current'] === 'location');
+    const activeColor = ({ 1200: 'violet', 1500: 'amber', 1800: 'red' } as Record<number, string>)[position];
+    if (activeColor) {
+      assert.match(active.props.className, new RegExp(`text-${activeColor}-900`));
+      assert.match(active.props.className, /outline-current/);
+    }
   }
   assert.equal(next().props.disabled, true);
   const twoChoruses = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 2\nSing again\nBridge\nKeep singing\nEnding\nDone';
