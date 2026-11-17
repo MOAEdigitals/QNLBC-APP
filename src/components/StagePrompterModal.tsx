@@ -6,6 +6,7 @@ import {
   X,
   Maximize2,
   Minimize2,
+  Repeat2,
   Music,
   ArrowLeft,
   AlignCenter,
@@ -13,6 +14,7 @@ import {
 } from 'lucide-react';
 
 interface StagePrompterModalProps {
+  userId?: string;
   isOpen: boolean;
   onClose: () => void;
   song: Song | null;
@@ -33,10 +35,12 @@ interface ParsedSection {
   type: 'section' | 'regular';
   title?: string;
   shortLabel?: string;
+  kind?: 'verse' | 'chorus';
   lines: string[];
 }
 
 export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
+  userId,
   isOpen,
   onClose,
   song,
@@ -73,6 +77,15 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sectionElementsRef = useRef(new Map<string, HTMLElement>());
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [sequenceStep, setSequenceStep] = useState<{ id: string; index: number } | null>(null);
+  const preferenceKey = userId && song?.id
+    ? `qnlbc.stage.repeat-chorus.${encodeURIComponent(userId)}/${encodeURIComponent(song.id)}`
+    : null;
+  const [repeatOverride, setRepeatOverride] = useState<{ key: string; enabled: boolean } | null>(null);
+  const savedRepeat = useMemo(() => {
+    try { return Boolean(preferenceKey && localStorage.getItem(preferenceKey) === 'true'); }
+    catch { return false; }
+  }, [preferenceKey, isOpen]);
   const [viewportHeight, setViewportHeight] = useState(0);
 
   // Swipe-back gesture detection & visual states
@@ -255,7 +268,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       lines: [],
     };
 
-    const sectionRegex = /^(\[|\b)(verse\s*\d*|chorus\s*\d*|bridge\s*\d*|intro|outro|pre-chorus|refrain|ending|hook)(\]|\:)?/i;
+    const sectionRegex = /^\[?\s*(verse\s*\d*|chorus\s*\d*|bridge\s*\d*|intro|outro|pre-chorus|refrain|ending|hook)\s*\]?\s*:?$/i;
 
     rawLines.forEach((line, lineIdx) => {
       const trimmed = line.trim();
@@ -266,7 +279,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           sections.push(currentSection);
         }
 
-        const fullTitle = trimmed.replace(/^\[/, '').replace(/\]$/, '').replace(/:$/, '');
+        const fullTitle = match[1].trim();
         let short = fullTitle;
         if (/pre-chorus/i.test(fullTitle)) short = 'Pre-Ch';
         else if (/chorus/i.test(fullTitle)) short = fullTitle.replace(/chorus/i, 'Ch');
@@ -281,6 +294,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           type: 'section',
           title: fullTitle,
           shortLabel: short,
+          kind: /^verse/i.test(fullTitle) ? 'verse' : /^(chorus|refrain)/i.test(fullTitle) ? 'chorus' : undefined,
           lines: [],
         };
       } else {
@@ -295,13 +309,41 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     return sections;
   }, [song?.lyrics]);
 
-  const jumpToSection = (sectionId: string) => {
+  const namedSections = parsedSections.filter(section => section.type === 'section');
+  const choruses = namedSections.filter(section => section.kind === 'chorus');
+  const canRepeat = Boolean(preferenceKey && choruses.length === 1 && namedSections.some(section => section.kind === 'verse'));
+  const repeatEnabled = canRepeat && (repeatOverride?.key === preferenceKey ? repeatOverride?.enabled : savedRepeat);
+  const sequence = namedSections.flatMap((section, index) =>
+    repeatEnabled && section.kind === 'verse' && namedSections[index + 1]?.kind !== 'chorus'
+      ? [section, choruses[0]]
+      : [section],
+  );
+  const currentStep = sequenceStep && sequenceStep.id === activeSectionId && sequence[sequenceStep.index]?.id === activeSectionId
+    ? sequenceStep.index
+    : sequence.findIndex(section => section.id === activeSectionId);
+  const nextSection = sequence[currentStep + 1];
+  const showNext = repeatEnabled || choruses.length > 1;
+  const toggleRepeatChorus = () => {
+    if (!canRepeat || !preferenceKey) return;
+    const enabled = !repeatEnabled;
+    setRepeatOverride({ key: preferenceKey, enabled });
+    setSequenceStep(null);
+    try {
+      if (enabled) localStorage.setItem(preferenceKey, 'true');
+      else localStorage.removeItem(preferenceKey);
+    } catch {}
+  };
+
+  const jumpToSection = (sectionId: string, step?: number) => {
     const el = sectionElementsRef.current.get(sectionId);
     const container = scrollContainerRef.current;
     if (el && container) {
       const top = container.scrollTop + el.getBoundingClientRect().top - container.getBoundingClientRect().top;
       container.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
       setActiveSectionId(sectionId);
+      const index = step ?? (sequence[currentStep + 1]?.id === sectionId ? currentStep + 1
+        : sequence[currentStep]?.id === sectionId ? currentStep : sequence.findIndex(section => section.id === sectionId));
+      setSequenceStep({ id: sectionId, index });
     }
   };
 
@@ -317,6 +359,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
         if (element && element.getBoundingClientRect().top <= top + 16) active = section.id;
       }
       setActiveSectionId(active);
+      setSequenceStep(step => step?.id === active ? step : null);
     };
     const resize = new ResizeObserver(() => {
       setViewportHeight(container.clientHeight);
@@ -324,6 +367,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     });
     resize.observe(container);
     container.scrollTop = 0;
+    setSequenceStep(null);
     setViewportHeight(container.clientHeight);
     updateActiveSection();
     container.addEventListener('scroll', updateActiveSection, { passive: true });
@@ -377,6 +421,16 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
         {/* Right: Stage Sizing & Action Toolbar */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {canRepeat && <button
+            type="button"
+            onClick={toggleRepeatChorus}
+            aria-label="Repeat Chorus"
+            aria-pressed={Boolean(repeatEnabled)}
+            title="Repeat Chorus"
+            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${repeatEnabled ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.btnSecondary}`}
+          >
+            <Repeat2 className="size-5" aria-hidden="true" />
+          </button>}
           <button
             type="button"
             onClick={toggleLyricsAlignment}
@@ -446,14 +500,13 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       {parsedSections.some((s) => s.type === 'section') && (
         <nav
           aria-label="Lyrics sections"
-          className={`order-3 sm:order-none px-3 sm:px-4 pt-2 pb-[calc(var(--app-safe-bottom,0px)+0.75rem)] sm:pb-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${themeStyles.headerBg}`}
+          className={`order-3 sm:order-none px-3 sm:px-4 pt-2 pb-[calc(var(--app-safe-bottom,0px)+0.75rem)] sm:pb-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 shrink-0 ${themeStyles.headerBg}`}
         >
           <span className="hidden sm:block mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Jump To:
           </span>
-          {parsedSections
-            .filter((s) => s.type === 'section')
-            .map((s) => (
+          <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+          {namedSections.map((s) => (
               <button
                 key={s.id}
                 type="button"
@@ -465,6 +518,16 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 {s.shortLabel || s.title}
               </button>
             ))}
+          </div>
+          {showNext && <button
+            type="button"
+            aria-label="Next lyrics section"
+            disabled={!nextSection}
+            onClick={() => { if (nextSection) jumpToSection(nextSection.id, currentStep + 1); }}
+            className="min-h-11 shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-40"
+          >
+            Next
+          </button>}
         </nav>
       )}
 

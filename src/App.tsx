@@ -1450,6 +1450,7 @@ export default function App() {
 
         {currentTab === 'songs' && (isLoadingCoreData ? <TabLoadingSkeleton /> : (
           <SongsTab
+            userId={currentUser.id}
               canManageCategories={currentUser?.role === 'admin'}
             songs={songs}
             setlists={linkedSetlists}

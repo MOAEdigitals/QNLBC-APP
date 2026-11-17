@@ -103,6 +103,7 @@ export function getSongCategories(song: Song): SongCategory[] {
 }
 
 interface SongsTabProps {
+  userId?: string;
   songs: Song[];
   canManageCategories?: boolean;
   setlists: Setlist[];
@@ -121,6 +122,7 @@ interface SongsTabProps {
 }
 
 export const SongsTab: React.FC<SongsTabProps> = ({
+  userId,
   songs,
   canManageCategories = false,
   setlists,
@@ -2032,6 +2034,7 @@ if (isEditing && !savingSongRef.current) {
 
       {/* Stage Prompter Modal for Stage Worship Leaders */}
       <StagePrompterModal
+        userId={userId}
         isOpen={isStagePrompterOpen}
         onClose={() => setIsStagePrompterOpen(false)}
         song={stagePrompterSong}
