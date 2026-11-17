@@ -66,6 +66,26 @@ function audioExtension(source: string) {
   return audioExtensions.includes(ext) ? ext : 'mp3';
 }
 
+async function detectAudioExtension(src: string, fallback: string) {
+  const response = await fetch(src, { headers: { Range: 'bytes=0-31' }, signal: AbortSignal.timeout(5000) });
+  const reader = response.body?.getReader();
+  if (!reader) return fallback;
+  try {
+    const { value } = await reader.read();
+    if (!value || value.length < 12) return fallback;
+    const tag = String.fromCharCode(...value.subarray(0, 12));
+    if (value[0] === 0x1a && value[1] === 0x45 && value[2] === 0xdf && value[3] === 0xa3) return 'webm';
+    if (tag.startsWith('OggS')) return 'ogg';
+    if (tag.startsWith('fLaC')) return 'flac';
+    if (tag.startsWith('RIFF') && tag.endsWith('WAVE')) return 'wav';
+    if (tag.slice(4, 8) === 'ftyp') return 'm4a';
+    if (tag.startsWith('ID3')) return 'mp3';
+    return fallback;
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+}
+
 function verifyAudio(src: string) {
   return new Promise<void>((resolve, reject) => {
     const audio = new Audio();
@@ -91,24 +111,35 @@ export async function downloadPracticeTrack(track: PracticeDownload, source: str
   downloads.add(basename);
   const ext = audioExtension(source);
   const temp = `${basename}.pending.${ext}`;
-  const path = `${basename}.${ext}`;
+  let stagedPath = temp;
   try {
     const existing = await findPracticeDownload(track);
     if (existing) return existing;
-    if (/^https?:\/\//i.test(source)) {
-      await Filesystem.downloadFile({ ...storage, url: source, path: temp, recursive: true, connectTimeout: 15000, readTimeout: 60000 });
+    const root = folder(track);
+    await Filesystem.mkdir({ ...storage, path: root, recursive: true }).catch(() => Filesystem.readdir({ ...storage, path: root }));
+    const remote = /^https?:\/\//i.test(source);
+    if (remote) {
+      await Filesystem.downloadFile({ ...storage, url: source, path: temp, connectTimeout: 15000, readTimeout: 60000 });
     } else {
       const data = source.match(/^data:audio\/[^;,]+(?:;[^,]*)?;base64,([\s\S]+)$/i)?.[1];
       if (!data) throw new Error('This audio is unavailable for download.');
-      await Filesystem.writeFile({ ...storage, path: temp, data, recursive: true });
+      await Filesystem.writeFile({ ...storage, path: temp, data });
     }
     const { uri, size } = await Filesystem.stat({ ...storage, path: temp });
     if (!size) throw new Error('The downloaded file was empty.');
-    await verifyAudio(Capacitor.convertFileSrc(uri));
-    await Filesystem.rename({ ...storage, from: temp, to: path });
+    const finalExt = remote ? await detectAudioExtension(Capacitor.convertFileSrc(uri), ext).catch(() => ext) : ext;
+    if (finalExt !== ext) {
+      const correctFormat = `${basename}.pending.${finalExt}`;
+      await Filesystem.rename({ ...storage, from: temp, to: correctFormat });
+      stagedPath = correctFormat;
+    }
+    const localUri = (await Filesystem.getUri({ ...storage, path: stagedPath })).uri;
+    await verifyAudio(Capacitor.convertFileSrc(localUri));
+    const path = `${basename}.${finalExt}`;
+    await Filesystem.rename({ ...storage, from: stagedPath, to: path });
     return { path, src: Capacitor.convertFileSrc((await Filesystem.getUri({ ...storage, path })).uri) };
   } finally {
-    await Filesystem.deleteFile({ ...storage, path: temp }).catch(() => {});
+    await Filesystem.deleteFile({ ...storage, path: stagedPath }).catch(() => {});
     downloads.delete(basename);
   }
 }

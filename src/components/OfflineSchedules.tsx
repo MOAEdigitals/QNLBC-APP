@@ -22,6 +22,7 @@ export default function OfflineSchedules({ user, library, songs, collapseSignal 
 }) {
   const [tab, setTab] = useSwipeSubtabs<SpecialNumbersSubTab>('special-numbers', 'activities');
   const sections = library?.text;
+  const [openMixers, setOpenMixers] = useState<Set<string>>(() => new Set());
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const rows = tab === 'schedules'
     ? sections?.songNumbers?.map(row => ({ ...row, title: row.songTitle || row.performerName, detail: row.songTitle ? row.performerName : '', date: row.scheduledDate }))
@@ -30,7 +31,7 @@ export default function OfflineSchedules({ user, library, songs, collapseSignal 
       : sections?.practice?.map(row => ({ ...row, title: row.songTitle, detail: [row.groupName, row.assignedEvent, row.practiceTime].filter(Boolean).join(' · '), date: row.practiceDate || row.targetDate }));
   return <div className="space-y-4">
     <div role="group" aria-label="Schedules sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
-      {tabs.map(({ id, label, Icon }) => <button key={id} type="button" className="ui-category-pill app-subtab" aria-pressed={tab === id} onClick={() => { setPlayingTrackId(null); setTab(id); }}>
+      {tabs.map(({ id, label, Icon }) => <button key={id} type="button" className="ui-category-pill app-subtab" aria-pressed={tab === id} onClick={() => { if (id !== tab) { setPlayingTrackId(null); setOpenMixers(new Set()); setTab(id); } }}>
         <Icon size={16} aria-hidden="true" /><span>{label}</span>
       </button>)}
     </div>
@@ -47,10 +48,17 @@ export default function OfflineSchedules({ user, library, songs, collapseSignal 
           const hasMixer = !!practice && !!(parts.length || tracks.length);
           return body || hasMixer
             ? <details key={row.id} onToggle={event => {
-                if (!event.currentTarget.open) setPlayingTrackId(id => [...parts, ...tracks].some(track => track.id === id) ? null : id);
+                if (!hasMixer) return;
+                const open = event.currentTarget.open;
+                setOpenMixers(previous => {
+                  const next = new Set(previous);
+                  if (open) next.add(row.id); else next.delete(row.id);
+                  return next;
+                });
+                if (!open) setPlayingTrackId(id => [...parts, ...tracks].some(track => track.id === id) ? null : id);
               }} className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
               <summary className="cursor-pointer">{heading}</summary>
-              {hasMixer && <section className="mt-3 space-y-1" aria-label="Audio mixer">
+              {hasMixer && openMixers.has(row.id) && <section className="mt-3 space-y-1" aria-label="Audio mixer">
                 <h4 className="text-sm font-semibold">Audio mixer</h4>
                 {[...parts.map(part => ({ id: part.id, label: part.partLabel, name: part.name || part.partLabel, category: 'vocal_part' as const })),
                   ...tracks.map(track => ({ id: track.id, label: track.category === 'plus_one' ? 'Plus One' : 'Minus One', name: track.name, category: track.category === 'plus_one' ? 'plus_one' as const : 'minus_one' as const })),
