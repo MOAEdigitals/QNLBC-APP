@@ -18,7 +18,7 @@ for (const kind of ['SpecialNumber', 'PracticeEntry']) {
       upsertSongFromSpecialNumber: (title: string, lyrics: string, minusOneLink: string) => ({ id: 'draft', title, lyrics, minusOneLink }),
       supabaseSaveSong: async (song: any) => { calls.push('song'); if (failSong) throw Error('Song failed'); return { ...song, id: 'persisted-song' }; },
       setSongs: (update: any) => { context.songs = update(context.songs); },
-      setSpecialNumbers() {}, setPracticeEntries() {},
+      setSpecialNumbers() {}, setPracticeEntries() {}, scheduleOfflineSync() {},
       fetchSpecialNumbers: async () => [], fetchPracticeEntries: async () => [], preserveOnRefreshFailure: () => [],
       console: { error() {} }, formatSupabaseError: (error: any) => error.message, showAppMessage() {},
     };
