@@ -15,20 +15,25 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
     createElement: (tag: any, props: any, ...children: any[]) => ({ tag, props: props || {}, children: children.flat(Infinity) }),
   };
   const exports: any = {};
+  const preferences = new Map<string, string>();
   runInNewContext(ts.transpileModule(readFileSync('src/components/StagePrompterModal.tsx', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
   }).outputText, {
     exports,
+    localStorage: {
+      getItem: (key: string) => preferences.get(key) ?? null,
+      setItem: (key: string, value: string) => preferences.set(key, value),
+    },
     require: (name: string) => name === 'react' ? react : new Proxy({}, { get: () => () => {} }),
   });
-  const tree = exports.StagePrompterModal({ isOpen: true, onClose() {}, song: { id: 'song', title: 'Test', lyrics: 'Verse 1\nFirst lyrics\nChorus\nWe sing together\nBridge\nFinal lyrics' } });
+  const props = { isOpen: true, onClose() {}, song: { id: 'song', title: 'Test', lyrics: 'Verse 1\nFirst lyrics\nChorus\nWe sing together\nBridge\nFinal lyrics' } };
   const nodes: any[] = [];
   function visit(node: any) {
     if (!node || typeof node !== 'object') return;
     nodes.push(node);
     node.children?.forEach(visit);
   }
-  visit(tree);
+  visit(exports.StagePrompterModal(props));
   let target: any;
   const main = nodes.find(node => node.tag === 'main');
   main.props.ref.current = {
@@ -47,5 +52,16 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   assert.ok('minHeight' in sections.at(-1).props.style, 'last section reserves space to reach the viewport top');
   const nav = nodes.find(node => node.tag === 'nav');
   assert.match(nav.props.className, /order-3/);
-  assert.match(nav.props.style.paddingBottom, /--app-safe-bottom/);
+  assert.match(nav.props.className, /var\(--app-safe-bottom,0px\)\+0\.75rem/);
+  const alignmentButton = () => nodes.find(node => node.props['aria-label'] === 'Center lyrics');
+  const lyrics = () => nodes.find(node => node.props['data-lyrics-alignment']);
+  assert.equal(alignmentButton().props['aria-pressed'], false);
+  assert.match(lyrics().props.className, /text-left/);
+  alignmentButton().props.onClick();
+  nodes.length = 0;
+  visit(exports.StagePrompterModal(props));
+  assert.equal(alignmentButton().props['aria-pressed'], true);
+  assert.match(lyrics().props.className, /text-center/);
+  alignmentButton().props.onClick();
+  assert.equal(preferences.get('worship_stage_lyrics_alignment'), 'left');
 });

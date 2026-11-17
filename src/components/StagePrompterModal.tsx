@@ -8,6 +8,8 @@ import {
   Minimize2,
   Music,
   ArrowLeft,
+  AlignCenter,
+  AlignLeft,
 } from 'lucide-react';
 
 interface StagePrompterModalProps {
@@ -24,6 +26,7 @@ const FONT_SIZES = [
   { label: 'Jumbo', size: '46px', cssClass: 'text-[46px] leading-[1.45]' },
   { label: 'Giant', size: '58px', cssClass: 'text-[58px] leading-[1.4]' },
 ];
+const ALIGNMENT_STORAGE_KEY = 'worship_stage_lyrics_alignment';
 
 interface ParsedSection {
   id: string;
@@ -49,6 +52,19 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     } catch {}
     return 3; // Default to 'Stage' (36px)
   });
+  const [lyricsAlignment, setLyricsAlignment] = useState<'left' | 'center'>(() => {
+    try {
+      if (localStorage.getItem(ALIGNMENT_STORAGE_KEY) === 'center') return 'center';
+    } catch {}
+    return 'left';
+  });
+  const toggleLyricsAlignment = () => {
+    const next = lyricsAlignment === 'left' ? 'center' : 'left';
+    setLyricsAlignment(next);
+    try {
+      localStorage.setItem(ALIGNMENT_STORAGE_KEY, next);
+    } catch {}
+  };
 
   // Keep the screen awake silently while lyrics are open.
   useLyricsScreenAwake(isOpen);
@@ -374,7 +390,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             >
               A-
             </button>
-            <div className="px-2 text-center text-xs font-bold tracking-tight min-w-[58px] sm:min-w-[68px]">
+            <div className="px-1 text-center text-xs font-bold tracking-tight min-w-[46px] sm:px-2 sm:min-w-[68px]">
               {currentFont.label}
             </div>
             <button
@@ -391,6 +407,17 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
               A+
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={toggleLyricsAlignment}
+            aria-label="Center lyrics"
+            aria-pressed={lyricsAlignment === 'center'}
+            title={lyricsAlignment === 'center' ? 'Align lyrics left' : 'Center lyrics'}
+            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${themeStyles.btnSecondary}`}
+          >
+            {lyricsAlignment === 'center' ? <AlignCenter className="size-5" aria-hidden="true" /> : <AlignLeft className="size-5" aria-hidden="true" />}
+          </button>
 
           {/* Fullscreen Toggle */}
           <button
@@ -419,8 +446,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       {parsedSections.some((s) => s.type === 'section') && (
         <nav
           aria-label="Lyrics sections"
-          style={{ paddingBottom: 'max(0.5rem, var(--app-safe-bottom))' }}
-          className={`order-3 sm:order-none px-3 sm:px-4 pt-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${themeStyles.headerBg}`}
+          className={`order-3 sm:order-none px-3 sm:px-4 pt-2 pb-[calc(var(--app-safe-bottom,0px)+0.75rem)] sm:pb-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0 ${themeStyles.headerBg}`}
         >
           <span className="hidden sm:block mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Jump To:
@@ -453,7 +479,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             <h2 className="text-xl font-bold">No Lyrics Available</h2>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto space-y-8">
+          <div data-lyrics-alignment={lyricsAlignment} className={`max-w-4xl mx-auto space-y-8 ${lyricsAlignment === 'center' ? 'text-center' : 'text-left'}`}>
             {parsedSections.map((section, index) => (
               <section
                 key={section.id}
