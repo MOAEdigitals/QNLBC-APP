@@ -18,7 +18,12 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   keys.forEach(key => Object.defineProperty(globalThis, key, { configurable: true, value: key === 'IS_REACT_ACT_ENVIRONMENT' ? true : (dom.window as any)[key] }));
   const require = createRequire(import.meta.url), React = require('react');
   const { act } = React, root = require('react-dom/client').createRoot(document.getElementById('root'));
-  const now = new Date();
+  const now = new Date(2026, 10, 17);
+  class CalendarDate extends Date {
+    constructor(...args: any[]) {
+      super(args.length === 0 ? now.getTime() : args.length === 1 ? args[0] : new Date(args[0], args[1], args[2]).getTime());
+    }
+  }
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const items = ['Midweek Prayer Meeting', 'Sunday Service', 'Song Leaders & Choir Practice', 'Church Anniversary'].map((title, index) => ({ id: String(index), title, activityDate: day }));
   let updateHeader: (node: any) => void;
@@ -28,7 +33,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   const scrollTargets: HTMLElement[] = [];
   const exports: any = {}; const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync('src/features/activities/Activities.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
-    exports, document, window: dom.window, console,
+    exports, document, window: dom.window, console, Date: CalendarDate,
     require: (name: string) => (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './calendarOverlays' ? calendarOverlayModel : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
   });
   function Harness() {
@@ -111,13 +116,15 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const nextMonthDate = nextMonth.getFullYear() + '-' + String(nextMonth.getMonth() + 1).padStart(2, '0') + '-01';
     const nextMonthItem = { id: 'next-month', title: 'Sunday Service next month', activityDate: nextMonthDate };
+    const completedItem = { id: 'completed-this-month', title: 'Completed November Event', activityDate: day.slice(0, 8) + '03' };
     await act(async () => root.render(React.createElement(exports.default, {
       currentUser: { id: 'offline-admin', role: 'admin', username: 'admin' },
-      offlineItems: [...items, nextMonthItem],
+      offlineItems: [...items, completedItem, nextMonthItem],
     })));
     const monthHeading = () => document.querySelector('[data-activity-results] h3')!.textContent;
     const changeMonth = (label: string) => act(() => document.querySelector<HTMLButtonElement>('[aria-label="' + label + '"]')!.click());
     assert.notEqual(cards()[0], nextMonthItem.title);
+    assert.ok(cards().indexOf(completedItem.title) > cards().indexOf(nextMonthItem.title));
     await changeMonth('Next month');
     assert.equal(monthHeading(), nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
     assert.equal(cards()[0], nextMonthItem.title);

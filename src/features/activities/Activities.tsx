@@ -203,8 +203,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const activityGroups = groupActivityMonths(filteredItems, today);
   const currentYear = Number(today.slice(0, 4));
   const visibleMonth = dateKey(month).slice(0, 7);
-  const groupsInMonth = activityGroups.filter(group => group.key.startsWith(visibleMonth + '-'));
-  const otherGroups = activityGroups.filter(group => !group.key.startsWith(visibleMonth + '-'));
+  const isPreviousMonth = visibleMonth < today.slice(0, 7);
+  const featuredGroup = activityGroups.find(group => group.key === `${visibleMonth}-${isPreviousMonth ? 'past' : 'upcoming'}`);
+  const otherGroups = activityGroups.filter(group => group !== featuredGroup);
   const calendarMonthLabel = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
@@ -356,9 +357,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     {renderActivityFilterHeading(calendarMonthLabel)}
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
-      {groupsInMonth.length
-        ? renderActivityGroup({ key: visibleMonth, label: calendarMonthLabel, items: groupsInMonth.flatMap(group => group.items) }, false)
-        : <p className="px-1 text-sm text-slate-500">{search.trim() ? 'No matches this month.' : 'No activities this month.'}</p>}
+      {featuredGroup
+        ? renderActivityGroup(featuredGroup, false)
+        : <p className="px-1 text-sm text-slate-500">{search.trim() ? 'No matches this month.' : visibleMonth === today.slice(0, 7) ? 'No upcoming activities this month.' : 'No activities this month.'}</p>}
       {yearList(otherGroups, group => group.items[0]?.activityDate, groups => groups.map(group => renderActivityGroup(group)), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
     </div>}
     </div>
