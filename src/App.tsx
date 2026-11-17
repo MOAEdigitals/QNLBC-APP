@@ -396,6 +396,10 @@ export default function App() {
         // Secondary sections fetch their authoritative data when first opened.
         if (isMounted) {
           const keepVisible = Boolean(signedInUserIdRef.current === profile.id);
+          if (offlineReadOnlyRef.current) {
+            loadedSectionsRef.current.delete('recognitions');
+            loadedSectionsRef.current.delete('special-numbers');
+          }
           setReadOnly(false);
           setRefreshError('');
           setIsLoadingInitialData(false);

@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Pause,
@@ -20,6 +21,7 @@ import {
   notifyAudioStopped,
   subscribeToActiveAudioChange,
 } from '../utils/audioCoordinator';
+import { downloadPracticeTrack, findPracticeDownload, removePracticeDownload, type PracticeDownload } from '../services/practiceDownloads';
 import { resolveMediaUrl } from '../utils/mediaUtils';
 import { uploadMediaToCloudStorage, syncLocalAudioToCloud } from '../services/cloudMediaStorage';
 
@@ -33,8 +35,10 @@ export interface PracticeAudioTrackRowProps {
   isCurrentlyPlaying: boolean;
   onPlay: () => void;
   onPause: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  practice?: Omit<PracticeDownload, 'trackId'>;
+  offline?: boolean;
   onRecordNewAudio?: () => void;
   onAudioUrlUpdated?: (newCloudUrl: string) => void;
 }
@@ -52,10 +56,29 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   onDelete,
   onRecordNewAudio,
   onAudioUrlUpdated,
+  practice,
+  offline = false,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const accountId = practice?.accountId;
+  const practiceId = practice?.practiceId;
+  const songTitle = practice?.songTitle;
+  const downloadContext = React.useMemo(() => Capacitor.getPlatform() === 'android' && accountId && practiceId && songTitle
+    ? { accountId, practiceId, songTitle, trackId: id } : null, [accountId, practiceId, songTitle, id]);
+  const [localAudio, setLocalAudio] = useState<Awaited<ReturnType<typeof findPracticeDownload>>>(null);
+  const [downloadState, setDownloadState] = useState('');
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const downloadLock = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    setLocalAudio(null);
+    if (downloadContext) void findPracticeDownload(downloadContext).then(file => { if (active) setLocalAudio(file); });
+    return () => { active = false; };
+  }, [downloadContext]);
 
   const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string>('');
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -111,6 +134,10 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
     const resolveSource = async () => {
       setAudioError(null);
+      if (localAudio || offline) {
+        setResolvedAudioSrc(localAudio?.src ?? '');
+        return;
+      }
       if (!audioUrl || !audioUrl.trim()) {
         const stored = await getAudioFromStorage(id);
         if (!isCancelled) {
@@ -174,7 +201,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       isCancelled = true;
       unsubscribe();
     };
-  }, [id, audioUrl, onAudioUrlUpdated]);
+  }, [id, audioUrl, onAudioUrlUpdated, localAudio, offline]);
 
   // Keep onPause reference fresh
   const onPauseRef = useRef(onPause);
@@ -308,14 +335,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.pause();
       notifyAudioStopped(id);
     }
-  }, [isCurrentlyPlaying, id]);
+  }, [isCurrentlyPlaying, id, resolvedAudioSrc]);
 
   // Handle Play/Pause Toggle
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
 
     // If external Web link and not directly audio-playable
-    if (audioError && isWebUrl && audioUrl) {
+    if (!localAudio && audioError && isWebUrl && audioUrl) {
       window.open(audioUrl, '_blank', 'noopener,noreferrer');
       return;
     }
@@ -495,6 +522,30 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     }
   };
 
+  async function handleOfflineDownload(event: React.MouseEvent) {
+    event.stopPropagation();
+    setIsMenuOpen(false);
+    if (!downloadContext || downloadLock.current || (!localAudio && (!resolvedAudioSrc || offline))) return;
+    downloadLock.current = true;
+    setDownloadBusy(true);
+    setDownloadState('');
+    try {
+      if (localAudio) {
+        if (isCurrentlyPlaying) onPause();
+        await removePracticeDownload(localAudio.path);
+        setLocalAudio(null);
+      } else {
+        setLocalAudio(await downloadPracticeTrack(downloadContext, resolvedAudioSrc));
+      }
+    } catch (error) {
+      console.warn('Practice download failed', error);
+      setDownloadState(localAudio ? 'Could not remove download.' : 'Could not download audio. Try again.');
+    } finally {
+      downloadLock.current = false;
+      setDownloadBusy(false);
+    }
+  }
+
   // Download local audio file
   const handleDownloadAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -544,14 +595,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           <button
             type="button"
             onClick={handleTogglePlay}
-            disabled={isUploadingCloud}
+            disabled={isUploadingCloud || (offline && !localAudio)}
             aria-label={`${isCurrentlyPlaying ? 'Pause' : 'Play'} ${badgeLabel} track`}
             className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-black uppercase ${getBadgeStyle(
               badgeLabel
             )} transition-transform active:scale-95 disabled:cursor-wait disabled:opacity-60 ${
               isCurrentlyPlaying ? 'ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-slate-900' : ''
             }`}
-            title={`${isCurrentlyPlaying ? 'Pause' : 'Play'} ${badgeLabel}`}
+            title={performerName}
           >
             {isCurrentlyPlaying ? <Pause className="h-3.5 w-3.5 fill-current" /> : compactBadgeLabel}
           </button>
@@ -596,6 +647,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             </div>
           )}
 
+          {localAudio && <Download className="mr-1 h-3 w-3 text-emerald-500" aria-label="Downloaded for offline playback" />}
+          {downloadBusy && <Loader2 className="mr-1 h-3 w-3 animate-spin" aria-label="Downloading audio" />}
           {/* 3-Dots Dropdown Menu */}
           <div className="relative" ref={menuRef}>
             <button
@@ -615,7 +668,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             {/* Dropdown Popover */}
             {isMenuOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-30 animate-in fade-in zoom-in-95 duration-150">
-                {isWebUrl && audioUrl && (
+                {!offline && isWebUrl && audioUrl && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -630,7 +683,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 )}
 
                 {/* Initial upload only. Existing recordings are intentionally not replaceable here. */}
-                {!hasAudioSource && <button
+                {!offline && !hasAudioSource && <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -644,7 +697,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 </button>}
 
                 {/* If audio is in local IndexedDB, offer manual Cloud Sync */}
-                {isIndexedDb && resolvedAudioSrc && (
+                {!offline && !localAudio && isIndexedDb && resolvedAudioSrc && (
                   <button
                     type="button"
                     onClick={(e) => {
@@ -687,7 +740,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   <span>{isLooping ? 'Turn Repeat Off' : 'Repeat Track'}</span>
                 </button>
 
-                <button
+                {onEdit && <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -698,9 +751,17 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 >
                   <Pencil className="w-3.5 h-3.5 text-slate-500" />
                   <span>Edit Details</span>
-                </button>
+                </button>}
 
-                {hasAudioSource && !isWebUrl && (
+                {downloadContext && (localAudio || (!offline && resolvedAudioSrc)) && (
+                  <button type="button" disabled={downloadBusy} onClick={handleOfflineDownload}
+                    className="w-full px-3.5 py-1.5 text-left text-xs font-semibold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50">
+                    <Download className="w-3.5 h-3.5" />
+                    <span>{localAudio ? 'Remove Download' : 'Download for Offline'}</span>
+                  </button>
+                )}
+
+                {!downloadContext && hasAudioSource && !isWebUrl && (
                   <button
                     type="button"
                     onClick={handleDownloadAudio}
@@ -711,6 +772,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                   </button>
                 )}
 
+                {onDelete && <>
                 <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
                 <button
@@ -724,7 +786,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Delete Part</span>
-                </button>
+                </button></>}
               </div>
             )}
           </div>
@@ -732,6 +794,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       </div>
 
       <div className="ml-11">
+        {downloadState && <p role="status" className="text-xs text-rose-500">{downloadState}</p>}
+        {offline && !localAudio && <p className="text-xs text-slate-500">{performerName} · Not downloaded</p>}
         {/* Audio Missing on Current Device (e.g. Phone -> Laptop sync pending) */}
         {audioError === 'Saved audio recording not found on this device' ? (
           <div className="mt-1.5 p-2 rounded-lg bg-sky-500/10 border border-sky-500/25 text-slate-800 dark:text-slate-200 text-xs space-y-1.5">

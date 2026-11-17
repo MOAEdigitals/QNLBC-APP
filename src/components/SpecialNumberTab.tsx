@@ -2262,6 +2262,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       <PracticeAudioTrackRow
                                         key={part.id || `part-${pIdx}`}
                                         id={part.id}
+                                        practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle } : undefined}
                                         badgeLabel={part.partLabel}
                                         badgeCategory="vocal_part"
                                         performerName={assignedNames || 'Singer not assigned'}
@@ -2362,6 +2363,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                     <PracticeAudioTrackRow
                                       key={att.id || `track-${aIdx}`}
                                       id={att.id}
+                                      practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle } : undefined}
                                       badgeLabel={isPlusOne ? 'PLUS ONE' : 'MINUS ONE'}
                                       badgeCategory={isPlusOne ? 'plus_one' : 'minus_one'}
                                       performerName={att.name || (isPlusOne ? 'Plus One Track' : 'Minus One Track')}
