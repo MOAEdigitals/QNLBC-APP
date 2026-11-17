@@ -63,7 +63,8 @@ for (const kind of ['SpecialNumber', 'PracticeEntry', 'ChoirEntry']) {
   });
 
   {
-    const shared = { id: 'existing', title: 'New Song', lyrics: 'Library original', revision: 3, attachments: [{ id: 'backing' }] };
+    const category = kind === 'ChoirEntry' ? 'Choir' : 'Special';
+    const shared = { id: 'existing', title: 'New Song', lyrics: 'Library original', revision: 3, category: 'Hymn', categories: ['Hymn'], attachments: [{ id: 'backing' }] };
     test(`${kind} edits the same library song and saves a live link`, async () => {
       const state = setup([shared], [{ id: draft.id }]);
       const updated = { ...draft, songId: shared.id, lyrics: 'Updated verse' };
@@ -74,6 +75,7 @@ for (const kind of ['SpecialNumber', 'PracticeEntry', 'ChoirEntry']) {
       assert.equal(state.entry.lyricsSnapshot, 'Updated verse');
       assert.equal(state.songs[0].lyrics, 'Updated verse');
       assert.equal(state.songs[0].attachments, shared.attachments);
+      assert.deepEqual(Array.from(state.songs[0].categories), ['Hymn', category]);
     });
 
     test(`${kind} selection links to the latest library lyrics without overwriting a newer edit`, async () => {
@@ -81,8 +83,9 @@ for (const kind of ['SpecialNumber', 'PracticeEntry', 'ChoirEntry']) {
       const selected = { ...draft, songId: shared.id, lyrics: 'Stale text' };
       await assert.rejects(state.save(selected, true, { mode: 'select', lyricsChanged: true, songRevision: 2 }), /changed while you were editing/);
       await state.save(selected, true, { mode: 'select', lyricsChanged: false });
-      assert.deepEqual(state.calls, ['entry']);
+      assert.deepEqual(state.calls, ['shared song', 'entry']);
       assert.equal(state.entry.lyrics, shared.lyrics);
+      assert.deepEqual(Array.from(state.songs[0].categories), ['Hymn', category]);
       assert.equal(state.entry.lyricsMode, 'live');
     });
 
@@ -96,6 +99,7 @@ for (const kind of ['SpecialNumber', 'PracticeEntry', 'ChoirEntry']) {
       assert.deepEqual(state.calls, ['shared song', 'entry', 'entry']);
       assert.equal(state.entry.songId, created.id);
       assert.equal(state.songs.length, 1);
+      assert.deepEqual(Array.from(state.songs[0].categories), [category]);
       await assert.rejects(state.save(draft, true, { mode: 'create' }), /already exists/);
     });
   }

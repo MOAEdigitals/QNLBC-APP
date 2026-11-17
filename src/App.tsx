@@ -987,7 +987,7 @@ export default function App() {
     entry: T,
     songOptions: ScheduleSongSaveOptions,
     isNew: boolean,
-    category?: 'Special' | 'Choir',
+    category: 'Special' | 'Choir',
   ): Promise<T> => {
     let song: Song;
     if (songOptions.mode === 'create') {
@@ -997,18 +997,30 @@ export default function App() {
         throw new Error('This song already exists. Use Select song.');
       }
       const draft = upsertSongFromSpecialNumber(title, entry.lyrics, 'minusOneLink' in entry ? String(entry.minusOneLink || '') : undefined);
-      song = await handleSaveSong(category ? { ...draft, category, categories: [category] } : draft);
+      song = await handleSaveSong({ ...draft, category, categories: [category] });
       songOptions.onSongSaved(song);
     } else {
       const selected = songs.find(existing => existing.id === entry.songId);
       if (!selected) throw new Error('Select a song from the library, or use Create song.');
       song = selected;
-      if (songOptions.lyricsChanged && entry.lyrics !== song.lyrics) {
-        if (songOptions.songRevision !== undefined && songOptions.songRevision !== (song.revision ?? 1)) {
-          throw new Error('This song changed while you were editing. Reopen the practice to review the latest lyrics.');
-        }
-        song = await handleSaveSong({ ...song, lyrics: entry.lyrics ?? '' });
-        songOptions.onSongSaved(song);
+      const lyricsChanged = songOptions.lyricsChanged && entry.lyrics !== song.lyrics;
+      if (lyricsChanged && songOptions.songRevision !== undefined && songOptions.songRevision !== (song.revision ?? 1)) {
+        throw new Error('This song changed while you were editing. Reopen the entry to review the latest lyrics.');
+      }
+      const currentCategories = song.categories?.length
+        ? song.categories
+        : song.category?.split(',').map(value => value.trim()).filter(Boolean) ?? [];
+      const needsCategory = !currentCategories.includes(category);
+      if (lyricsChanged || needsCategory) {
+        const categories = needsCategory
+          ? [...currentCategories.filter(value => value.trim().toLowerCase() !== category.toLowerCase()), category]
+          : currentCategories;
+        song = await handleSaveSong({
+          ...song,
+          lyrics: lyricsChanged ? entry.lyrics ?? '' : song.lyrics,
+          ...(needsCategory && { category: song.category?.trim() || categories[0], categories }),
+        });
+        if (lyricsChanged) songOptions.onSongSaved(song);
       }
     }
     const useSharedLyrics = isNew || songOptions.mode === 'create' || songOptions.lyricsChanged
@@ -1136,7 +1148,7 @@ export default function App() {
     }
 
     if (songOptions) {
-      entry = await saveScheduledLibrarySong(entry, songOptions, isActuallyNew);
+      entry = await saveScheduledLibrarySong(entry, songOptions, isActuallyNew, 'Special');
     } else if (entry.songTitle?.trim()) {
       const existingSong = songs.find(song => song.id === entry.songId)
         || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase());
