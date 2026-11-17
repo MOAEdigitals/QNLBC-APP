@@ -105,6 +105,8 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   renderSong('alice', 'one', singleSong, true);
   assert.equal(repeat().props['aria-pressed'], true);
   nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.onClick();
+  renderSong('alice', 'one', singleSong);
+  assert.deepEqual(nodes.filter(node => node.tag === 'section').map(node => Boolean(node.props['data-lyrics-dimmed'])), [false, true, true, true, true]);
   for (const position of [300, 600, 300, 900, 300, 1200]) {
     renderSong('alice', 'one', singleSong);
     next().props.onClick();

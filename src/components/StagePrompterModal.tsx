@@ -81,8 +81,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const jumpScrollTopRef = useRef<number | null>(null);
   const sectionElementsRef = useRef(new Map<string, HTMLElement>());
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [focusedSectionId, setFocusedSectionId] = useState<string | null>(null);
   const [sequenceStep, setSequenceStep] = useState<{ id: string; index: number } | null>(null);
   const preferenceKey = userId && song?.id
     ? `qnlbc.stage.repeat-chorus.${encodeURIComponent(userId)}/${encodeURIComponent(song.id)}`
@@ -349,6 +351,8 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     if (el && container) {
       const top = container.scrollTop + el.getBoundingClientRect().top - container.getBoundingClientRect().top;
       container.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
+      jumpScrollTopRef.current = container.scrollTop;
+      setFocusedSectionId(sectionId);
       setActiveSectionId(sectionId);
       const index = step ?? (sequence[currentStep + 1]?.id === sectionId ? currentStep + 1
         : sequence[currentStep]?.id === sectionId ? currentStep : sequence.findIndex(section => section.id === sectionId));
@@ -375,14 +379,24 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       updateActiveSection();
     });
     resize.observe(container);
+    jumpScrollTopRef.current = null;
+    setFocusedSectionId(null);
     container.scrollTop = 0;
     setSequenceStep(null);
     setViewportHeight(container.clientHeight);
     updateActiveSection();
-    container.addEventListener('scroll', updateActiveSection, { passive: true });
+    const handleScroll = () => {
+      const jumpTop = jumpScrollTopRef.current;
+      if (jumpTop !== null && Math.abs(container.scrollTop - jumpTop) > 0.5) {
+        jumpScrollTopRef.current = null;
+        setFocusedSectionId(null);
+      }
+      updateActiveSection();
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       resize.disconnect();
-      container.removeEventListener('scroll', updateActiveSection);
+      container.removeEventListener('scroll', handleScroll);
     };
   }, [isOpen, song?.id, parsedSections]);
 
@@ -565,7 +579,8 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                   else sectionElementsRef.current.delete(section.id);
                 }}
                 style={index === parsedSections.length - 1 ? { minHeight: viewportHeight } : undefined}
-                className="space-y-3"
+                data-lyrics-dimmed={focusedSectionId !== null && focusedSectionId !== section.id || undefined}
+                className={`space-y-3 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out ${focusedSectionId !== null && focusedSectionId !== section.id ? 'opacity-65' : ''}`}
               >
                 {section.type === 'section' && section.title && (
                   <div className="pt-2">
