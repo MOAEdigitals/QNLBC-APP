@@ -120,6 +120,7 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   const repeatedChorusOne = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 1\nSing\nBridge\nKeep singing\nChorus 2\nSing again\nEnding\nDone';
   renderSong('alice', 'one', repeatedChorusOne, true);
   assert.equal(repeat(), undefined);
+  assert.deepEqual(nodes.find(node => node.props['aria-label'] === 'Jump to Ending').children, ['End']);
   for (const [label, color] of [['Chorus 2', 'amber'], ['Bridge', 'violet'], ['Ending', 'red']]) {
     const jump = nodes.find(node => node.props['aria-label'] === `Jump to ${label}`);
     const content = nodes.filter(node => node.tag === 'section').map(node => node.children[0])

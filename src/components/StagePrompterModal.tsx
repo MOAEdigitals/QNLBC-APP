@@ -294,6 +294,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
         else if (/chorus/i.test(fullTitle)) short = fullTitle.replace(/chorus/i, 'Ch');
         else if (/verse/i.test(fullTitle)) short = fullTitle.replace(/verse/i, 'V');
         else if (/bridge/i.test(fullTitle)) short = fullTitle.replace(/bridge/i, 'Br');
+        else if (/^ending$/i.test(fullTitle)) short = 'End';
         else if (/pre-chorus/i.test(fullTitle)) short = 'Pre-Ch';
         else if (/intro/i.test(fullTitle)) short = 'Intro';
         else if (/outro/i.test(fullTitle)) short = 'Outro';
@@ -531,12 +532,12 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       {parsedSections.some((s) => s.type === 'section') && (
         <nav
           aria-label="Lyrics sections"
-          className={`order-3 sm:order-none px-3 sm:px-4 pt-2 pb-[calc(var(--app-safe-bottom,0px)+0.75rem)] sm:pb-2 border-t sm:border-t-0 sm:border-b flex items-center gap-2 shrink-0 ${themeStyles.headerBg}`}
+          className={`order-3 sm:order-none px-2 sm:px-4 pt-2 pb-[calc(var(--app-safe-bottom,0px)+0.75rem)] sm:pb-2 border-t sm:border-t-0 sm:border-b flex items-center gap-1 sm:gap-2 shrink-0 ${themeStyles.headerBg}`}
         >
           <span className="hidden sm:block mr-1 shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Jump To:
           </span>
-          <div ref={sectionButtonsRef} className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
+          <div ref={sectionButtonsRef} className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto sm:gap-2">
           {namedSections.map((s) => {
             const selected = activeSectionId === s.id;
             const { text, surface } = SECTION_COLORS[s.kind ?? 'verse'];
@@ -551,7 +552,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 aria-label={`Jump to ${s.title}`}
                 aria-current={selected ? 'location' : undefined}
                 onClick={() => jumpToSection(s.id)}
-                className={`min-h-11 min-w-11 flex-[1_0_auto] sm:flex-none px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer ${buttonColor} ${selected && sectionColor ? 'outline outline-2 -outline-offset-2 outline-current' : ''}`}
+                className={`min-h-11 min-w-11 flex-[1_0_auto] sm:flex-none px-1.5 sm:px-3 py-2 rounded-xl border text-sm font-bold tracking-wide uppercase whitespace-nowrap transition-colors cursor-pointer ${buttonColor} ${selected && sectionColor ? 'outline outline-2 -outline-offset-2 outline-current' : ''}`}
               >
                 {s.shortLabel || s.title}
               </button>
@@ -563,7 +564,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             aria-label="Next lyrics section"
             disabled={!nextSection}
             onClick={() => { if (nextSection) jumpToSection(nextSection.id, currentStep + 1); }}
-            className="min-h-11 shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-40"
+            className="min-h-11 shrink-0 rounded-xl bg-blue-600 px-2.5 text-sm font-bold text-white disabled:opacity-40 sm:px-4"
           >
             Next
           </button>}
