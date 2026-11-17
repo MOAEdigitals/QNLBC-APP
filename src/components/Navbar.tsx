@@ -33,17 +33,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const { search } = useHeaderSearchContext();
   const [isSearchOpened, setIsSearching] = useState(false);
-  const [isOnline, setIsOnline] = useState(() => window.navigator.onLine);
-  useEffect(() => {
-    const update = () => setIsOnline(window.navigator.onLine);
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    update();
-    return () => {
-      window.removeEventListener('online', update);
-      window.removeEventListener('offline', update);
-    };
-  }, []);
   // A filter must never remain active behind a collapsed search button.
   const isSearching = Boolean(search && (isSearchOpened || search.value.length > 0));
   const searchRef = useRef<HTMLDivElement>(null);
@@ -104,7 +93,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {currentUser && (
             <button
               onClick={onNavigateToSettings}
-              className="relative flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 cursor-pointer select-none"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors border border-slate-200/60 dark:border-slate-700/60 cursor-pointer select-none"
               title="User Profile & Settings"
             >
               <div className="w-7 h-7 rounded-full ring-2 ring-white dark:ring-slate-950 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white flex items-center justify-center text-xs font-bold overflow-hidden shrink-0 shadow-xs">
@@ -119,7 +108,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>{currentUser.username.substring(0, 1).toUpperCase()}</span>
                 )}
               </div>
-              <span role="img" aria-label={isOnline ? 'Online' : 'Offline'} className={`pointer-events-none absolute right-0 top-0 size-2.5 rounded-full ring-2 ring-white dark:ring-slate-950 ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
             </button>
           )}
         </div>}
