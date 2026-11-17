@@ -300,6 +300,13 @@ export interface PracticePartTrack {
   createdAt?: string;
 }
 
+export interface ScheduleSongSaveOptions {
+  mode: 'select' | 'create';
+  lyricsChanged: boolean;
+  songRevision?: number;
+  onSongSaved: (song: Song) => void;
+}
+
 export interface PracticeGroupEntry {
   id: string;
   type?: string;

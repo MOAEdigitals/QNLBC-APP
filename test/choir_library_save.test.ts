@@ -20,7 +20,7 @@ function setup(initial: any[] = []) {
     supabaseSaveSong: async (draft: any) => { calls.push('song'); if (failSong) throw Error('Song failed'); drafts.push(draft); return { ...draft, id: 'returned-library-id' }; },
     supabaseSaveChoirEntry: async (entry: any) => { calls.push('choir'); if (failChoir) throw Error('Choir failed'); lineup = entry; return entry; },
     setSongs: (update: any) => { songs = update(songs); context.songs = songs; },
-    setChoirEntries() {}, fetchChoirEntries: async () => [], preserveOnRefreshFailure: () => [],
+    setChoirEntries() {}, scheduleOfflineSync() {}, fetchChoirEntries: async () => [], preserveOnRefreshFailure: () => [],
     console: { error() {} },
   };
   runInNewContext(ts.transpileModule(code + '\nthis.save = handleSaveChoirEntry;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
@@ -73,6 +73,7 @@ test('choir form waits for save, blocks double submit, and retains failed draft'
     showChoirArtistInput: false, newChoirArtist: '', generateUUID: () => 'lineup-id', isUUID: () => true,
     getNextSundayStr: () => '2026-11-08', setNewChoirArtist() {}, setShowChoirArtistInput() {},
     setIsEditingChoir: (value: boolean) => { closed = !value; }, setEditingChoir() {},
+    scheduledSongOptions: () => ({}),
     onSaveChoirEntry: () => { calls++; return new Promise<boolean>(done => { resolve = done; }); },
   };
   runInNewContext(ts.transpileModule(handler + '\nthis.save = handleSaveChoirSubmit;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);

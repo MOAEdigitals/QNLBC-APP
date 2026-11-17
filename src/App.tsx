@@ -31,6 +31,7 @@ import {
   SpecialRecognition,
   SpecialNumberEntry,
   PracticeGroupEntry,
+  ScheduleSongSaveOptions,
   ChoirEntry,
   DatabaseStatusInfo,
 } from './types';
@@ -982,14 +983,51 @@ export default function App() {
     }
   }, [songs, currentUser]);
 
+  const saveScheduledLibrarySong = async <T extends Partial<PracticeGroupEntry>,>(
+    entry: T,
+    songOptions: ScheduleSongSaveOptions,
+    isNew: boolean,
+    category?: 'Special' | 'Choir',
+  ): Promise<T> => {
+    let song: Song;
+    if (songOptions.mode === 'create') {
+      const title = songTitleCase(entry.songTitle?.trim() ?? '');
+      if (!title) throw new Error('Enter a song title.');
+      if (songs.some(existing => existing.title.trim().toLowerCase() === title.toLowerCase())) {
+        throw new Error('This song already exists. Use Select song.');
+      }
+      const draft = upsertSongFromSpecialNumber(title, entry.lyrics, 'minusOneLink' in entry ? String(entry.minusOneLink || '') : undefined);
+      song = await handleSaveSong(category ? { ...draft, category, categories: [category] } : draft);
+      songOptions.onSongSaved(song);
+    } else {
+      const selected = songs.find(existing => existing.id === entry.songId);
+      if (!selected) throw new Error('Select a song from the library, or use Create song.');
+      song = selected;
+      if (songOptions.lyricsChanged && entry.lyrics !== song.lyrics) {
+        if (songOptions.songRevision !== undefined && songOptions.songRevision !== (song.revision ?? 1)) {
+          throw new Error('This song changed while you were editing. Reopen the practice to review the latest lyrics.');
+        }
+        song = await handleSaveSong({ ...song, lyrics: entry.lyrics ?? '' });
+        songOptions.onSongSaved(song);
+      }
+    }
+    const useSharedLyrics = isNew || songOptions.mode === 'create' || songOptions.lyricsChanged
+      || (entry.lyricsMode ?? entry.lyrics_mode ?? 'live') === 'live';
+    return { ...entry, songId: song.id, songTitle: song.title, ...(useSharedLyrics && {
+      lyrics: song.lyrics, lyricsSnapshot: song.lyrics, lyricsMode: 'live' as const,
+    }) };
+  };
+
   // Special Number Operations
-  const handleSaveSpecialNumber = async (entry: SpecialNumberEntry) => {
+  const handleSaveSpecialNumber = async (entry: SpecialNumberEntry, songOptions?: ScheduleSongSaveOptions) => {
     const isNew = !specialNumbers.some((item) => item.id === entry.id);
     if (!requirePermission(isNew ? 'add' : 'edit')) return false;
     let entryToSave = { ...entry };
 
     try {
-      if (entry.songTitle?.trim()) {
+      if (songOptions && (songOptions.mode === 'create' || entry.songTitle?.trim())) {
+        entryToSave = await saveScheduledLibrarySong(entryToSave, songOptions, isNew, 'Special');
+      } else if (!songOptions && entry.songTitle?.trim()) {
         const existingSong = songs.find(song => song.id === entry.songId)
           || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase());
         if (existingSong) {
@@ -1003,6 +1041,7 @@ export default function App() {
       }
 
       const saved = await supabaseSaveSpecialNumber(entryToSave, isNew);
+      scheduleOfflineSync();
       setSpecialNumbers((prev) =>
         isNew
           ? [saved, ...prev.filter((item) => item.id !== entry.id && item.id !== saved.id)]
@@ -1013,6 +1052,7 @@ export default function App() {
       console.error('Failed to save special number:', err);
       const fresh = await fetchSpecialNumbers().catch(() => preserveOnRefreshFailure('specialNumbers'));
       setSpecialNumbers(fresh);
+      if (songOptions) throw err;
       return false;
     }
   };
@@ -1031,24 +1071,29 @@ export default function App() {
   };
 
   // Choir Operations
-  const handleSaveChoirEntry = async (entry: ChoirEntry) => {
+  const handleSaveChoirEntry = async (entry: ChoirEntry, songOptions?: ScheduleSongSaveOptions) => {
     const isNew = !choirEntries.some((item) => item.id === entry.id);
     if (!requirePermission(isNew ? 'add' : 'edit')) return false;
     let entryToSave = { ...entry };
 
     try {
-      const existingSong = songs.find(song => song.id === entry.songId)
-        || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle.trim().toLowerCase());
-      if (existingSong) {
-        entryToSave = { ...entryToSave, songId: existingSong.id, songTitle: existingSong.title };
-      } else if (entry.songTitle.trim()) {
-        const songDraft = { ...upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics), categories: ['Choir'], category: 'Choir' };
-        const savedSong = await supabaseSaveSong(songDraft, true);
-        setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
-        entryToSave = { ...entryToSave, songId: savedSong.id, songTitle: savedSong.title };
+      if (songOptions) {
+        entryToSave = await saveScheduledLibrarySong(entryToSave, songOptions, isNew, 'Choir');
+      } else {
+        const existingSong = songs.find(song => song.id === entry.songId)
+          || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle.trim().toLowerCase());
+        if (existingSong) {
+          entryToSave = { ...entryToSave, songId: existingSong.id, songTitle: existingSong.title };
+        } else if (entry.songTitle.trim()) {
+          const songDraft = { ...upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics), categories: ['Choir'], category: 'Choir' };
+          const savedSong = await supabaseSaveSong(songDraft, true);
+          setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+          entryToSave = { ...entryToSave, songId: savedSong.id, songTitle: savedSong.title };
+        }
       }
 
       const saved = await supabaseSaveChoirEntry(entryToSave, isNew);
+      scheduleOfflineSync();
       setChoirEntries((prev) =>
         isNew
           ? [saved, ...prev.filter((item) => item.id !== entry.id && item.id !== saved.id)]
@@ -1059,6 +1104,7 @@ export default function App() {
       console.error('Failed to save choir presentation:', err);
       const fresh = await fetchChoirEntries().catch(() => preserveOnRefreshFailure('choirEntries'));
       setChoirEntries(fresh);
+      if (songOptions) throw err;
       return false;
     }
   };
@@ -1079,7 +1125,8 @@ export default function App() {
   // Practice Group Operations
   const handleSavePracticeEntry = async (
     entry: Partial<PracticeGroupEntry>,
-    isNew?: boolean
+    isNew?: boolean,
+    songOptions?: ScheduleSongSaveOptions
   ): Promise<PracticeGroupEntry> => {
     const isActuallyNew = Boolean(
       isNew || !entry.id || !practiceEntries.some((p) => p.id === entry.id)
@@ -1088,8 +1135,9 @@ export default function App() {
       throw new Error(`Your account does not have ${isActuallyNew ? 'ADD' : 'EDIT'} permission.`);
     }
 
-    // Save new library songs once; existing arrangements remain local to practice.
-    if (entry.songTitle?.trim()) {
+    if (songOptions) {
+      entry = await saveScheduledLibrarySong(entry, songOptions, isActuallyNew);
+    } else if (entry.songTitle?.trim()) {
       const existingSong = songs.find(song => song.id === entry.songId)
         || songs.find(song => song.title.trim().toLowerCase() === entry.songTitle!.trim().toLowerCase());
       if (existingSong) {

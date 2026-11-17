@@ -95,7 +95,9 @@ test('practice lyrics auto-grow without an expand control', () => {
   assert.doesNotMatch(practiceTab, /setIsPracticeModalLyricsExpanded/);
   assert.doesNotMatch(practiceTab, /Edit lyrics full screen/);
   assert.match(practiceTab, /value=\{editingPractice\.lyrics \|\| ''\}/);
-  assert.match(practiceTab, /lyrics: e\.target\.value, lyricsMode: 'custom'/);
+  assert.match(practiceTab, /setScheduledLyricsChanged\(true\)/);
+  assert.match(practiceTab, /mode === 'select' \? 'Select song' : 'Create song'/);
+  assert.match(practiceTab, /useState<'select' \| 'create'>\('select'\)/);
   assert.match(practiceTab, /lyricsSnapshot: lyrics/);
 });
 

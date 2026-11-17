@@ -20,6 +20,7 @@ import {
   SpecialNumberEntry,
   PracticeGroupEntry,
   PracticePartTrack,
+  ScheduleSongSaveOptions,
   VocalPartLabel,
   SpecialNumbersSubTab,
   ChoirEntry,
@@ -101,6 +102,8 @@ import {
 
 const Activities = React.lazy(() => import('../features/activities/Activities'));
 
+type ScheduledSongDraft = Pick<Partial<PracticeGroupEntry>, 'songId' | 'songTitle' | 'lyrics' | 'lyricsMode' | 'lyrics_mode'> & { minusOneLink?: string };
+
 interface SpecialNumberTabProps {
   readOnly?: boolean;
   offlineActivities?: ChurchActivity[];
@@ -114,9 +117,9 @@ interface SpecialNumberTabProps {
   songs: Song[];
   setlists: Setlist[];
   savedNames?: string[];
-  onSaveSpecialNumber: (entry: SpecialNumberEntry) => Promise<boolean | void> | void;
+  onSaveSpecialNumber: (entry: SpecialNumberEntry, songOptions?: ScheduleSongSaveOptions) => Promise<boolean | void> | void;
   onDeleteSpecialNumber: (id: string) => void;
-  onSavePracticeEntry?: (entry: Partial<PracticeGroupEntry>, isNew?: boolean) => Promise<PracticeGroupEntry | void> | void;
+  onSavePracticeEntry?: (entry: Partial<PracticeGroupEntry>, isNew?: boolean, songOptions?: ScheduleSongSaveOptions) => Promise<PracticeGroupEntry | void> | void;
   onSavePracticeVocalPart?: (
     practiceId: string,
     part: PracticePartTrack
@@ -130,7 +133,7 @@ interface SpecialNumberTabProps {
   onDeletePracticeTrack?: (attachment: SongAttachment) => Promise<void> | void;
   onDeletePracticeEntry?: (id: string) => void;
   onSaveChoirMedia?: (entry: ChoirEntry) => Promise<void>;
-  onSaveChoirEntry?: (entry: ChoirEntry) => Promise<boolean | void> | void;
+  onSaveChoirEntry?: (entry: ChoirEntry, songOptions?: ScheduleSongSaveOptions) => Promise<boolean | void> | void;
   onDeleteChoirEntry?: (id: string) => void;
   onOpenSongDetail: (songId: string) => void;
   onPlaySongMedia?: (songId: string, mediaUrl: string) => void;
@@ -217,6 +220,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     if (practiceCloseSignal) setSelectedPracticeId(null);
   }, [practiceCloseSignal]);
   const [isEditingPractice, setIsEditingPractice] = useState(false);
+  const [scheduledSongMode, setScheduledSongMode] = useState<'select' | 'create'>('select');
+  const [scheduledLyricsChanged, setScheduledLyricsChanged] = useState(false);
+  const [scheduledSongRevision, setScheduledSongRevision] = useState<number>();
   const [editingPractice, setEditingPractice] = useState<Partial<PracticeGroupEntry> | null>(null);
   const [practiceSaveError, setPracticeSaveError] = useState<string | null>(null);
   const practiceSavingRef = useRef(false);
@@ -1050,11 +1056,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         songId: matchedSongId,
         minusOneLink: editingSchedule.minusOneLink?.trim() || '',
         notes: editingSchedule.notes?.trim() || '',
-        lyrics: editingSchedule.lyrics?.trim() || '',
+        lyrics: editingSchedule.lyrics ?? '',
+        lyricsMode: editingSchedule.lyricsMode ?? editingSchedule.lyrics_mode,
         createdAt: editingSchedule.createdAt || new Date().toISOString(),
       };
 
-      const result = await onSaveSpecialNumber(entryToSave);
+      const result = await onSaveSpecialNumber(entryToSave, scheduledSongOptions(setEditingSchedule));
       if (result === false) throw new Error('Unable to save song number. Please try again.');
       setIsEditingSchedule(false);
       setEditingSchedule(null);
@@ -1082,25 +1089,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     try {
 
     const trimmedTitle = editingPractice.songTitle.trim();
-    let effectiveSongId = editingPractice.songId;
     const isNew = !editingPractice.id || !practiceEntries.some((p) => p.id === editingPractice.id);
-
-    // Check if song exists in songs library
-    const matchedSong = songs.find(
-      (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
-    );
-
-    if (matchedSong) effectiveSongId = matchedSong.id;
-    const lyricsMode = editingPractice.lyricsMode ?? editingPractice.lyrics_mode ?? 'live';
-    const lyrics = lyricsMode === 'live'
-      ? editingPractice.lyrics || matchedSong?.lyrics || ''
-      : editingPractice.lyrics ?? '';
+    const lyrics = editingPractice.lyrics ?? '';
 
     const entryToSave: Partial<PracticeGroupEntry> = {
       ...(isNew ? {} : { id: editingPractice.id }),
       groupName: editingPractice.groupName?.trim() || '',
       songTitle: trimmedTitle,
-      songId: effectiveSongId,
+      songId: scheduledSongMode === 'select' ? editingPractice.songId : undefined,
       assignedEvent: editingPractice.assignedEvent !== undefined ? editingPractice.assignedEvent.trim() : 'Sunday Service',
       // Preserve legacy scheduling metadata when editing, but new practices no
       // longer expose or create a separate practice date/time.
@@ -1108,7 +1104,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       practiceTime: isNew ? undefined : editingPractice.practiceTime || undefined,
       targetDate: editingPractice.targetDate || undefined,
       lyrics,
-      lyricsMode,
+      lyricsMode: editingPractice.lyricsMode ?? editingPractice.lyrics_mode ?? 'live',
       lyricsSnapshot: lyrics,
       notes: editingPractice.notes?.trim() || '',
       customAttachments: editingPractice.customAttachments || [],
@@ -1117,7 +1113,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     };
 
       if (onSavePracticeEntry) {
-        const saved = await onSavePracticeEntry(entryToSave, isNew);
+        const saved = await onSavePracticeEntry(entryToSave, isNew, scheduledSongOptions(setEditingPractice));
         if (saved && saved.id) {
           setSelectedPracticeId(saved.id);
         }
@@ -1134,50 +1130,87 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  // Select song from library for Practice (Title, Artist & Lyrics Autofilled)
-  const handleSelectSongForPractice = (songTitleInput: string) => {
-    const trimmed = songTitleInput.trim();
-    const matched = songs.find(
-      (s) => s.title.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (matched) {
-      setEditingPractice((prev) => ({
-        ...prev,
-        songTitle: matched.title,
-        songId: matched.id,
-        lyrics: prev?.songId === matched.id ? prev.lyrics : matched.lyrics || '',
-        lyricsMode: prev?.songId === matched.id ? prev.lyricsMode : 'live',
-      }));
-    } else {
-      setEditingPractice((prev) => ({
-        ...prev,
-        songTitle: songTitleInput,
-        songId: undefined,
-      }));
-    }
-  };
+  function resetScheduledSong(draft?: ScheduledSongDraft) {
+    setScheduledSongMode('select');
+    setScheduledLyricsChanged(false);
+    const linked = songs.find(song => song.id === draft?.songId);
+    setScheduledSongRevision(linked ? linked.revision ?? 1 : undefined);
+  }
 
-  // Select song from library for Choir (Title, Artist & Lyrics Autofilled)
-  const handleSelectSongForChoir = (songTitleInput: string) => {
-    const trimmed = songTitleInput.trim();
-    const matched = songs.find(
-      (s) => s.title.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (matched) {
-      setEditingChoir((prev) => ({
-        ...prev,
-        songTitle: matched.title,
-        songId: matched.id,
-        lyrics: matched.lyrics || prev?.lyrics || '',
-        artist: matched.artist || prev?.artist || '',
-      }));
-    } else {
-      setEditingChoir((prev) => ({
-        ...prev,
-        songTitle: songTitleInput,
-      }));
-    }
-  };
+  function scheduledSongOptions<T extends ScheduledSongDraft>(
+    update: React.Dispatch<React.SetStateAction<T | null>>,
+  ): ScheduleSongSaveOptions {
+    return {
+      mode: scheduledSongMode,
+      lyricsChanged: scheduledLyricsChanged,
+      songRevision: scheduledSongRevision,
+      onSongSaved: song => {
+        setScheduledSongMode('select');
+        setScheduledLyricsChanged(false);
+        setScheduledSongRevision(song.revision ?? 1);
+        update(previous => previous && { ...previous, songId: song.id, songTitle: song.title, lyrics: song.lyrics, lyricsMode: 'live' });
+      },
+    };
+  }
+
+  function renderScheduledSongField<T extends ScheduledSongDraft>(
+    id: string,
+    draft: T,
+    update: React.Dispatch<React.SetStateAction<T | null>>,
+    saving: boolean,
+    allowEmpty = false,
+  ) {
+    return <>
+      <label htmlFor={scheduledSongMode === 'create' ? id + '-new' : id} className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+        {allowEmpty ? 'Song (optional)' : 'Song'}
+      </label>
+      <div role="group" aria-label="Song source" className="mb-2 flex gap-2">
+        {(['select', 'create'] as const).map(mode => (
+          <button key={mode} type="button" aria-pressed={scheduledSongMode === mode} disabled={saving}
+            className="ui-category-pill min-h-10 px-3"
+            onClick={() => {
+              if (scheduledSongMode === mode) return;
+              setScheduledSongMode(mode);
+              setScheduledLyricsChanged(false);
+              setScheduledSongRevision(undefined);
+              update({ ...draft, songId: undefined, songTitle: '', lyrics: '', lyricsMode: 'live' });
+            }}>
+            {mode === 'select' ? 'Select song' : 'Create song'}
+          </button>
+        ))}
+      </div>
+      {scheduledSongMode === 'create' ? <input
+        id={id + '-new'}
+        name={id + '-new'}
+        autoComplete="off"
+        value={draft.songTitle || ''}
+        onChange={event => update({ ...draft, songTitle: event.target.value })}
+        required
+        placeholder="Song title"
+        className="w-full rounded-xl border border-slate-300 bg-slate-50 p-2.5 text-sm dark:border-slate-700 dark:bg-slate-800"
+      /> : <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+        <AutofillInput
+          id={id}
+          name={id}
+          value={draft.songTitle || ''}
+          onChange={value => {
+            const matches = songs.filter(song => song.title.trim().toLowerCase() === value.trim().toLowerCase());
+            const matched = matches.find(song => song.id === draft.songId) ?? (matches.length === 1 ? matches[0] : undefined);
+            if (matched && matched.id === draft.songId) return;
+            setScheduledLyricsChanged(false);
+            setScheduledSongRevision(matched ? matched.revision ?? 1 : undefined);
+            update({ ...draft, songTitle: matched?.title ?? value, songId: matched?.id, lyrics: matched?.lyrics ?? '', lyricsMode: 'live',
+              ...(allowEmpty && matched?.minusOneLink && { minusOneLink: matched.minusOneLink }) });
+          }}
+          suggestions={songTitleSuggestions}
+          songs={songs}
+          setlists={setlists}
+          placeholder="Select song"
+          inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
+        />
+      </div>}
+    </>;
+  }
 
   // Choir Save Handler
   const handleSaveChoirSubmit = async (e: React.FormEvent) => {
@@ -1195,16 +1228,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       const date = editingChoir.date || getNextSundayStr();
       const notes = (editingChoir.notes || '').trim();
 
-      let effectiveSongId = editingChoir.songId;
-
-      // Check if song exists in songs library
-      const matchedSong = songs.find(
-        (s) => s.title.toLowerCase() === trimmedTitle.toLowerCase()
-      );
-
-      // The parent saves and links the library song once before persisting the lineup.
-      if (matchedSong) effectiveSongId = matchedSong.id;
-
       const entryToSave: ChoirEntry = {
         id: editingChoir.id && isUUID(editingChoir.id) ? editingChoir.id : generateUUID(),
         revision: editingChoir.revision,
@@ -1212,8 +1235,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         date,
         songTitle: trimmedTitle,
         artist: artist || undefined,
-        songId: effectiveSongId,
-        lyrics: lyrics || (matchedSong ? matchedSong.lyrics : '') || '',
+        songId: editingChoir.songId,
+        lyrics,
+        lyricsMode: editingChoir.lyricsMode ?? editingChoir.lyrics_mode,
         notes: notes || undefined,
         choirGroup,
         isDone: editingChoir.isDone || false,
@@ -1222,7 +1246,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       };
 
       if (onSaveChoirEntry) {
-        const result = await onSaveChoirEntry(entryToSave);
+        const result = await onSaveChoirEntry(entryToSave, scheduledSongOptions(setEditingChoir));
         if (result === false) throw new Error('Unable to save choir song. Please try again.');
       }
 
@@ -1910,6 +1934,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
               <button
                 onClick={() => {
+                  resetScheduledSong();
                   setEditingSchedule({
                     id: generateUUID(),
                     performerName: '',
@@ -2018,7 +2043,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
 
                         <div className="flex items-center shrink-0 ml-2">
-                          {!readOnly && <CardActions label="Song number" onEdit={() => { setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={async () => {
+                          {!readOnly && <CardActions label="Song number" onEdit={() => { resetScheduledSong(item); setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={async () => {
                             if ((await confirmAction(`Remove special song number for ${item.performerName}?`))) {
                               onDeleteSpecialNumber(item.id);
                               if (selectedEntryId === item.id) setSelectedEntryId(null);
@@ -2178,6 +2203,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           <button
                             type="button"
                             onClick={() => {
+                              resetScheduledSong(group);
                               setEditingPractice(group);
                               setIsEditingPractice(true);
                             }}
@@ -2586,7 +2612,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
                       </div>
 
-                      {!readOnly && <CardActions label="Choir" onEdit={() => { setEditingChoir(entry); setIsEditingChoir(true); }} onDelete={() => handleDeleteChoir(entry.id)} />}
+                      {!readOnly && <CardActions label="Choir" onEdit={() => { resetScheduledSong(entry); setEditingChoir(entry); setIsEditingChoir(true); }} onDelete={() => handleDeleteChoir(entry.id)} />}
                     </div>
 
                     {/* Expanded Lyrics */}
@@ -2677,33 +2703,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Song Title
-                </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                  <AutofillInput
-                    id="schedule-song-title-input"
-                    name="schedule_song_title"
-                    value={editingSchedule.songTitle || ''}
-                    onChange={(val) => {
-                      const matched = songs.find(
-                        (s) => s.title.toLowerCase() === val.trim().toLowerCase()
-                      );
-                      setEditingSchedule({
-                        ...editingSchedule,
-                        songTitle: val,
-                        songId: matched?.id,
-                        lyrics: matched?.lyrics || editingSchedule.lyrics,
-                        minusOneLink: matched?.minusOneLink || editingSchedule.minusOneLink,
-                      });
-                    }}
-                    suggestions={songTitleSuggestions}
-                    songs={songs}
-                    setlists={setlists}
-                    placeholder="Select or enter song"
-                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white"
-                  />
-                </div>
+                {renderScheduledSongField('schedule-song-title-input', editingSchedule, setEditingSchedule, isSavingSchedule, true)}
               </div>
 
               <div>
@@ -2747,7 +2747,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   rows={8}
                   value={editingSchedule.lyrics || ''}
-                  onChange={(e) => setEditingSchedule({ ...editingSchedule, lyrics: e.target.value })}
+                  onChange={event => { setScheduledLyricsChanged(true); setEditingSchedule({ ...editingSchedule, lyrics: event.target.value }); }}
                   placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
@@ -2850,22 +2850,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
               {/* Song Title (Autofill from Songs tab database) */}
               <div className="order-1">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
-                  Song title
-                </label>
-                <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                  <AutofillInput
-                    id="practice-song-title"
-                    name="practice_song_title"
-                    value={editingPractice.songTitle || ''}
-                    onChange={(val) => handleSelectSongForPractice(val)}
-                    suggestions={songTitleSuggestions}
-                    songs={songs}
-                    setlists={setlists}
-                    placeholder="Song title"
-                    inputClassName="p-2.5 text-sm text-slate-900 dark:text-white font-medium"
-                  />
-                </div>
+                {renderScheduledSongField('practice-song-title', editingPractice, setEditingPractice, isSavingPractice)}
               </div>
 
               {/* Lyrics editor grows automatically to fit its content. */}
@@ -2886,7 +2871,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   rows={9}
                   value={editingPractice.lyrics || ''}
-                  onChange={(e) => setEditingPractice({ ...editingPractice, lyrics: e.target.value, lyricsMode: 'custom' })}
+                  onChange={event => {
+                    setScheduledLyricsChanged(true);
+                    setEditingPractice({ ...editingPractice, lyrics: event.target.value });
+                  }}
                   placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 />
@@ -3477,41 +3465,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
               {/* 2. Song Title */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                  Song Title <span className="text-rose-500">*</span>
-                </label>
-                <AutofillInput
-                  id="choir-song-title-input"
-                  songs={songs}
-                  setlists={setlists}
-                  name="choir_song_title"
-                  value={editingChoir.songTitle}
-                  onChange={(val) => {
-                    const matchedSong = songs.find(
-                      (s) => s.title.trim().toLowerCase() === val.trim().toLowerCase()
-                    );
-                    setEditingChoir({
-                      ...editingChoir,
-                      songTitle: val,
-                      songId: matchedSong ? matchedSong.id : undefined,
-                      lyrics:
-                        editingChoir.lyrics?.trim()
-                          ? editingChoir.lyrics
-                          : matchedSong?.lyrics || '',
-                    });
-                  }}
-                  onSelectSuggestion={(suggestion) => {
-                    const matchedSong = songs.find((s) => s.title === suggestion);
-                    if (matchedSong) {
-                      handleSelectSongForChoir(matchedSong.title);
-                    } else {
-                      setEditingChoir({ ...editingChoir, songTitle: suggestion });
-                    }
-                  }}
-                  suggestions={songs.map((s) => s.title)}
-                  placeholder="Select or enter song title..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900"
-                />
+                {renderScheduledSongField('choir-song-title-input', editingChoir, setEditingChoir, isSavingChoir)}
               </div>
 
               {/* 3. Lyrics */}
@@ -3530,7 +3484,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                   data-lpignore="true"
                   rows={8}
                   value={editingChoir.lyrics || ''}
-                  onChange={(e) => setEditingChoir({ ...editingChoir, lyrics: e.target.value })}
+                  onChange={event => { setScheduledLyricsChanged(true); setEditingChoir({ ...editingChoir, lyrics: event.target.value }); }}
                   placeholder="Enter lyrics"
                   className="min-h-48 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white sm:text-sm"
                 />
@@ -3576,6 +3530,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
           type="button"
           onClick={() => {
             if (activeSubTab === 'schedules') {
+              resetScheduledSong();
               setEditingSchedule({
                 id: generateUUID(),
                 performerName: '',
@@ -3588,6 +3543,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               });
               setIsEditingSchedule(true);
             } else if (activeSubTab === 'practice') {
+              resetScheduledSong();
               setEditingPractice({
                 groupName: '',
                 songTitle: '',
@@ -3599,6 +3555,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
               });
               setIsEditingPractice(true);
             } else {
+              resetScheduledSong();
               setEditingChoir({
                 id: generateUUID(),
                 choirGroup: 'Church Choir',
