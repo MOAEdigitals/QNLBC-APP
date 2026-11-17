@@ -15,7 +15,7 @@ test('activity filters live beside the first month, dismiss outside, and preserv
   const activities = read('src/features/activities/Activities.tsx');
   assert.match(activities, /<BottomSheet open=\{showFilters\}/);
   assert.match(activities, /document\.addEventListener\('pointerdown', close, true\)/);
-  assert.match(activities, /group === firstVisibleGroup \? renderActivityFilterHeading\(group.label\)/);
+  assert.match(activities, /data-activity-results>\s*\{renderActivityFilterHeading\(calendarMonthLabel\)\}/);
   assert.match(activities, /<ListFilter aria-hidden="true"/);
   assert.match(activities, /aria-label="Filter activities"/);
   assert.match(activities, /whitespace-pre-wrap break-words/);
