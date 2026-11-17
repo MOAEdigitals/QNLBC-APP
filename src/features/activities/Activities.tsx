@@ -276,9 +276,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     }
   };
 
-  return <div className="relative mx-auto w-full max-w-[640px] space-y-2 pb-16" onClick={() => setOpenMenu(null)}>
+  return <div className="relative mx-auto w-full max-w-[640px] pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
-      <header className="-mb-2 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
+      <header className="mb-1 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button>
         <h2 className="text-center text-xl font-bold">{calendarMonthLabel}</h2>
         <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Next month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></button>
