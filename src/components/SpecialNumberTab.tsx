@@ -15,6 +15,7 @@ import { AutoGrowTextarea } from './AutoGrowTextarea';
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   BirthdayCelebrant,
+  ChurchActivity,
   UserAccount,
   SpecialNumberEntry,
   PracticeGroupEntry,
@@ -101,6 +102,8 @@ import {
 const Activities = React.lazy(() => import('../features/activities/Activities'));
 
 interface SpecialNumberTabProps {
+  readOnly?: boolean;
+  offlineActivities?: ChurchActivity[];
   birthdays?: BirthdayCelebrant[];
   onLoadBirthdays?: () => Promise<void>;
   currentUser: UserAccount | null;
@@ -176,6 +179,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
   collapseSignal,
   onPracticeDetailChange,
   practiceCloseSignal,
+  readOnly = false,
+  offlineActivities,
 }) => {
   // Schedules subtabs: Song Numbers (default), Practice, Choir, Outlines, Activities.
   // Keep the existing schedules key so saved selections and song data stay compatible.
@@ -994,9 +999,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       item.groupName.toLowerCase().includes(q) ||
       item.songTitle.toLowerCase().includes(q) ||
       (item.assignedEvent && item.assignedEvent.toLowerCase().includes(q)) ||
-      item.vocalParts.some(
+      (item.vocalParts ?? item.parts ?? []).some(
         (p) =>
-          p.assignedUsers.some((u) => u.toLowerCase().includes(q)) ||
+          p.assignedUsers?.some((u) => u.toLowerCase().includes(q)) ||
           p.partLabel.toLowerCase().includes(q)
       )
     );
@@ -1497,7 +1502,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Auto-sync any tracks stuck in local IndexedDB to Cloudflare R2 if this device holds the audio data
   useEffect(() => {
-    if (!practiceEntries || practiceEntries.length === 0 || !onSavePracticeEntry) return;
+    if (readOnly || !practiceEntries || practiceEntries.length === 0 || !onSavePracticeEntry) return;
 
     let isCancelled = false;
 
@@ -1579,11 +1584,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       isCancelled = true;
       clearTimeout(timeout);
     };
-  }, [practiceEntries, onSavePracticeEntry]);
+  }, [practiceEntries, onSavePracticeEntry, readOnly]);
 
   // Manual trigger for user to upload all local practice audio tracks to Cloud Media Storage
   const handleSyncAllLocalPracticeAudios = async () => {
-    if (!practiceEntries || practiceEntries.length === 0 || !onSavePracticeEntry) return;
+    if (readOnly || !practiceEntries || practiceEntries.length === 0 || !onSavePracticeEntry) return;
     setIsSyncingPracticeAudios(true);
     setSyncStatusBanner({
       type: 'syncing',
@@ -1877,7 +1882,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       </div>
 
       {activeSubTab === 'activities' && (
-        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} onActivitiesChanged={onActivitiesChanged} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
+        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities offlineItems={offlineActivities} key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} onActivitiesChanged={onActivitiesChanged} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
       )}
 
       {/* ========================================================================= */}
@@ -1888,7 +1893,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
         <div className="app-subtab-content space-y-4">
 
           {/* Vacant Fellowship / Event Alerts */}
-          {vacantEvents.length > 0 && (
+          {!readOnly && vacantEvents.length > 0 && (
             <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-800 dark:text-slate-200">
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-sky-600 shrink-0" />
@@ -2008,12 +2013,12 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
 
                         <div className="flex items-center shrink-0 ml-2">
-                          <CardActions label="Song number" onEdit={() => { setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={async () => {
+                          {!readOnly && <CardActions label="Song number" onEdit={() => { setEditingSchedule(item); setIsEditingSchedule(true); }} onDelete={async () => {
                             if ((await confirmAction(`Remove special song number for ${item.performerName}?`))) {
                               onDeleteSpecialNumber(item.id);
                               if (selectedEntryId === item.id) setSelectedEntryId(null);
                             }
-                          }} />
+                          }} />}
                         </div>
                       </div>
 
@@ -2090,7 +2095,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
           {/* Practice Groups List */}
           <div className="space-y-3 pt-1">
-            {!selectedPracticeId && <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+            {!readOnly && !selectedPracticeId && <div className="flex flex-wrap items-center justify-between gap-2 px-1">
 
 
               {/* Cloud Media Sync Status & Manual Sync Action */}
@@ -2120,11 +2125,11 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
             {!selectedPracticeId && filteredPracticeEntries.length === 0 ? (
               <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-                No practices found. Start a new practice or change your search.
+                No practices found.
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-                {monthList(selectedPracticeId ? practiceEntries.filter((group) => group.id === selectedPracticeId) : filteredPracticeEntries, group => group.practiceDate || group.targetDate, ['practice', 'practices'], { hidden: !!selectedPracticeId, archive: true, revealArchive: !!practiceSearchQuery.trim() }).render((group) => {
+                {(selectedPracticeId ? practiceEntries.filter(group => group.id === selectedPracticeId) : filteredPracticeEntries).map(group => {
                   const isSelected = selectedPracticeId === group.id;
                   const isDone = Boolean(group.isDone);
 
@@ -2159,7 +2164,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           {isDone && <span className="text-xs text-slate-500">Done</span>}
                         </div>
 
-                        <div className="flex shrink-0 items-center gap-1">
+                        {!readOnly && <div className="flex shrink-0 items-center gap-1">
                           <details className="ui-actions practice-actions" onClick={(e) => { e.stopPropagation(); if ((e.target as Element).closest('button')) e.currentTarget.removeAttribute('open'); }}>
                             <summary aria-label="Practice actions" title="Practice actions">
                               <MoreHorizontal className="h-5 w-5" />
@@ -2193,7 +2198,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
                             </div>
                           </details>
-                        </div>
+                        </div>}
                       </div>
 
                       {/* IN-PLACE EXPANDED PRACTICE DETAILS */}
@@ -2211,7 +2216,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                   Audio mixer
                                 </span>
                               </span>
-                              <div className="flex items-center gap-1.5">
+                              {!readOnly && <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
                                   onClick={() => handleOpenAddVocalPartModal(group, undefined, 'record')}
@@ -2228,14 +2233,14 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                   <Plus className="w-3.5 h-3.5" />
                                   <span>Track</span>
                                 </button>
-                              </div>
+                              </div>}
                             </div>
 
                             {(!group.vocalParts?.length && !group.parts?.length && !group.customAttachments?.length) && (
                               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center dark:border-slate-700 dark:bg-slate-800/50">
                                 <Music className="mx-auto mb-1.5 h-5 w-5 text-slate-400" />
                                 <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">No rehearsal audio yet</p>
-                                <p className="mt-0.5 text-[11px] text-slate-400">Add or record a voice part, or attach a backing track.</p>
+                                {!readOnly && <p className="mt-0.5 text-[11px] text-slate-400">Add or record a voice part, or attach a backing track.</p>}
                               </div>
                             )}
 
@@ -2262,6 +2267,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       <PracticeAudioTrackRow
                                         key={part.id || `part-${pIdx}`}
                                         id={part.id}
+                                        offline={readOnly}
                                         practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle } : undefined}
                                         badgeLabel={part.partLabel}
                                         badgeCategory="vocal_part"
@@ -2275,10 +2281,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                         onPause={() => {
                                           setPlayingTrackId(null);
                                         }}
-                                        onEdit={() => handleOpenAddVocalPartModal(group, pIdx)}
-                                        onDelete={() => handleDeleteVocalPart(group, pIdx)}
-                                        onRecordNewAudio={() => handleOpenAddVocalPartModal(group, pIdx, 'record')}
-                                        onAudioUrlUpdated={(newCloudUrl) => handleUpdateVocalPartAudioUrl(group, pIdx, newCloudUrl)}
+                                        onEdit={readOnly ? undefined : () => handleOpenAddVocalPartModal(group, pIdx)}
+                                        onDelete={readOnly ? undefined : () => handleDeleteVocalPart(group, pIdx)}
+                                        onRecordNewAudio={readOnly ? undefined : () => handleOpenAddVocalPartModal(group, pIdx, 'record')}
+                                        onAudioUrlUpdated={readOnly ? undefined : (newCloudUrl) => handleUpdateVocalPartAudioUrl(group, pIdx, newCloudUrl)}
                                       />
                                     );
                                   })}
@@ -2363,6 +2369,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                     <PracticeAudioTrackRow
                                       key={att.id || `track-${aIdx}`}
                                       id={att.id}
+                                      offline={readOnly}
                                       practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle } : undefined}
                                       badgeLabel={isPlusOne ? 'PLUS ONE' : 'MINUS ONE'}
                                       badgeCategory={isPlusOne ? 'plus_one' : 'minus_one'}
@@ -2376,9 +2383,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       onPause={() => {
                                         setPlayingTrackId(null);
                                       }}
-                                      onEdit={() => handleOpenAddTrackModal(group, aIdx)}
-                                      onDelete={() => handleDeleteTrack(group, aIdx)}
-                                      onAudioUrlUpdated={(newCloudUrl) => handleUpdateTrackAudioUrl(group, aIdx, newCloudUrl)}
+                                      onEdit={readOnly ? undefined : () => handleOpenAddTrackModal(group, aIdx)}
+                                      onDelete={readOnly ? undefined : () => handleDeleteTrack(group, aIdx)}
+                                      onAudioUrlUpdated={readOnly ? undefined : (newCloudUrl) => handleUpdateTrackAudioUrl(group, aIdx, newCloudUrl)}
                                     />
                                   );
                                 })}
@@ -2386,7 +2393,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                             )}
 
                             {/* REHEARSAL VIDEO PLAYER (Appears directly under Rehearsal Tracks when triggered) */}
-                            {activePracticeMedia &&
+                            {!readOnly && activePracticeMedia &&
                               activePracticeMedia.groupId === group.id &&
                               (activePracticeMedia.type === 'video' || getYouTubeEmbedUrl(activePracticeMedia.url)) && (
                                 <div className="p-4 rounded-2xl bg-slate-900 text-white dark:bg-slate-950 border border-slate-800 shadow-md space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -2574,7 +2581,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                         </div>
                       </div>
 
-                      <CardActions label="Choir" onEdit={() => { setEditingChoir(entry); setIsEditingChoir(true); }} onDelete={() => handleDeleteChoir(entry.id)} />
+                      {!readOnly && <CardActions label="Choir" onEdit={() => { setEditingChoir(entry); setIsEditingChoir(true); }} onDelete={() => handleDeleteChoir(entry.id)} />}
                     </div>
 
                     {/* Expanded Lyrics */}
@@ -2591,7 +2598,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                           <p className="text-xs text-slate-400 italic py-1">No lyrics attached yet.</p>
                         )}
 
-                        <ChoirMedia entry={entry} currentUser={currentUser} onSave={onSaveChoirMedia} />
+                        {!readOnly && <ChoirMedia entry={entry} currentUser={currentUser} onSave={onSaveChoirMedia} />}
                       </div>
                     )}
                   </div>
@@ -2605,7 +2612,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* SCHEDULE MODAL (Create / Edit Special Number) */}
       {/* ========================================================================= */}
-      {isEditingSchedule && editingSchedule && (
+      {!readOnly && isEditingSchedule && editingSchedule && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -2768,7 +2775,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* PRACTICE MODAL (Create / Edit Singing Group Practice) */}
       {/* ========================================================================= */}
-      {isEditingPractice && editingPractice && (
+      {!readOnly && isEditingPractice && editingPractice && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-6">
             <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -2911,7 +2918,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* ADD / EDIT TRACK OR ATTACHMENT MODAL (IMAGE 2 STYLE) */}
       {/* ========================================================================= */}
-      {isAddingTrackModal && trackModalGroup && (
+      {!readOnly && isAddingTrackModal && trackModalGroup && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             {/* Modal Header */}
@@ -3107,7 +3114,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* ADD / EDIT VOCAL PART MODAL */}
       {/* ========================================================================= */}
-      {isAddingVocalPartModal && vocalPartModalGroup && (
+      {!readOnly && isAddingVocalPartModal && vocalPartModalGroup && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             {/* Modal Header */}
@@ -3423,7 +3430,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       {/* ========================================================================= */}
       {/* CHOIR MODAL (Create / Edit Choir Song Lineup) */}
       {/* ========================================================================= */}
-      {isEditingChoir && editingChoir && (
+      {!readOnly && isEditingChoir && editingChoir && (
         <div role="dialog" aria-modal="true" className="ui-form-screen fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden my-4">
             <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
@@ -3559,7 +3566,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       />
 
       {/* Floating Action Button (FAB) for Song Numbers - Circular & anchored at lower-right across all sub-tabs */}
-      {activeSubTab !== 'activities' && !isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
+      {!readOnly && activeSubTab !== 'activities' && !isEditingSchedule && !isEditingPractice && !isEditingChoir && !isAddingTrackModal && !isAddingVocalPartModal && !(activeSubTab === 'practice' && selectedPracticeId) && (
         <button
           type="button"
           onClick={() => {

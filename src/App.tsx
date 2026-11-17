@@ -104,7 +104,6 @@ cleanupLegacyStorage();
 const SetlistsTab = lazy(() => import('./components/SetlistsTab').then((module) => ({ default: module.SetlistsTab })));
 const RecognitionsTab = lazy(() => import('./components/RecognitionsTab').then((module) => ({ default: module.RecognitionsTab })));
 const SpecialNumberTab = lazy(() => import('./components/SpecialNumberTab').then((module) => ({ default: module.SpecialNumberTab })));
-const OfflineSchedules = lazy(() => import('./components/OfflineSchedules'));
 const SongsTab = lazy(() => import('./components/SongsTab').then((module) => ({ default: module.SongsTab })));
 const SermonOutlines = React.lazy(() => import('./features/sermons/SermonOutlines'));
 const Notepad = React.lazy(() => import('./features/notepad/Notepad'));
@@ -227,9 +226,9 @@ export default function App() {
   const [practiceEntries, setPracticeEntries] = useState<PracticeGroupEntry[]>([]);
   const resolveLibrarySong = useMemo(() => songResolver(songs), [songs]);
   const linkedSetlists = useMemo(() => setlists.map(entry => linkSetlist(entry, resolveLibrarySong)), [setlists, resolveLibrarySong]);
-  const linkedSpecialNumbers = useMemo(() => specialNumbers.map(entry => linkSongEntry(entry, resolveLibrarySong)), [specialNumbers, resolveLibrarySong]);
-  const linkedChoirEntries = useMemo(() => choirEntries.map(entry => linkSongEntry(entry, resolveLibrarySong)), [choirEntries, resolveLibrarySong]);
-  const linkedPracticeEntries = useMemo(() => practiceEntries.map(entry => linkSongEntry(entry, resolveLibrarySong)), [practiceEntries, resolveLibrarySong]);
+  const linkedSpecialNumbers = useMemo(() => (offlineReadOnly ? offlineText?.songNumbers ?? [] : specialNumbers).map(entry => linkSongEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, specialNumbers, resolveLibrarySong]);
+  const linkedChoirEntries = useMemo(() => (offlineReadOnly ? offlineText?.choir ?? [] : choirEntries).map(entry => linkSongEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, choirEntries, resolveLibrarySong]);
+  const linkedPracticeEntries = useMemo(() => (offlineReadOnly ? offlineText?.practice ?? [] : practiceEntries).map(entry => linkSongEntry(entry, resolveLibrarySong)), [offlineReadOnly, offlineText, practiceEntries, resolveLibrarySong]);
 
   const [savedNames, setSavedNames] = useState<string[]>([]);
   const [refreshError, setRefreshError] = useState('');
@@ -1563,12 +1562,13 @@ export default function App() {
           />
         ))}
 
-        {currentTab === 'special-numbers' && offlineReadOnly && <OfflineSchedules user={currentUser} library={offlineLibrary} songs={songs} collapseSignal={collapseSignals['special-numbers']} />}
-        {currentTab === 'special-numbers' && !offlineReadOnly && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers') ? <TabLoadingSkeleton /> : (
+        {currentTab === 'special-numbers' && (!offlineReadOnly && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers')) ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
+            readOnly={offlineReadOnly}
+            offlineActivities={offlineReadOnly ? offlineLibrary?.activities ?? [] : undefined}
             onActivitiesChanged={scheduleOfflineSync}
-            birthdays={birthdays}
-            onLoadBirthdays={loadCalendarBirthdays}
+            birthdays={offlineReadOnly ? offlineText?.birthdays : birthdays}
+            onLoadBirthdays={offlineReadOnly ? undefined : loadCalendarBirthdays}
             currentUser={currentUser}
             specialNumbers={linkedSpecialNumbers}
             practiceEntries={linkedPracticeEntries}

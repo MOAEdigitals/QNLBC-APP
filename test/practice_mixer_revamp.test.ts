@@ -122,3 +122,12 @@ test('voice recording labels do not include a saved-at timestamp', () => {
   assert.match(practiceTab, /setVocalPartFileName\(`Voice Recording - \$\{vocalPartLabel\}`\)/);
   assert.doesNotMatch(practiceTab, /Voice Recording - \$\{vocalPartLabel\} \(\$\{new Date\(\)\.toLocaleTimeString/);
 });
+
+test('Practice uses the same cards and audio rows offline, without a date separator', () => {
+  assert.match(app, /<SpecialNumberTab\s+readOnly=\{offlineReadOnly\}/);
+  assert.match(app, /offlineText\?\.practice \?\? \[\] : practiceEntries/);
+  const practiceSection = practiceTab.slice(practiceTab.indexOf("{activeSubTab === 'practice' && ("), practiceTab.indexOf("{activeSubTab === 'choir' && ("));
+  assert.match(practiceSection, /filteredPracticeEntries\)\.map/);
+  assert.doesNotMatch(practiceSection, /monthList\(/);
+  assert.equal([...practiceSection.matchAll(/<PracticeAudioTrackRow[\s\S]*?offline=\{readOnly\}/g)].length, 2);
+});
