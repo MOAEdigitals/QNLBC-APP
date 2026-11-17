@@ -131,3 +131,14 @@ test('Practice uses the same cards and audio rows offline, without a date separa
   assert.doesNotMatch(practiceSection, /monthList\(/);
   assert.equal([...practiceSection.matchAll(/<PracticeAudioTrackRow[\s\S]*?offline=\{readOnly\}/g)].length, 2);
 });
+
+test('mixer starts audio within the tap and retries supported sources inside the app', () => {
+  const tap = trackRow.slice(trackRow.indexOf('const handleTogglePlay'), trackRow.indexOf('// Direct upload'));
+  assert.match(tap, /if \(audio.error\) audio.load\(\);/);
+  assert.match(tap, /startPlayback\(audio\);\s*onPlay\(\);/);
+  assert.doesNotMatch(tap, /window.open/);
+  assert.match(trackRow, /mediaHash\(await dataUrlToBlob\(cached\)\) === hash/);
+  assert.match(trackRow, /localAudio\?\.src === resolvedAudioSrc \? cloud/);
+  assert.doesNotMatch(trackRow, /currentTime = 1e101/);
+  assert.match(practiceTab, /setPlayingTrackId\(current => current === part.id \? null : current\)/);
+});

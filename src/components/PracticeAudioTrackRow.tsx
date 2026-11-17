@@ -19,11 +19,11 @@ import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStor
 import {
   registerActiveAudio,
   notifyAudioStopped,
-  subscribeToActiveAudioChange,
 } from '../utils/audioCoordinator';
 import { downloadPracticeTrack, findPracticeDownload, removePracticeDownload, type PracticeDownload } from '../services/practiceDownloads';
 import { resolveMediaUrl } from '../utils/mediaUtils';
-import { uploadMediaToCloudStorage, syncLocalAudioToCloud } from '../services/cloudMediaStorage';
+import { uploadMediaToCloudStorage, syncLocalAudioToCloud, dataUrlToBlob } from '../services/cloudMediaStorage';
+import { mediaHash, R2_PUBLIC_URL } from '../services/r2Media';
 
 export interface PracticeAudioTrackRowProps {
   id: string;
@@ -60,6 +60,10 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   offline = false,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const pendingPlay = useRef<HTMLAudioElement | null>(null);
+  const attemptedFallback = useRef(false);
+  const cloudUpdate = useRef(onAudioUrlUpdated);
+  cloudUpdate.current = onAudioUrlUpdated;
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -134,6 +138,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
     const resolveSource = async () => {
       setAudioError(null);
+      attemptedFallback.current = false;
       if (localAudio || offline) {
         setResolvedAudioSrc(localAudio?.src ?? '');
         return;
@@ -162,11 +167,11 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
             // If we have the audio in IndexedDB on THIS device (e.g. phone) AND it was only marked as local indexeddb:,
             // auto-upload it to Universal Cloud Media Storage so all other devices (laptop, Ecosia!) get it!
-            if (raw.startsWith('indexeddb:') && onAudioUrlUpdated && !isUploadingCloud) {
+            if (raw.startsWith('indexeddb:') && cloudUpdate.current && !isUploadingCloud) {
               syncLocalAudioToCloud(targetId, performerName, id).then((cloudUrl) => {
                 if (cloudUrl && !isCancelled) {
                   console.log(`[Auto-Sync] Cloud-synced local track ${targetId} -> ${cloudUrl}`);
-                  onAudioUrlUpdated(cloudUrl);
+                  cloudUpdate.current?.(cloudUrl);
                 }
               }).catch((err) => {
                 console.warn('[Auto-Sync] Background sync to Cloud deferred:', err);
@@ -201,7 +206,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       isCancelled = true;
       unsubscribe();
     };
-  }, [id, audioUrl, onAudioUrlUpdated, localAudio, offline]);
+  }, [id, audioUrl, localAudio, offline]);
 
   // Keep onPause reference fresh
   const onPauseRef = useRef(onPause);
@@ -226,6 +231,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
 
     const audio = new Audio();
     audioRef.current = audio;
+    setDuration(0);
+    setCurrentTime(0);
     audio.preload = 'metadata';
     audio.src = resolvedAudioSrc;
     audio.loop = isLooping;
@@ -233,16 +240,6 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     const handleLoadedMetadata = () => {
       if (audio.duration && isFinite(audio.duration)) {
         setDuration(audio.duration);
-      } else if (audio.duration === Infinity) {
-        // Chromium WebM duration fix: seek to far end to force duration calculation
-        audio.currentTime = 1e101;
-        audio.ontimeupdate = () => {
-          audio.ontimeupdate = null;
-          if (isFinite(audio.duration)) {
-            setDuration(audio.duration);
-          }
-          audio.currentTime = 0;
-        };
       }
       setAudioError(null);
     };
@@ -269,6 +266,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
 
     const handleEnded = () => {
+      if (!isFinite(audio.duration) && audio.currentTime > 0) setDuration(audio.currentTime);
       if (!audio.loop) {
         setCurrentTime(0);
         audio.currentTime = 0;
@@ -276,8 +274,26 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       }
     };
 
-    const handleError = () => {
-      console.warn(`Audio loading error for track ${id}`);
+    const handleError = async () => {
+      if (!offline && !attemptedFallback.current) {
+        attemptedFallback.current = true;
+        const cloud = resolveMediaUrl(audioUrl);
+        const hash = cloud.startsWith(R2_PUBLIC_URL + '/worship_media/verified/') ? cloud.split('/').at(-1) : undefined;
+        let fallback = localAudio?.src === resolvedAudioSrc ? cloud : '';
+        if (!fallback && badgeCategory === 'vocal_part' && hash && /^[a-f0-9]{64}$/.test(hash)) {
+          try {
+            const cached = await getAudioFromStorage(id);
+            if (cached?.startsWith('data:audio/') && await mediaHash(await dataUrlToBlob(cached)) === hash) fallback = cached;
+          } catch (error) {
+            console.warn('Could not read cached recording:', error);
+          }
+        }
+        if (audioRef.current !== audio) return;
+        if (fallback && fallback !== resolvedAudioSrc) {
+          setResolvedAudioSrc(fallback);
+          return;
+        }
+      }
       setAudioError('Audio playback failed');
       onPauseRef.current();
     };
@@ -298,9 +314,11 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
+      if (pendingPlay.current === audio) pendingPlay.current = null;
+      notifyAudioStopped(id);
       audioRef.current = null;
     };
-  }, [resolvedAudioSrc, id]);
+  }, [resolvedAudioSrc, id, audioUrl, badgeCategory, localAudio, offline]);
 
   // Sync Loop state to audio element
   useEffect(() => {
@@ -309,56 +327,52 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     }
   }, [isLooping]);
 
-  // Listen to global coordinator: If another player across the app starts playing, pause this track cleanly
-  useEffect(() => {
-    const unsub = subscribeToActiveAudioChange((activeId) => {
-      if (activeId && activeId !== id && isCurrentlyPlaying) {
-        onPause();
+  function startPlayback(audio: HTMLAudioElement) {
+    if (pendingPlay.current === audio) return;
+    pendingPlay.current = audio;
+    registerActiveAudio(id, audio, () => onPauseRef.current());
+    audio.play().catch(error => {
+      if (audioRef.current !== audio || pendingPlay.current !== audio) return;
+      pendingPlay.current = null;
+      if (error?.name === 'AbortError') return;
+      if (error?.name === 'NotAllowedError') {
+        setAudioError('Tap play again');
+        onPauseRef.current();
+      } else if (!audio.error) {
+        setAudioError('Audio playback failed');
+        onPauseRef.current();
       }
     });
-    return unsub;
-  }, [id, isCurrentlyPlaying, onPause]);
+  }
 
-  // Sync isCurrentlyPlaying prop to audioRef element
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    if (isCurrentlyPlaying) {
-      registerActiveAudio(id, audio, onPause);
-      audio.play().catch((err) => {
-        console.warn('Auto-play was blocked or failed:', err);
-        setAudioError('Tap play again');
-        onPauseRef.current();
-      });
-    } else {
+    if (isCurrentlyPlaying) startPlayback(audio);
+    else {
+      pendingPlay.current = null;
       audio.pause();
       notifyAudioStopped(id);
     }
   }, [isCurrentlyPlaying, id, resolvedAudioSrc]);
 
-  // Handle Play/Pause Toggle
   const handleTogglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // If external Web link and not directly audio-playable
-    if (!localAudio && audioError && isWebUrl && audioUrl) {
-      window.open(audioUrl, '_blank', 'noopener,noreferrer');
+    const audio = audioRef.current;
+    if (!audio || !resolvedAudioSrc) {
+      if (!offline) onRecordNewAudio?.();
       return;
     }
-
-    if (!resolvedAudioSrc) {
-      if (onRecordNewAudio) {
-        onRecordNewAudio();
-      }
-      return;
-    }
-
     if (isCurrentlyPlaying) {
+      pendingPlay.current = null;
+      audio.pause();
       onPause();
-    } else {
-      onPlay();
+      return;
     }
+    setAudioError(null);
+    if (audio.error) audio.load();
+    startPlayback(audio);
+    onPlay();
   };
 
   // Direct upload of an MP3 file (e.g. from the laptop to fix missing track)

@@ -2284,7 +2284,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                           setPlayingTrackId(part.id);
                                         }}
                                         onPause={() => {
-                                          setPlayingTrackId(null);
+                                          setPlayingTrackId(current => current === part.id ? null : current);
                                         }}
                                         onEdit={readOnly ? undefined : () => handleOpenAddVocalPartModal(group, pIdx)}
                                         onDelete={readOnly ? undefined : () => handleDeleteVocalPart(group, pIdx)}
@@ -2386,7 +2386,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                         setPlayingTrackId(att.id);
                                       }}
                                       onPause={() => {
-                                        setPlayingTrackId(null);
+                                        setPlayingTrackId(current => current === att.id ? null : current);
                                       }}
                                       onEdit={readOnly ? undefined : () => handleOpenAddTrackModal(group, aIdx)}
                                       onDelete={readOnly ? undefined : () => handleDeleteTrack(group, aIdx)}
