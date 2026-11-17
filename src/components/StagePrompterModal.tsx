@@ -29,6 +29,12 @@ const FONT_SIZES = [
   { label: 'Giant', size: '58px', cssClass: 'text-[58px] leading-[1.4]' },
 ];
 const ALIGNMENT_STORAGE_KEY = 'worship_stage_lyrics_alignment';
+const SECTION_COLORS = {
+  verse: { text: '', surface: '' },
+  chorus: { text: 'text-amber-900 dark:text-amber-300', surface: 'bg-amber-100 border-amber-300 dark:bg-amber-500/20 dark:border-amber-500/40' },
+  bridge: { text: 'text-violet-900 dark:text-violet-300', surface: 'bg-violet-100 border-violet-300 dark:bg-violet-500/20 dark:border-violet-500/40' },
+  ending: { text: 'text-emerald-900 dark:text-emerald-300', surface: 'bg-emerald-100 border-emerald-300 dark:bg-emerald-500/20 dark:border-emerald-500/40' },
+};
 
 interface ParsedSection {
   id: string;
@@ -389,9 +395,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     bg: 'bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100',
     headerBg: 'bg-white/95 border-slate-200 dark:bg-slate-950/90 dark:border-slate-800',
     sectionBadge: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40',
-    chorusBadge: 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40',
-    bridgePill: 'bg-violet-100 text-violet-900 border-violet-300 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/40',
-    endingPill: 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40',
     jumpPill: 'bg-slate-100 text-slate-700 hover:bg-sky-500 hover:text-white border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800',
     btnSecondary: 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white dark:border-slate-800',
   };
@@ -511,9 +514,8 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
           {namedSections.map((s) => {
             const selected = activeSectionId === s.id;
-            const sectionColor = s.kind === 'chorus' ? themeStyles.chorusBadge
-              : s.kind === 'bridge' ? themeStyles.bridgePill
-              : s.kind === 'ending' ? themeStyles.endingPill : '';
+            const { text, surface } = SECTION_COLORS[s.kind ?? 'verse'];
+            const sectionColor = surface ? `${text} ${surface}` : '';
             return (
               <button
                 key={s.id}
@@ -552,7 +554,9 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           </div>
         ) : (
           <div data-lyrics-alignment={lyricsAlignment} className={`max-w-4xl mx-auto space-y-8 ${lyricsAlignment === 'center' ? 'text-center' : 'text-left'}`}>
-            {parsedSections.map((section, index) => (
+            {parsedSections.map((section, index) => {
+              const { text, surface } = SECTION_COLORS[section.kind ?? 'verse'];
+              return (
               <section
                 key={section.id}
                 id={section.id}
@@ -566,19 +570,20 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 {section.type === 'section' && section.title && (
                   <div className="pt-2">
                     <span
-                      className={`inline-block px-3 py-1 rounded-md text-xs sm:text-sm font-black uppercase tracking-widest border ${section.kind === 'chorus' ? themeStyles.chorusBadge : themeStyles.sectionBadge}`}
+                      className={`inline-block px-3 py-1 rounded-md text-xs sm:text-sm font-black uppercase tracking-widest border ${surface ? `${text} ${surface}` : themeStyles.sectionBadge}`}
                     >
                       {section.title}
                     </span>
                   </div>
                 )}
                 <div
-                  className={`font-sans whitespace-pre-wrap font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass}`}
+                  className={`font-sans whitespace-pre-wrap font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass} ${text}`}
                 >
                   {section.lines.join('\n')}
                 </div>
               </section>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

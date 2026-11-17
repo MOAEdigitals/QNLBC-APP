@@ -115,6 +115,15 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   const repeatedChorusOne = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 1\nSing\nBridge\nKeep singing\nChorus 2\nSing again\nEnding\nDone';
   renderSong('alice', 'one', repeatedChorusOne, true);
   assert.equal(repeat(), undefined);
+  for (const [label, color] of [['Chorus 2', 'amber'], ['Bridge', 'violet'], ['Ending', 'emerald']]) {
+    const jump = nodes.find(node => node.props['aria-label'] === `Jump to ${label}`);
+    const section = nodes.find(node => node.tag === 'section'
+      && node.children.some((child: any) => child?.children?.some((badge: any) => badge?.children?.includes(label))));
+    const textClass = new RegExp(`text-${color}-900`);
+    assert.match(jump.props.className, textClass);
+    assert.match(section.children[0].children[0].props.className, textClass);
+    assert.match(section.children[1].props.className, textClass);
+  }
   for (const position of [0, 300, 600, 900, 1200, 1500, 1800]) {
     next().props.onClick();
     assert.equal(target.top, position);
