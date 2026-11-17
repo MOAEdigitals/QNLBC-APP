@@ -41,6 +41,15 @@
 .qnlbc-app > main { padding-bottom: calc(var(--app-bottom-nav-height, calc(4.25rem + var(--app-safe-bottom))) + 5rem); }
 /* Avoid scroll anchoring to cards that disappear during section switches. */
 .special-screen { overflow-anchor: none; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-calendar-slide] { animation: calendar-month-slide 220ms cubic-bezier(.22,1,.36,1); }
+  [data-calendar-slide="next"] { --calendar-entry-offset: 2rem; }
+  [data-calendar-slide="previous"] { --calendar-entry-offset: -2rem; }
+}
+@keyframes calendar-month-slide {
+  from { opacity: .35; transform: translateX(var(--calendar-entry-offset)); }
+  to { opacity: 1; transform: translateX(0); }
+}
 .special-screen [aria-label="Schedules sections"] { height: 58px; flex-shrink: 0; }
 /* Leave enough room to align even one result below the header while searching. */
 .qnlbc-app:has(input[aria-label="Search activities"]) [data-activity-results] { min-height: 100dvh; }

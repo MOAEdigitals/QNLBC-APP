@@ -58,7 +58,12 @@ function readActivityFilters<T extends Record<string, boolean>>(key: string, def
 export default function Activities({ currentUser, collapseSignal, birthdays = [], onLoadBirthdays }: { currentUser: UserAccount | null; collapseSignal?: number; birthdays?: BirthdayCelebrant[]; onLoadBirthdays?: () => Promise<void> }) {
   const now = new Date();
   const [month, setMonth] = useState(() => new Date(now.getFullYear(), now.getMonth(), 1));
-  const calendarRef = useCalendarSwipe(direction => setMonth(value => new Date(value.getFullYear(), value.getMonth() + direction, 1)));
+  const [monthDirection, setMonthDirection] = useState<1 | -1 | null>(null);
+  const changeMonth = (direction: 1 | -1) => {
+    setMonthDirection(direction);
+    setMonth(value => new Date(value.getFullYear(), value.getMonth() + direction, 1));
+  };
+  const calendarRef = useCalendarSwipe(changeMonth);
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [today, setToday] = useState(todayKey);
   const [items, setItems] = useState<ChurchActivity[]>([]);
@@ -279,12 +284,13 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   return <div className="relative mx-auto w-full max-w-[640px] pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
       <header className="mb-1 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
-        <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Previous month" onClick={() => changeMonth(-1)}><ChevronLeft className="h-4 w-4" /></button>
         <h2 className="text-center text-xl font-bold">{calendarMonthLabel}</h2>
-        <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Next month" onClick={() => setMonth(value => new Date(value.getFullYear(), value.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></button>
+        <button type="button" className="grid size-11 place-items-center rounded-full text-blue-600 hover:bg-slate-100 dark:text-blue-400 dark:hover:bg-slate-800" aria-label="Next month" onClick={() => changeMonth(1)}><ChevronRight className="h-4 w-4" /></button>
       </header>
       <div className="grid grid-cols-7 text-center text-[11px] font-semibold text-slate-400" aria-hidden="true">{['S','M','T','W','T','F','S'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}</div>
-      <div className="grid grid-cols-7 auto-rows-[48px]">
+      <div className="overflow-x-clip">
+      <div key={calendarMonthLabel} data-calendar-slide={monthDirection === null ? undefined : monthDirection === 1 ? 'next' : 'previous'} className="grid grid-cols-7 auto-rows-[48px]">
         {calendarDays.map((day, index) => {
           if (!day) return <span key={`blank-${index}`} />;
           const key = dateKey(new Date(month.getFullYear(), month.getMonth(), day));
@@ -304,6 +310,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
             <span className="flex h-2 items-center justify-center gap-0.5" aria-hidden="true">{dots.map((kind, dot) => <i key={dot} data-calendar-activity={kind} className={`h-1 w-1 rounded-full ${activityColors[kind]}`} />)}{kinds.filter(kind => entries.some(entry => entry.kind === kind)).map(kind => <i key={kind} data-calendar-overlay={kind} className={`h-1 w-1 rounded-full ${kind === 'ph' ? 'bg-cyan-500' : kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} />)}</span>
           </button>;
         })}
+      </div>
       </div>
     </section>
 

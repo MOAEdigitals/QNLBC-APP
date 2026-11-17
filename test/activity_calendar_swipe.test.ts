@@ -59,11 +59,13 @@ test('calendar swipes change months while outside swipes still navigate; taps, s
     const day = calendar.querySelector('.grid button')!;
     await gesture(day);
     assert.equal(heading(), expected(1)); assert.equal(subtab, 'activities'); assert.deepEqual(destinations, []);
+    assert.ok(calendar.querySelector('[data-calendar-slide="next"]'));
     const click = new dom.window.MouseEvent('click', { bubbles: true, cancelable: true });
     calendar.querySelector('.grid button')!.dispatchEvent(click);
     assert.equal(click.defaultPrevented, true, 'a swipe must not also select a date');
     await gesture(calendar, 100, 250);
     assert.equal(heading(), expected(0));
+    assert.ok(calendar.querySelector('[data-calendar-slide="previous"]'));
     for (const args of [[250, 270, 300, false, false], [250, 100, 520, false, false], [10, 200, 300, false, false], [250, 100, 300, true, false], [250, 100, 300, false, true]] as const) {
       await gesture(calendar, args[0], args[1], args[2], args[3], args[4]); assert.equal(heading(), expected(0)); assert.equal(subtab, 'activities');
     }
