@@ -33,7 +33,7 @@ const SECTION_COLORS = {
   verse: { text: '', surface: '' },
   chorus: { text: 'text-amber-900 dark:text-amber-300', surface: 'bg-amber-100 border-amber-300 dark:bg-amber-500/20 dark:border-amber-500/40' },
   bridge: { text: 'text-violet-900 dark:text-violet-300', surface: 'bg-violet-100 border-violet-300 dark:bg-violet-500/20 dark:border-violet-500/40' },
-  ending: { text: 'text-emerald-900 dark:text-emerald-300', surface: 'bg-emerald-100 border-emerald-300 dark:bg-emerald-500/20 dark:border-emerald-500/40' },
+  ending: { text: 'text-red-900 dark:text-red-300', surface: 'bg-red-100 border-red-300 dark:bg-red-500/20 dark:border-red-500/40' },
 };
 
 interface ParsedSection {
