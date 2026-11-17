@@ -202,8 +202,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   // Completed dates stay at the end of their year, after every upcoming month.
   const activityGroups = groupActivityMonths(filteredItems, today);
   const currentYear = Number(today.slice(0, 4));
-  const firstVisibleGroup = activityGroups.find(group => Number(group.key.slice(0, 4)) >= currentYear)
-    ?? (search.trim() ? activityGroups[0] : undefined);
+  const visibleMonth = dateKey(month).slice(0, 7);
+  const groupsInMonth = activityGroups.filter(group => group.key.startsWith(visibleMonth + '-'));
+  const otherGroups = activityGroups.filter(group => !group.key.startsWith(visibleMonth + '-'));
   const calendarMonthLabel = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
@@ -286,6 +287,30 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     }
   };
 
+  const renderActivityGroup = (group: (typeof activityGroups)[number], showHeading = true) => {
+    return <section key={group.key} className="space-y-2">
+      {showHeading && <h3 className="px-1 text-base font-bold">{group.label}</h3>}
+      <div className="rounded-[20px] bg-white dark:bg-slate-900">
+        {group.items.map((item, index) => {
+          const date = localDate(item.activityDate);
+          const expanded = expandedActivity === item.id;
+          const past = isPastActivity(item.activityDate, today);
+          const firstOfDay = group.items[index - 1]?.activityDate !== item.activityDate;
+          return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!past && !isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:ml-[72px] before:border-t before:border-slate-200 dark:before:border-slate-800' : ''} ${item.activityDate === today ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${openMenu === item.id ? 'z-30' : ''}`}>
+          <div data-activity-card-header className="flex min-h-[50px] items-center gap-2.5 px-2.5 py-[3px]">
+          <div className="-mr-0.5 flex w-8 shrink-0 flex-col items-center justify-center self-stretch" aria-label={item.activityDate}>
+            {firstOfDay && <><span className="text-lg leading-none font-semibold tabular-nums">{date.getDate()}</span><span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></>}
+          </div>
+          <span aria-hidden="true" className={`h-[22px] w-[3px] shrink-0 rounded-full ${activityColors[activityKind(item.title)]}`} />
+          <div className={`min-w-0 flex-1 ${past ? 'text-slate-500 dark:text-slate-400' : ''}`}><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h4 className={`min-w-0 break-words text-[17px]/[22px] font-medium ${past ? 'line-through' : ''}`}>{item.title}</h4><UpcomingBadge status={!past && (item.id === nextActivityId || item.id === followingActivityId) ? item.activityDate === today ? 'today' : item.id === nextActivityId ? 'next-up' : 'upcoming' : undefined} /></div>{item.activityTime && <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
+          <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} aria-expanded={openMenu === item.id} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreHorizontal className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
+          </div>
+          {expanded && item.description && <p className="ml-[72px] whitespace-pre-wrap break-words border-t border-slate-200 py-2.5 pr-4 text-sm leading-relaxed text-slate-700 dark:border-slate-700 dark:text-slate-300">{item.description}</p>}
+        </article>; })}
+      </div>
+    </section>;
+  };
+
   return <div className="relative mx-auto w-full max-w-[640px] pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
       <header className="mb-1 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
@@ -328,33 +353,13 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     </BottomSheet>
     {activityFilterSheet}
     <div ref={resultsRef} data-activity-results>
-    {!firstVisibleGroup && renderActivityFilterHeading(calendarMonthLabel)}
+    {renderActivityFilterHeading(calendarMonthLabel)}
     {loadError && <p role="alert" className="px-1 text-sm text-rose-600 dark:text-rose-400">{loadError}</p>}
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
-      {yearList(activityGroups, group => group.items[0]?.activityDate, groups => groups.map(group => {
-
-        return <section key={group.key} className="space-y-2">
-          {group === firstVisibleGroup ? renderActivityFilterHeading(group.label) : <h3 className="px-1 text-base font-bold">{group.label}</h3>}
-          <div className="rounded-[20px] bg-white dark:bg-slate-900">
-          {group.items.map((item, index) => {
-            const date = localDate(item.activityDate);
-            const expanded = expandedActivity === item.id;
-            const past = isPastActivity(item.activityDate, today);
-            const firstOfDay = group.items[index - 1]?.activityDate !== item.activityDate;
-            return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!past && !isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:ml-[72px] before:border-t before:border-slate-200 dark:before:border-slate-800' : ''} ${item.activityDate === today ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${openMenu === item.id ? 'z-30' : ''}`}>
-            <div data-activity-card-header className="flex min-h-[50px] items-center gap-2.5 px-2.5 py-[3px]">
-              <div className="-mr-0.5 flex w-8 shrink-0 flex-col items-center justify-center self-stretch" aria-label={item.activityDate}>
-                {firstOfDay && <><span className="text-lg leading-none font-semibold tabular-nums">{date.getDate()}</span><span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span></>}
-              </div>
-              <span aria-hidden="true" className={`h-[22px] w-[3px] shrink-0 rounded-full ${activityColors[activityKind(item.title)]}`} />
-              <div className={`min-w-0 flex-1 ${past ? 'text-slate-500 dark:text-slate-400' : ''}`}><div className="flex flex-wrap items-center gap-x-2 gap-y-1"><h4 className={`min-w-0 break-words text-[17px]/[22px] font-medium ${past ? 'line-through' : ''}`}>{item.title}</h4><UpcomingBadge status={!past && (item.id === nextActivityId || item.id === followingActivityId) ? item.activityDate === today ? 'today' : item.id === nextActivityId ? 'next-up' : 'upcoming' : undefined} /></div>{item.activityTime && <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400"><Clock className="h-3 w-3" />{new Date(`2000-01-01T${item.activityTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>}</div>
-              <div className="relative" data-activity-actions={item.id}><button type="button" className="flex h-10 w-10 items-center justify-center rounded-xl" aria-label={`Actions for ${item.title}`} aria-expanded={openMenu === item.id} onClick={event => { event.stopPropagation(); setOpenMenu(openMenu === item.id ? null : item.id); }}><MoreHorizontal className="h-4 w-4" /></button>{openMenu === item.id && <div className="absolute right-0 top-10 z-20 w-36 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-white" onClick={event => event.stopPropagation()}><button type="button" className={`${action} w-full justify-start`} onClick={() => void copyActivity(item)}><Copy className="h-4 w-4" />Copy</button>{canEdit && <button type="button" className={`${action} w-full justify-start`} onClick={() => { setSaveError(''); setShowTime(Boolean(item.activityTime)); setShowDescription(Boolean(item.description)); setEditor({ item: { ...item }, isNew: false }); setOpenMenu(null); }}><Pencil className="h-4 w-4" />Edit</button>}{canDelete && <button type="button" className={`${action} w-full justify-start text-rose-600`} onClick={() => void remove(item)}><Trash2 className="h-4 w-4" />Delete</button>}</div>}</div>
-            </div>
-            {expanded && item.description && <p className="ml-[72px] whitespace-pre-wrap break-words border-t border-slate-200 py-2.5 pr-4 text-sm leading-relaxed text-slate-700 dark:border-slate-700 dark:text-slate-300">{item.description}</p>}
-          </article>; })}
-          </div>
-        </section>;
-      }), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
+      {groupsInMonth.length
+        ? renderActivityGroup({ key: visibleMonth, label: calendarMonthLabel, items: groupsInMonth.flatMap(group => group.items) }, false)
+        : <p className="px-1 text-sm text-slate-500">{search.trim() ? 'No matches this month.' : 'No activities this month.'}</p>}
+      {yearList(otherGroups, group => group.items[0]?.activityDate, groups => groups.map(group => renderActivityGroup(group)), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
     </div>}
     </div>
 

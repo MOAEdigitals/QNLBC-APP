@@ -107,6 +107,26 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     })));
     assert.ok(cards().includes('Sunday Service'));
     assert.equal(document.querySelector('[aria-label="Add activity"]'), null);
+
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextMonthDate = nextMonth.getFullYear() + '-' + String(nextMonth.getMonth() + 1).padStart(2, '0') + '-01';
+    const nextMonthItem = { id: 'next-month', title: 'Sunday Service next month', activityDate: nextMonthDate };
+    await act(async () => root.render(React.createElement(exports.default, {
+      currentUser: { id: 'offline-admin', role: 'admin', username: 'admin' },
+      offlineItems: [...items, nextMonthItem],
+    })));
+    const monthHeading = () => document.querySelector('[data-activity-results] h3')!.textContent;
+    const changeMonth = (label: string) => act(() => document.querySelector<HTMLButtonElement>('[aria-label="' + label + '"]')!.click());
+    assert.notEqual(cards()[0], nextMonthItem.title);
+    await changeMonth('Next month');
+    assert.equal(monthHeading(), nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+    assert.equal(cards()[0], nextMonthItem.title);
+    assert.equal(cards().filter(title => title === nextMonthItem.title).length, 1);
+    await changeMonth('Next month');
+    assert.match(document.querySelector('[data-activity-results]')!.textContent!, /No activities this month/);
+    await changeMonth('Previous month');
+    assert.equal(cards()[0], nextMonthItem.title);
+
   } finally {
     await act(() => root.unmount()); dom.window.close();
     keys.forEach((key, index) => { if (saved[index]) Object.defineProperty(globalThis, key, saved[index]!); else delete (globalThis as any)[key]; });
