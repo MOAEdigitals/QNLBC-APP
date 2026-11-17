@@ -570,6 +570,8 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           <div data-lyrics-alignment={lyricsAlignment} className={`max-w-4xl mx-auto space-y-8 ${lyricsAlignment === 'center' ? 'text-center' : 'text-left'}`}>
             {parsedSections.map((section, index) => {
               const { text, surface } = SECTION_COLORS[section.kind ?? 'verse'];
+              const focused = focusedSectionId === section.id;
+              const dimmed = focusedSectionId !== null && !focused;
               return (
               <section
                 key={section.id}
@@ -579,9 +581,11 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                   else sectionElementsRef.current.delete(section.id);
                 }}
                 style={index === parsedSections.length - 1 ? { minHeight: viewportHeight } : undefined}
-                data-lyrics-dimmed={focusedSectionId !== null && focusedSectionId !== section.id || undefined}
-                className={`space-y-3 motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out ${focusedSectionId !== null && focusedSectionId !== section.id ? 'opacity-65' : ''}`}
+                data-lyrics-dimmed={dimmed || undefined}
+                className={`motion-safe:transition-opacity motion-safe:duration-200 motion-safe:ease-out ${dimmed ? 'opacity-65' : ''}`}
               >
+                <div className="relative space-y-3">
+                {focused && <span aria-hidden="true" data-lyrics-focus-outline className="pointer-events-none absolute -inset-x-3 inset-y-0 rounded-xl border border-slate-500 dark:border-white/80" />}
                 {section.type === 'section' && section.title && (
                   <div className="pt-2">
                     <span
@@ -592,9 +596,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                   </div>
                 )}
                 <div
-                  className={`font-sans whitespace-pre-wrap font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass} ${text}`}
+                  className={`font-sans whitespace-pre-wrap font-medium tracking-normal transition-all duration-150 ${currentFont.cssClass} ${section.kind === 'chorus' ? text : ''}`}
                 >
                   {section.lines.join('\n')}
+                </div>
                 </div>
               </section>
               );

@@ -107,6 +107,7 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.onClick();
   renderSong('alice', 'one', singleSong);
   assert.deepEqual(nodes.filter(node => node.tag === 'section').map(node => Boolean(node.props['data-lyrics-dimmed'])), [false, true, true, true, true]);
+  assert.equal(nodes.filter(node => node.props['data-lyrics-focus-outline']).length, 1);
   for (const position of [300, 600, 300, 900, 300, 1200]) {
     renderSong('alice', 'one', singleSong);
     next().props.onClick();
@@ -119,12 +120,14 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   assert.equal(repeat(), undefined);
   for (const [label, color] of [['Chorus 2', 'amber'], ['Bridge', 'violet'], ['Ending', 'emerald']]) {
     const jump = nodes.find(node => node.props['aria-label'] === `Jump to ${label}`);
-    const section = nodes.find(node => node.tag === 'section'
-      && node.children.some((child: any) => child?.children?.some((badge: any) => badge?.children?.includes(label))));
+    const content = nodes.filter(node => node.tag === 'section').map(node => node.children[0])
+      .find(node => node.children.some((child: any) => child?.children?.some((badge: any) => badge?.children?.includes(label))));
     const textClass = new RegExp(`text-${color}-900`);
     assert.match(jump.props.className, textClass);
-    assert.match(section.children[0].children[0].props.className, textClass);
-    assert.match(section.children[1].props.className, textClass);
+    assert.match(content.children.find((child: any) => child?.children?.[0]?.children?.includes(label)).children[0].props.className, textClass);
+    const lyricsClass = content.children.at(-1).props.className;
+    if (color === 'amber') assert.match(lyricsClass, textClass);
+    else assert.doesNotMatch(lyricsClass, textClass);
   }
   for (const position of [0, 300, 600, 900, 1200, 1500, 1800]) {
     next().props.onClick();
