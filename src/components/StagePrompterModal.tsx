@@ -388,6 +388,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     bg: 'bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100',
     headerBg: 'bg-white/95 border-slate-200 dark:bg-slate-950/90 dark:border-slate-800',
     sectionBadge: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40',
+    chorusBadge: 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-500/20 dark:text-amber-300 dark:border-amber-500/40',
     jumpPill: 'bg-slate-100 text-slate-700 hover:bg-sky-500 hover:text-white border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800',
     btnSecondary: 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white dark:border-slate-800',
   };
@@ -556,7 +557,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                 {section.type === 'section' && section.title && (
                   <div className="pt-2">
                     <span
-                      className={`inline-block px-3 py-1 rounded-md text-xs sm:text-sm font-black uppercase tracking-widest border ${themeStyles.sectionBadge}`}
+                      className={`inline-block px-3 py-1 rounded-md text-xs sm:text-sm font-black uppercase tracking-widest border ${section.kind === 'chorus' ? themeStyles.chorusBadge : themeStyles.sectionBadge}`}
                     >
                       {section.title}
                     </span>

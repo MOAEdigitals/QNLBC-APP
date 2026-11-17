@@ -60,6 +60,8 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   nodes.find(node => node.props['aria-label'] === 'Jump to Bridge').props.onClick();
   assert.equal(target.top, 600);
   assert.ok('minHeight' in sections.at(-1).props.style, 'last section reserves space to reach the viewport top');
+  assert.match(nodes.find(node => node.tag === 'span' && node.children.includes('Chorus')).props.className, /text-amber-900/);
+  assert.match(nodes.find(node => node.tag === 'span' && node.children.includes('Verse 1')).props.className, /text-sky-900/);
   const nav = nodes.find(node => node.tag === 'nav');
   assert.match(nav.props.className, /order-3/);
   assert.match(nav.props.className, /var\(--app-safe-bottom,0px\)\+0\.75rem/);
