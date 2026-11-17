@@ -35,7 +35,7 @@ interface ParsedSection {
   type: 'section' | 'regular';
   title?: string;
   shortLabel?: string;
-  kind?: 'verse' | 'chorus';
+  kind?: 'verse' | 'chorus' | 'bridge';
   lines: string[];
 }
 
@@ -294,7 +294,9 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           type: 'section',
           title: fullTitle,
           shortLabel: short,
-          kind: /^verse/i.test(fullTitle) ? 'verse' : /^(chorus|refrain)/i.test(fullTitle) ? 'chorus' : undefined,
+          kind: /^verse/i.test(fullTitle) ? 'verse'
+            : /^(chorus|refrain)/i.test(fullTitle) ? 'chorus'
+            : /^bridge/i.test(fullTitle) ? 'bridge' : undefined,
           lines: [],
         };
       } else {
@@ -314,7 +316,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const canRepeat = Boolean(preferenceKey && choruses.length === 1 && namedSections.some(section => section.kind === 'verse'));
   const repeatEnabled = canRepeat && (repeatOverride?.key === preferenceKey ? repeatOverride?.enabled : savedRepeat);
   const sequence = namedSections.flatMap((section, index) =>
-    repeatEnabled && section.kind === 'verse' && namedSections[index + 1]?.kind !== 'chorus'
+    repeatEnabled && (section.kind === 'verse' || section.kind === 'bridge') && namedSections[index + 1]?.kind !== 'chorus'
       ? [section, choruses[0]]
       : [section],
   );
@@ -443,7 +445,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
           </button>
 
           {/* Font Resizing Stepper */}
-          <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-900">
+          <div role="group" aria-label={`Lyrics font size: ${currentFont.label}`} className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-900">
             <button
               type="button"
               onClick={() => setFontSizeIndex((prev) => Math.max(0, prev - 1))}
@@ -455,9 +457,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             >
               A-
             </button>
-            <div className="px-1 text-center text-xs font-bold tracking-tight min-w-[46px] sm:px-2 sm:min-w-[68px]">
-              {currentFont.label}
-            </div>
             <button
               type="button"
               onClick={() => setFontSizeIndex((prev) => Math.min(FONT_SIZES.length - 1, prev + 1))}

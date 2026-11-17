@@ -103,12 +103,21 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   renderSong('alice', 'one', singleSong, true);
   assert.equal(repeat().props['aria-pressed'], true);
   nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.onClick();
-  for (const position of [300, 600, 300, 900, 1200]) {
+  for (const position of [300, 600, 300, 900, 300, 1200]) {
     renderSong('alice', 'one', singleSong);
     next().props.onClick();
     assert.equal(target.top, position);
   }
   renderSong('alice', 'one', singleSong);
+  assert.equal(next().props.disabled, true);
+  const repeatedChorusOne = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 1\nSing\nBridge\nKeep singing\nChorus 2\nSing again\nEnding\nDone';
+  renderSong('alice', 'one', repeatedChorusOne, true);
+  assert.equal(repeat(), undefined);
+  for (const position of [0, 300, 600, 900, 1200, 1500, 1800]) {
+    next().props.onClick();
+    assert.equal(target.top, position);
+    renderSong('alice', 'one', repeatedChorusOne);
+  }
   assert.equal(next().props.disabled, true);
   const twoChoruses = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 2\nSing again\nBridge\nKeep singing\nEnding\nDone';
   renderSong('alice', 'one', twoChoruses, true);
