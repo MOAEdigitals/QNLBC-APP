@@ -62,6 +62,7 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   assert.ok('minHeight' in sections.at(-1).props.style, 'last section reserves space to reach the viewport top');
   assert.match(nodes.find(node => node.tag === 'span' && node.children.includes('Chorus')).props.className, /text-amber-900/);
   assert.match(nodes.find(node => node.tag === 'span' && node.children.includes('Verse 1')).props.className, /text-sky-900/);
+  assert.match(nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.className, /bg-sky-100/);
   const nav = nodes.find(node => node.tag === 'nav');
   assert.match(nav.props.className, /order-3/);
   assert.match(nav.props.className, /var\(--app-safe-bottom,0px\)\+0\.75rem/);
@@ -107,6 +108,7 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.onClick();
   renderSong('alice', 'one', singleSong);
   assert.deepEqual(nodes.filter(node => node.tag === 'section').map(node => Boolean(node.props['data-lyrics-dimmed'])), [false, true, true, true, true]);
+  assert.match(nodes.find(node => node.props['aria-label'] === 'Jump to Verse 1').props.className, /bg-sky-400/);
   assert.equal(nodes.filter(node => node.props['data-lyrics-focus-outline']).length, 1);
   for (const position of [300, 600, 300, 900, 300, 1200]) {
     renderSong('alice', 'one', singleSong);
