@@ -377,6 +377,17 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
         {/* Right: Stage Sizing & Action Toolbar */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={toggleLyricsAlignment}
+            aria-label="Center lyrics"
+            aria-pressed={lyricsAlignment === 'center'}
+            title={lyricsAlignment === 'center' ? 'Align lyrics left' : 'Center lyrics'}
+            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${themeStyles.btnSecondary}`}
+          >
+            {lyricsAlignment === 'center' ? <AlignCenter className="size-5" aria-hidden="true" /> : <AlignLeft className="size-5" aria-hidden="true" />}
+          </button>
+
           {/* Font Resizing Stepper */}
           <div className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-800 dark:bg-slate-900">
             <button
@@ -407,17 +418,6 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
               A+
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={toggleLyricsAlignment}
-            aria-label="Center lyrics"
-            aria-pressed={lyricsAlignment === 'center'}
-            title={lyricsAlignment === 'center' ? 'Align lyrics left' : 'Center lyrics'}
-            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${themeStyles.btnSecondary}`}
-          >
-            {lyricsAlignment === 'center' ? <AlignCenter className="size-5" aria-hidden="true" /> : <AlignLeft className="size-5" aria-hidden="true" />}
-          </button>
 
           {/* Fullscreen Toggle */}
           <button
