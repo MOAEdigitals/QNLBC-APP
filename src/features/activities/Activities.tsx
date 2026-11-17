@@ -203,9 +203,10 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const activityGroups = groupActivityMonths(filteredItems, today);
   const currentYear = Number(today.slice(0, 4));
   const visibleMonth = dateKey(month).slice(0, 7);
-  const isPreviousMonth = visibleMonth < today.slice(0, 7);
-  const featuredGroup = activityGroups.find(group => group.key === `${visibleMonth}-${isPreviousMonth ? 'past' : 'upcoming'}`);
-  const otherGroups = activityGroups.filter(group => group !== featuredGroup);
+  const featuredGroup = activityGroups.find(group => group.key === `${visibleMonth}-upcoming`);
+  const completedThisMonth = activityGroups.find(group => group.key === `${visibleMonth}-past`);
+  const upcomingGroups = activityGroups.filter(group => group !== featuredGroup && group.key.endsWith('-upcoming'));
+  const completedGroups = activityGroups.filter(group => group !== completedThisMonth && group.key.endsWith('-past'));
   const calendarMonthLabel = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   useEffect(() => {
@@ -242,14 +243,25 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     setEditor({ item: { id: generateUUID(), title: '', activityDate: date, activityTime: '', description: '' }, isNew: true });
   };
 
+  const scrollToActivity = (id: string, reduceMotion: boolean) => {
+    const card = document.getElementById(`activity-card-${id}`);
+    if (!card) return;
+    const completed = card.closest<HTMLDetailsElement>('[data-completed-activities]');
+    if (completed) {
+      const archivedYear = completed.closest<HTMLDetailsElement>('details[data-year-archive]');
+      if (archivedYear) archivedYear.open = true;
+      completed.open = true;
+    }
+    scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), reduceMotion);
+  };
+
   const showActivitiesForDate = (date: string) => {
     setSelectedDate(date);
     if (overlaysByDate.has(date)) { setDateDetails(date); return; }
     const matches = filteredItems.filter(item => item.activityDate === date);
     const first = matches[0];
     if (!first) return;
-    const card = document.getElementById(`activity-card-${first.id}`);
-    if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    scrollToActivity(first.id, window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     highlightActivityCards(matches.map(item => document.getElementById(`activity-card-${item.id}`)).filter((element): element is HTMLElement => !!element), window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   };
 
@@ -312,6 +324,13 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     </section>;
   };
 
+  const renderCompletedGroup = (group: (typeof activityGroups)[number], label: string) => (
+    <details key={group.key} data-completed-activities open={!!search.trim() || undefined} className="rounded-2xl border border-slate-200 dark:border-slate-800">
+      <summary className="min-h-11 cursor-pointer px-4 py-3 font-semibold">{label}</summary>
+      <div className="px-3 pb-3">{renderActivityGroup(group, false)}</div>
+    </details>
+  );
+
   return <div className="relative mx-auto w-full max-w-[640px] pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
       <header className="mb-1 grid grid-cols-[44px_minmax(0,1fr)_44px] items-center">
@@ -349,7 +368,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     <BottomSheet open={!!dateDetails} title={dateDetails ? localDate(dateDetails).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''} onClose={() => setDateDetails(null)}>
       <div className="divide-y divide-slate-200 dark:divide-slate-700">
         {(overlaysByDate.get(dateDetails || '') || []).map(entry => <div key={entry.id} className="flex gap-3 py-3"><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${entry.kind === 'ph' ? 'bg-cyan-500' : entry.kind === 'local' ? 'bg-violet-500' : 'bg-rose-500'}`} /><div className="min-w-0"><p className="font-semibold">{entry.title}</p><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{entry.detail}{entry.kind === 'ph' ? ' · Philippines' : ''}</p>{entry.source && <a href={entry.source} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-600 dark:text-blue-400">Official source</a>}</div></div>)}
-        {(activitiesByDate.get(dateDetails || '') || []).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); const card = document.getElementById(`activity-card-${item.id}`); if (card) scrollActivityBelowHeader(card, document.querySelector<HTMLElement>('[data-app-header]'), true); }}><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${activityColors[activityKind(item.title)]}`} /><span className="font-semibold">{item.title}</span></button>)}
+        {(activitiesByDate.get(dateDetails || '') || []).map(item => <button type="button" key={item.id} className="flex w-full gap-3 py-3 text-left" onClick={() => { setDateDetails(null); scrollToActivity(item.id, true); }}><i aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${activityColors[activityKind(item.title)]}`} /><span className="font-semibold">{item.title}</span></button>)}
       </div>
     </BottomSheet>
     {activityFilterSheet}
@@ -359,8 +378,10 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     {loading ? <p role="status" className="py-8 text-center text-sm text-slate-500">Loading…</p> : filteredItems.length === 0 ? <div className="py-8 text-center"><CalendarDays className="mx-auto h-6 w-6 text-slate-400" /><p className="mt-2 text-sm text-slate-500">{search ? 'No matching activities.' : 'No activities yet.'}</p></div> : <div className="space-y-3">
       {featuredGroup
         ? renderActivityGroup(featuredGroup, false)
-        : <p className="px-1 text-sm text-slate-500">{search.trim() ? 'No matches this month.' : visibleMonth === today.slice(0, 7) ? 'No upcoming activities this month.' : 'No activities this month.'}</p>}
-      {yearList(otherGroups, group => group.items[0]?.activityDate, groups => groups.map(group => renderActivityGroup(group)), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
+        : !completedThisMonth && <p className="px-1 text-sm text-slate-500">{search.trim() ? 'No matches this month.' : 'No activities this month.'}</p>}
+      {completedThisMonth && renderCompletedGroup(completedThisMonth, 'Completed activities')}
+      {upcomingGroups.map(group => renderActivityGroup(group))}
+      {yearList(completedGroups, group => group.items[0]?.activityDate, groups => groups.map(group => renderCompletedGroup(group, group.label)), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
     </div>}
     </div>
 

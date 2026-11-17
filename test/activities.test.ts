@@ -15,7 +15,7 @@ test('activities show color-coded calendar dots by activity type', () => {
   assert.match(source, /Previous month/);
   assert.match(source, /Next month/);
   assert.match(source, /onClick=\{\(\) => showActivitiesForDate\(key\)\}/);
-  assert.match(source, /activity-card-\$\{first\.id\}/);
+  assert.match(source, /scrollToActivity\(first\.id,/);
   assert.doesNotMatch(source, /onClick=\{\(\) => canAdd && openNew\(key\)\}/);
   assert.match(source, /setSelectedDate\(date\)/);
   assert.match(source, /isSelected \? 'bg-blue-600/);

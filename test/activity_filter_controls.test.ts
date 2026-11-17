@@ -34,7 +34,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   const exports: any = {}; const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync('src/features/activities/Activities.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document, window: dom.window, console, Date: CalendarDate,
-    require: (name: string) => (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './calendarOverlays' ? calendarOverlayModel : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { highlightActivityCards: () => {}, scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './calendarOverlays' ? calendarOverlayModel : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
   });
   function Harness() {
     const [header, setHeader] = React.useState(null); updateHeader = setHeader;
@@ -124,7 +124,15 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     const monthHeading = () => document.querySelector('[data-activity-results] h3')!.textContent;
     const changeMonth = (label: string) => act(() => document.querySelector<HTMLButtonElement>('[aria-label="' + label + '"]')!.click());
     assert.notEqual(cards()[0], nextMonthItem.title);
-    assert.ok(cards().indexOf(completedItem.title) > cards().indexOf(nextMonthItem.title));
+    const completedArchive = document.querySelector<HTMLDetailsElement>('[data-completed-activities]')!;
+    assert.equal(completedArchive.open, false);
+    assert.ok(completedArchive.contains(document.getElementById('activity-card-' + completedItem.id)));
+    assert.equal(completedArchive.querySelector('summary')?.textContent, 'Completed activities');
+    await act(() => completedArchive.querySelector('summary')!.click());
+    assert.equal(completedArchive.open, true);
+    await act(() => completedArchive.querySelector('summary')!.click());
+    await act(() => document.querySelector<HTMLButtonElement>('[aria-label="2026-11-03, 1 activity"]')!.click());
+    assert.equal(completedArchive.open, true);
     await changeMonth('Next month');
     assert.equal(monthHeading(), nextMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
     assert.equal(cards()[0], nextMonthItem.title);
