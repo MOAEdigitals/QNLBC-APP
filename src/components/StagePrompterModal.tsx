@@ -423,8 +423,8 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
   const themeStyles = {
     bg: 'bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100',
     headerBg: 'bg-white/95 border-slate-200 dark:bg-slate-950/90 dark:border-slate-800',
-    sectionBadge: 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-500/20 dark:text-sky-300 dark:border-sky-500/40',
-    jumpPill: 'bg-slate-100 text-slate-700 hover:bg-sky-500 hover:text-white border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800',
+    sectionBadge: 'bg-slate-100 text-slate-900 border-slate-300 dark:bg-white/10 dark:text-white dark:border-white/50',
+    jumpPill: 'bg-slate-100 text-slate-700 hover:bg-white hover:text-slate-950 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800',
     btnSecondary: 'bg-slate-100 hover:bg-slate-200 text-slate-900 border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-white dark:border-slate-800',
   };
 
@@ -443,7 +443,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
       {/* Visual Feedback Indicator when Swiping Back to Exit */}
       {swipeOffset > 15 && (
         <div className="fixed left-4 top-1/2 -translate-y-1/2 z-[120] pointer-events-none flex items-center gap-2 px-3.5 py-2 rounded-full bg-slate-900/90 text-white border border-slate-700 shadow-2xl backdrop-blur-md">
-          <ArrowLeft className="w-4 h-4 text-sky-400" />
+          <ArrowLeft className="w-4 h-4 text-white" />
           <span className="text-xs font-bold">
             {swipeOffset > 65 ? 'Release to Exit' : 'Swipe to Exit'}
           </span>
@@ -465,7 +465,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             aria-label={choruses.length === 1 ? 'Repeat Chorus' : 'Next mode'}
             aria-pressed={Boolean(sequenceEnabled)}
             title={choruses.length === 1 ? 'Repeat Chorus' : 'Next mode'}
-            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${sequenceEnabled ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.btnSecondary}`}
+            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${sequenceEnabled ? 'bg-white text-slate-950 border-white' : themeStyles.btnSecondary}`}
           >
             <Repeat2 className="size-5" aria-hidden="true" />
           </button>}
@@ -547,7 +547,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
             const sectionColor = surface ? `${text} ${surface}` : '';
             const hasSectionColor = Boolean(sectionColor && (selected || s.kind === 'chorus'));
             const buttonColor = hasSectionColor ? sectionColor
-              : selected ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.jumpPill;
+              : selected ? 'bg-white text-slate-950 border-white' : themeStyles.jumpPill;
             return (
               <button
                 key={s.id}
