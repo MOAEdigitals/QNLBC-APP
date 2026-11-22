@@ -6,11 +6,12 @@ const dateLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', mo
 export function notificationDone(item: AssignmentNotification, now = Date.now()) {
   if (item.completed_at) return true;
   if (item.expires_at) return Date.parse(item.expires_at) <= now;
-  if (!item.service_date || item.kind === 'announcement' || item.kind === 'missing_lyrics') return false;
+  if (item.kind === 'announcement') return Date.parse(item.created_at) + 7 * 86400000 <= now;
+  if (!item.service_date || item.kind === 'missing_lyrics') return false;
   return serviceEnd(item.service_date, item.source_title || item.title) <= now;
 }
 
-export function notificationCopy(item: AssignmentNotification, now: Date) {
+export function notificationCopy(item: AssignmentNotification, now: Date): { title: string; body: string; emphasis?: string } {
   const eventDate = item.service_date;
   const today = eventDate === philippineDate(now);
   const tomorrow = eventDate === philippineDate(now.getTime() + 86400000);
@@ -23,12 +24,12 @@ export function notificationCopy(item: AssignmentNotification, now: Date) {
   if (item.kind === 'announcement') return { title: item.title, body };
   if (item.kind === 'assigned' || item.kind === 'practice') return {
     title: today ? 'You’re on today’s setlist!' : tomorrow ? 'You’re on tomorrow’s setlist!' : 'You’re on the setlist!',
-    body: [role, today || tomorrow ? '' : date].filter(Boolean).join(' · '),
+    body: [role, today || tomorrow ? '' : date, item.kind === 'assigned' && /song leader/i.test(role || '') ? 'Listen and rehearse.' : ''].filter(Boolean).join(' · '),
   };
   if (item.kind === 'updated') return { title: 'Your service date changed', body: [role, when].filter(Boolean).join(' · ') };
   if (item.kind === 'removed') return { title: 'Your assignment was removed', body: when ? 'Setlist ' + when : '' };
   if (item.kind === 'backup_setlist') return { title: 'Setlist ready for practice', body: [when, 'Listen and rehearse'].filter(Boolean).join(' · ') };
-  if (item.kind === 'missing_lyrics') return { title: 'Lyrics needed', body: [item.source_title || body, when].filter(Boolean).join(' · ') };
+  if (item.kind === 'missing_lyrics') return { title: 'Lyrics needed', body: `${item.source_title || 'The singer/group'}’s song number lyrics needed.${date ? ' ' + date + '.' : ''}` };
 
   const legacy = /^(?:Service reminder|Event reminder|Birthday reminder|Birthday today|Anniversary reminder|Recognition reminder):\s*(.+)$/i.exec(item.title)?.[1];
   const cleanTitle = item.title.replace(/ is (?:today|tomorrow)!?$/i, '').replace(/^It[’']s\s+/i, '').replace(/ today!?$/i, '');
@@ -42,15 +43,17 @@ export function notificationCopy(item: AssignmentNotification, now: Date) {
   }
   if (item.kind === 'birthday') {
     const birthdayName = name.replace(/[’']s birthday!?$/i, '');
-    return { title: birthdayName + '’s birthday' + (today ? ' today!' : tomorrow ? ' tomorrow!' : ''), body: today || tomorrow ? '' : date };
+    const birthdayWhen = today ? ' today' : tomorrow ? ' tomorrow' : date ? ' on ' + date : '';
+    return { title: 'It’s ' + birthdayName + '’s birthday' + birthdayWhen + '! Let’s greet them a blessed birthday!', body: '', emphasis: birthdayName };
   }
   if (item.kind === 'anniversary') {
     const wedding = /Wedding anniversary/i.test(body);
     const title = wedding && !/wedding anniversary/i.test(name) ? name + '’s wedding anniversary' : name;
-    return { title, body: when };
+    const anniversaryWhen = today ? ' today' : tomorrow ? ' tomorrow' : date ? ' on ' + date : '';
+    return { title: (wedding ? 'It’s ' : '') + title + (wedding ? anniversaryWhen : ' is' + anniversaryWhen) + '! ' + (wedding ? 'Let’s greet them a blessed wedding anniversary!' : 'Let’s give thanks together!'), body: '', emphasis: name };
   }
   if (item.kind === 'recognition') {
-    const achievement = /\s—\s(.+) on .+\.$/.exec(body)?.[1];
+    const achievement = /\s—\s(.+) on .+\.$/.exec(body)?.[1] || /Let[’']s celebrate (.+)!$/i.exec(body)?.[1];
     return { title: /^Congratulations/i.test(name) ? name : 'Congratulations, ' + name + '!', body: achievement || '' };
   }
   return { title: item.title, body };

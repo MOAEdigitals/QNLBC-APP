@@ -105,7 +105,6 @@ const Activities = React.lazy(() => import('../features/activities/Activities'))
 type ScheduledSongDraft = Pick<Partial<PracticeGroupEntry>, 'songId' | 'songTitle' | 'lyrics' | 'lyricsMode' | 'lyrics_mode'> & { minusOneLink?: string };
 
 interface SpecialNumberTabProps {
-  notificationSongNumber?: { id: string; request: number } | null;
   readOnly?: boolean;
   offlineActivities?: ChurchActivity[];
   birthdays?: BirthdayCelebrant[];
@@ -157,7 +156,6 @@ const VOCAL_PART_OPTIONS: VocalPartLabel[] = [
 ];
 
 export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
-  notificationSongNumber,
   birthdays = [],
   onLoadBirthdays,
   currentUser,
@@ -204,11 +202,6 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
 
   // Schedules state
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!notificationSongNumber) return;
-    setActiveSubTab('schedules');
-    setSelectedEntryId(notificationSongNumber.id);
-  }, [notificationSongNumber]);
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Partial<SpecialNumberEntry> | null>(null);
   const [scheduleSearchQuery, setScheduleSearchQuery] = useState('');

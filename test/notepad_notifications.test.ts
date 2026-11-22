@@ -119,12 +119,12 @@ test('admin notification schedules toggle alarm-style weekdays and save only on 
   });
 });
 
-test('notification panel marks a tapped card or all cards read without deleting history', async () => {
+test('notification panel marks a tapped card or all cards done without deleting history', async () => {
   const read: any[] = []; let opened = '';
   await fixture('src/components/NotificationInbox.tsx', { createNotificationReadTimer: () => { throw Error('Opening the inbox must not start automatic read timers'); } }, async (exports, root, dom) => {
     await act(async () => root.render(React.createElement(exports.NotificationInbox, {
       items: [{ id: 'one', title: 'Sunday Service', body: 'Service starts at 10 AM. Touch to see setlist.', kind: 'event', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
-      unreadCount: 1, loading: false, error: '', pushStatus: 'web', onMarkRead: async (ids?: string[]) => { read.push(ids); },
+      unreadCount: 1, loading: false, error: '', pushStatus: 'web', onComplete: async (ids?: string[]) => { read.push(ids); },
       onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onCalendar: (kind: string) => { opened = kind; }, onClose() {},
     })));
     assert.equal(read.length, 0, 'opening the panel preserves unread notifications');
@@ -134,14 +134,14 @@ test('notification panel marks a tapped card or all cards read without deleting 
     assert.match(document.querySelector('#root')!.textContent!, /10 AM/);
     assert.doesNotMatch(document.querySelector('#root')!.textContent!, /Touch to see setlist/);
     await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Sunday Service'))!.click());
-    assert.deepEqual(Array.from(read[0]), ['one']); assert.equal(opened, 'event');
+    assert.deepEqual(Array.from(read[0]), ['one']); assert.equal(opened, '', 'tapping completes without navigating');
     assert.equal(document.querySelector('[role="menu"]'), null, 'bulk action is hidden in the header menu');
     await act(() => label('Notification options').click());
     assert.ok(document.querySelector('[role="menu"]'));
     await act(() => document.getElementById('notifications-title')!.click());
     assert.equal(document.querySelector('[role="menu"]'), null, 'outside taps dismiss the menu');
     await act(() => label('Notification options').click());
-    await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Mark all as read')!.click());
+    await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent === 'Mark all as done')!.click());
     assert.equal(read.length, 2); assert.equal(read[1], undefined);
     assert.equal(document.querySelector('[role="menu"]'), null);
     assert.match(document.querySelector('#root')!.textContent!, /Sunday Service/, 'read cards remain in history');
@@ -154,7 +154,7 @@ test('failed marking keeps the notification unread and offers a retry', async ()
     await act(async () => root.render(React.createElement(exports.NotificationInbox, {
       items: [{ id: 'one', title: 'Reminder', body: 'Today', kind: 'custom', read_at: null, created_at: '2026-11-01T00:00:00Z' }],
       unreadCount: 1, loading: false, error: '', pushStatus: 'web',
-      onMarkRead: async () => { attempts++; throw Error('Connection failed'); },
+      onComplete: async () => { attempts++; throw Error('Connection failed'); },
       onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onClose() {},
     })));
     for (let attempt = 1; attempt <= 2; attempt++) {
@@ -183,7 +183,7 @@ test('clearing a Manila day affects only its cards and Undo restores them', asyn
     await act(() => root.render(React.createElement(exports.NotificationInbox, {
       items: [item('Before midnight', '2026-11-11T15:59:00Z'), item('Morning', '2026-11-11T23:00:00Z'), item('After midnight', '2026-11-11T16:01:00Z')],
       unreadCount: 3, loading: false, error: '', pushStatus: 'web',
-      onMarkRead: async () => {}, onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onClose() {},
+      onComplete: async () => {}, onEnable: async () => {}, onRefresh: async () => {}, onOpen() {}, onClose() {},
     })));
     const groups = document.querySelectorAll('section');
     assert.equal(groups.length, 2);

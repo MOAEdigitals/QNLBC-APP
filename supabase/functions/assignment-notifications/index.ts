@@ -42,12 +42,14 @@ Deno.serve(async request => {
         let result = 'retry';
         // Keep notification payloads within FCM's byte limit, including Unicode.
         // The complete message remains available in the recipient's inbox.
-        const characters = Array.from(String(delivery.body));
-        const pushBody = characters.length > 500 ? characters.slice(0, 500).join('') + '…' : delivery.body;
+        const inlineGreeting = delivery.kind === 'birthday' || delivery.kind === 'anniversary';
+        const notificationBody = inlineGreeting ? `${delivery.title} ${delivery.body}` : String(delivery.body);
+        const characters = Array.from(notificationBody);
+        const pushBody = characters.length > 500 ? characters.slice(0, 500).join('') + '…' : notificationBody;
         try {
           const response = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(account.project_id)}/messages:send`, {
             method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(15000),
-            body: JSON.stringify({ message: { token: delivery.token, notification: { title: delivery.title, body: pushBody }, data: { userId: delivery.user_id, ...(delivery.setlist_id ? { setlistId: delivery.setlist_id } : { kind: delivery.kind || 'announcement' }), notificationId: delivery.notification_id }, android: { priority: 'high', ttl: '3600s', notification: { channel_id: 'assignments', sound: 'default', default_sound: true, tag: delivery.notification_id, icon: 'ic_notification' } } } }),
+            body: JSON.stringify({ message: { token: delivery.token, notification: { ...(inlineGreeting ? {} : {title:delivery.title}), body: pushBody }, data: { userId: delivery.user_id, ...(delivery.setlist_id ? { setlistId: delivery.setlist_id } : { kind: delivery.kind || 'announcement' }), notificationId: delivery.notification_id }, android: { priority: 'high', ttl: '3600s', notification: { channel_id: 'assignments', sound: 'default', default_sound: true, tag: delivery.notification_id, icon: 'ic_notification' } } } }),
           });
           if (response.ok) result = 'sent';
           else {

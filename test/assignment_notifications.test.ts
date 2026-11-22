@@ -147,7 +147,10 @@ test('dispatcher sends only claimed device deliveries and acknowledges provider 
       assert.equal(payload.message.data.userId, user1); assert.equal(payload.message.data.setlistId, standalone ? undefined : setlistId);
       if (standalone) assert.equal(payload.message.data.kind, kind);
       assert.equal(payload.message.android.priority, 'high');
-      assert.ok(payload.message.notification.title);
+      if (kind === 'birthday' || kind === 'anniversary') {
+        assert.equal(payload.message.notification.title,undefined,'greetings use a single message without a separate push title');
+        assert.equal(payload.message.notification.body,'Assignment Assigned for Sunday');
+      } else assert.ok(payload.message.notification.title);
       assert.equal(payload.message.android.notification.tag, setlistId);
       if (outcome === 'sent') return Response.json({ name: 'messages/test' });
       return Response.json({ error: { details: outcome === 'invalid' ? [{ errorCode: 'UNREGISTERED' }] : [] } }, { status: outcome === 'invalid' ? 404 : 503 });

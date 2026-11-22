@@ -5,7 +5,7 @@ import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '../supabase';
 import { hasNewUnreadNotifications, notificationSoundEnabled, playNotificationSound, unlockNotificationSound } from '../utils/notificationSound';
-import { fetchAssignmentNotifications, fetchUnreadNotificationCount, markNotificationsRead, listenForAssignmentPush, enableAssignmentPush, refreshAssignmentPushPermission, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
+import { fetchAssignmentNotifications, fetchUnreadNotificationCount, markNotificationsRead, completeNotifications, listenForAssignmentPush, enableAssignmentPush, refreshAssignmentPushPermission, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
 export function useAssignmentNotifications(userId: string | undefined, onOpen: (id: string) => void, onAnnouncement?: () => void, onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void) {
   const clock = useLiveClock();
   const [items, setItems] = useState<AssignmentNotification[]>([]);
@@ -59,6 +59,13 @@ export function useAssignmentNotifications(userId: string | undefined, onOpen: (
     setItems(rows => rows.map(item => !ids || ids.includes(item.id) ? { ...item, read_at: item.read_at || new Date().toISOString() } : item));
     await refresh();
   }, [refresh]);
+  const markDone = useCallback(async (ids?: string[]) => {
+    const own = epoch.current;
+    await completeNotifications(ids);
+    if (own !== epoch.current) return;
+    setItems(rows => rows.map(item => !ids || ids.includes(item.id) ? { ...item, completed_at: item.completed_at || new Date().toISOString() } : item));
+    await refresh();
+  }, [refresh]);
   const unreadCount = Math.max(0, serverUnreadCount - items.filter(item => !item.read_at && !item.completed_at && notificationDone(item, clock)).length);
-  return { items: items.filter(item => item.user_id === userId), unreadCount, markRead, error, loading, refresh, pushStatus, enable };
+  return { items: items.filter(item => item.user_id === userId), unreadCount, markRead, markDone, error, loading, refresh, pushStatus, enable };
 }

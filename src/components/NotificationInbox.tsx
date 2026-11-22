@@ -1,14 +1,13 @@
-import { notificationCopy, notificationPreview, notificationDone } from '../utils/notificationPresentation';
+import { notificationCopy, notificationDone } from '../utils/notificationPresentation';
 import { useLiveClock } from '../hooks/useLiveClock';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Award, Bell, Calendar, CalendarDays, Cake, Heart, Megaphone, Play, RefreshCw, Trash2, MoreHorizontal, CheckCheck, X, Music } from 'lucide-react';
+import { ArrowLeft, Award, Bell, Calendar, CalendarDays, Cake, Heart, Megaphone, RefreshCw, Trash2, MoreHorizontal, CheckCheck, X, Music } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { dismissNotification, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
-interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onMarkRead: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onOpen: (id: string) => void; onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void; onSongNumber?: (id: string) => void; onClose: () => void }
+interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onComplete: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onClose: () => void }
 const manilaDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' });
 const manilaTime = new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit' });
 const manilaShortDate = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', weekday: 'long', month: 'short', day: 'numeric' });
-const serviceDateLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', year: 'numeric' });
 const categories = {
   assigned: { label: 'Setlist', Icon: CalendarDays, color: 'bg-blue-600' },
   updated: { label: 'Setlist', Icon: CalendarDays, color: 'bg-blue-600' },
@@ -23,11 +22,9 @@ const categories = {
   missing_lyrics: { label: 'Song Numbers', Icon: Music, color: 'bg-orange-600' },
 };
 
-export function NotificationInbox({ items, unreadCount, loading, error, pushStatus, onMarkRead, onEnable, onRefresh, onOpen, onCalendar, onSongNumber, onClose }: Props) {
+export function NotificationInbox({ items, unreadCount, loading, error, pushStatus, onComplete, onEnable, onRefresh, onClose }: Props) {
   const clock = useLiveClock();
   const now = new Date(clock);
-  const [detail, setDetail] = useState<AssignmentNotification | null>(null);
-  const detailCopy = detail && notificationCopy(detail, now);
   const [opening, setOpening] = useState<string | null>(null);
   const [readError, setReadError] = useState('');
   const [hidden, setHidden] = useState<string[]>([]);
@@ -75,31 +72,30 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
     finally { deleting.current = false; setOpening(null); }
   };
   useBackLayer(true, onClose);
-  useBackLayer(!!detail, () => setDetail(null));
   useBackLayer(menuOpen, () => setMenuOpen(false));
   const markAll = async () => {
     setMenuOpen(false); setMarkingAll(true); setReadError('');
-    try { await onMarkRead(); }
+    try { await onComplete(); }
     catch (e) { setReadError((e as Error).message); }
     finally { setMarkingAll(false); }
   };
   const open = async (item: AssignmentNotification) => {
     setOpening(item.id); setReadError('');
-    try { await onMarkRead([item.id]); if (item.setlist_id) { onOpen(item.setlist_id); onClose(); } else if (item.kind === 'birthday' || item.kind === 'event' || item.kind === 'anniversary' || item.kind === 'recognition') { onCalendar?.(item.kind); onClose(); } else if (item.special_number_id && onSongNumber) { onSongNumber(item.special_number_id); onClose(); } else { setDetail(item); } }
+    try { if (!notificationDone(item,clock)) await onComplete([item.id]); }
     catch (e) { setReadError((e as Error).message); }
     finally { setOpening(null); }
   };
   return <div role="dialog" aria-modal="true" aria-labelledby="notifications-title" className="ui-viewport-screen fixed inset-0 z-[190] bg-white dark:bg-slate-950 flex flex-col" style={{ paddingTop: 'var(--app-safe-top)', paddingBottom: 'var(--app-safe-bottom)' }}>
     <header className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 p-4">
-      <button type="button" aria-label={detail ? 'Back to notifications' : 'Close notifications'} className="grid h-11 w-11 shrink-0 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => detail ? setDetail(null) : onClose()}><ArrowLeft className="h-5 w-5" /></button>
-      <h2 id="notifications-title" className="min-w-0 flex-1 truncate text-xl font-bold">{detailCopy?.title ?? 'Notifications'}</h2>
-      {!detail && <div className="flex">
+      <button type="button" aria-label="Close notifications" className="grid h-11 w-11 shrink-0 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" onClick={onClose}><ArrowLeft className="h-5 w-5" /></button>
+      <h2 id="notifications-title" className="min-w-0 flex-1 truncate text-xl font-bold">Notifications</h2>
+      <div className="flex">
         <div className="relative" ref={menu}><button type="button" aria-label="Notification options" aria-haspopup="menu" aria-expanded={menuOpen} className="h-11 w-11 grid place-items-center" onClick={() => setMenuOpen(value => !value)}><MoreHorizontal className="h-5 w-5" /></button>
-          {menuOpen && <div role="menu" aria-label="Notification options" className="absolute right-0 top-full z-10 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"><button type="button" role="menuitem" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" disabled={!unreadCount || !!opening || markingAll} onClick={() => void markAll()}><CheckCheck className="h-4 w-4" />Mark all as read</button><button type="button" role="menuitem" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800" disabled={loading} onClick={() => { setMenuOpen(false); void onRefresh(); }}><RefreshCw className="h-4 w-4" />Refresh</button></div>}
+          {menuOpen && <div role="menu" aria-label="Notification options" className="absolute right-0 top-full z-10 w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"><button type="button" role="menuitem" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" disabled={!visible.some(item => !notificationDone(item,clock)) || !!opening || markingAll} onClick={() => void markAll()}><CheckCheck className="h-4 w-4" />Mark all as done</button><button type="button" role="menuitem" className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800" disabled={loading} onClick={() => { setMenuOpen(false); void onRefresh(); }}><RefreshCw className="h-4 w-4" />Refresh</button></div>}
         </div>
-      </div>}
+      </div>
     </header>
-    {detailCopy ? <article className="mx-auto w-full max-w-xl flex-1 overflow-y-auto whitespace-pre-wrap break-words p-5">{detailCopy.body}</article> : <div className="mx-auto w-full max-w-xl flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
+    <div className="mx-auto w-full max-w-xl flex-1 min-h-0 overflow-y-auto p-4 space-y-3">
 
       {!!deleted.length && <div className="fixed inset-x-4 bottom-[calc(var(--app-safe-bottom)+1rem)] z-20 mx-auto flex max-w-xl items-center justify-between rounded-xl bg-slate-100 dark:bg-slate-800 px-3 text-sm shadow-md"><span role="status">{deleted.length === 1 ? 'Notification cleared.' : `${deleted.length} notifications cleared.`}</span><button type="button" className="min-h-11 px-3 font-semibold text-blue-700 dark:text-blue-300" disabled={!!opening || markingAll} onClick={() => void remove(deleted, true)}>Undo</button></div>}
       {pushStatus !== 'web' && pushStatus !== 'enabled' && <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700 text-sm space-y-2">
@@ -122,7 +118,7 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
               const done = notificationDone(item, clock);
               const unread = !item.read_at && !done;
               const copy = notificationCopy(item, now);
-              const preview = notificationPreview(copy);
+              const preview = copy.body;
               return <SwipeNotification key={item.id} disabled={!!opening || markingAll} label={copy.title} onDelete={() => void remove([item.id])} onOpen={() => void open(item)} unread={unread}>
                 <span className="flex items-center gap-2 border-b border-slate-900/5 bg-slate-100/80 px-3 py-2.5 text-xs text-slate-600 dark:border-white/5 dark:bg-white/5 dark:text-slate-300">
                   <span className={`grid size-6 shrink-0 place-items-center rounded-lg text-white ${color}`}><Icon className="size-3.5" aria-hidden="true" /></span>
@@ -132,15 +128,15 @@ export function NotificationInbox({ items, unreadCount, loading, error, pushStat
                 </span>
                 <span className={`relative block py-3 pl-7 pr-12 ${done ? 'text-slate-500 dark:text-slate-400' : ''}`}>
                   {unread && <><span aria-hidden="true" className="absolute left-3 top-4 size-2 rounded-full bg-blue-500" /><span className="sr-only">Unread: </span></>}
-                  <span className="block break-words text-sm font-semibold">{copy.title}</span>
-                  {preview && <span className="mt-0.5 line-clamp-2 break-words text-sm text-slate-600 dark:text-slate-300">{preview}</span>}
+                  <span className={`block break-words text-sm ${copy.emphasis ? 'font-normal' : 'font-semibold'}`}>{copy.emphasis && copy.title.includes(copy.emphasis) ? <>{copy.title.slice(0,copy.title.indexOf(copy.emphasis))}<strong className="font-semibold">{copy.emphasis}</strong>{copy.title.slice(copy.title.indexOf(copy.emphasis)+copy.emphasis.length)}</> : copy.title}</span>
+                  {preview && <span className="mt-0.5 whitespace-pre-wrap break-words text-sm text-slate-600 dark:text-slate-300">{preview}</span>}
                 </span>
               </SwipeNotification>;
             })}
           </section>;
         })}
       </div>}
-    </div>}
+    </div>
   </div>;
 }
 

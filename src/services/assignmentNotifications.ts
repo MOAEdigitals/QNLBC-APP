@@ -73,6 +73,10 @@ export async function markNotificationsRead(ids?: string[]): Promise<void> {
   const { error } = await supabase.rpc('mark_notifications_read', { notification_ids: ids ?? null });
   if (error) throw new Error('Could not mark notifications as read. Please try again.');
 }
+export async function completeNotifications(ids?: string[]): Promise<void> {
+  const { error } = await supabase.rpc('complete_notifications', { notification_ids: ids ?? null });
+  if (error) throw new Error('Could not mark notification as done. Please try again.');
+}
 export async function enableAssignmentPush(): Promise<PushStatus> {
   if (!android()) return 'web';
   if (!configured()) return 'setup';
