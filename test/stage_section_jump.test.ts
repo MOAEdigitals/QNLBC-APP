@@ -120,12 +120,23 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   const versesOnly = 'Verse 1\nOne\nVerse 2\nTwo\nVerse 3\nThree';
   renderSong('alice', 'verses-only', versesOnly, true);
   assert.equal(repeat(), undefined);
+  const mode = () => nodes.find(node => node.props['aria-label'] === 'Next mode');
+  assert.equal(next(), undefined, 'verse-only songs do not enable Next automatically');
+  assert.equal(mode().props['aria-pressed'], false);
+  mode().props.onClick();
+  renderSong('alice', 'verses-only', versesOnly);
   for (const position of [0, 300, 600]) {
     next().props.onClick();
     assert.equal(target.top, position);
     renderSong('alice', 'verses-only', versesOnly);
   }
   assert.equal(next().props.disabled, true, 'Next follows verses without requiring a chorus');
+  renderSong('alice', 'verses-only', versesOnly, true);
+  assert.equal(mode().props['aria-pressed'], true, 'the same user and song remember the enabled mode');
+  renderSong('bob', 'verses-only', versesOnly, true);
+  assert.equal(next(), undefined, 'another user has an independent preference');
+  renderSong('alice', 'another-verse-song', versesOnly, true);
+  assert.equal(next(), undefined, 'another song starts with Next disabled');
   const repeatedChorusOne = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 1\nSing\nBridge\nKeep singing\nChorus 2\nSing again\nEnding\nDone';
   renderSong('alice', 'one', repeatedChorusOne, true);
   assert.equal(repeat(), undefined);
@@ -154,12 +165,15 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   }
   assert.equal(next().props.disabled, true);
   const twoChoruses = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 2\nSing again\nBridge\nKeep singing\nEnding\nDone';
-  renderSong('alice', 'one', twoChoruses, true);
+  renderSong('alice', 'fresh-multi', twoChoruses, true);
   assert.equal(repeat(), undefined, 'a song with two choruses follows its written sequence');
+  assert.equal(next(), undefined, 'multiple choruses do not enable Next automatically either');
+  mode().props.onClick();
+  renderSong('alice', 'fresh-multi', twoChoruses);
   for (const position of [0, 300, 600, 900, 1200, 1500]) {
     next().props.onClick();
     assert.equal(target.top, position);
-    renderSong('alice', 'one', twoChoruses);
+    renderSong('alice', 'fresh-multi', twoChoruses);
   }
   assert.equal(next().props.disabled, true);
 });

@@ -326,10 +326,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
   const namedSections = parsedSections.filter(section => section.type === 'section');
   const choruses = namedSections.filter(section => section.kind === 'chorus');
-  const canRepeat = Boolean(preferenceKey && choruses.length === 1 && namedSections.some(section => section.kind === 'verse'));
-  const repeatEnabled = canRepeat && (repeatOverride?.key === preferenceKey ? repeatOverride?.enabled : savedRepeat);
+  const canSequence = Boolean(preferenceKey && namedSections.length > 1);
+  const sequenceEnabled = canSequence && (repeatOverride?.key === preferenceKey ? repeatOverride?.enabled : savedRepeat);
   const sequence = namedSections.flatMap((section, index) =>
-    repeatEnabled && (section.kind === 'verse' || section.kind === 'bridge') && namedSections[index + 1]?.kind !== 'chorus'
+    sequenceEnabled && choruses.length === 1 && (section.kind === 'verse' || section.kind === 'bridge') && namedSections[index + 1]?.kind !== 'chorus'
       ? [section, choruses[0]]
       : [section],
   );
@@ -337,10 +337,10 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     ? sequenceStep.index
     : sequence.findIndex(section => section.id === activeSectionId);
   const nextSection = sequence[currentStep + 1];
-  const showNext = repeatEnabled || choruses.length > 1 || (choruses.length === 0 && namedSections.length > 1);
-  const toggleRepeatChorus = () => {
-    if (!canRepeat || !preferenceKey) return;
-    const enabled = !repeatEnabled;
+  const showNext = sequenceEnabled;
+  const toggleSequence = () => {
+    if (!canSequence || !preferenceKey) return;
+    const enabled = !sequenceEnabled;
     setRepeatOverride({ key: preferenceKey, enabled });
     setSequenceStep(null);
     try {
@@ -459,13 +459,13 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
 
         {/* Right: Stage Sizing & Action Toolbar */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {canRepeat && <button
+          {canSequence && <button
             type="button"
-            onClick={toggleRepeatChorus}
-            aria-label="Repeat Chorus"
-            aria-pressed={Boolean(repeatEnabled)}
-            title="Repeat Chorus"
-            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${repeatEnabled ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.btnSecondary}`}
+            onClick={toggleSequence}
+            aria-label={choruses.length === 1 ? 'Repeat Chorus' : 'Next mode'}
+            aria-pressed={Boolean(sequenceEnabled)}
+            title={choruses.length === 1 ? 'Repeat Chorus' : 'Next mode'}
+            className={`grid size-11 place-items-center rounded-xl border cursor-pointer transition-colors ${sequenceEnabled ? 'bg-sky-400 text-slate-950 border-sky-400' : themeStyles.btnSecondary}`}
           >
             <Repeat2 className="size-5" aria-hidden="true" />
           </button>}
