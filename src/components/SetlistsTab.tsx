@@ -1,4 +1,4 @@
-import { SuccessIcon, CopyIcon as Copy } from './AnimatedIcons';
+import { CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { BottomSheet } from './BottomSheet';
 import { SheetDateField } from './SheetDateField';
@@ -326,7 +326,6 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
-  const [copiedSetlistId, setCopiedSetlistId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const scrollToSearchResults = useSearchResultsScroll(searchQuery);
   useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, onOpen: scrollToSearchResults, placeholder: 'Search names, songs, dates, or setlists', label: 'Search setlists' });
@@ -447,23 +446,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     }
   }, [collapseSignal, selectedSetlistId, isEditing]);
 
-  const handleCopySetlistRequest=useRef(0);
-  const copyIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current); }, []);
   const handleCopySetlist = async (setlist: Setlist, e?: React.MouseEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    e?.preventDefault();
+    e?.stopPropagation();
+    setOpenMenuSetlistId(null);
     const text = formatSetlistForMessenger(setlist, songs);
-    const request=++handleCopySetlistRequest.current;
-    setCopiedSetlistId(null);
-    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
-    if (!await copyWithFeedback(text, 'Setlist copied.')) return;
-    if (request !== handleCopySetlistRequest.current) return;
-    setCopiedSetlistId(setlist.id);
-    if (copyIndicatorTimer.current) clearTimeout(copyIndicatorTimer.current);
-    copyIndicatorTimer.current = setTimeout(() => setCopiedSetlistId(null), 2500);
+    return copyWithFeedback(text, 'Setlist copied.');
   };
 
   // Back swipe & dirty state tracking
@@ -1037,23 +1025,11 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleCopySetlist(item, e)}
-                        className={`w-full px-3.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2 ${
-                          copiedSetlistId === item.id
-                            ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700'
-                            : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                        }`}
+                        className="w-full px-3.5 py-2 rounded-lg transition-colors cursor-pointer flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                         title="Copy setlist for Messenger"
                       >
-                        {copiedSetlistId === item.id ? (
-                          <>
-                            <SuccessIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                              Copied!
-                            </span>
-                          </>
-                        ) : (
-                          <><Copy className="w-4 h-4" /><span>Copy setlist</span></>
-                        )}
+                        <Copy className="w-4 h-4" />
+                        <span>Copy setlist</span>
                       </button>
                           <button
                             type="button"
