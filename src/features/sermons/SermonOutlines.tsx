@@ -1,3 +1,4 @@
+import { CopyIcon as Copy } from '../../components/AnimatedIcons';
 import { useScreenRefresh } from '../../hooks/usePullToRefresh';
 import { copyWithFeedback } from '../../services/clipboard';
 import { SheetDateField } from '../../components/SheetDateField';
@@ -9,7 +10,7 @@ import { upcomingCardStatuses } from '../../utils/upcomingCards';
 import { useBackLayer } from '../../hooks/useBackLayer';
 import { monthList } from '../../components/MonthSeparators';
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Plus, ArrowLeft, Copy, Pencil, X, FileText, Search, Paperclip, Trash2 } from 'lucide-react';
+import { Plus, ArrowLeft, Pencil, X, FileText, Search, Paperclip, Trash2 } from 'lucide-react';
 import type { UserAccount } from '../../types';
 import { parseDate, formatDateStr, getNextSundayStr, getTodayStr } from '../../utils/dateUtils';
 import { generateUUID } from '../../services/supabaseData';

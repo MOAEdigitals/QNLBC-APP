@@ -1,7 +1,8 @@
+import { RefreshIcon as RefreshCw } from './AnimatedIcons';
 import { notificationCopy, notificationDone } from '../utils/notificationPresentation';
 import { useLiveClock } from '../hooks/useLiveClock';
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Award, Bell, Calendar, CalendarDays, Cake, Heart, Megaphone, RefreshCw, Trash2, MoreHorizontal, CheckCheck, X, Music } from 'lucide-react';
+import { ArrowLeft, Award, Bell, Calendar, CalendarDays, Cake, Heart, Megaphone, Trash2, MoreHorizontal, CheckCheck, X, Music } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { dismissNotification, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
 interface Props { items: AssignmentNotification[]; unreadCount: number; loading: boolean; error: string; pushStatus: PushStatus; onComplete: (ids?: string[]) => Promise<void>; onEnable: () => Promise<void>; onRefresh: () => Promise<void>; onClose: () => void }

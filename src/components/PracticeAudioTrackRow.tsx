@@ -1,3 +1,4 @@
+import { DownloadIcon as Download, RefreshIcon as RefreshCw, LoadingIcon as Loader2 } from './AnimatedIcons';
 import { Capacitor } from '@capacitor/core';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -7,12 +8,9 @@ import {
   Pencil,
   Trash2,
   Mic,
-  Download,
   AlertCircle,
   ExternalLink,
   Upload,
-  RefreshCw,
-  Loader2,
   Cloud,
 } from 'lucide-react';
 import { getAudioFromStorage, subscribeToAudioUpdates } from '../utils/audioStorage';

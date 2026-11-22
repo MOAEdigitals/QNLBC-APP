@@ -1,5 +1,6 @@
+import { DownloadIcon as Download } from '../../components/AnimatedIcons';
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import type { SermonAttachment } from './model';
 import { downloadSermonFile } from './attachments';

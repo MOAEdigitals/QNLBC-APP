@@ -1,3 +1,4 @@
+import { CopyIcon as Copy, LoadingIcon as Loader2 } from '../../components/AnimatedIcons';
 import { useLiveClock } from '../../hooks/useLiveClock';
 import { philippineDate } from '../../utils/serviceCompletion';
 import { useScreenRefresh } from '../../hooks/usePullToRefresh';
@@ -10,7 +11,7 @@ import { BottomSheet } from '../../components/BottomSheet';
 import { UpcomingBadge } from '../../components/UpcomingBadge';
 import { highlightActivityCards, scrollActivityBelowHeader } from './highlight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock, Copy, ListFilter, Loader2, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock, ListFilter, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { BirthdayCelebrant, ChurchActivity, UserAccount } from '../../types';
 import { generateUUID } from '../../services/supabaseData';
 import { deleteActivity, fetchActivities, saveActivity } from './data';

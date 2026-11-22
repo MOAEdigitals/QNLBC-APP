@@ -1,5 +1,6 @@
+import { DownloadIcon as Download } from './AnimatedIcons';
 import React, { useRef, useState } from 'react';
-import { Download } from 'lucide-react';
+
 import { exportAllSongs } from '../services/songExport';
 export function SongExport() {
   const lock = useRef(false);

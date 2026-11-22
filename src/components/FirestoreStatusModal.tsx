@@ -1,3 +1,4 @@
+import { RefreshIcon as RefreshCw } from './AnimatedIcons';
 import React, { useState, useEffect } from 'react';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { DatabaseStatusInfo, TableSyncStatus } from '../types';
@@ -6,7 +7,6 @@ import {
   Cloud,
   CloudOff,
   AlertTriangle,
-  RefreshCw,
   CheckCircle2,
   Clock,
   ExternalLink,

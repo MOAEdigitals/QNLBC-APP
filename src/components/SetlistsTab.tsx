@@ -1,3 +1,4 @@
+import { SuccessIcon, CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { BottomSheet } from './BottomSheet';
 import { SheetDateField } from './SheetDateField';
@@ -50,7 +51,6 @@ import {
   AlertCircle,
   CheckCircle,
   MoreHorizontal,
-  Copy,
   Check,
   Search,
   GripVertical,
@@ -1046,7 +1046,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                       >
                         {copiedSetlistId === item.id ? (
                           <>
-                            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <SuccessIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                             <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                               Copied!
                             </span>

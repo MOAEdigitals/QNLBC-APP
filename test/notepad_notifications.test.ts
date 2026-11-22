@@ -20,7 +20,7 @@ async function fixture(path: string, services: any, run: (exports: any, root: Ro
   const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync(path,'utf8'), { compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2022} }).outputText, {
     exports,window:dom.window,document:dom.window.document,crypto:webcrypto,requestAnimationFrame:(f:()=>void)=>f(),
-    require:(name:string)=>name.includes("useLiveClock")?{useLiveClock:()=>Date.now()}:name.includes("notificationPresentation")?presentation:name.endsWith('SheetSelect')||name.endsWith('SheetDateField')||name.endsWith('BottomSheet')?ui(name):name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
+    require:(name:string)=>name.endsWith('AnimatedIcons')?new Proxy({},{get:()=>()=>null}):name.includes("useLiveClock")?{useLiveClock:()=>Date.now()}:name.includes("notificationPresentation")?presentation:name.endsWith('SheetSelect')||name.endsWith('SheetDateField')||name.endsWith('BottomSheet')?ui(name):name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
   });
   try { await run(exports,root,dom); }
   finally { await act(()=>root.unmount()); dom.window.close(); keys.forEach((key,i)=>{if(prior[i])Object.defineProperty(globalThis,key,prior[i]!);else delete (globalThis as any)[key];}); }

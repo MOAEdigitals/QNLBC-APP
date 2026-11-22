@@ -1,5 +1,6 @@
+import { LoadingIcon as Loader2 } from './AnimatedIcons';
 import React from 'react';
-import { ArrowDown, Loader2 } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 
 export function PullToRefreshIndicator({ distance, refreshing }: { distance: number; refreshing: boolean }) {
   if (!distance && !refreshing) return null;

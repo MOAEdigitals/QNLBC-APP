@@ -1,8 +1,9 @@
+import { CopyIcon as Copy, DownloadIcon as Download } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { toBlob } from 'html-to-image';
-import { X, Share2, Copy, Download } from 'lucide-react';
+import { X, Share2 } from 'lucide-react';
 import type { Setlist, Song } from '../types';
 import { SetlistShareCard } from './SetlistShareCard';
 import { setlistShareUrl, setlistTitle } from '../utils/setlistSharing';

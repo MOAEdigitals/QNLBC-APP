@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { UserAccount, AppTab } from '../types';
-import { Search, X, Bell, NotebookPen } from 'lucide-react';
+import { Search, X, NotebookPen } from 'lucide-react';
+import { BellIcon } from './AnimatedIcons';
 import { useHeaderSearchContext } from './HeaderSearch';
 import { useBackLayer } from '../hooks/useBackLayer';
 
@@ -33,6 +34,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   unreadNotifications = 0,
   online,
 }) => {
+  const lastUnread = useRef(unreadNotifications);
+  const [bellPulse, setBellPulse] = useState(0);
+  useEffect(() => {
+    if (unreadNotifications > lastUnread.current) setBellPulse(pulse => pulse + 1);
+    lastUnread.current = unreadNotifications;
+  }, [unreadNotifications]);
   const { search } = useHeaderSearchContext();
   const [isSearchOpened, setIsSearching] = useState(false);
   // A filter must never remain active behind a collapsed search button.
@@ -90,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {!isSearching && <div className="flex items-center space-x-2">
           {search?.beforeSearch}
           {currentTab === 'home' && onOpenNotepad && <button type="button" onClick={onOpenNotepad} aria-label="Notepad" title="Notepad" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><NotebookPen className="h-5 w-5" /></button>}
-          {['home', 'recognitions', 'special-numbers'].includes(currentTab) && onOpenNotifications && <button type="button" onClick={onOpenNotifications} aria-label={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><Bell className="h-5 w-5" />{unreadNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>}
+          {['home', 'recognitions', 'special-numbers'].includes(currentTab) && onOpenNotifications && <button type="button" onClick={onOpenNotifications} aria-label={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`} className="relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><BellIcon className="h-5 w-5" trigger={bellPulse} />{unreadNotifications > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">{unreadNotifications > 99 ? '99+' : unreadNotifications}</span>}</button>}
           {search && <button type="button" onClick={() => { focusRequestedRef.current = true; setIsSearching(true); }} aria-label="Search" title="Search" className="flex h-10 w-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"><Search className="h-5 w-5" /></button>}
           {currentUser && (
             <button

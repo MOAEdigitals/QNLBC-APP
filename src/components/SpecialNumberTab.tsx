@@ -1,3 +1,4 @@
+import { SuccessIcon, CopyIcon as Copy, LoadingIcon as Loader2 } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction } from '../services/appDialogs';
@@ -90,11 +91,9 @@ import {
   FileVideo,
   FileImage,
   Link2,
-  Copy,
   MoreHorizontal,
   BookOpen,
   Cloud,
-  Loader2,
   UploadCloud,
   RefreshCw,
   AlertCircle,
@@ -2513,7 +2512,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                   >
                                     {copiedLyricsGroupId === group.id ? (
                                       <>
-                                        <Check className="w-3 h-3 text-emerald-500" />
+                                        <SuccessIcon className="w-3 h-3 text-emerald-500" />
                                         <span className="text-emerald-500">Copied!</span>
                                       </>
                                     ) : (

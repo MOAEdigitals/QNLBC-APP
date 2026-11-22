@@ -1,3 +1,4 @@
+import { CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionActive, partitionSpecialRecognitions } from '../utils/recognitionDetails';
 import { BirthdayDatePicker } from './BirthdayDatePicker';
@@ -35,7 +36,6 @@ import {
   Calendar,
   Sparkles,
   Trash2,
-  Copy,
   MoreHorizontal,
   Pencil,
   X,

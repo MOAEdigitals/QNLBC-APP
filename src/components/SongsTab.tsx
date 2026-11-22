@@ -1,3 +1,4 @@
+import { SuccessIcon, CopyIcon as Copy, LoadingIcon as Loader2 } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { formatFreeShowLyrics } from '../utils/freeShowLyrics';
 import { SongCategorySheet } from './SongCategorySheet';
@@ -37,7 +38,6 @@ import {
   Link2,
   FileAudio,
   FileVideo,
-  Copy,
   Volume2,
   ChevronDown,
   ChevronUp,
@@ -49,7 +49,6 @@ import {
   AlertTriangle,
   Radio,
   Cloud,
-  Loader2,
   Tag,
   Filter,
   Star,
@@ -1278,7 +1277,7 @@ if (isEditing && !savingSongRef.current) {
                           aria-label="Copy Song Title and Lyrics"
                         >
                           {copiedSongId === song.id ? (
-                            <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            <SuccessIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                           ) : (
                             <Copy className="w-4 h-4" />
                           )}

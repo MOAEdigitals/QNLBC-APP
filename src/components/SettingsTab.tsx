@@ -1,3 +1,4 @@
+import { SuccessIcon, PasswordVisibilityIcon, DownloadIcon as Download, RefreshIcon as RefreshCw, CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { confirmAction, showAppMessage } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
@@ -44,7 +45,6 @@ import {
   Sun,
   Moon,
   UserCheck,
-  Download,
   Upload,
   LogOut,
   CheckCircle,
@@ -64,14 +64,10 @@ import {
   Radio,
   ExternalLink,
   CheckCircle2,
-  RefreshCw,
-  Copy,
   Code2,
   UserX,
   Pencil,
   X,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { MIGRATION_PROMPT_TEXT } from '../data/migrationPrompt';
 import { createFullBackup } from '../services/backup';
@@ -1043,7 +1039,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <DirectoryAccountSelect members={directoryMembers} value={newMember.directoryMemberId} onChange={(directoryMemberId, displayName) => setNewMember({ ...newMember, directoryMemberId, displayName: directoryMemberId ? displayName : newMember.displayName })} />
                 <label className="block text-sm font-medium">Name<input required maxLength={160} readOnly={!!newMember.directoryMemberId} autoComplete="name" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base read-only:opacity-70 dark:border-slate-700 dark:bg-slate-900" value={newMember.displayName} onChange={event => setNewMember({ ...newMember, displayName: event.target.value })} /></label>
                 <label className="block text-sm font-medium">Username<input required autoCapitalize="none" autoComplete="off" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.username} onChange={event => setNewMember({ ...newMember, username: event.target.value.toLowerCase() })} /></label>
-                <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={10} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}>{showNewMemberPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
+                <label className="block text-sm font-medium">Password<span className="relative mt-1 block"><input required minLength={10} type={showNewMemberPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 text-base dark:border-slate-700 dark:bg-slate-900" value={newMember.password} onChange={event => setNewMember({ ...newMember, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showNewMemberPassword ? 'Hide password' : 'Show password'} onClick={() => setShowNewMemberPassword(value => !value)}><PasswordVisibilityIcon active={showNewMemberPassword} className="h-4 w-4" /></button></span></label>
                 {memberCreateError && <p role="alert" className="text-sm text-rose-600">{memberCreateError}</p>}
                     </div>
                     <div className="ui-form-actions flex justify-end gap-3"><button type="button" disabled={creatingMember} onClick={() => setShowCreateMember(false)} className="ui-secondary">Cancel</button><button type="submit" disabled={creatingMember} className="ui-primary">{creatingMember ? 'Creating…' : 'Create account'}</button></div>
@@ -1054,7 +1050,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               {credentialNotice && !selectedMemberId && <div role="status" className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/40">
                 <div className="flex items-center justify-between gap-3"><p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Account credentials ready</p><button type="button" aria-label="Dismiss credentials" className="text-emerald-700 dark:text-emerald-300" onClick={() => setCredentialNotice(null)}><X className="h-4 w-4" /></button></div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{credentialNotice.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{credentialNotice.password}</dd></dl>
-                <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(credentialNotice.userId, credentialNotice.username, credentialNotice.password, credentialNotice.name)}>{copiedCredentialId === credentialNotice.userId ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
+                <button type="button" className="ui-secondary w-full" onClick={() => void handleCopyMemberCredentials(credentialNotice.userId, credentialNotice.username, credentialNotice.password, credentialNotice.name)}>{copiedCredentialId === credentialNotice.userId ? <><SuccessIcon className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" /> Copy credentials</>}</button>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Visible this session only.</p>
               </div>}
 
@@ -1083,7 +1079,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                       <p className="text-sm text-slate-600 dark:text-slate-300">{u.role === 'admin' ? 'Admin' : 'Member'} · {u.active !== false ? 'Active' : 'Deactivated'}</p>
                     </div>
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm"><dt className="text-slate-500">Username</dt><dd className="select-all break-all font-mono">{u.username}</dd><dt className="text-slate-500">Password</dt><dd className="select-all break-all font-mono">{memberCredentials[u.id]?.password || 'Set a new password to view and copy'}</dd></dl>
-                    <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => void handleCopyAccountDetails(u)}>{copiedCredentialId === u.id ? <><Check className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" />{memberCredentials[u.id] ? 'Copy credentials' : 'Set password & copy credentials'}</>}</button></div>
+                    <div className="flex flex-wrap gap-2"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => void handleCopyAccountDetails(u)}>{copiedCredentialId === u.id ? <><SuccessIcon className="h-4 w-4" /> Copied</> : <><Copy className="h-4 w-4" />{memberCredentials[u.id] ? 'Copy credentials' : 'Set password & copy credentials'}</>}</button></div>
                     {!selectedMemberId ? <div className="flex flex-wrap gap-2"><button type="button" disabled={isManaging} className="ui-secondary" onClick={() => { setSelectedMemberId(u.id); startEditingMember(u); }}><Pencil className="h-4 w-4" /> Edit account</button><button type="button" className="ui-secondary" onClick={() => setSelectedMemberId(u.id)}>Manage permissions</button></div> : <>
                       {editingMemberId === u.id && <div role="dialog" aria-modal="true" aria-labelledby="edit-member-title" className="ui-form-screen fixed inset-0 z-50 flex flex-col">
                         <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
@@ -1093,7 +1089,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                         <DirectoryAccountSelect members={directoryMembers} value={memberEdit.directoryMemberId} accountId={u.id} onChange={(directoryMemberId, displayName) => setMemberEdit({ ...memberEdit, directoryMemberId, displayName: directoryMemberId ? displayName : memberEdit.displayName })} />
                 <label className="block text-sm font-medium">Name<input required maxLength={160} readOnly={!!memberEdit.directoryMemberId} autoComplete="name" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base read-only:opacity-70 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.displayName} onChange={event => setMemberEdit({ ...memberEdit, displayName: event.target.value })} /></label>
                         <label className="block text-sm font-medium">Username<input required autoCapitalize="none" className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.username} onChange={event => setMemberEdit({ ...memberEdit, username: event.target.value.toLowerCase() })} /></label>
-                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">{copyAfterSaveId === u.id ? '(required to copy)' : '(optional)'}</span><span className="relative mt-1 block"><input required={copyAfterSaveId === u.id} minLength={10} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}>{showMemberEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span></label>
+                        <label className="block text-sm font-medium">New password <span className="font-normal text-slate-400">{copyAfterSaveId === u.id ? '(required to copy)' : '(optional)'}</span><span className="relative mt-1 block"><input required={copyAfterSaveId === u.id} minLength={10} type={showMemberEditPassword ? 'text' : 'password'} autoComplete="new-password" className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 pr-12 dark:border-slate-700 dark:bg-slate-900" value={memberEdit.password} onChange={event => setMemberEdit({ ...memberEdit, password: event.target.value })} /><button type="button" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-500" aria-label={showMemberEditPassword ? 'Hide password' : 'Show password'} onClick={() => setShowMemberEditPassword(value => !value)}><PasswordVisibilityIcon active={showMemberEditPassword} className="h-4 w-4" /></button></span></label>
                         {memberEditError && <p role="alert" className="text-sm text-rose-600">{memberEditError}</p>}
                             </div>
                             <div className="ui-form-actions flex justify-end gap-3"><button type="button" className="ui-secondary" disabled={isManaging} onClick={() => setEditingMemberId(null)}>Cancel</button><button type="submit" className="ui-primary" disabled={isManaging}>{copyAfterSaveId === u.id ? 'Save & copy credentials' : 'Save'}</button></div>
@@ -1283,7 +1279,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
                 <div className="space-y-4 pt-4">
                   <div className="space-y-3"><h4 className="text-sm font-semibold">Migration prompt (.md)</h4><div className="flex flex-wrap gap-2">
                     <button type="button" onClick={handleDownloadPromptMd} className="ui-secondary"><Download className="h-4 w-4" />Download .md</button>
-                    <button type="button" onClick={handleCopyPromptText} className="ui-secondary">{copiedPrompt ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copiedPrompt ? 'Copied' : 'Copy prompt'}</button>
+                    <button type="button" onClick={handleCopyPromptText} className="ui-secondary">{copiedPrompt ? <SuccessIcon className="h-4 w-4" /> : <Copy className="h-4 w-4" />}{copiedPrompt ? 'Copied' : 'Copy prompt'}</button>
                   </div></div>
                   <div className="settings-section-divider space-y-3"><h4 className="text-sm font-semibold">Codebase (.ZIP)</h4><button type="button" disabled={isDownloadingZip} onClick={handleDownloadSourceZip} className="ui-secondary"><Code2 className="h-4 w-4" />{isDownloadingZip ? 'Preparing ZIP…' : 'Download codebase'}</button></div>
                 </div>
