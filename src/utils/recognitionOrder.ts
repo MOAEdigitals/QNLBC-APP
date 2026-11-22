@@ -27,7 +27,7 @@ export function orderAnnualBirthdays<T>(items: T[], dateOf: (item: T) => string,
 }
 
 /** Keep months together in annual order, starting with birthdays still to recognize. */
-export function orderBirthdayRecognitionMonths<T>(items: T[], dateOf: (item: T) => string, today: string): T[] {
+export function orderBirthdayRecognitionMonths<T>(items: T[], dateOf: (item: T) => string, today: string, keepCurrentMonth = true): T[] {
   const [year, month, day] = today.split('-').map(Number);
   const start = new Date(year, month - 1, day);
   start.setDate(start.getDate() + (7 - start.getDay()) % 7 - 3);
@@ -41,6 +41,15 @@ export function orderBirthdayRecognitionMonths<T>(items: T[], dateOf: (item: T) 
     monthRanks.set(birthMonth, Math.min(monthRanks.get(birthMonth) ?? Infinity, rank));
     return { item, month: birthMonth, rank };
   });
+  // The current birthday month stays visible until the calendar month ends,
+  // even when all its celebrants have already been recognized. Previous-month
+  // carryovers still rank ahead of it during their Thursday–Wednesday window.
+  if (keepCurrentMonth) {
+    for (const birthMonth of monthRanks.keys()) monthRanks.set(birthMonth,(birthMonth-month+12)%12);
+    const previousMonth = (month + 10) % 12 + 1;
+    const now = new Date(year,month-1,day,12);
+    if (entries.some(entry => entry.month===previousMonth && isBirthdayRecognitionWeek(dateOf(entry.item),now))) monthRanks.set(previousMonth,-1);
+  }
   return entries.sort((a, b) =>
     (monthRanks.get(a.month)! - monthRanks.get(b.month)!) || a.rank - b.rank,
   ).map(entry => entry.item);

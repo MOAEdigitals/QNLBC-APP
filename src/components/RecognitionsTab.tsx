@@ -178,7 +178,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const birthdayMonths = groupBirthdayRecognitionMonths(filteredBirthdays, b => b.birthDate, birthdayToday);
 
   const recognitionQuery = birthdaySearchQuery.trim().toLowerCase();
-  const filteredAnniversaries = orderBirthdayRecognitionMonths(anniversaries.filter(a => a.anniversaryDate), a => a.anniversaryDate, birthdayToday).filter(item => !recognitionQuery || `${item.title} ${item.type} ${item.notes || ''}`.toLowerCase().includes(recognitionQuery));
+  const filteredAnniversaries = orderBirthdayRecognitionMonths(anniversaries.filter(a => a.anniversaryDate), a => a.anniversaryDate, birthdayToday, false).filter(item => !recognitionQuery || `${item.title} ${item.type} ${item.notes || ''}`.toLowerCase().includes(recognitionQuery));
   const anniversaryMonths = groupBirthdayRecognitionMonths(filteredAnniversaries, a => a.anniversaryDate, birthdayToday);
   const specialGroups = partitionSpecialRecognitions(specialRecognitions.filter(item => !recognitionQuery || `${item.name} ${item.recognitionType} ${item.customType || ''} ${item.description || ''}`.toLowerCase().includes(recognitionQuery)), item => item.date);
 

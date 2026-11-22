@@ -36,9 +36,14 @@ test('previous month remains first through its Sunday recognition, then moves to
   assert.deepEqual(dates, ['1990-10-28', '1990-10-29', '1990-10-31', '1990-11-01', '1990-11-04', '1990-11-05', '1990-12-01', '1990-01-01']);
 });
 
-test('a finished current month moves to the end even before the calendar month ends', () => {
+test('a finished birthday month stays first until the calendar month ends', () => {
   const dates = ['1990-11-01', '1990-11-04', '1990-12-01', '1990-01-01', '1992-02-29'];
-  assert.deepEqual(monthOrder(dates, '2026-11-02'), ['12', '01', '02', '11']);
+  for (const day of ['2026-11-02','2026-11-23','2026-11-30']) {
+    assert.deepEqual(monthOrder(dates, day), ['11', '12', '01', '02']);
+    assert.equal(orderBirthdayRecognitionMonths(dates,date=>date,day).length,dates.length);
+  }
+  assert.deepEqual(monthOrder(dates,'2026-12-01'),['12','01','02','11']);
+  assert.deepEqual([...new Set(orderBirthdayRecognitionMonths(dates,date=>date,'2026-11-23',false).map(date=>date.slice(5,7)))],['12','01','02','11'],'anniversary ordering retains its existing rule');
 });
 
 test('December birthdays in the January Sunday window stay above January', () => {
