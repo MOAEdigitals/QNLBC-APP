@@ -2,7 +2,8 @@ import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
 import { PushNotifications, type PermissionStatus } from '@capacitor/push-notifications';
 import { supabase } from '../supabase';
 export interface AssignmentNotification {
-  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement' | 'birthday' | 'event' | 'anniversary' | 'recognition' | 'backup_setlist';
+  id: string; user_id: string; setlist_id: string | null; kind: 'assigned' | 'updated' | 'removed' | 'practice' | 'announcement' | 'birthday' | 'event' | 'anniversary' | 'recognition' | 'backup_setlist' | 'missing_lyrics';
+  completed_at?: string | null; expires_at?: string | null; source_title?: string | null; special_number_id?: string | null;
   title: string; body: string; service_date: string | null; read_at: string | null; created_at: string;
 }
 export type PushStatus = 'web' | 'setup' | 'prompt' | 'denied' | 'enabled' | 'error';
@@ -42,7 +43,7 @@ export function notificationSetlist(data: unknown, userId: string): string | nul
 export function isAnnouncementPush(data: unknown, userId: string): boolean {
   if (!data || typeof data !== 'object') return false;
   const value = data as Record<string, unknown>;
-  return value.userId === userId && value.kind === 'announcement' && typeof value.notificationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.notificationId);
+  return value.userId === userId && (value.kind === 'announcement' || value.kind === 'missing_lyrics') && typeof value.notificationId === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.notificationId);
 }
 export function calendarPushKind(data: unknown, userId: string): 'birthday' | 'event' | 'anniversary' | 'recognition' | null {
   if (!data || typeof data !== 'object') return null;
@@ -64,7 +65,7 @@ export async function markAssignmentNotificationRead(id: string): Promise<void> 
   if (error) throw new Error('Could not mark notification as read.');
 }
 export async function fetchUnreadNotificationCount(): Promise<number> {
-  const { count, error } = await supabase.from('assignment_notifications').select('id', { count: 'exact', head: true }).is('dismissed_at', null).is('read_at', null);
+  const { count, error } = await supabase.from('assignment_notifications').select('id', { count: 'exact', head: true }).is('dismissed_at', null).is('read_at', null).is('completed_at', null);
   if (error) throw new Error('Unread notification count could not be loaded.');
   return count || 0;
 }

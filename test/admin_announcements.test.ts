@@ -19,7 +19,7 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   const calls: any[][]=[]; let release: (()=>void)|undefined; let fail=true;
   const service={loadAnnouncementAdmin:async()=>({recipients:people,history:[]}),sendAnnouncement:async(...args:any[])=>{calls.push(args); await new Promise<void>(resolve=>{release=resolve;}); if(fail)throw new Error('Connection interrupted');}};
   const exports:any={}; const ui = createUiTestLoader(dom, React);
-  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>(name.endsWith('SheetSelect')||name.endsWith('SheetDateField'))?ui(name):name==='react'?React:name==='lucide-react'?{X:()=>null}:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
+  runInNewContext(ts.transpileModule(fs.readFileSync('src/components/AdminAnnouncements.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.React,esModuleInterop:true}}).outputText,{exports,crypto:webcrypto,require:(name:string)=>(name.endsWith('SheetSelect')||name.endsWith('SheetDateField'))?ui(name):name==='react'?React:name==='lucide-react'?{X:()=>null,History:()=>null,ArrowLeft:()=>null}:name.includes('adminAnnouncements')?service:name.includes('notificationSchedule')?{philippineScheduleISO}:{useBackLayer:()=>{}}});
   const root=createRoot(document.getElementById('root')!);
   const click=async(element:Element)=>{await act(async()=>element.dispatchEvent(new dom.window.MouseEvent('click',{bubbles:true})));};
   const button=(name:string)=>Array.from(document.querySelectorAll('button')).find(x=>x.textContent===name)!;
@@ -27,10 +27,16 @@ test('admin announcements preview recipients, lock rapid sends and reuse the req
   try{
     let backHandler: (() => void) | null = null;
     await act(async()=>root.render(React.createElement(exports.AdminAnnouncements,{onBackHandlerChange:(handler:(()=>void)|null)=>{backHandler=handler;}})));
-    assert.equal(document.querySelector('[aria-label="Sent announcements"]'), null, 'sent history is removed from the admin screen');
+    assert.equal(document.querySelector('[aria-label="Sent announcements"]'), null, 'history does not clutter the compose screen');
     // Native change handling is covered below with React props, avoiding JSDOM's input-event polyfill differences.
     const setValue=async(selector:string,value:string)=>{const el=document.querySelector(selector)!;const propsKey=Object.keys(el).find(k=>k.startsWith('__reactProps$'))!;await act(async()=>(el as any)[propsKey].onChange({target:{value}}));};
     await setValue('input[maxlength="120"]','Practice update'); await setValue('textarea','Please arrive at 3 PM.');
+    await click(button('History'));
+    assert.match(document.body.textContent!, /Announcement history/);
+    assert.match(document.body.textContent!, /No announcements yet/);
+    assert.ok(backHandler, 'history registers a single-screen Back action');
+    await act(async () => backHandler!());
+    assert.equal(document.querySelector<HTMLInputElement>('input[maxlength="120"]')!.value,'Practice update', 'viewing history preserves the draft');
     await click(button('Select all active users'));
     assert.equal(document.querySelectorAll('input[type="checkbox"]:checked').length,2);
     await setValue('input[type="search"]','Roger');

@@ -1,3 +1,5 @@
+import { notificationDone } from '../utils/notificationPresentation';
+import { useLiveClock } from './useLiveClock';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { App as NativeApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
@@ -5,10 +7,11 @@ import { supabase } from '../supabase';
 import { hasNewUnreadNotifications, notificationSoundEnabled, playNotificationSound, unlockNotificationSound } from '../utils/notificationSound';
 import { fetchAssignmentNotifications, fetchUnreadNotificationCount, markNotificationsRead, listenForAssignmentPush, enableAssignmentPush, refreshAssignmentPushPermission, type AssignmentNotification, type PushStatus } from '../services/assignmentNotifications';
 export function useAssignmentNotifications(userId: string | undefined, onOpen: (id: string) => void, onAnnouncement?: () => void, onCalendar?: (kind: 'birthday' | 'event' | 'anniversary' | 'recognition') => void) {
+  const clock = useLiveClock();
   const [items, setItems] = useState<AssignmentNotification[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [serverUnreadCount, setUnreadCount] = useState(0);
   const [pushStatus, setPushStatus] = useState<PushStatus>('prompt');
   const epoch = useRef(0);
   const refreshSequence = useRef(0);
@@ -21,7 +24,7 @@ export function useAssignmentNotifications(userId: string | undefined, onOpen: (
     setLoading(true);
     try { const [rows, count] = await Promise.all([fetchAssignmentNotifications(), fetchUnreadNotificationCount()]); if (own === epoch.current && sequence === refreshSequence.current) {
       const ownRows = rows.filter(item => item.user_id === userId);
-      if (hasNewUnreadNotifications(ownRows, seen.current, startedAt.current)) void playNotificationSound(userId).catch(() => {});
+      if (hasNewUnreadNotifications(ownRows.filter(item => !notificationDone(item)), seen.current, startedAt.current)) void playNotificationSound(userId).catch(() => {});
       const nextSeen = seen.current || new Set<string>();
       ownRows.forEach(item => nextSeen.add(item.id)); seen.current = nextSeen;
       setItems(ownRows); setUnreadCount(count); setError('');
@@ -56,5 +59,6 @@ export function useAssignmentNotifications(userId: string | undefined, onOpen: (
     setItems(rows => rows.map(item => !ids || ids.includes(item.id) ? { ...item, read_at: item.read_at || new Date().toISOString() } : item));
     await refresh();
   }, [refresh]);
+  const unreadCount = Math.max(0, serverUnreadCount - items.filter(item => !item.read_at && !item.completed_at && notificationDone(item, clock)).length);
   return { items: items.filter(item => item.user_id === userId), unreadCount, markRead, error, loading, refresh, pushStatus, enable };
 }

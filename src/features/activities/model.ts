@@ -1,3 +1,4 @@
+import { serviceCompleted } from '../../utils/serviceCompletion.ts';
 import type { ChurchActivity } from '../../types';
 
 export type ActivityKind = 'prayer' | 'sunday' | 'practice' | 'other';
@@ -14,8 +15,8 @@ export function isRoutineActivity(title: string): boolean {
 }
 
 /** Activities are dated occurrences, not annually recurring events. */
-export function isPastActivity(activityDate: string, today: string): boolean {
-  return activityDate < today;
+export function isPastActivity(activityDate: string, today: string, title = '', now?: number): boolean {
+  return activityDate < today || (now !== undefined && activityDate === today && serviceCompleted(activityDate, title, now));
 }
 
 function sundayServiceOrder(a: ChurchActivity, b: ChurchActivity): number {
@@ -31,7 +32,7 @@ export function sortActivities(items: ChurchActivity[]): ChurchActivity[] {
 }
 
 /** Keep each year's upcoming dates first, followed by that year's completed dates. */
-export function orderActivityList(items: ChurchActivity[], today: string): ChurchActivity[] {
+export function orderActivityList(items: ChurchActivity[], today: string, now?: number): ChurchActivity[] {
   const years = new Map<string, ChurchActivity[]>();
   for (const item of sortActivities(items)) {
     const year = item.activityDate.slice(0, 4);
@@ -39,22 +40,22 @@ export function orderActivityList(items: ChurchActivity[], today: string): Churc
     years.get(year)!.push(item);
   }
   return [...years].sort(([aYear, a], [bYear, b]) => {
-    const aUpcoming = a.some(item => !isPastActivity(item.activityDate, today));
-    const bUpcoming = b.some(item => !isPastActivity(item.activityDate, today));
+    const aUpcoming = a.some(item => !isPastActivity(item.activityDate, today, item.title, now));
+    const bUpcoming = b.some(item => !isPastActivity(item.activityDate, today, item.title, now));
     if (aUpcoming !== bUpcoming) return aUpcoming ? -1 : 1;
     return aUpcoming ? aYear.localeCompare(bYear) : bYear.localeCompare(aYear);
   }).flatMap(([, entries]) => [
-    ...entries.filter(item => !isPastActivity(item.activityDate, today)),
-    ...entries.filter(item => isPastActivity(item.activityDate, today)).reverse().sort((a, b) => b.activityDate.localeCompare(a.activityDate) || sundayServiceOrder(a, b)),
+    ...entries.filter(item => !isPastActivity(item.activityDate, today, item.title, now)),
+    ...entries.filter(item => isPastActivity(item.activityDate, today, item.title, now)).reverse().sort((a, b) => b.activityDate.localeCompare(a.activityDate) || sundayServiceOrder(a, b)),
   ]);
 }
 
 /** Month headings must not merge completed cards back into an upcoming month. */
-export function groupActivityMonths(items: ChurchActivity[], today: string): { key: string; label: string; items: ChurchActivity[] }[] {
+export function groupActivityMonths(items: ChurchActivity[], today: string, now?: number): { key: string; label: string; items: ChurchActivity[] }[] {
   const groups: { key: string; label: string; items: ChurchActivity[] }[] = [];
-  for (const item of orderActivityList(items, today)) {
+  for (const item of orderActivityList(items, today, now)) {
     const month = item.activityDate.slice(0, 7);
-    const key = `${month}-${isPastActivity(item.activityDate, today) ? 'past' : 'upcoming'}`;
+    const key = `${month}-${isPastActivity(item.activityDate, today, item.title, now) ? 'past' : 'upcoming'}`;
     if (groups.at(-1)?.key !== key) {
       const label = new Date(Number(month.slice(0, 4)), Number(month.slice(5)) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       groups.push({ key, label, items: [] });

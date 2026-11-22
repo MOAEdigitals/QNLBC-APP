@@ -117,6 +117,15 @@ test('section jump aligns the selected heading with the lyrics viewport, includi
   }
   renderSong('alice', 'one', singleSong);
   assert.equal(next().props.disabled, true);
+  const versesOnly = 'Verse 1\nOne\nVerse 2\nTwo\nVerse 3\nThree';
+  renderSong('alice', 'verses-only', versesOnly, true);
+  assert.equal(repeat(), undefined);
+  for (const position of [0, 300, 600]) {
+    next().props.onClick();
+    assert.equal(target.top, position);
+    renderSong('alice', 'verses-only', versesOnly);
+  }
+  assert.equal(next().props.disabled, true, 'Next follows verses without requiring a chorus');
   const repeatedChorusOne = 'Verse 1\nOne\nChorus 1\nSing\nVerse 2\nTwo\nChorus 1\nSing\nBridge\nKeep singing\nChorus 2\nSing again\nEnding\nDone';
   renderSong('alice', 'one', repeatedChorusOne, true);
   assert.equal(repeat(), undefined);

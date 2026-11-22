@@ -595,6 +595,7 @@ export default function App() {
   }, []);
 
   const [isNotificationInboxOpen, setNotificationInboxOpen] = useState(false);
+  const [notificationSongNumber, setNotificationSongNumber] = useState<{ id: string; request: number } | null>(null);
   const [isNotepadOpen, setNotepadOpen] = useState(false);
   useEffect(() => { setNotepadOpen(false); }, [currentUser?.id]);
   const openAssignedSetlist = useCallback((id: string) => {
@@ -1574,7 +1575,7 @@ export default function App() {
         />
       )}
 
-      {isNotificationInboxOpen && !offlineReadOnly && <NotificationInbox key={currentUser.id} {...notifications} onMarkRead={notifications.markRead} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onClose={() => setNotificationInboxOpen(false)} />}
+      {isNotificationInboxOpen && !offlineReadOnly && <NotificationInbox key={currentUser.id} {...notifications} onMarkRead={notifications.markRead} onEnable={notifications.enable} onRefresh={notifications.refresh} onOpen={openAssignedSetlist} onCalendar={openCalendarNotification} onSongNumber={id => { setNotificationSongNumber({ id, request: Date.now() }); setCurrentTab('special-numbers'); window.history.pushState({tab:'special-numbers'}, '', '#special-numbers'); }} onClose={() => setNotificationInboxOpen(false)} />}
       {isNotepadOpen && <Suspense fallback={<div role="status" className="fixed inset-0 z-[180] bg-white dark:bg-slate-950 p-6">Loading notepad…</div>}><Notepad key={currentUser.id + (offlineReadOnly ? (offlineLibrary ? '-offline' : '-restoring') : '')} offlineNotes={offlineReadOnly ? offlineText?.notes ?? [] : undefined} onContentChanged={scheduleOfflineSync} userId={currentUser.id} onClose={() => setNotepadOpen(false)} /></Suspense>}
 
       {/* Main Content Area */}
@@ -1627,6 +1628,7 @@ export default function App() {
         {currentTab === 'special-numbers' && (!offlineReadOnly && (isLoadingCoreData || !loadedSectionsRef.current.has('special-numbers')) ? <TabLoadingSkeleton /> : (
           <SpecialNumberTab
             readOnly={offlineReadOnly}
+            notificationSongNumber={notificationSongNumber}
             offlineActivities={offlineReadOnly ? offlineLibrary?.activities ?? [] : undefined}
             onActivitiesChanged={scheduleOfflineSync}
             birthdays={offlineReadOnly ? offlineText?.birthdays : birthdays}

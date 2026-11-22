@@ -1,3 +1,4 @@
+import * as completion from "../src/utils/serviceCompletion.ts";
 import * as calendarOverlayModel from '../src/features/activities/calendarOverlays.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,6 +28,8 @@ test('calendar swipes change months while outside swipes still navigate; taps, s
   const swipe = load('src/components/SwipeNavigation.tsx', name => name === 'react' ? React : navigation);
   const activities = load('src/features/activities/Activities.tsx', name => {
     if (name === 'react') return React;
+    if (name.includes("useLiveClock")) return {useLiveClock:()=>Date.now()};
+    if (name.includes("serviceCompletion")) return completion;
     if (name === './useCalendarSwipe') return hook;
     if (name === './calendarOverlays') return calendarOverlayModel;
     if (name === './model') return model;

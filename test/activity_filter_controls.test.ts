@@ -1,3 +1,4 @@
+import * as completion from "../src/utils/serviceCompletion.ts";
 import * as calendarOverlayModel from '../src/features/activities/calendarOverlays.ts';
 import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
@@ -34,7 +35,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
   const exports: any = {}; const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync('src/features/activities/Activities.tsx', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true } }).outputText, {
     exports, document, window: dom.window, console, Date: CalendarDate,
-    require: (name: string) => (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { highlightActivityCards: () => {}, scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './calendarOverlays' ? calendarOverlayModel : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
+    require: (name: string) => name.includes("useLiveClock") ? {useLiveClock:()=>now.getTime()} : name.includes("serviceCompletion") ? completion : (name.endsWith('BottomSheet') || name.endsWith('MonthSeparators')) ? ui(name) : name === 'react' ? React : name === './highlight' ? { highlightActivityCards: () => {}, scrollActivityBelowHeader: (target: HTMLElement) => scrollTargets.push(target) } : name === './calendarOverlays' ? calendarOverlayModel : name === './model' ? model : name.includes('recognitionOrder') ? monthOrder : name === './data' ? { fetchActivities: async () => items } : name.includes('HeaderSearch') ? { useHeaderSearch: (config: any) => { searchConfig = config; React.useEffect(() => updateHeader(config.beforeSearch), [config.beforeSearch]); } } : name.includes('MonthSeparators') ? { groupByMonth: (entries: any[]) => [{ key: day.slice(0, 7), label: 'This month', items: entries }] } : new Proxy({}, { get: () => () => null }),
   });
   function Harness() {
     const [header, setHeader] = React.useState(null); updateHeader = setHeader;
@@ -53,7 +54,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     assert.equal(cards().length, 3);
     const colors = () => [...document.querySelector<HTMLButtonElement>(`[aria-label="${day}, 3 activities"]`)!.querySelectorAll('[data-calendar-activity]')]
       .map(dot => dot.className.split(' ').find(name => name.startsWith('bg-')));
-    assert.equal(new Set(colors()).size, 3, 'activity types on one day have distinct dot colors');
+    assert.equal(new Set(colors()).size, 2, 'routine activities share blue; other events retain amber');
     checkFirstDateLabel();
     assert.ok(!cards().includes('Song Leaders & Choir Practice'));
     const filterButton = () => document.querySelector<HTMLButtonElement>('[aria-label="Filter activities"]')!;
@@ -62,7 +63,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     await act(() => filterButton().click());
     assert.equal(document.querySelector('[aria-label="Filter activities"]')!.getAttribute('aria-expanded'), 'true');
     const checkbox = (label: string) => [...document.querySelectorAll('label')].find(element => element.textContent === label)!.querySelector('input')!;
-    for (const [label, color] of [['Prayer meetings', 'bg-emerald-500'], ['Sunday service', 'bg-blue-500'], ['Choir & song leader practice', 'bg-orange-500'], ['Other events', 'bg-amber-400']]) {
+    for (const [label, color] of [['Prayer meetings', 'bg-blue-500'], ['Sunday service', 'bg-blue-500'], ['Choir & song leader practice', 'bg-blue-500'], ['Other events', 'bg-amber-400']]) {
       assert.ok(checkbox(label).nextElementSibling?.classList.contains(color));
     }
     assert.equal(checkbox('Prayer meetings').checked, true);

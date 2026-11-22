@@ -22,7 +22,7 @@ test('activities show color-coded calendar dots by activity type', () => {
 });
 
 test('activities use compact month-grouped cards and a minimal editor', () => {
-  assert.match(source, /groupActivityMonths\(filteredItems, today\)/);
+  assert.match(source, /groupActivityMonths\(filteredItems, today, clock\)/);
   assert.match(source, /firstOfDay = group\.items\[index - 1\]\?\.activityDate !== item\.activityDate/);
   assert.doesNotMatch(source, /monthColors\[/);
   assert.match(source, />Title<input required/);

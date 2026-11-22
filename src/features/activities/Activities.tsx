@@ -1,3 +1,5 @@
+import { useLiveClock } from '../../hooks/useLiveClock';
+import { philippineDate } from '../../utils/serviceCompletion';
 import { useScreenRefresh } from '../../hooks/usePullToRefresh';
 import { copyWithFeedback } from '../../services/clipboard';
 import { calendarOverlays, EMPTY_OVERLAY_FILTERS } from './calendarOverlays';
@@ -21,8 +23,8 @@ const field = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 te
 const action = 'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold disabled:opacity-50';
 const activityColors = {
   sunday: 'bg-blue-500',
-  prayer: 'bg-emerald-500',
-  practice: 'bg-orange-500',
+  prayer: 'bg-blue-500',
+  practice: 'bg-blue-500',
   other: 'bg-amber-400',
 } as const;
 
@@ -66,7 +68,8 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   };
   const calendarRef = useCalendarSwipe(changeMonth);
   const [selectedDate, setSelectedDate] = useState(todayKey);
-  const [today, setToday] = useState(todayKey);
+  const clock = useLiveClock();
+  const today = philippineDate(clock);
   const [items, setItems] = useState<ChurchActivity[]>(offlineItems || []);
   const [loading, setLoading] = useState(!readOnly);
   const [loadError, setLoadError] = useState('');
@@ -151,17 +154,6 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
 
   useScreenRefresh(load);
   useEffect(() => { void load(); }, [offlineItems]);
-  useEffect(() => {
-    const refreshToday = () => setToday(todayKey());
-    const timer = window.setInterval(refreshToday, 60_000);
-    window.addEventListener('focus', refreshToday);
-    document.addEventListener('visibilitychange', refreshToday);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener('focus', refreshToday);
-      document.removeEventListener('visibilitychange', refreshToday);
-    };
-  }, []);
   useBackLayer(!!editor, () => { if (!savingRef.current) setEditor(null); });
 
   useEffect(() => {
@@ -180,8 +172,8 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     return orderActivityList(items.filter(item => {
       if (!gatheringFilters[activityKind(item.title)]) return false;
       return !query || `${item.title} ${item.description || ''}`.toLowerCase().includes(query);
-    }), today);
-  }, [items, search, gatheringFilters, today]);
+    }), today, clock);
+  }, [items, search, gatheringFilters, today, clock]);
   const activitiesByDate = useMemo(() => {
     const result = new Map<string, ChurchActivity[]>();
     for (const item of filteredItems) {
@@ -197,10 +189,10 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     for (const entry of overlays) result.set(entry.date, [...(result.get(entry.date) || []), entry]);
     return result;
   }, [overlays]);
-  const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today))?.id;
-  const followingActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today) && item.id !== nextActivityId)?.id;
+  const nextActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today, item.title, clock))?.id;
+  const followingActivityId = filteredItems.find(item => !isPastActivity(item.activityDate, today, item.title, clock) && item.id !== nextActivityId)?.id;
   // Completed dates stay at the end of their year, after every upcoming month.
-  const activityGroups = groupActivityMonths(filteredItems, today);
+  const activityGroups = groupActivityMonths(filteredItems, today, clock);
   const currentYear = Number(today.slice(0, 4));
   const visibleMonth = dateKey(month).slice(0, 7);
   const featuredGroup = activityGroups.find(group => group.key === `${visibleMonth}-upcoming`);
@@ -307,7 +299,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
         {group.items.map((item, index) => {
           const date = localDate(item.activityDate);
           const expanded = expandedActivity === item.id;
-          const past = isPastActivity(item.activityDate, today);
+          const past = isPastActivity(item.activityDate, today, item.title, clock);
           const firstOfDay = group.items[index - 1]?.activityDate !== item.activityDate;
           return <article id={`activity-card-${item.id}`} key={item.id} data-past={past || undefined} data-special-activity={!past && !isRoutineActivity(item.title) || undefined} onClick={() => setExpandedActivity(expanded ? null : item.id)} className={`relative scroll-mt-4 first:rounded-t-[20px] last:rounded-b-[20px] ${index > 0 ? 'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:ml-[72px] before:border-t before:border-slate-200 dark:before:border-slate-800' : ''} ${item.activityDate === today ? 'bg-blue-50 dark:bg-blue-950/30' : ''} ${openMenu === item.id ? 'z-30' : ''}`}>
           <div data-activity-card-header className="flex min-h-[50px] items-center gap-2.5 px-2.5 py-[3px]">

@@ -15,6 +15,7 @@ import { SetlistEditorSection } from './SetlistEditorSection';
 import { useBackLayer } from '../hooks/useBackLayer';
 import { useHeaderSearch } from './HeaderSearch';
 import { useSearchResultsScroll } from '../hooks/useSearchResultsScroll';
+import { serviceCompleted } from '../utils/serviceCompletion';
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { Setlist, Song, SetlistSongItem, SetlistType } from '../types';
 import {
@@ -494,9 +495,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     [setlists]
   );
   const [clock, setClock] = useState(Date.now);
-  const isCompleted = (item: Setlist) => (item.type || 'sunday') === 'sunday'
-    ? clock >= Date.parse(item.date + 'T12:00:00+08:00')
-    : isPastDate(item.date);
+  const isCompleted = (item: Setlist) => serviceCompleted(item.date, item.title || '', clock, item.type || 'sunday');
   const featuredId = featuredSetlistCardId(sortedSetlists.filter(item => !isCompleted(item)), getTodayStr());
   useEffect(() => {
     const update = () => setClock(Date.now());

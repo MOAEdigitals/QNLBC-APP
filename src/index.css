@@ -99,8 +99,8 @@ input[type="search"]::-ms-clear { display: none; width: 0; height: 0; }
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 44px; min-height: 44px; flex-shrink: 0; padding: 0;
 }
-.special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #dfedff, #ebe7ff); border-color: #c7d2fe; }
-.dark .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #192d46, #332140); border-color: #3b4262; }
+.special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #cfe6ff, #ded2f7); border-color: #c7d2fe; }
+.dark .special-screen [data-special-activity='true'] { background: linear-gradient(115deg, #203f63, #4c2b5b); border-color: #3b4262; }
 /* One shared highlight treatment for next-up, upcoming and today cards. */
 .qnlbc-app .app-date-card[data-upcoming-card] { background-image: linear-gradient(115deg, #dfedff, #e7f1e8); border-color: #94a3b8; }
 .dark .qnlbc-app .app-date-card[data-upcoming-card] { background-image: linear-gradient(115deg, #192d46, #244033); border-color: #64748b; }

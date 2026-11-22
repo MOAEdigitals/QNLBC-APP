@@ -1,3 +1,4 @@
+import * as completion from "../src/utils/serviceCompletion.ts";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -35,7 +36,7 @@ test('one setlist stays expanded across tab remounts until its header or another
   };
   const reorderHook = compile('src/hooks/useSetlistReorder.ts', { '../utils/initialSetlistCard': initialCard });
   const months = compile('src/components/MonthSeparators.tsx', {});
-  const component = compile('src/components/SetlistsTab.tsx', { '../hooks/useSetlistReorder': reorderHook, './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
+  const component = compile('src/components/SetlistsTab.tsx', { '../utils/serviceCompletion': completion, '../hooks/useSetlistReorder': reorderHook, './MonthSeparators': months, '../utils/initialSetlistCard': initialCard, '../utils/dateUtils': dates, '../utils/personColors': colors, '../utils/storage': { getAllDirectoryNames: () => [] } }).SetlistsTab;
   const rows: any[] = ['one', 'two'].map(id => ({ id, date: dates.getTodayStr(), type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } }));
   rows.push(...['old-one', 'old-two'].map(id => ({ id, date: '2000-01-01', type: 'sunday', sundaySchool: { songs: [] }, worshipService: { songs: [] } })));
   for (const [index, type] of ['prayer_meeting', 'fellowship', 'event'].entries()) rows.push({ id: type, type, date: `2099-01-0${index + 1}`, program: { songLeader: 'Bro Joshua', songs: [{ id: 'song-one', title: 'Grace hymn' }] }, themeSong: 'Theme hymn' });

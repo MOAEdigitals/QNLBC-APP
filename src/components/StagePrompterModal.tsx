@@ -337,7 +337,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
     ? sequenceStep.index
     : sequence.findIndex(section => section.id === activeSectionId);
   const nextSection = sequence[currentStep + 1];
-  const showNext = repeatEnabled || choruses.length > 1;
+  const showNext = repeatEnabled || choruses.length > 1 || (choruses.length === 0 && namedSections.length > 1);
   const toggleRepeatChorus = () => {
     if (!canRepeat || !preferenceKey) return;
     const enabled = !repeatEnabled;

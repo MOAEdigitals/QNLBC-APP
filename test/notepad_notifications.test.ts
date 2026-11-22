@@ -1,3 +1,4 @@
+import * as presentation from "../src/utils/notificationPresentation.ts";
 import { createUiTestLoader } from './ui_test_components.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,7 +20,7 @@ async function fixture(path: string, services: any, run: (exports: any, root: Ro
   const ui = createUiTestLoader(dom, React);
   runInNewContext(ts.transpileModule(readFileSync(path,'utf8'), { compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.React,esModuleInterop:true,target:ts.ScriptTarget.ES2022} }).outputText, {
     exports,window:dom.window,document:dom.window.document,crypto:webcrypto,requestAnimationFrame:(f:()=>void)=>f(),
-    require:(name:string)=>name.endsWith('SheetSelect')||name.endsWith('SheetDateField')||name.endsWith('BottomSheet')?ui(name):name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
+    require:(name:string)=>name.includes("useLiveClock")?{useLiveClock:()=>Date.now()}:name.includes("notificationPresentation")?presentation:name.endsWith('SheetSelect')||name.endsWith('SheetDateField')||name.endsWith('BottomSheet')?ui(name):name==='react'?React:name==='lucide-react'?new Proxy({},{get:()=>()=>null}):name.includes('useBackLayer')?{useBackLayer:()=>{}}:services,
   });
   try { await run(exports,root,dom); }
   finally { await act(()=>root.unmount()); dom.window.close(); keys.forEach((key,i)=>{if(prior[i])Object.defineProperty(globalThis,key,prior[i]!);else delete (globalThis as any)[key];}); }
@@ -130,7 +131,7 @@ test('notification panel marks a tapped card or all cards read without deleting 
     await act(() => document.dispatchEvent(new dom.window.Event('visibilitychange')));
     assert.equal(read.length, 0, 'returning to the panel also preserves unread notifications');
     assert.match(document.querySelector('#root')!.textContent!, /Unread:/);
-    assert.match(document.querySelector('#root')!.textContent!, /Service starts at 10 AM\./);
+    assert.match(document.querySelector('#root')!.textContent!, /10 AM/);
     assert.doesNotMatch(document.querySelector('#root')!.textContent!, /Touch to see setlist/);
     await act(async () => Array.from(document.querySelectorAll('button')).find(b => b.textContent?.includes('Sunday Service'))!.click());
     assert.deepEqual(Array.from(read[0]), ['one']); assert.equal(opened, 'event');

@@ -1,14 +1,16 @@
 import { SheetDateField } from './SheetDateField';
 import { SheetSelect } from './SheetSelect';
 import React, { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, History, ArrowLeft } from 'lucide-react';
 import { useBackLayer } from '../hooks/useBackLayer';
-import { loadAnnouncementAdmin, sendAnnouncement, cancelScheduledAnnouncement, type ScheduledAnnouncement, type AnnouncementRecipient } from '../services/adminAnnouncements';
+import { loadAnnouncementAdmin, sendAnnouncement, cancelScheduledAnnouncement, type ScheduledAnnouncement, type AnnouncementRecipient, type AnnouncementHistory } from '../services/adminAnnouncements';
 import { philippineScheduleISO } from '../utils/notificationSchedule';
 const field = 'mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-transparent px-3 py-2.5 dark:border-slate-700';
 export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChange?: (handler: (() => void) | null) => void }) {
   const [people, setPeople] = useState<AnnouncementRecipient[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledAnnouncement[]>([]);
+  const [history, setHistory] = useState<AnnouncementHistory[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [scheduleMode, setScheduleMode] = useState(false);
   const [scheduleTime, setScheduleTime] = useState('');
   const [selected, setSelected] = useState<string[]>([]);
@@ -27,16 +29,17 @@ export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChang
   const refresh = async () => {
     setLoading(true);
     try {
-      const result = await loadAnnouncementAdmin(); setPeople(result.recipients); setScheduled(result.scheduled || []);
+      const result = await loadAnnouncementAdmin(); setPeople(result.recipients); setScheduled(result.scheduled || []); setHistory(result.history || []);
       setSelected(previous => previous.filter(id => result.recipients.some(person => person.id === id))); setError('');
     } catch (e) { setError((e as Error).message); } finally { setLoading(false); }
   };
   useEffect(() => { void refresh(); }, []);
   // Settings owns the history layer. A nested history listener would consume its Back event.
   useEffect(() => {
-    onBackHandlerChange?.(preview ? () => { if (!lock.current) setPreview(false); } : null);
+    onBackHandlerChange?.(preview ? () => { if (!lock.current) setPreview(false); } : showHistory ? () => setShowHistory(false) : null);
     return () => onBackHandlerChange?.(null);
-  }, [preview, onBackHandlerChange]);
+  }, [preview, showHistory, onBackHandlerChange]);
+  useBackLayer(!onBackHandlerChange && showHistory, () => setShowHistory(false));
   const recipients = people.filter(person => selected.includes(person.id));
   const send = async () => {
     if (lock.current) return;
@@ -71,10 +74,20 @@ export function AdminAnnouncements({ onBackHandlerChange }: { onBackHandlerChang
     </fieldset>
     <button type="submit" className="ui-primary w-full" disabled={loading || !recipients.length || !title.trim() || !body.trim()}>Preview notification</button>
   </>;
+  if (showHistory) return <section className="settings-content-card space-y-4">
+    <div className="flex items-center gap-3"><button type="button" className="ui-secondary" aria-label="Back to announcement" onClick={() => setShowHistory(false)}><ArrowLeft className="h-4 w-4" /></button><h3 className="flex-1 font-semibold">Announcement history</h3><button type="button" className="ui-secondary" disabled={loading} onClick={() => void refresh()}>{loading ? 'Loading…' : 'Refresh'}</button></div>
+    {error && <p role="alert" className="text-rose-600">{error}</p>}
+    {!loading && !history.length && <p className="text-sm text-slate-500">No announcements yet.</p>}
+    <div className="divide-y divide-slate-200 dark:divide-slate-700">{history.map(item => <article key={item.id} className="space-y-2 py-4">
+      <h4 className="break-words font-semibold">{item.title}</h4><p className="whitespace-pre-wrap break-words text-sm">{item.body}</p>
+      <p className="text-xs text-slate-500">{item.sender_name} · {new Date(item.created_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })}</p>
+      <details className="text-sm"><summary className="cursor-pointer py-2">{item.recipients.length} recipients · {item.recipients.filter(person => person.read_at).length} read</summary><ul className="space-y-2">{item.recipients.map(person => <li key={person.id} className="flex justify-between gap-3"><span>{person.name}</span><span className="text-slate-500">{person.read_at ? 'Read' : 'Unread'}</span></li>)}</ul></details>
+    </article>)}</div>
+  </section>;
   return <section className="settings-content-card space-y-5">
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{notice}</p>}
     {!preview && error && <p role="alert" className="text-rose-600">{error}</p>}
-    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">New announcement</h3><button type="button" className="ui-secondary" disabled={loading || busy} onClick={() => void refresh()}>{loading ? 'Loading…' : 'Refresh'}</button></div>
+    <div className="flex items-center justify-between gap-3"><h3 className="font-semibold">New announcement</h3><button type="button" className="ui-secondary flex items-center gap-2" onClick={() => { setShowHistory(true); void refresh(); }}><History className="h-4 w-4" />History</button></div>
     <form className="space-y-4" onSubmit={e => { e.preventDefault(); setError(''); try { if (scheduleMode) philippineScheduleISO(scheduleTime); setPreview(true); } catch (e) { setError((e as Error).message); } }}>{form}</form>
     {preview && <AnnouncementPreview title={title.trim()} body={body.trim()} recipients={recipients} busy={busy} error={error} scheduledFor={scheduleMode ? scheduleTime : undefined} onCancel={() => setPreview(false)} onSend={() => void send()} />}
     {!!scheduled.length && <section aria-label="Scheduled notifications" className="settings-section-divider space-y-3"><h3 className="font-semibold">Scheduled notifications ({scheduled.length})</h3><div className="divide-y divide-slate-200 dark:divide-slate-700">{scheduled.map(item => <div key={item.id} className="space-y-2 py-3"><p className="font-semibold">{item.title}</p><p className="text-sm whitespace-pre-wrap">{item.body}</p><p className="text-xs text-slate-500">{new Date(item.scheduled_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })} · Philippine time · {item.recipient_count} accounts · {item.state}</p>{item.state === 'pending' && <button type="button" disabled={busy} className="ui-secondary" onClick={async () => { if (lock.current) return; lock.current = true; setBusy(true); setError(''); try { await cancelScheduledAnnouncement(item.id); setNotice('Scheduled notification cancelled.'); await refresh(); } catch (e) { setError((e as Error).message); } finally { lock.current = false; setBusy(false); } }}>Cancel scheduled notification</button>}</div>)}</div></section>}
