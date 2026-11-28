@@ -1,3 +1,4 @@
+import { useLiveClock } from '../hooks/useLiveClock';
 import { SuccessIcon, CopyIcon as Copy, LoadingIcon as Loader2 } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { SheetDateField } from './SheetDateField';
@@ -974,6 +975,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     (e: SpecialNumberEntry) => e.scheduledDate
   );
 
+  useLiveClock();
   const filteredScheduleEntries = sortedEntries.filter((item: SpecialNumberEntry) => {
     if (!scheduleSearchQuery.trim()) return true;
     const q = scheduleSearchQuery.trim().toLowerCase();
@@ -983,8 +985,8 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     );
   });
 
-  const soonestEntry = sortedEntries.find((e) => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate));
-  const followingEntry = sortedEntries.find(e => !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate) && e.id !== soonestEntry?.id);
+  const soonestEntry = sortedEntries.find((e) => e.status !== 'completed' && !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate));
+  const followingEntry = sortedEntries.find(e => e.status !== 'completed' && !isPastDate(e.scheduledDate) && !isToday(e.scheduledDate) && e.id !== soonestEntry?.id);
   const practiceUpcoming = upcomingCardStatuses(practiceEntries, entry => entry.practiceDate || entry.targetDate, getTodayStr(), entry => !entry.isDone);
   const choirUpcoming = upcomingCardStatuses(choirEntries, entry => entry.date, getTodayStr(), entry => !entry.isDone);
 
@@ -1899,82 +1901,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  return (
-    <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
-      <div role="group" aria-label="Schedules sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
-        {([
-          ['activities', 'Activities', Calendar],
-          ['schedules', 'Song Numbers', Mic2],
-          ['choir', 'Choir', Users],
-          ['practice', 'Practice', Play],
-        ] as const).map(([key, label, Icon]) => (
-          <button key={key} type="button" className="ui-category-pill app-subtab" aria-label={label} aria-pressed={activeSubTab === key} onClick={() => setActiveSubTab(key)}>
-            <Icon aria-hidden="true" className="size-4 shrink-0" />
-            <span className="app-subtab-label">{label}</span>
-          </button>
-        ))}
-      </div>
-
-      {activeSubTab === 'activities' && (
-        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities offlineItems={offlineActivities} key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} onActivitiesChanged={onActivitiesChanged} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
-      )}
-
-      {/* ========================================================================= */}
-      <LyricsScreenAwake active={activeSubTab === 'practice' ? !!selectedPracticeId : activeSubTab === 'choir' ? !!selectedChoirId : activeSubTab === 'schedules' ? !!selectedEntryId : false} />
-      {/* SCHEDULES SUB-TAB */}
-      {/* ========================================================================= */}
-      {activeSubTab === 'schedules' && (
-        <div className="app-subtab-content space-y-4">
-
-          {/* Vacant Fellowship / Event Alerts */}
-          {!readOnly && vacantEvents.length > 0 && (
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-800 dark:text-slate-200">
-              <div className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-sky-600 shrink-0" />
-                <span>
-                  Upcoming Fellowship/Event:{' '}
-                  <strong>{vacantEvents[0].title || 'Special Gathering'}</strong> on{' '}
-                  {formatDateStr(vacantEvents[0].date)} has no special number assigned yet.
-                </span>
-              </div>
-              <button
-                onClick={() => {
-                  resetScheduledSong();
-                  setEditingSchedule({
-                    id: generateUUID(),
-                    performerName: '',
-                    scheduledDate: vacantEvents[0].date,
-                    songTitle: '',
-                    notes: '',
-                    createdAt: new Date().toISOString(),
-                  });
-                  setIsEditingSchedule(true);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold hover:bg-slate-800 shrink-0 ml-2 cursor-pointer"
-              >
-                Assign
-              </button>
-            </div>
-          )}
-
-          {syncedNotice && (
-            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
-              <Check className="w-4 h-4 text-emerald-600" />
-              <span>Song number saved.</span>
-            </div>
-          )}
-
-          {/* Song numbers grouped by month. */}
-          <div className="space-y-3 pt-1">
-            {filteredScheduleEntries.length === 0 ? (
-              <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
-                No special song numbers scheduled.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
-                {monthList(filteredScheduleEntries, item => item.scheduledDate, ['song number', 'song numbers'], { archive: true, revealArchive: !!scheduleSearchQuery.trim(), revealDate: filteredScheduleEntries.find(item => item.id === selectedEntryId)?.scheduledDate }).render((item) => {
-                  const isPast = isPastDate(item.scheduledDate);
-                  const today = isToday(item.scheduledDate);
+  const renderScheduleEntries = (items: SpecialNumberEntry[]) => monthList(items, item => item.scheduledDate, ['song number', 'song numbers'], { archive: true, revealArchive: !!scheduleSearchQuery.trim(), revealDate: filteredScheduleEntries.find(item => item.id === selectedEntryId)?.scheduledDate }).render((item) => {
+                  const isPast = item.status === 'completed' || isPastDate(item.scheduledDate);
+                  const today = !isPast && isToday(item.scheduledDate);
                   const isSoonest = !today && soonestEntry?.id === item.id;
                   const matchedSong = (item.songId ? songs.find(song => song.id === item.songId) : undefined)
                     || songs.find(song => song.title.trim().toLowerCase() === item.songTitle?.trim().toLowerCase());
@@ -2084,7 +2013,86 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       )}
                     </div>
                   );
-                })}
+                });
+
+  return (
+    <div data-practice-open={activeSubTab === 'practice' && selectedPracticeId ? 'true' : undefined} className={`ui-revamp ui-screen special-screen space-y-5 ${activeSubTab === 'practice' ? 'practice-screen' : ''}`}>
+      <div role="group" aria-label="Schedules sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
+        {([
+          ['activities', 'Activities', Calendar],
+          ['schedules', 'Song Numbers', Mic2],
+          ['choir', 'Choir', Users],
+          ['practice', 'Practice', Play],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" className="ui-category-pill app-subtab" aria-label={label} aria-pressed={activeSubTab === key} onClick={() => setActiveSubTab(key)}>
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="app-subtab-label">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {activeSubTab === 'activities' && (
+        <div className="app-subtab-content"><React.Suspense fallback={<p role="status">Loading activities…</p>}><Activities offlineItems={offlineActivities} key={currentUser?.id || 'guest'} birthdays={birthdays} onLoadBirthdays={onLoadBirthdays} onActivitiesChanged={onActivitiesChanged} currentUser={currentUser} collapseSignal={collapseSignal} /></React.Suspense></div>
+      )}
+
+      {/* ========================================================================= */}
+      <LyricsScreenAwake active={activeSubTab === 'practice' ? !!selectedPracticeId : activeSubTab === 'choir' ? !!selectedChoirId : activeSubTab === 'schedules' ? !!selectedEntryId : false} />
+      {/* SCHEDULES SUB-TAB */}
+      {/* ========================================================================= */}
+      {activeSubTab === 'schedules' && (
+        <div className="app-subtab-content space-y-4">
+
+          {/* Vacant Fellowship / Event Alerts */}
+          {!readOnly && vacantEvents.length > 0 && (
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-800 dark:text-slate-200">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-sky-600 shrink-0" />
+                <span>
+                  Upcoming Fellowship/Event:{' '}
+                  <strong>{vacantEvents[0].title || 'Special Gathering'}</strong> on{' '}
+                  {formatDateStr(vacantEvents[0].date)} has no special number assigned yet.
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  resetScheduledSong();
+                  setEditingSchedule({
+                    id: generateUUID(),
+                    performerName: '',
+                    scheduledDate: vacantEvents[0].date,
+                    songTitle: '',
+                    notes: '',
+                    createdAt: new Date().toISOString(),
+                  });
+                  setIsEditingSchedule(true);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-semibold hover:bg-slate-800 shrink-0 ml-2 cursor-pointer"
+              >
+                Assign
+              </button>
+            </div>
+          )}
+
+          {syncedNotice && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+              <Check className="w-4 h-4 text-emerald-600" />
+              <span>Song number saved.</span>
+            </div>
+          )}
+
+          {/* Song numbers grouped by month. */}
+          <div className="space-y-3 pt-1">
+            {filteredScheduleEntries.length === 0 ? (
+              <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+                No special song numbers scheduled.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
+                {renderScheduleEntries(filteredScheduleEntries.filter(item => item.status !== 'completed' && !isPastDate(item.scheduledDate)))}
+                {filteredScheduleEntries.some(item => item.status === 'completed' || isPastDate(item.scheduledDate)) && <details data-completed-song-numbers open={!!scheduleSearchQuery.trim() || filteredScheduleEntries.some(item => item.id === selectedEntryId && (item.status === 'completed' || isPastDate(item.scheduledDate))) || undefined} className="rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <summary className="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold">Completed song numbers</summary>
+                  <div className="grid grid-cols-1 gap-3 px-3 pb-3">{renderScheduleEntries(filteredScheduleEntries.filter(item => item.status === 'completed' || isPastDate(item.scheduledDate)))}</div>
+                </details>}
               </div>
             )}
           </div>

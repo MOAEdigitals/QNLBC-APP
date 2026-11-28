@@ -101,6 +101,20 @@ export function getSongCategories(song: Song): SongCategory[] {
   return [];
 }
 
+function SongExpansion({ open, children }: { open: boolean; children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(open);
+  const [visible, setVisible] = useState(open);
+  useLayoutEffect(() => {
+    if (!open && !mounted) return;
+    let frame = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (open) { setMounted(true); frame = requestAnimationFrame(() => setVisible(true)); }
+    else { setVisible(false); timer = setTimeout(() => setMounted(false), 180); }
+    return () => { cancelAnimationFrame(frame); if (timer) clearTimeout(timer); };
+  }, [open]);
+  return <div data-song-expansion data-expanded={open || undefined} aria-hidden={!open} inert={!open} className="grid transition-[grid-template-rows,opacity] duration-150 ease-in-out motion-reduce:transition-none" style={{gridTemplateRows:visible?'1fr':'0fr',opacity:visible?1:0}}><div className="min-h-0 overflow-hidden">{mounted ? children : null}</div></div>;
+}
+
 interface SongsTabProps {
   userId?: string;
   readOnly?: boolean;
@@ -109,7 +123,7 @@ interface SongsTabProps {
   setlists: Setlist[];
   onSaveSong: (song: Song) => Promise<Song>;
   onBatchSaveSongs?: (songs: Song[]) => void;
-  onDeleteSong: (id: string) => void;
+  onDeleteSong: (id: string) => void | Promise<boolean | void>;
   onAddSongToNewSetlist: (song: Song) => void;
   onAddSongToExistingUpcomingSetlist: (song: Song, targetSetlistId: string, part: 'sundaySchool' | 'worshipService') => void;
   initialSelectedSongId?: string | null;
@@ -124,7 +138,7 @@ interface SongsTabProps {
 export const SongsTab: React.FC<SongsTabProps> = ({
   userId,
   readOnly = false,
-  songs,
+  songs: persistedSongs,
   canManageCategories = false,
   setlists,
   onSaveSong,
@@ -140,6 +154,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   returnSetlistId,
   onBackToSetlist,
 }) => {
+  const [starOverrides, setStarOverrides] = useState<Record<string, boolean>>({});
+  const starWrites = useRef(new Map<string, { song: Song; desired: boolean }>());
+  const songs = useMemo(() => persistedSongs.map(song => song.id in starOverrides
+    ? { ...song, isStarred: starOverrides[song.id], starred: starOverrides[song.id] } : song), [persistedSongs, starOverrides]);
   const [selectedSongId, setSelectedSongId] = useState<string | null>(initialSelectedSongId || null);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredSearchQuery = useDeferredValue(searchQuery);
@@ -305,7 +323,7 @@ export const SongsTab: React.FC<SongsTabProps> = ({
   useLayoutEffect(() => {
     const anchor = scrollAnchorRef.current;
     if (!anchor) return;
-    if (selectedSongId !== anchor.songId) {
+    if (selectedSongId && selectedSongId !== anchor.songId) {
       scrollAnchorRef.current = null;
       return;
     }
@@ -354,7 +372,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
     }
 
     // Secondary verification on requestAnimationFrame to compensate for any micro-shifts
-    const rafId = requestAnimationFrame(() => {
+    let started: number | null = null;
+    let rafId = 0;
+    const trackAnchor = (time: number) => {
+      if (started === null) started = time;
       const el = document.getElementById(`song-header-${anchor.songId}`);
       if (el) {
         const rafScreenY = el.getBoundingClientRect().top;
@@ -363,8 +384,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
           applyScrollCorrection(rafDelta);
         }
       }
-      scrollAnchorRef.current = null;
-    });
+      if (typeof time === 'number' && time - started < 190) rafId = requestAnimationFrame(trackAnchor);
+      else scrollAnchorRef.current = null;
+    };
+    rafId = requestAnimationFrame(trackAnchor);
 
     return () => {
       cancelAnimationFrame(rafId);
@@ -373,6 +396,10 @@ export const SongsTab: React.FC<SongsTabProps> = ({
 
   // Triggered when collapsing an open song (e.g. from footer tap or header toggle)
   const handleCollapseSong = () => {
+    if (selectedSongId) {
+      const header = document.getElementById(`song-header-${selectedSongId}`);
+      if (header) scrollAnchorRef.current = { songId: selectedSongId, initialScreenY: header.getBoundingClientRect().top };
+    }
     setSelectedSongId(null);
     setActiveMedia(null);
     setOpenMenuSongId(null);
@@ -743,15 +770,25 @@ if (isEditing && !savingSongRef.current) {
 
   const handleToggleStar = (song: Song, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const currentStarred = Boolean(song.isStarred || (song as any).starred);
-    const nextVal = !currentStarred;
-    const updated: Song = {
-      ...song,
-      isStarred: nextVal,
-      starred: nextVal,
-      updatedAt: new Date().toISOString(),
-    };
-    onSaveSong(updated);
+    if (readOnly) return;
+    const pending = starWrites.current.get(song.id);
+    const nextVal = !(pending?.desired ?? Boolean(song.isStarred || song.starred));
+    setStarOverrides(previous => ({ ...previous, [song.id]: nextVal }));
+    if (pending) { pending.desired = nextVal; return; }
+    const write = { song, desired: nextVal };
+    starWrites.current.set(song.id, write);
+    void (async () => {
+      try {
+        while (Boolean(write.song.isStarred || write.song.starred) !== write.desired) {
+          const desired = write.desired;
+          write.song = await onSaveSong({ ...write.song, isStarred: desired, starred: desired, updatedAt: new Date().toISOString() });
+        }
+      } catch { /* The save handler reports the failure; remove the optimistic state. */ }
+      finally {
+        starWrites.current.delete(song.id);
+        setStarOverrides(previous => { const next = { ...previous }; delete next[song.id]; return next; });
+      }
+    })();
   };
 
   const handleSaveSongForm = async (e: React.FormEvent) => {
@@ -1102,12 +1139,7 @@ if (isEditing && !savingSongRef.current) {
                   id={`song-header-${song.id}`}
                   onClick={(e) => {
                     if (isSelected) {
-                      // Tapping the currently open song collapses it
-                      setSelectedSongId(null);
-                      setActiveMedia(null);
-                      setOpenMenuSongId(null);
-                      setCategoryPickerSongId(null);
-                      onClearInitialSelectedSongId?.();
+                      handleCollapseSong();
                     } else {
                       // Tapping a different song:
                       // Capture the tapped song header's current screen position before layout change
@@ -1184,6 +1216,7 @@ if (isEditing && !savingSongRef.current) {
                       }`}
                       title={song.isStarred || (song as any).starred ? 'Starred (tap to unstar)' : 'Tap to star song'}
                       aria-label={song.isStarred || (song as any).starred ? 'Unstar song' : 'Star song'}
+                      aria-pressed={Boolean(song.isStarred || song.starred)}
                     >
                       <Star
                         className={`w-5 h-5 transition-transform active:scale-125 ${
@@ -1197,8 +1230,7 @@ if (isEditing && !savingSongRef.current) {
                 </div>
 
                 {/* IN-LINE EXPANDED VIEW (When clicked directly in place!) */}
-                {isSelected && (
-                  <div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
+                {<SongExpansion open={isSelected}><div className="px-4 sm:px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800 space-y-5">
                     {/* Action Bar (With Add to Setlist, Category Icon, Font Stepper, Stage View, and 3-dot menu) */}
                     <div className="flex items-center gap-1.5 sm:gap-2 pt-2">
                       <div className="flex min-w-0 flex-wrap items-center gap-1.5 sm:gap-2">
@@ -1331,7 +1363,14 @@ if (isEditing && !savingSongRef.current) {
                                 e.stopPropagation();
                                 setOpenMenuSongId(null);
                                 if ((await confirmAction(`Remove "${song.title}" from Song Library?`))) {
-                                  onDeleteSong(song.id);
+                                  const card = document.getElementById(`song-card-${song.id}`);
+                                  let removal: Animation | undefined;
+                                  if (card?.animate && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+                                    const height = card.getBoundingClientRect().height;
+                                    const marginBlockEnd = getComputedStyle(card).marginBlockEnd;
+                                    try { removal = card.animate([{ height: height + 'px', opacity: 1, marginBlockEnd }, { height: '0px', opacity: 0, marginBlockEnd: '0px', borderTopWidth: '0px', borderBottomWidth: '0px' }], { duration: 160, easing: 'ease-in-out', fill: 'forwards' }); await removal.finished; } catch { /* Animation cancellation still permits deletion. */ }
+                                  }
+                                  if (await onDeleteSong(song.id) === false) { removal?.cancel(); return; }
                                   setSelectedSongId(null);
                                   onClearInitialSelectedSongId?.();
                                 }
@@ -1638,8 +1677,7 @@ if (isEditing && !savingSongRef.current) {
                         <span>Add Attachment</span>
                       </button>
                     </div>
-                  </div>
-                )}
+                  </div></SongExpansion>}
               </div>
             );
           })}

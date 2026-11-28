@@ -968,18 +968,20 @@ export default function App() {
   }, [songs, currentUser]);
 
   const handleDeleteSong = useCallback(async (id: string) => {
-    if (!requirePermission('delete')) return;
+    if (!requirePermission('delete')) return false;
     const target = songs.find((s) => s.id === id);
     setSongs((prev) => prev.filter((s) => s.id !== id));
 
     try {
       await supabaseDeleteSong(id, target?.revision || 1);
       scheduleOfflineSync();
+      return true;
     } catch (err: any) {
       console.error('Failed to delete song from Supabase:', err);
       const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
       setSongs(fresh);
       void showAppMessage('Unable to delete song: ' + (err.message || 'Database error'));
+      return false;
     }
   }, [songs, currentUser]);
 

@@ -1,3 +1,4 @@
+import { useLiveClock } from '../hooks/useLiveClock';
 import { CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionActive, partitionSpecialRecognitions } from '../utils/recognitionDetails';
@@ -168,6 +169,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   const [birthdaySaveError, setBirthdaySaveError] = useState('');
 
 
+  useLiveClock();
   const birthdayToday = getTodayStr();
   const filteredBirthdays = orderBirthdayRecognitionMonths(birthdays.filter(b => b.birthDate), b => b.birthDate, birthdayToday).filter((b: BirthdayCelebrant) => {
     if (!birthdaySearchQuery.trim()) return true;
@@ -258,37 +260,10 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   });
   const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingSpecial;
 
-  return (
-    <div className="ui-revamp ui-screen recognitions-screen space-y-5">
-      <div role="group" aria-label="Recognitions sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
-        {([
-          ['birthdays', 'Birthdays', Cake],
-          ['special', 'Special', Award],
-          ['anniversaries', 'Anniversaries', Heart],
-        ] as const).map(([key, label, Icon]) => (
-          <button key={key} type="button" className="ui-category-pill app-subtab" aria-label={label} aria-pressed={subTab === key} onClick={() => setSubTab(key)}>
-            <Icon aria-hidden="true" className="size-4 shrink-0" />
-            <span className="app-subtab-label">{label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* SUBTAB 1: BIRTHDAYS */}
-      {subTab === 'birthdays' && (
-        <div className="app-subtab-content mx-auto w-full max-w-[640px] space-y-6">
-          {/* Celebrants Section - Directly below search bar */}
-          <div className="space-y-3">
-            {filteredBirthdays.length === 0 ? (
-              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
-                {birthdaySearchQuery
-                  ? `No celebrants matching "${birthdaySearchQuery}".`
-                  : 'No birthday celebrants recorded.'}
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {birthdayMonths.map(({ key, month, items }) => (
-                  <section key={key} aria-labelledby={`birthday-month-${key}`} className="space-y-2">
-                    <h3 id={`birthday-month-${key}`} className="px-1 text-base font-bold">
+  const birthdayCompleted = (item: BirthdayCelebrant) => isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate);
+  const renderBirthdayMonths = (groups: typeof birthdayMonths, completed = false) => groups.map(({ key, month, items }) => (
+                  <section key={key} aria-labelledby={`birthday-month-${key}${completed ? '-completed' : ''}`} className="space-y-2">
+                    <h3 id={`birthday-month-${key}${completed ? '-completed' : ''}`} className="px-1 text-base font-bold">
                       {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
                     </h3>
                     <div className="rounded-[20px] bg-white dark:bg-slate-900">
@@ -357,7 +332,41 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                       ))}
                     </div>
                   </section>
-                ))}
+                ));
+
+  return (
+    <div className="ui-revamp ui-screen recognitions-screen space-y-5">
+      <div role="group" aria-label="Recognitions sections" className="app-subtabs mx-auto flex w-full max-w-[640px] gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 dark:border-slate-700/80 dark:bg-slate-800/90">
+        {([
+          ['birthdays', 'Birthdays', Cake],
+          ['special', 'Special', Award],
+          ['anniversaries', 'Anniversaries', Heart],
+        ] as const).map(([key, label, Icon]) => (
+          <button key={key} type="button" className="ui-category-pill app-subtab" aria-label={label} aria-pressed={subTab === key} onClick={() => setSubTab(key)}>
+            <Icon aria-hidden="true" className="size-4 shrink-0" />
+            <span className="app-subtab-label">{label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* SUBTAB 1: BIRTHDAYS */}
+      {subTab === 'birthdays' && (
+        <div className="app-subtab-content mx-auto w-full max-w-[640px] space-y-6">
+          {/* Celebrants Section - Directly below search bar */}
+          <div className="space-y-3">
+            {filteredBirthdays.length === 0 ? (
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+                {birthdaySearchQuery
+                  ? `No celebrants matching "${birthdaySearchQuery}".`
+                  : 'No birthday celebrants recorded.'}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {renderBirthdayMonths(birthdayMonths.map(group => ({...group,items:group.items.filter(item => !birthdayCompleted(item))})).filter(group => group.items.length))}
+                {birthdayMonths.some(group => group.items.some(birthdayCompleted)) && <details data-completed-birthdays open={!!birthdaySearchQuery.trim() || undefined} className="rounded-2xl border border-slate-200 dark:border-slate-800">
+                  <summary className="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold">Completed birthdays</summary>
+                  <div className="space-y-6 px-3 pb-3">{renderBirthdayMonths(birthdayMonths.map(group => ({...group,items:group.items.filter(birthdayCompleted)})).filter(group => group.items.length), true)}</div>
+                </details>}
               </div>
             )}
           </div>

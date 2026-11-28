@@ -32,8 +32,8 @@ test('SpecialNumberTab: today entry displays only Today badge and no upcoming ba
   // soonestEntry must exclude today
   assert.match(
     specialNumSrc,
-    /soonestEntry\s*=\s*sortedEntries\.find\(\(e\)\s*=>\s*!isPastDate\(e\.scheduledDate\)\s*&&\s*!isToday\(e\.scheduledDate\)\)/,
-    'soonestEntry in SpecialNumberTab must exclude past dates and today'
+    /soonestEntry\s*=\s*sortedEntries\.find\(\(e\)\s*=>\s*e\.status !== 'completed'\s*&&\s*!isPastDate\(e\.scheduledDate\)\s*&&\s*!isToday\(e\.scheduledDate\)\)/,
+    'soonestEntry in SpecialNumberTab must exclude completed entries, past dates and today'
   );
 
   // isSoonest must exclude today

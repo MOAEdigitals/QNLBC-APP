@@ -60,6 +60,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const pendingPlay = useRef<HTMLAudioElement | null>(null);
   const attemptedFallback = useRef(false);
+  const playbackBlobUrl = useRef<string | null>(null);
+  const recoverPlayback = useRef<(() => Promise<void>) | null>(null);
+  const recoveringAudio = useRef<HTMLAudioElement | null>(null);
   const cloudUpdate = useRef(onAudioUrlUpdated);
   cloudUpdate.current = onAudioUrlUpdated;
   const progressBarRef = useRef<HTMLDivElement | null>(null);
@@ -74,6 +77,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const [downloadState, setDownloadState] = useState('');
   const [downloadBusy, setDownloadBusy] = useState(false);
   const downloadLock = useRef(false);
+  useEffect(() => () => { if (playbackBlobUrl.current) URL.revokeObjectURL(playbackBlobUrl.current); }, []);
 
   useEffect(() => {
     let active = true;
@@ -181,8 +185,14 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
           }
         }
       } else if (raw.startsWith('data:')) {
-        setResolvedAudioSrc(raw);
-        setAudioError(null);
+        try {
+          const blob = await dataUrlToBlob(raw);
+          if (isCancelled) return;
+          if (playbackBlobUrl.current) URL.revokeObjectURL(playbackBlobUrl.current);
+          playbackBlobUrl.current = URL.createObjectURL(blob);
+          setResolvedAudioSrc(playbackBlobUrl.current);
+          setAudioError(null);
+        } catch { if (!isCancelled) setAudioError('Could not load the saved recording.'); }
       } else {
         const clean = resolveMediaUrl(raw);
         setResolvedAudioSrc(clean);
@@ -273,6 +283,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     };
 
     const handleError = async () => {
+      if (recoveringAudio.current === audio) return;
+      recoveringAudio.current = audio;
+      try {
       if (!offline && !attemptedFallback.current) {
         attemptedFallback.current = true;
         const cloud = resolveMediaUrl(audioUrl);
@@ -286,15 +299,38 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
             console.warn('Could not read cached recording:', error);
           }
         }
+        if (!fallback && badgeCategory === 'vocal_part' && /^https?:\/\//.test(cloud)) {
+          try {
+            const response = await fetch(cloud, { cache: 'reload', signal: AbortSignal.timeout(15000) });
+            if (response.ok) {
+              const blob = await response.blob();
+              if (blob.size && !blob.type.includes('text/html') && (!hash || await mediaHash(blob) === hash) && audioRef.current === audio) {
+                if (playbackBlobUrl.current) URL.revokeObjectURL(playbackBlobUrl.current);
+                playbackBlobUrl.current = URL.createObjectURL(blob);
+                fallback = playbackBlobUrl.current;
+              }
+            }
+          } catch { /* Report the underlying playback failure below. */ }
+        }
         if (audioRef.current !== audio) return;
         if (fallback && fallback !== resolvedAudioSrc) {
+          if (fallback.startsWith('data:')) {
+            const blob = await dataUrlToBlob(fallback);
+            if (audioRef.current !== audio) return;
+            if (playbackBlobUrl.current) URL.revokeObjectURL(playbackBlobUrl.current);
+            playbackBlobUrl.current = URL.createObjectURL(blob);
+            fallback = playbackBlobUrl.current;
+          }
           setResolvedAudioSrc(fallback);
           return;
         }
       }
-      setAudioError('Audio playback failed');
+      const code = audio.error?.code;
+      setAudioError(code === 4 ? 'This device could not play the audio format.' : code === 3 ? 'This device could not decode the recording.' : 'Audio could not load. Tap play to retry.');
       onPauseRef.current();
+      } finally { if (recoveringAudio.current === audio) recoveringAudio.current = null; }
     };
+    recoverPlayback.current = handleError;
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('durationchange', handleDurationChange);
@@ -313,6 +349,8 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
       if (pendingPlay.current === audio) pendingPlay.current = null;
+      recoverPlayback.current = null;
+      if (recoveringAudio.current === audio) recoveringAudio.current = null;
       notifyAudioStopped(id);
       audioRef.current = null;
     };
@@ -337,8 +375,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
         setAudioError('Tap play again');
         onPauseRef.current();
       } else if (!audio.error) {
-        setAudioError('Audio playback failed');
-        onPauseRef.current();
+        void recoverPlayback.current?.();
       }
     });
   }
@@ -368,6 +405,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
       return;
     }
     setAudioError(null);
+    attemptedFallback.current = false;
     if (audio.error) audio.load();
     startPlayback(audio);
     onPlay();

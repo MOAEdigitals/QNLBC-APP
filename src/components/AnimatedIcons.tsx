@@ -26,6 +26,8 @@ function AnimatedIcon({ kind, className = 'h-5 w-5', size, active, trigger = 0, 
   const handlers = useRef<EventProps | null>(null);
   const reduced = useSyncExternalStore(subscribeMotion, getReducedMotion, () => true);
   const spinning = kind === 'loading' || (kind === 'refresh' && className.includes('animate-spin'));
+  const frames = assets[kind].animationData as { ip?: number; op?: number; fr?: number };
+  const speed = spinning ? 1 : Math.max(1, ((frames.op ?? 30) - (frames.ip ?? 0)) / (frames.fr || 30) / 0.16);
   const classes = className.replace(/\banimate-spin\b/g, '').trim();
   useEffect(() => {
     if (reduced || spinning || kind === 'bell' || kind === 'success') return;
@@ -55,6 +57,7 @@ function AnimatedIcon({ kind, className = 'h-5 w-5', size, active, trigger = 0, 
     {reduced ? <Static className="h-full w-full" /> : <UseAnimations
       key={kind === 'bell' ? trigger : kind}
       animation={assets[kind]} size="100%" strokeColor="currentColor"
+      speed={speed}
       interaction={spinning ? 'loop' : kind === 'visibility' ? 'click-toggle' : 'click-replay'}
       active={kind === 'visibility' ? active : undefined}
       loop={spinning}

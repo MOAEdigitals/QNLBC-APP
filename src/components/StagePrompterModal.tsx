@@ -612,7 +612,7 @@ export const StagePrompterModal: React.FC<StagePrompterModalProps> = ({
                     </span>
                   </div>
                 )}
-                <div
+                <div data-selectable-text
                   className={`font-sans whitespace-pre-wrap break-words font-medium tracking-normal ${currentFont.cssClass} ${section.kind === 'chorus' ? text : ''}`}
                 >
                   {section.lines.join('\n')}

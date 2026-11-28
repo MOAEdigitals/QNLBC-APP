@@ -2,6 +2,16 @@
 @import "./app-fonts.css";
 @theme { --color-blue-600: #1d63ed; --color-blue-700: #1d63ed; }
 
+/* App chrome behaves like controls, not a selectable document. */
+body { -webkit-user-select: none; user-select: none; }
+:is(input, textarea, [contenteditable="true"], .select-text, .select-text *, .sermon-prose, .sermon-prose *, [data-selectable-text], [data-selectable-text] *) {
+  -webkit-user-select: text; user-select: text;
+}
+:is(button, [role="button"], [role="tab"], [role="menuitem"], summary),
+:is(button, [role="button"], [role="tab"], [role="menuitem"], summary) * {
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+
 /* Shared primary add action, anchored above navigation in every tab. */
 .qnlbc-app button.app-fab {
   margin: 0;
