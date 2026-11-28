@@ -1012,7 +1012,7 @@ export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
     const audioAttachment = audioAttachmentByPart.get(part.id);
     list.push({
       id: part.id,
-      partLabel: part.label,
+      partLabel: part.label === 'Custom' ? part.custom_label || 'Custom' : part.label,
       customLabel: part.custom_label || undefined,
       custom_label: part.custom_label || undefined,
       name: part.name || undefined,
@@ -1126,6 +1126,15 @@ async function syncOwnerAttachments(
   }
 }
 
+function vocalPartDatabaseFields(part: PracticePartTrack) {
+  const standardLabels = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Baritone', 'Lead', 'Harmony', 'Choir / All', 'Custom'];
+  const displayLabel = part.partLabel?.trim() || 'Custom';
+  const label = standardLabels.includes(displayLabel) ? displayLabel : 'Custom';
+  const customLabel = (part.customLabel || part.custom_label)?.trim() || (label === 'Custom' && displayLabel !== 'Custom' ? displayLabel : '');
+  if (label === 'Custom' && !customLabel) throw new Error('Enter a name for the custom vocal part.');
+  return { label, custom_label: label === 'Custom' ? customLabel : null };
+}
+
 async function insertPracticeVocalPart(payload: { practice_id: string; label: string; custom_label: string | null; name: string | null; notes: string | null; id?: string }) {
   let position = 0;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -1171,8 +1180,7 @@ async function syncPracticeVocalParts(
 
     const partPayload = {
       practice_id: practiceId,
-      label: p.partLabel || 'Custom',
-      custom_label: (p.customLabel || p.custom_label)?.trim() || null,
+      ...vocalPartDatabaseFields(p),
       name: p.name?.trim() || null,
       notes: p.notes?.trim() || null,
     };
@@ -1262,8 +1270,7 @@ export async function savePracticeVocalPart(
 
   const payload = {
     practice_id: practiceId,
-    label: part.partLabel || 'Custom',
-    custom_label: (part.customLabel || part.custom_label)?.trim() || null,
+    ...vocalPartDatabaseFields(part),
     name: part.name?.trim() || null,
     notes: part.notes?.trim() || null,
   };
@@ -1303,7 +1310,7 @@ export async function savePracticeVocalPart(
   return {
     ...part,
     id: savedPart.id,
-    partLabel: savedPart.label,
+    partLabel: savedPart.label === 'Custom' ? savedPart.custom_label || 'Custom' : savedPart.label,
     customLabel: savedPart.custom_label || undefined,
     custom_label: savedPart.custom_label || undefined,
     name: savedPart.name || undefined,

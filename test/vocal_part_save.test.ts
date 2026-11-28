@@ -38,12 +38,15 @@ function database() {
       let descendingPosition = false;
       const filters: Array<(row: any) => boolean> = [];
       const execute = () => {
+        if (table === 'vocal_parts' && action !== 'select' && !['Soprano','Alto','Tenor','Bass','Baritone','Lead','Harmony','Choir / All','Custom'].includes(payload.label)) {
+          return {data:null,error:new Error('new row violates check constraint vocal_parts_label_check')};
+        }
         if (table === 'attachments' && failAttachments) return { data: null, error: new Error('Attachment sync failed') };
         let found = rows[table].filter(row => filters.every(filter => filter(row)));
         if (descendingPosition) found.sort((a, b) => b.position - a.position);
         if (action === 'insert') {
           if (table === 'vocal_parts' && failInsert) return { data: null, error: new Error('Persistence unavailable') };
-          const row = { ...payload, id: payload.id || `attachment-${rows[table].length}`, revision: 1, created_at: '2026-09-18' };
+          const row = { ...payload, id: payload.id || (table === 'vocal_parts' ? partId : `attachment-${rows[table].length}`), revision: 1, created_at: '2026-09-18' };
           if (table === 'vocal_parts' && reserveNextPosition) {
             reserveNextPosition = false;
             rows.vocal_parts.push({ id: 'concurrent-part', practice_id: row.practice_id, position: row.position });
@@ -80,7 +83,7 @@ function database() {
     },
   };
   const exports: any = {};
-  runInNewContext(compile(service.replaceAll('import.meta.env', '({})')), {
+  runInNewContext(compile(service.replaceAll('import.meta.env', '({})') + '\nexports.syncParts = syncPracticeVocalParts;'), {
     exports, console: quietConsole,
     require: (name: string) => {
       if (name === '../utils/songLyrics') return { cleanLeadingSongTitle };
@@ -89,7 +92,7 @@ function database() {
     },
   });
   return {
-    rows, counts, save: exports.savePracticeVocalPart,
+    rows, counts, save: exports.savePracticeVocalPart, syncParts: exports.syncParts,
     failAttachments: (value: boolean) => { failAttachments = value; },
     failInsert: (value: boolean) => { failInsert = value; },
     loseInsertResponse: (value: boolean) => { loseInsertResponse = value; },
@@ -265,6 +268,56 @@ it('editing reuses the existing UUID and attachment metadata', async () => {
   assert.equal(db.rows.attachments.length, 1);
   assert.equal(db.rows.attachments[0].external_url, 'https://audio.example/new');
   assert.equal(db.rows.vocal_parts.find(row => row.id === partId).position, 7);
+});
+
+it('Custom Tenor 1 saves under the permitted label, keeps its display name and can be edited again', async () => {
+  const db = database();
+  const ui = modal(db.save);
+  ui.context.vocalPartLabel = 'Custom';
+  ui.context.vocalPartCustomLabel = '  Tenor 1  ';
+  await ui.tap();
+  const row = db.rows.vocal_parts[0];
+  assert.equal(row.label, 'Custom');
+  assert.equal(row.custom_label, 'Tenor 1');
+  assert.equal(db.rows.attachments[0].external_url, 'https://audio.example/recording.webm');
+  const saved = ui.entries()[0].vocalParts[0];
+  assert.equal(saved.partLabel, 'Tenor 1');
+  assert.equal(saved.customLabel, 'Tenor 1');
+  ui.context.open({id:practiceId,vocalParts:[saved]}, 0);
+  assert.equal(ui.context.vocalPartLabel, 'Custom');
+  assert.equal(ui.context.vocalPartCustomLabel, 'Tenor 1');
+  ui.context.vocalPartCustomLabel = 'Tenor 2';
+  await ui.tap();
+  assert.equal(db.rows.vocal_parts.length, 1);
+  assert.equal(row.label, 'Custom');
+  assert.equal(row.custom_label, 'Tenor 2');
+  assert.equal(ui.entries()[0].vocalParts[0].partLabel, 'Tenor 2');
+});
+
+it('whole-practice saves normalize custom labels too and standard labels clear stale custom names', async () => {
+  const db = database();
+  await db.syncParts(practiceId,[{id:partId,partLabel:'Tenor 1'}]);
+  const row = db.rows.vocal_parts[0];
+  assert.equal(row.label,'Custom');
+  assert.equal(row.custom_label,'Tenor 1');
+  await db.syncParts(practiceId,[{id:row.id,partLabel:'Custom',custom_label:'Tenor 2'}]);
+  assert.equal(row.custom_label,'Tenor 2');
+  await db.save(practiceId,{id:row.id,partLabel:'Tenor',customLabel:'Old custom name'});
+  assert.equal(row.label,'Tenor');
+  assert.equal(row.custom_label,null);
+});
+
+it('blank custom names keep the draft and attached audio without creating a database row', async () => {
+  const db = database();
+  const ui = modal(db.save);
+  ui.context.vocalPartLabel = 'Custom';
+  ui.context.vocalPartCustomLabel = '  ';
+  await ui.tap();
+  assert.equal(db.rows.vocal_parts.length,0);
+  assert.equal(ui.context.isAddingVocalPartModal,true);
+  assert.equal(ui.context.vocalPartAudioUrl,'https://audio.example/recording.webm');
+  assert.match(ui.context.vocalPartSaveError,/Enter a name/);
+  await assert.rejects(db.save(practiceId,{id:partId,partLabel:'Custom'}),/Enter a name/);
 });
 
 it('a new recording appends after deleted positions and retries a concurrent position collision', async () => {

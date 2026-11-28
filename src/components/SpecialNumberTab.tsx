@@ -1739,7 +1739,10 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     if (partIndex !== undefined && partsList[partIndex]) {
       const part = partsList[partIndex];
       setEditingVocalPartIndex(partIndex);
-      if (VOCAL_PART_OPTIONS.includes(part.partLabel)) {
+      if (part.partLabel === 'Custom') {
+        setVocalPartLabel('Custom');
+        setVocalPartCustomLabel(part.customLabel || part.custom_label || '');
+      } else if (VOCAL_PART_OPTIONS.includes(part.partLabel)) {
         setVocalPartLabel(part.partLabel);
         setVocalPartCustomLabel('');
       } else {
@@ -1779,6 +1782,9 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     setVocalPartSaveError(null);
 
     try {
+      if (vocalPartLabel === 'Custom' && !vocalPartCustomLabel.trim()) {
+        throw new Error('Enter a name for the custom vocal part.');
+      }
       let finalAudioUrl = vocalPartAudioUrl.trim();
       if (isRecording) {
         finalAudioUrl = (await stopRecording()).trim();
