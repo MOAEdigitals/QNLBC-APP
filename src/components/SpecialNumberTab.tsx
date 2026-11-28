@@ -9,7 +9,7 @@ import { CardActions } from './CardActions';
 import { UpcomingBadge } from './UpcomingBadge';
 import { upcomingCardStatuses } from '../utils/upcomingCards';
 import { useBackLayer } from '../hooks/useBackLayer';
-import { monthList } from './MonthSeparators';
+import { monthList, completedMonthList } from './MonthSeparators';
 import { ChoirMedia } from './ChoirMedia';
 import { LyricsScreenAwake } from './LyricsScreenAwake';
 import { useHeaderSearch } from './HeaderSearch';
@@ -1901,7 +1901,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
     }
   };
 
-  const renderScheduleEntries = (items: SpecialNumberEntry[]) => monthList(items, item => item.scheduledDate, ['song number', 'song numbers'], { archive: true, revealArchive: !!scheduleSearchQuery.trim(), revealDate: filteredScheduleEntries.find(item => item.id === selectedEntryId)?.scheduledDate }).render((item) => {
+  const renderScheduleEntries = (items: SpecialNumberEntry[], completed=false) => monthList(items, item => item.scheduledDate, ['song number', 'song numbers'], { hidden: completed, archive: !completed, revealArchive: !!scheduleSearchQuery.trim(), revealDate: filteredScheduleEntries.find(item => item.id === selectedEntryId)?.scheduledDate }).render((item) => {
                   const isPast = item.status === 'completed' || isPastDate(item.scheduledDate);
                   const today = !isPast && isToday(item.scheduledDate);
                   const isSoonest = !today && soonestEntry?.id === item.id;
@@ -2089,10 +2089,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
             ) : (
               <div className="grid grid-cols-1 gap-3" style={{ overflowAnchor: 'none' }}>
                 {renderScheduleEntries(filteredScheduleEntries.filter(item => item.status !== 'completed' && !isPastDate(item.scheduledDate)))}
-                {filteredScheduleEntries.some(item => item.status === 'completed' || isPastDate(item.scheduledDate)) && <details data-completed-song-numbers open={!!scheduleSearchQuery.trim() || filteredScheduleEntries.some(item => item.id === selectedEntryId && (item.status === 'completed' || isPastDate(item.scheduledDate))) || undefined} className="rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <summary className="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold">Completed song numbers</summary>
-                  <div className="grid grid-cols-1 gap-3 px-3 pb-3">{renderScheduleEntries(filteredScheduleEntries.filter(item => item.status === 'completed' || isPastDate(item.scheduledDate)))}</div>
-                </details>}
+                {completedMonthList(filteredScheduleEntries.filter(item => item.status === 'completed' || isPastDate(item.scheduledDate)),item=>item.scheduledDate,items=><div className="grid grid-cols-1 gap-3">{renderScheduleEntries(items,true)}</div>,{kind:'song-numbers',reveal:!!scheduleSearchQuery.trim(),revealDate:filteredScheduleEntries.find(item=>item.id===selectedEntryId)?.scheduledDate})}
               </div>
             )}
           </div>

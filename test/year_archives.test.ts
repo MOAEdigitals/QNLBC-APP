@@ -6,6 +6,7 @@ import { createUiTestLoader } from './ui_test_components.ts';
 const React = createRequire(import.meta.url)('react');
 const dom = new JSDOM('');
 const { splitPreviousYears, yearList, monthList } = createUiTestLoader(dom, React)('./MonthSeparators');
+const { completedMonthList } = createUiTestLoader(dom, React)('./MonthSeparators');
 const rows = [{ id: 'old', date: '2025-02-02' }, { id: 'recent', date: '2026-12-31' }, { id: 'current', date: '2027-01-01' }, { id: 'future', date: '2028-01-01' }, { id: 'undated', date: '' }];
 const dateOf = (item: any) => item.date;
 const cards = (items: any[]) => items.map(item => React.createElement('article', { key: item.id }, item.id));
@@ -31,4 +32,26 @@ test('annual recognition grouping stays unchanged; selected practice detail bypa
   assert.ok(annual.every((node: any) => node.type !== 'details'));
   const detail = monthList(rows.slice(0, 1), dateOf, ['practice', 'practices'], { archive: true, hidden: true }).render((row: any) => React.createElement('article', { key: row.id }));
   assert.equal(detail[0].type, 'article');
+});
+
+test('completed months stay separate this year and nest together inside one older-year folder after rollover', () => {
+  const entries=[{id:'nov',date:'2026-11-01'},{id:'dec',date:'2026-12-01'},{id:'jan',date:'2027-01-01'}];
+  const {renderToStaticMarkup}=createRequire(import.meta.url)('react-dom/server');
+  const render=(year:number,revealDate?:string)=>{
+    const html=renderToStaticMarkup(React.createElement('div',null,completedMonthList(entries,dateOf,items=>cards(items),{kind:'song-numbers',currentYear:year,revealDate})));
+    return new JSDOM(html).window.document;
+  };
+  const before=render(2026);
+  assert.equal(before.querySelectorAll('[data-year-archive]').length,0);
+  const after=render(2027);
+  const archive=after.querySelector<HTMLDetailsElement>('[data-year-archive="2026"]')!;
+  assert.ok(archive);assert.equal(archive.open,false);
+  assert.equal(archive.querySelectorAll('[data-completed-month]').length,2);
+  assert.ok(archive.querySelector('[data-completed-month="2026-11"]'));
+  assert.ok(archive.querySelector('[data-completed-month="2026-12"]'));
+  assert.equal(after.querySelector('[data-completed-month="2027-01"]')!.closest('[data-year-archive]'),null);
+  const revealed=render(2027,'2026-11-01');
+  assert.equal(revealed.querySelector<HTMLDetailsElement>('[data-year-archive="2026"]')!.open,true);
+  assert.equal(revealed.querySelector<HTMLDetailsElement>('[data-completed-month="2026-11"]')!.open,true);
+  assert.equal(revealed.querySelector<HTMLDetailsElement>('[data-completed-month="2026-12"]')!.open,false);
 });

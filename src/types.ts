@@ -136,6 +136,7 @@ export interface Setlist {
 }
 
 export interface BirthdayCelebrant {
+  createdAt?: string;
   id: string;
   name: string;
   birthDate: string; // YYYY-MM-DD
@@ -149,6 +150,7 @@ export interface BirthdayCelebrant {
 export type AnniversaryType = 'Wedding' | 'Church' | 'Ministry' | 'Other';
 
 export interface AnniversaryCelebrant {
+  createdAt?: string;
   id: string;
   title: string;
   anniversaryDate: string; // YYYY-MM-DD

@@ -40,6 +40,22 @@ export function groupByMonth<T>(items: T[], dateOf: (item: T) => string | undefi
   }
   return [...groups.values()];
 }
+
+/** Completed records use month folders now; older months nest under their year. */
+export function completedMonthList<T>(items: T[], dateOf: (item: T) => string | undefined, renderMonth: (items: T[], key: string) => React.ReactNode, options: { kind: string; reveal?: boolean; revealDate?: string; currentYear?: number } ) {
+  const renderMonths = (entries: T[]) => groupByMonth([...entries].sort((a,b) => (dateOf(b) || '').localeCompare(dateOf(a) || '')), dateOf).map(group => (
+    <details key={`completed-${group.key}`} data-completed-month={group.key} data-completed-kind={options.kind}
+      data-completed-birthdays={options.kind === 'birthdays' || undefined}
+      data-completed-song-numbers={options.kind === 'song-numbers' || undefined}
+      data-completed-activities={options.kind === 'activities' || undefined}
+      open={options.reveal || options.revealDate?.slice(0,7) === group.key || undefined}
+      className="rounded-2xl border border-slate-200 dark:border-slate-800">
+      <summary className="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold">{group.label.replace(/ \d{4}$/, '')}<span className="ml-2 text-xs font-normal text-slate-500 dark:text-slate-400">Completed</span></summary>
+      <div className="space-y-3 px-3 pb-3">{renderMonth(group.items, group.key)}</div>
+    </details>
+  ));
+  return yearList(items,dateOf,renderMonths,{reveal:options.reveal,revealYear:options.revealDate?.slice(0,4),currentYear:options.currentYear,gridClass:'space-y-3 px-3 pb-3'});
+}
 // Keep the list's first-seen month order and card order within each month.
 export function monthList<T>(items: T[], dateOf: (item: T) => string | undefined, noun: [string, string], options: { annual?: boolean; hidden?: boolean; archive?: boolean; revealArchive?: boolean; revealDate?: string } = {}) {
   return { render(renderItem: (item: T) => React.ReactNode): React.ReactNode[] {

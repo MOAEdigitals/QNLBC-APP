@@ -8,6 +8,23 @@ export function recognitionWindow(now = new Date()) {
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return { start: ymd(start), end: ymd(end) };
 }
+
+/** Calendar occurrences, not copies of the underlying annual birthday/anniversary record. */
+export function completedAnnualOccurrences<T>(items: T[], dateOf: (item:T)=>string, today:string, createdOf: (item:T)=>string|undefined) {
+  const year=Number(today.slice(0,4));
+  const window=recognitionWindow(new Date(today+'T12:00:00'));
+  const occurrences:Array<{item:T;date:string;year:number}>=[];
+  for(const item of items) {
+    const start=Math.max(2026,Number(createdOf(item)?.slice(0,4)) || 2026,Number(dateOf(item).slice(0,4)) || 2026);
+    for(let occurrenceYear=start;occurrenceYear<=year;occurrenceYear++) {
+      const date=`${occurrenceYear}-${dateOf(item).slice(5)}`;
+      const parsed=new Date(date+'T12:00:00');
+      if(!Number.isFinite(parsed.getTime()) || (parsed.getMonth()+1 !== Number(date.slice(5,7)) && date.slice(5) !== '02-29')) continue;
+      if(date<today && !(date>=window.start && date<window.end)) occurrences.push({item,date,year:occurrenceYear});
+    }
+  }
+  return occurrences;
+}
 /** Exclusive end: Monday after the second Sunday on or after the event date. */
 export function specialRecognitionEnd(date: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;

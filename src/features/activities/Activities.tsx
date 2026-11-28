@@ -4,7 +4,7 @@ import { philippineDate } from '../../utils/serviceCompletion';
 import { useScreenRefresh } from '../../hooks/usePullToRefresh';
 import { copyWithFeedback } from '../../services/clipboard';
 import { calendarOverlays, EMPTY_OVERLAY_FILTERS } from './calendarOverlays';
-import { yearList } from '../../components/MonthSeparators';
+import { completedMonthList } from '../../components/MonthSeparators';
 import { SheetDateField } from '../../components/SheetDateField';
 import { confirmAction } from '../../services/appDialogs';
 import { BottomSheet } from '../../components/BottomSheet';
@@ -197,7 +197,7 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
   const currentYear = Number(today.slice(0, 4));
   const visibleMonth = dateKey(month).slice(0, 7);
   const featuredGroup = activityGroups.find(group => group.key === `${visibleMonth}-upcoming`);
-  const completedThisMonth = activityGroups.find(group => group.key === `${visibleMonth}-past`);
+  const completedThisMonth = visibleMonth.startsWith(String(currentYear)) ? activityGroups.find(group => group.key === `${visibleMonth}-past`) : undefined;
   const upcomingGroups = activityGroups.filter(group => group !== featuredGroup && group.key.endsWith('-upcoming'));
   const completedGroups = activityGroups.filter(group => group !== completedThisMonth && group.key.endsWith('-past'));
   const calendarMonthLabel = month.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -317,12 +317,10 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
     </section>;
   };
 
-  const renderCompletedGroup = (group: (typeof activityGroups)[number], label: string) => (
-    <details key={group.key} data-completed-activities open={!!search.trim() || undefined} className="rounded-2xl border border-slate-200 dark:border-slate-800">
-      <summary className="min-h-11 cursor-pointer px-4 py-3 font-semibold">{label}</summary>
-      <div className="px-3 pb-3">{renderActivityGroup(group, false)}</div>
-    </details>
-  );
+  const renderCompletedGroups = (groups: typeof activityGroups) => completedMonthList(groups.flatMap(group=>group.items),item=>item.activityDate,(items,key)=>{
+    const group=groups.find(group=>group.key===key+'-past')!;
+    return renderActivityGroup({...group,items},false);
+  },{kind:'activities',reveal:!!search.trim(),currentYear});
 
   return <div className="relative mx-auto w-full max-w-[640px] pb-16" onClick={() => setOpenMenu(null)}>
     <section ref={calendarRef} data-no-swipe aria-label="Activity calendar" className="touch-pan-y">
@@ -372,9 +370,9 @@ export default function Activities({ currentUser, collapseSignal, birthdays = []
       {featuredGroup
         ? renderActivityGroup(featuredGroup, false)
         : !completedThisMonth && <p className="px-1 text-sm text-slate-500">{search.trim() ? 'No matches this month.' : 'No activities this month.'}</p>}
-      {completedThisMonth && renderCompletedGroup(completedThisMonth, 'Completed activities')}
+      {completedThisMonth && renderCompletedGroups([completedThisMonth])}
       {upcomingGroups.map(group => renderActivityGroup(group))}
-      {yearList(completedGroups, group => group.items[0]?.activityDate, groups => groups.map(group => renderCompletedGroup(group, group.label)), { reveal: !!search.trim(), currentYear, gridClass: 'space-y-3 px-3 pb-3' })}
+      {renderCompletedGroups(completedGroups)}
     </div>}
     </div>
 

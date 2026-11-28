@@ -128,7 +128,7 @@ test('Schedules filter controls hide matching cards and calendar dots, including
     const completedArchive = document.querySelector<HTMLDetailsElement>('[data-completed-activities]')!;
     assert.equal(completedArchive.open, false);
     assert.ok(completedArchive.contains(document.getElementById('activity-card-' + completedItem.id)));
-    assert.equal(completedArchive.querySelector('summary')?.textContent, 'Completed activities');
+    assert.match(completedArchive.querySelector('summary')?.textContent || '', /November.*Completed/);
     await act(() => completedArchive.querySelector('summary')!.click());
     assert.equal(completedArchive.open, true);
     await act(() => completedArchive.querySelector('summary')!.click());

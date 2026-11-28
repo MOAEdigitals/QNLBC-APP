@@ -1542,6 +1542,7 @@ export async function fetchBirthdays(): Promise<BirthdayCelebrant[]> {
     ministry_or_group: row.ministry_or_group || undefined,
     notes: row.notes || undefined,
     revision: Number(row.revision) || 1,
+    createdAt: row.created_at || undefined,
   }));
 }
 
@@ -1572,6 +1573,7 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
       ministryOrGroup: data.ministry_or_group || undefined,
       notes: data.notes || undefined,
       revision: Number(data.revision) || 1,
+      createdAt: data.created_at || undefined,
     };
   }
 
@@ -1594,6 +1596,7 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
     ministryOrGroup: data.ministry_or_group || undefined,
     notes: data.notes || undefined,
     revision: Number(data.revision) || 1,
+    createdAt: data.created_at || undefined,
   };
 }
 
@@ -1621,6 +1624,7 @@ export async function fetchAnniversaries(): Promise<AnniversaryCelebrant[]> {
     years_count: row.years_count ?? undefined,
     notes: row.notes || undefined,
     revision: Number(row.revision) || 1,
+    createdAt: row.created_at || undefined,
   }));
 }
 
@@ -1656,6 +1660,7 @@ export async function saveAnniversary(
       yearsCount: data.years_count ?? undefined,
       notes: data.notes || undefined,
       revision: Number(data.revision) || 1,
+      createdAt: data.created_at || undefined,
     };
   }
 
@@ -1679,6 +1684,7 @@ export async function saveAnniversary(
     yearsCount: data.years_count ?? undefined,
     notes: data.notes || undefined,
     revision: Number(data.revision) || 1,
+    createdAt: data.created_at || undefined,
   };
 }
 

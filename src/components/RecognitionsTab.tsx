@@ -1,7 +1,7 @@
 import { useLiveClock } from '../hooks/useLiveClock';
 import { CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
-import { annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionActive, partitionSpecialRecognitions } from '../utils/recognitionDetails';
+import { completedAnnualOccurrences, annualRecognitionYear, anniversaryStartingYear, anniversaryYears, isSpecialRecognitionActive, partitionSpecialRecognitions } from '../utils/recognitionDetails';
 import { BirthdayDatePicker } from './BirthdayDatePicker';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction, showAppMessage } from '../services/appDialogs';
@@ -12,7 +12,7 @@ import { CardDate } from './CardDate';
 import { isBirthdayRecognitionWeek, isAnniversaryRecognitionWeek } from '../utils/dateUtils';
 import { isAnnualDatePast, orderBirthdayRecognitionMonths, groupBirthdayRecognitionMonths } from '../utils/recognitionOrder';
 import { useBackLayer } from '../hooks/useBackLayer';
-import { monthList } from './MonthSeparators';
+import { monthList, completedMonthList } from './MonthSeparators';
 import { useHeaderSearch } from './HeaderSearch';
 import React, { useState, useEffect } from 'react';
 import {
@@ -260,26 +260,48 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
   });
   const isAnyModalOpen = isAddingBirthday || isAddingAnniversary || isAddingSpecial;
 
+  const completedBirthdays = completedAnnualOccurrences(filteredBirthdays,item=>item.birthDate,birthdayToday,item=>item.createdAt);
+  const completedAnniversaries = completedAnnualOccurrences(filteredAnniversaries,item=>item.anniversaryDate,birthdayToday,item=>item.createdAt);
+  const anniversaryCompleted = (item: AnniversaryCelebrant) => isAnnualDatePast(item.anniversaryDate,birthdayToday) && !isAnniversaryRecognitionWeek(item.anniversaryDate);
+  const renderAnniversaryMonths = (groups: typeof anniversaryMonths, completed=false, displayYear?:number) => groups.map(({key,month,items}) => <section key={key} className="space-y-3">
+          {!completed && <div className="flex items-center gap-3 px-1"><h3 className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">{new Date(2000,month,1).toLocaleDateString('en-US',{month:'long'})}</h3><div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{items.map(item => {
+            const years = anniversaryYears(item, (displayYear ?? annualRecognitionYear(item.anniversaryDate)));
+            const detail = [item.type, years != null && years > 0 ? `${years} years` : null].filter(Boolean).join(' · ');
+            return <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={!completed && isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined} data-past={completed || isAnnualDatePast(item.anniversaryDate,birthdayToday) && !isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+              <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={`${(displayYear ?? annualRecognitionYear(item.anniversaryDate))}-${item.anniversaryDate.slice(5)}`} /><div className="min-w-0 flex-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.title}</h4><p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{detail}</p>{item.notes && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.notes}</p>}</div></div>
+              {recognitionActions(`${completed ? displayYear : 'current'}:anniversary:${item.id}`,item.title, [item.title,parseDate(item.anniversaryDate).toLocaleDateString('en-US',{month:'long',day:'numeric'}),detail,item.notes].filter(Boolean).join('\n'), () => {
+                setEditingAnniversary(item); setAnnivForm({title:item.title, anniversaryDate:item.anniversaryDate,type:item.type,startingYear:String(anniversaryStartingYear(item) ?? ''),notes:item.notes || ''}); setIsAddingAnniversary(true);
+              }, () => onDeleteAnniversary(item.id))}
+            </div>;
+          })}</div>
+        </section>);
+  const renderSpecialRecognition = (item: SpecialRecognition, completed=false) => <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={!completed && isSpecialRecognitionActive(item.date) || undefined} data-past={completed || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+            <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={item.date} /><div className="min-w-0 flex-1 space-y-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.name}</h4><p className="app-card-secondary text-xs font-semibold text-indigo-600 dark:text-indigo-400">{item.recognitionType === 'Custom' ? item.customType : [item.recognitionType,item.customType].filter(Boolean).join(' · ')}</p>{item.description && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.description}</p>}</div></div>
+            {recognitionActions(`special:${item.id}`,item.name,[item.name,item.recognitionType === 'Custom' ? item.customType : item.recognitionType,item.recognitionType !== 'Custom' && item.customType,formatDateStr(item.date),item.description].filter(Boolean).join('\n'),() => {
+              setEditingSpecial(item); setSpecialForm({name:item.name,recognitionType:item.recognitionType,customType:item.customType || '',date:item.date,description:item.description || ''}); setIsAddingSpecial(true);
+            },()=>onDeleteSpecialRecognition(item.id))}
+          </div>;
   const birthdayCompleted = (item: BirthdayCelebrant) => isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate);
-  const renderBirthdayMonths = (groups: typeof birthdayMonths, completed = false) => groups.map(({ key, month, items }) => (
-                  <section key={key} aria-labelledby={`birthday-month-${key}${completed ? '-completed' : ''}`} className="space-y-2">
-                    <h3 id={`birthday-month-${key}${completed ? '-completed' : ''}`} className="px-1 text-base font-bold">
+  const renderBirthdayMonths = (groups: typeof birthdayMonths, completed = false, displayYear?:number) => groups.map(({ key, month, items }) => (
+                  <section key={key} aria-labelledby={!completed ? `birthday-month-${key}` : undefined} className="space-y-2">
+                    {!completed && <h3 id={`birthday-month-${key}${completed ? '-completed' : ''}`} className="px-1 text-base font-bold">
                       {new Date(2000, month, 1).toLocaleDateString('en-US', { month: 'long' })}
-                    </h3>
+                    </h3>}
                     <div className="rounded-[20px] bg-white dark:bg-slate-900">
                       {items.map((item, index) => (
                         <div
                           key={item.id}
                           style={celebrationConfetti(item.id)}
-                          data-birthday-celebrant={isBirthdayRecognitionWeek(item.birthDate) || undefined}
-                          data-past={isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
-                          className={`birthday-card relative flex min-h-[50px] items-center justify-between gap-2 px-2.5 py-[3px] first:rounded-t-[20px] last:rounded-b-[20px] ${birthdayMenuId === item.id ? 'z-30' : ''}`}
+                          data-birthday-celebrant={!completed && isBirthdayRecognitionWeek(item.birthDate) || undefined}
+                          data-past={completed || isAnnualDatePast(item.birthDate, birthdayToday) && !isBirthdayRecognitionWeek(item.birthDate) || undefined}
+                          className={`birthday-card relative flex min-h-[50px] items-center justify-between gap-2 px-2.5 py-[3px] first:rounded-t-[20px] last:rounded-b-[20px] ${birthdayMenuId === (completed ? `${displayYear}:${item.id}` : item.id) ? 'z-30' : ''}`}
                         >
                           <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 self-stretch">
                             <div className="-mr-0.5 mt-3.5 flex w-8 shrink-0 flex-col items-center self-start" aria-label={item.birthDate.slice(5)}>
                               {items[index - 1]?.birthDate.slice(5) !== item.birthDate.slice(5) && <>
                                 <span className="text-lg leading-none font-semibold tabular-nums">{Number(item.birthDate.slice(8))}</span>
-                                <span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{parseDate(`${birthdayToday.slice(0, 4)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                <span className="text-[10px]/[11px] text-slate-500 dark:text-slate-400">{parseDate(`${displayYear ?? annualRecognitionYear(item.birthDate)}-${item.birthDate.slice(5)}`).toLocaleDateString('en-US', { weekday: 'short' })}</span>
                               </>}
                             </div>
                             <span aria-hidden="true" className="h-[22px] w-[3px] shrink-0 rounded-full bg-rose-500" />
@@ -295,18 +317,18 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
                           </div>
 
                           {index > 0 && <span aria-hidden="true" className="birthday-row-separator pointer-events-none absolute inset-x-0 top-0 z-10 ml-[72px] h-px bg-slate-200 dark:bg-slate-800" />}
-                          <div data-birthday-actions={item.id} className="relative shrink-0">
+                          <div data-birthday-actions={completed ? `${displayYear}:${item.id}` : item.id} className="relative shrink-0">
                             <button
                               type="button"
                               aria-label={`Actions for ${item.name}`}
                               aria-haspopup="menu"
-                              aria-expanded={birthdayMenuId === item.id}
-                              onClick={() => setBirthdayMenuId(birthdayMenuId === item.id ? null : item.id)}
+                              aria-expanded={birthdayMenuId === (completed ? `${displayYear}:${item.id}` : item.id)}
+                              onClick={() => setBirthdayMenuId(birthdayMenuId === (completed ? `${displayYear}:${item.id}` : item.id) ? null : completed ? `${displayYear}:${item.id}` : item.id)}
                               className="grid size-11 place-items-center rounded-xl text-slate-500 hover:text-indigo-600 cursor-pointer"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
-                            {birthdayMenuId === item.id && (
+                            {birthdayMenuId === (completed ? `${displayYear}:${item.id}` : item.id) && (
                               <>
                                 <div role="menu" aria-label={`${item.name} birthday actions`} className="absolute right-0 top-full z-50 mt-1 w-36 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-1 shadow-lg text-sm">
                                   <button type="button" role="menuitem" className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={async () => {
@@ -363,10 +385,7 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
             ) : (
               <div className="space-y-6">
                 {renderBirthdayMonths(birthdayMonths.map(group => ({...group,items:group.items.filter(item => !birthdayCompleted(item))})).filter(group => group.items.length))}
-                {birthdayMonths.some(group => group.items.some(birthdayCompleted)) && <details data-completed-birthdays open={!!birthdaySearchQuery.trim() || undefined} className="rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <summary className="min-h-12 cursor-pointer px-4 py-3 text-sm font-semibold">Completed birthdays</summary>
-                  <div className="space-y-6 px-3 pb-3">{renderBirthdayMonths(birthdayMonths.map(group => ({...group,items:group.items.filter(birthdayCompleted)})).filter(group => group.items.length), true)}</div>
-                </details>}
+                {completedMonthList(completedBirthdays,item=>item.date,(items,key)=>renderBirthdayMonths([{key,month:Number(key.slice(5,7))-1,items:items.map(entry=>entry.item)}],true,items[0].year),{kind:'birthdays',reveal:!!birthdaySearchQuery.trim(),currentYear:Number(birthdayToday.slice(0,4))})}
               </div>
             )}
           </div>
@@ -375,31 +394,16 @@ export const RecognitionsTab: React.FC<RecognitionsTabProps> = ({
 
       {subTab === 'anniversaries' && <div className="app-subtab-content space-y-6">
         {!filteredAnniversaries.length && <p className="p-4 text-center text-xs text-slate-500">No anniversaries found.</p>}
-        {anniversaryMonths.map(({key,month,items}) => <section key={key} className="space-y-3">
-          <div className="flex items-center gap-3 px-1"><h3 className="shrink-0 text-sm font-bold text-slate-700 dark:text-slate-200">{new Date(2000,month,1).toLocaleDateString('en-US',{month:'long'})}</h3><div aria-hidden="true" className="h-px flex-1 bg-slate-200 dark:bg-slate-700" /></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{items.map(item => {
-            const years = anniversaryYears(item, annualRecognitionYear(item.anniversaryDate));
-            const detail = [item.type, years != null && years > 0 ? `${years} years` : null].filter(Boolean).join(' · ');
-            return <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined} data-past={isAnnualDatePast(item.anniversaryDate,birthdayToday) && !isAnniversaryRecognitionWeek(item.anniversaryDate) || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-              <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={`${annualRecognitionYear(item.anniversaryDate)}-${item.anniversaryDate.slice(5)}`} /><div className="min-w-0 flex-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.title}</h4><p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{detail}</p>{item.notes && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.notes}</p>}</div></div>
-              {recognitionActions(`anniversary:${item.id}`,item.title, [item.title,parseDate(item.anniversaryDate).toLocaleDateString('en-US',{month:'long',day:'numeric'}),detail,item.notes].filter(Boolean).join('\n'), () => {
-                setEditingAnniversary(item); setAnnivForm({title:item.title, anniversaryDate:item.anniversaryDate,type:item.type,startingYear:String(anniversaryStartingYear(item) ?? ''),notes:item.notes || ''}); setIsAddingAnniversary(true);
-              }, () => onDeleteAnniversary(item.id))}
-            </div>;
-          })}</div>
-        </section>)}
+        {renderAnniversaryMonths(anniversaryMonths.map(group => ({...group,items:group.items.filter(item => !anniversaryCompleted(item))})).filter(group => group.items.length))}
+        {completedMonthList(completedAnniversaries,item=>item.date,(items,key)=>renderAnniversaryMonths([{key,month:Number(key.slice(5,7))-1,items:items.map(entry=>entry.item)}],true,items[0].year),{kind:'anniversaries',reveal:!!recognitionQuery,currentYear:Number(birthdayToday.slice(0,4))})}
       </div>}
 
       {subTab === 'special' && <div className="app-subtab-content space-y-6">
         {!specialGroups.upcoming.length && !specialGroups.past.length && <p className="p-4 text-center text-xs text-slate-500">No special recognitions found.</p>}
-        {[specialGroups.upcoming,specialGroups.past].map((items,index) => <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {monthList(items,item=>item.date,['recognition','recognitions']).render(item => <div key={item.id} style={celebrationConfetti(item.id)} data-birthday-celebrant={isSpecialRecognitionActive(item.date) || undefined} data-past={index === 1 || undefined} className="app-date-card birthday-card p-3 rounded-2xl border shadow-xs flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-            <div className="flex min-w-0 flex-1 items-center gap-3"><CardDate date={item.date} /><div className="min-w-0 flex-1 space-y-1"><h4 className="app-card-title text-sm font-bold text-slate-900 dark:text-white">{item.name}</h4><p className="app-card-secondary text-xs font-semibold text-indigo-600 dark:text-indigo-400">{item.recognitionType === 'Custom' ? item.customType : [item.recognitionType,item.customType].filter(Boolean).join(' · ')}</p>{item.description && <p className="app-card-secondary text-xs text-slate-500 dark:text-slate-400">{item.description}</p>}</div></div>
-            {recognitionActions(`special:${item.id}`,item.name,[item.name,item.recognitionType === 'Custom' ? item.customType : item.recognitionType,item.recognitionType !== 'Custom' && item.customType,formatDateStr(item.date),item.description].filter(Boolean).join('\n'),() => {
-              setEditingSpecial(item); setSpecialForm({name:item.name,recognitionType:item.recognitionType,customType:item.customType || '',date:item.date,description:item.description || ''}); setIsAddingSpecial(true);
-            },()=>onDeleteSpecialRecognition(item.id))}
-          </div>)}
-        </div>)}
+        {<>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{monthList(specialGroups.upcoming,item=>item.date,['recognition','recognitions']).render(item=>renderSpecialRecognition(item))}</div>
+          {completedMonthList(specialGroups.past,item=>item.date,items=><div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{items.map(item=>renderSpecialRecognition(item,true))}</div>,{kind:'recognitions',reveal:!!recognitionQuery,currentYear:Number(birthdayToday.slice(0,4))})}
+        </>}
       </div>}
 
       {/* MODAL 1: ADD BIRTHDAY */}
