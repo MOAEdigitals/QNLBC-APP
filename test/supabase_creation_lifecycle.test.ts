@@ -27,7 +27,7 @@ describe('Supabase record creation lifecycle', () => {
     ];
 
     for (const call of insertCalls) {
-      assert.ok(dataLayer.includes(call), `Missing authoritative insert: ${call}`);
+      assert.ok(dataLayer.replace(/\s+/g, ' ').includes(call.replace(/\s+/g, ' ')), `Missing authoritative insert: ${call}`);
     }
     assert.equal(dataLayer.includes('.insert(insertPayload)'), false);
     const atomicSave = readFileSync(new URL('../supabase/migrations/20261008_atomic_setlist_save.sql', import.meta.url), 'utf8');
@@ -79,8 +79,8 @@ describe('Supabase record creation lifecycle', () => {
     assert.ok(dataLayer.includes(".from('attachments')"));
     assert.ok(dataLayer.includes(".eq('owner_type', 'practice')"));
     assert.ok(dataLayer.includes(".eq('owner_type', 'vocal_part')"));
-    assert.ok(dataLayer.includes("await syncOwnerAttachments(\n    'practice'"));
-    assert.ok(dataLayer.includes("await syncOwnerAttachments(\n      'vocal_part'"));
+    assert.match(dataLayer, /await syncOwnerAttachments\(\s*'practice'/);
+    assert.match(dataLayer, /await syncOwnerAttachments\(\s*'vocal_part'/);
     assert.ok(dataLayer.includes('customAttachments: attachments'));
     assert.ok(dataLayer.includes('audioUrl: audioAttachment?.external_url'));
   });

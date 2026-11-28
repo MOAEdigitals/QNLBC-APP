@@ -4,6 +4,7 @@ import { confirmAction, showAppMessage } from '../services/appDialogs';
 import { SheetSelect } from './SheetSelect';
 import { SongExport } from './SongExport';
 import { NotificationSoundSettings } from './NotificationSoundSettings';
+import { CopyDiagnostics } from './CopyDiagnostics';
 import { AdminAnnouncements } from './AdminAnnouncements';
 import { NotificationScheduleSettings } from './NotificationScheduleSettings';
 import { DirectoryAccountSelect, DirectoryManagement } from './DirectoryManagement';
@@ -869,6 +870,7 @@ export const SettingsTab: React.FC<SettingsTabProps> = ({
               </div>
             </div>
             <NotificationSoundSettings key={currentUser.id} userId={currentUser.id} />
+            <div className="px-4 pb-4"><CopyDiagnostics /></div>
           </div>
         )}
       </div>

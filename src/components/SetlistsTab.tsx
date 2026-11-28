@@ -1,6 +1,8 @@
 import { CopyIcon as Copy } from './AnimatedIcons';
 import { copyWithFeedback } from '../services/clipboard';
 import { BottomSheet } from './BottomSheet';
+import { SetlistReadiness } from './SetlistReadiness';
+import { duplicateSetlist } from '../utils/setlistDraft';
 import { SheetDateField } from './SheetDateField';
 import { confirmAction } from '../services/appDialogs';
 import { AssignmentRecipients } from './AssignmentRecipients';
@@ -326,6 +328,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
   const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [showTypeSelector, setShowTypeSelector] = useState(false);
   const [openMenuSetlistId, setOpenMenuSetlistId] = useState<string | null>(null);
+  const [readinessSetlist, setReadinessSetlist] = useState<Setlist | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const scrollToSearchResults = useSearchResultsScroll(searchQuery);
   useHeaderSearch({ value: searchQuery, onChange: setSearchQuery, onOpen: scrollToSearchResults, placeholder: 'Search names, songs, dates, or setlists', label: 'Search setlists' });
@@ -761,6 +764,18 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
     window.history.pushState({ tab: 'home', subView: 'editing' }, '', '#home');
   };
 
+  const handleDuplicate = (source: Setlist) => {
+    if (readOnly) return;
+    const draft = duplicateSetlist(source, getNextSundayStr(), generateUUID);
+    if (draft.type === 'prayer_meeting') {
+      const date = new Date();
+      date.setDate(date.getDate() + ((3 - date.getDay() + 7) % 7 || 7));
+      draft.date = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+    setOpenMenuSetlistId(null);
+    handleStartEdit(draft);
+  };
+
   const handleUpdateSongSlot = (
     section: 'sundaySchool' | 'worshipService' | 'program',
     idx: number,
@@ -810,6 +825,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
             ? songs.find(item => item.id === linkedId)
             : songs.find(item => item.title.trim().toLowerCase() === trimmedTitle.toLowerCase());
           return {
+            ...s,
             id: s.id && isUUID(s.id) ? s.id : generateUUID(),
             title: matchedSong ? matchedSong.title : trimmedTitle,
             songId: matchedSong && isUUID(matchedSong.id) ? matchedSong.id : undefined,
@@ -890,6 +906,7 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
 
   return (
     <div className="ui-revamp ui-screen setlists-screen space-y-6">
+      {readinessSetlist && <SetlistReadiness setlist={readinessSetlist} songs={songs} offline={readOnly} onClose={() => setReadinessSetlist(null)} />}
       {reorder.error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{reorder.error}</p>}
       <span role="status" aria-live="polite" className="sr-only">{reorder.announcement || (reorder.busy ? 'Saving setlist order…' : '')}</span>
       {reorder.drag && createPortal(<div aria-hidden="true" className="pointer-events-none fixed z-[220] max-w-[80vw] rounded-xl border border-blue-400 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-xl dark:bg-slate-800 dark:text-white" style={{ left: Math.max(8, Math.min(reorder.drag.x + 12, window.innerWidth - 220)), top: reorder.drag.y + 12 }}>
@@ -1031,6 +1048,12 @@ export const SetlistsTab: React.FC<SetlistsTabProps> = ({
                         <Copy className="w-4 h-4" />
                         <span>Copy setlist</span>
                       </button>
+                      <button type="button" onClick={() => { setOpenMenuSetlistId(null); setReadinessSetlist(item); }} className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2">
+                        <CheckCircle className="h-3.5 w-3.5" /><span>Check readiness</span>
+                      </button>
+                      {!readOnly && <button type="button" onClick={() => handleDuplicate(item)} className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2">
+                        <Copy className="h-3.5 w-3.5" /><span>Duplicate</span>
+                      </button>}
                           <button
                             type="button"
                             onClick={() => {

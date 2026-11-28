@@ -31,6 +31,7 @@ export type UserProfile = UserAccount;
 export type AttachmentCategory = 'plus_one' | 'minus_one';
 
 export interface SongAttachment {
+  downloadVersion?: string;
   position?: number;
   id: string;
   name: string;
@@ -286,6 +287,7 @@ export type VocalPartLabel =
   | 'Custom';
 
 export interface PracticePartTrack {
+  downloadVersion?: string;
   id: string;
   partLabel: VocalPartLabel;
   customLabel?: string;

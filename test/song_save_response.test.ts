@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -15,7 +16,7 @@ function fixture(updateResult: any, reload?: (payload: any) => any) {
     return query;
   } };
   const identity = (value: any) => value;
-  runInNewContext(ts.transpileModule(fn, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports, supabase, isSupabaseConfigured: () => true, isUUID: () => true, mapSongFromDB: identity, cleanLeadingSongTitle: (_: any, value: any) => value, cleanEmptySectionLabels: identity, cleanDuplicateChorusSections: identity, ConcurrencyConflictError: class extends Error {} });
+  runInNewContext(ts.transpileModule(fn, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, dataReadContext({ exports, supabase, isSupabaseConfigured: () => true, isUUID: () => true, mapSongFromDB: identity, cleanLeadingSongTitle: (_: any, value: any) => value, cleanEmptySectionLabels: identity, cleanDuplicateChorusSections: identity, ConcurrencyConflictError: class extends Error {} }));
   return { save: () => exports.saveSong({ id: 'song-id', title: 'Mananatili', lyrics: 'Existing lyrics', categories: ['Tagalog', 'Contemporary'], category: 'Tagalog, Contemporary', revision: 2 }), filters };
 }
 

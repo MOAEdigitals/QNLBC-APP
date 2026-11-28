@@ -54,6 +54,7 @@ import {
 } from '../utils/mediaUtils';
 import { AutofillInput } from './AutofillInput';
 import { PracticeAudioTrackRow } from './PracticeAudioTrackRow';
+import { recordDiagnostic } from '../services/diagnostics';
 import {
   Mic2,
   Mic,
@@ -1876,6 +1877,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
       handleCloseVocalPartModal();
     } catch (err) {
       console.error('Failed to persist vocal part:', err);
+      recordDiagnostic('vocal-part-save', err);
       setVocalPartSaveError(
         (err as { message?: string })?.message || 'Could not save vocal part. Please try again.'
       );
@@ -2309,7 +2311,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                         key={part.id || `part-${pIdx}`}
                                         id={part.id}
                                         offline={readOnly}
-                                        practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle } : undefined}
+                                        practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle, sourceVersion: part.downloadVersion } : undefined}
                                         badgeLabel={part.partLabel}
                                         badgeCategory="vocal_part"
                                         performerName={assignedNames || 'Singer not assigned'}
@@ -2411,7 +2413,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                                       key={att.id || `track-${aIdx}`}
                                       id={att.id}
                                       offline={readOnly}
-                                      practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle } : undefined}
+                                      practice={currentUser ? { accountId: currentUser.id, practiceId: group.id, songTitle: group.songTitle, sourceVersion: att.downloadVersion } : undefined}
                                       badgeLabel={isPlusOne ? 'PLUS ONE' : 'MINUS ONE'}
                                       badgeCategory={isPlusOne ? 'plus_one' : 'minus_one'}
                                       performerName={att.name || (isPlusOne ? 'Plus One Track' : 'Minus One Track')}
@@ -3152,7 +3154,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       key={opt}
                       aria-pressed={vocalPartLabel === opt}
                       type="button"
-                      onClick={() => setVocalPartLabel(opt)}
+                      onClick={() => { setVocalPartLabel(opt); setVocalPartSaveError(null); }}
                       className={`py-2 px-2 text-xs font-bold rounded-xl border transition-all cursor-pointer text-center ${
                         vocalPartLabel === opt
                           ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 border-slate-900 dark:border-slate-100 shadow-xs'
@@ -3177,7 +3179,7 @@ export const SpecialNumberTab: React.FC<SpecialNumberTabProps> = ({
                       data-form-type="other"
                       data-lpignore="true"
                       value={vocalPartCustomLabel}
-                      onChange={(e) => setVocalPartCustomLabel(e.target.value)}
+                      onChange={(e) => { setVocalPartCustomLabel(e.target.value); setVocalPartSaveError(null); }}
                       placeholder="Enter custom vocal part name"
                       className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-sm text-slate-900 dark:text-white"
                       autoFocus

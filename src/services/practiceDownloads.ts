@@ -6,6 +6,7 @@ export interface PracticeDownload {
   practiceId: string;
   songTitle: string;
   trackId: string;
+  sourceVersion?: string;
 }
 
 const storage = { directory: Directory.Data };
@@ -29,12 +30,12 @@ function folder(track: PracticeDownload) {
 }
 
 function trackName(track: PracticeDownload) {
-  return safeName(track.trackId);
+  return safeName(track.trackId) + (track.sourceVersion ? `--v${safeName(track.sourceVersion)}` : '');
 }
 
 async function findInFolder(root: string, name: string) {
   const { files } = await Filesystem.readdir({ ...storage, path: root }).catch(() => ({ files: [] }));
-  const file = files.find(item => item.type === 'file' && item.size > 0 && audioExtensions.some(ext => item.name === `${name}.${ext}`));
+  const file = files.find(item => item.type === 'file' && item.size > 0 && audioExtensions.some(ext => item.name === `${name}.${ext}` || (!name.includes('--v') && item.name.startsWith(`${name}--v`) && item.name.endsWith(`.${ext}`) && !item.name.includes('.pending.'))));
   return file ? { path: `${root}/${file.name}`, src: Capacitor.convertFileSrc(file.uri) } : null;
 }
 
@@ -137,6 +138,9 @@ export async function downloadPracticeTrack(track: PracticeDownload, source: str
     await verifyAudio(Capacitor.convertFileSrc(localUri));
     const path = `${basename}.${finalExt}`;
     await Filesystem.rename({ ...storage, from: stagedPath, to: path });
+    // Keep the last usable copy until its replacement has passed playback validation.
+    const previous = await findPracticeDownload({ ...track, sourceVersion: undefined });
+    if (track.sourceVersion && previous && previous.path !== path) await removePracticeDownload(previous.path).catch(() => {});
     return { path, src: Capacitor.convertFileSrc((await Filesystem.getUri({ ...storage, path })).uri) };
   } finally {
     await Filesystem.deleteFile({ ...storage, path: stagedPath }).catch(() => {});

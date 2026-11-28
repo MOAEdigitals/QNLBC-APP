@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sermonPayload, filterSermons, listSermons, groupSermonArchive } from '../src/features/sermons/model.ts';
@@ -87,9 +88,9 @@ function database() {
   } };
   const exports: any = {};
   const source = readFileSync('src/features/sermons/data.ts', 'utf8');
-  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, dataReadContext({
     exports, require: (name: string) => name === '../../supabase' ? { supabase, isSupabaseConfigured: () => true } : { sermonPayload }
-  });
+  }));
   return { rows, save: exports.saveSermon, loseResponse: (value: boolean) => { loseResponse = value; }, writes: () => writes };
 }
 const input = { service_date: '2026-10-04', title: 'Grace', preacher: 'Preacher', outline: '  I. Grace\n\t* John 3:16  \n', status: 'draft' as const };

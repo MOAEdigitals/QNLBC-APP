@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,7 +12,7 @@ function fixture() {
   let fails = true;
   let sequence = 0;
   const exports: any = {};
-  runInNewContext(ts.transpileModule(section, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, {
+  runInNewContext(ts.transpileModule(section, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, dataReadContext({
     exports, isSupabaseConfigured: () => true,
     isUUID: (value: unknown) => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value),
     generateUUID: () => `request-${++sequence}`,
@@ -21,7 +22,7 @@ function fixture() {
       return { data: { parent: { id: 'database-id', revision: 2, service_date: '2026-10-08', type: 'sunday' },
         items: [{ id: 'child-id', section: 'worship', position: 0, song_title: 'Saved title', lyrics_mode: 'snapshot', lyrics_snapshot: 'Verse\nChorus' }] } };
     } },
-  });
+  }));
   return { calls, save: exports.saveSetlist, succeed: () => { fails = false; } };
 }
 

@@ -960,7 +960,7 @@ export default function App() {
         scheduleOfflineSync();
         setSongs((prev) => {
           const withoutDraft = prev.filter((s) => s.id !== song.id && s.id !== saved.id);
-          return [...withoutDraft, saved];
+          return [...withoutDraft, newestSong(prev.find(song => song.id === saved.id), saved)];
         });
       } catch (err) {
         console.error('Failed to batch save song:', song.title, err);
@@ -1050,7 +1050,7 @@ export default function App() {
         } else {
           const songDraft = { ...upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics, entry.minusOneLink), category: 'Special', categories: ['Special'] };
           const savedSong = await supabaseSaveSong(songDraft, true);
-          setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+          setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), newestSong(prev.find(song => song.id === savedSong.id), savedSong)]);
           entryToSave = { ...entryToSave, songId: savedSong.id, songTitle: savedSong.title };
         }
       }
@@ -1102,7 +1102,7 @@ export default function App() {
         } else if (entry.songTitle.trim()) {
           const songDraft = { ...upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics), categories: ['Choir'], category: 'Choir' };
           const savedSong = await supabaseSaveSong(songDraft, true);
-          setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+          setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), newestSong(prev.find(song => song.id === savedSong.id), savedSong)]);
           entryToSave = { ...entryToSave, songId: savedSong.id, songTitle: savedSong.title };
         }
       }
@@ -1159,7 +1159,7 @@ export default function App() {
         entry = { ...entry, songId: existingSong.id, songTitle: existingSong.title };
       } else {
         const savedSong = await supabaseSaveSong(upsertSongFromSpecialNumber(songTitleCase(entry.songTitle), entry.lyrics), true);
-        setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), savedSong]);
+        setSongs(prev => [...prev.filter(song => song.id !== savedSong.id), newestSong(prev.find(song => song.id === savedSong.id), savedSong)]);
         entry = { ...entry, songId: savedSong.id, songTitle: savedSong.title };
       }
     }

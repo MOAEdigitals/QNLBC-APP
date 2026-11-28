@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import { cleanLeadingSongTitle } from '../src/utils/songLyrics.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -83,14 +84,14 @@ function database() {
     },
   };
   const exports: any = {};
-  runInNewContext(compile(service.replaceAll('import.meta.env', '({})') + '\nexports.syncParts = syncPracticeVocalParts;'), {
+  runInNewContext(compile(service.replaceAll('import.meta.env', '({})') + '\nexports.syncParts = syncPracticeVocalParts;'), dataReadContext({
     exports, console: quietConsole,
     require: (name: string) => {
       if (name === '../utils/songLyrics') return { cleanLeadingSongTitle };
       assert.equal(name, '../supabase');
       return { supabase, isSupabaseConfigured: () => true };
     },
-  });
+  }));
   return {
     rows, counts, save: exports.savePracticeVocalPart, syncParts: exports.syncParts,
     failAttachments: (value: boolean) => { failAttachments = value; },
@@ -138,7 +139,7 @@ function modal(persist: (...args: any[]) => Promise<any>, refresh = async () => 
     + handler(component, 'handleOpenAddVocalPartModal', 'handleSaveVocalPartModalSubmit')
     + handler(component, 'handleSaveVocalPartModalSubmit', 'handleDeleteVocalPart')
     + '\nglobalThis.submit = handleSaveVocalPartModalSubmit; globalThis.close = handleCloseVocalPartModal; globalThis.open = handleOpenAddVocalPartModal;';
-  runInNewContext(compile(code), context);
+  runInNewContext(compile(code), dataReadContext(context));
   context.open(group);
   context.vocalPartAudioUrl = 'https://audio.example/recording.webm';
   context.vocalPartFileName = 'Recording';

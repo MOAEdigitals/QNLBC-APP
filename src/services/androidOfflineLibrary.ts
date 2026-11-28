@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { audioVersion } from '../utils/audioVersion';
 import { fetchBirthdays, fetchAnniversaries, fetchVisitors, fetchSpecialRecognitions, fetchSpecialNumbers, fetchChoirEntries, fetchPracticeEntries } from './supabaseData';
 import { loadSermons } from '../features/sermons/data';
 import { loadNotes } from '../features/notepad/data';
@@ -43,11 +44,11 @@ async function fetchTextSections(userId: string, previous?: TextSections) {
     refresh('choir', async () => (await fetchChoirEntries()).map(({ mediaAttachments, ...row }) => row), previous?.choir),
     refresh<Awaited<ReturnType<typeof fetchPracticeEntries>>>('practice', async () => (await fetchPracticeEntries()).map(({ attachments, customAttachments, parts, vocalParts, ...row }) => ({
       ...row,
-      vocalParts: (vocalParts?.length ? vocalParts : parts ?? []).map(({ audioUrl, urlOrData, ...part }) => part),
+      vocalParts: (vocalParts?.length ? vocalParts : parts ?? []).map(({ audioUrl, urlOrData, ...part }) => ({ ...part, downloadVersion: audioVersion(audioUrl || urlOrData) || part.downloadVersion })),
       customAttachments: (customAttachments ?? attachments ?? [])
         .filter(track => track.type === 'audio' || track.type === 'link')
         .filter(track => !/youtu(?:be\.com|\.be)/i.test(track.url || track.urlOrData || ''))
-        .map(({ url, urlOrData, ...track }) => track),
+        .map(({ url, urlOrData, ...track }) => ({ ...track, downloadVersion: audioVersion(url || urlOrData) || track.downloadVersion })),
     })), previous?.practice),
     refresh('outlines', async () => (await loadSermons()).map(({ attachments, ...row }) => row), previous?.outlines),
     refresh('notes', () => loadNotes(userId), previous?.notes),

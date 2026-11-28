@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
@@ -23,7 +24,7 @@ function setup(initial: any[] = []) {
     setChoirEntries() {}, scheduleOfflineSync() {}, fetchChoirEntries: async () => [], preserveOnRefreshFailure: () => [],
     console: { error() {} },
   };
-  runInNewContext(ts.transpileModule(code + '\nthis.save = handleSaveChoirEntry;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  runInNewContext(ts.transpileModule(code + '\nthis.save = handleSaveChoirEntry;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, dataReadContext(context));
   return { save: (entry: any) => context.save(entry), calls, drafts, get lineup() { return lineup; }, get songs() { return songs; }, failSong: () => { failSong = true; }, failChoir: (value: boolean) => { failChoir = value; } };
 }
 const draft = { id: 'lineup-id', songTitle: 'new choir song', lyrics: 'VERSE 1\nOriginal lyrics', date: '2026-11-08' };
@@ -76,7 +77,7 @@ test('choir form waits for save, blocks double submit, and retains failed draft'
     scheduledSongOptions: () => ({}),
     onSaveChoirEntry: () => { calls++; return new Promise<boolean>(done => { resolve = done; }); },
   };
-  runInNewContext(ts.transpileModule(handler + '\nthis.save = handleSaveChoirSubmit;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+  runInNewContext(ts.transpileModule(handler + '\nthis.save = handleSaveChoirSubmit;', { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, dataReadContext(context));
   const pending = context.save({ preventDefault() {} });
   await context.save({ preventDefault() {} });
   assert.equal(calls, 1); assert.equal(saving, true); assert.equal(closed, false);

@@ -1,5 +1,7 @@
 import { DownloadIcon as Download, RefreshIcon as RefreshCw, LoadingIcon as Loader2 } from './AnimatedIcons';
 import { Capacitor } from '@capacitor/core';
+import { audioVersion } from '../utils/audioVersion';
+import { recordDiagnostic } from '../services/diagnostics';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Pause,
@@ -71,8 +73,9 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   const accountId = practice?.accountId;
   const practiceId = practice?.practiceId;
   const songTitle = practice?.songTitle;
+  const sourceVersion = audioVersion(audioUrl) || practice?.sourceVersion;
   const downloadContext = React.useMemo(() => Capacitor.getPlatform() === 'android' && accountId && practiceId && songTitle
-    ? { accountId, practiceId, songTitle, trackId: id } : null, [accountId, practiceId, songTitle, id]);
+    ? { accountId, practiceId, songTitle, trackId: id, sourceVersion } : null, [accountId, practiceId, songTitle, id, sourceVersion]);
   const [localAudio, setLocalAudio] = useState<Awaited<ReturnType<typeof findPracticeDownload>>>(null);
   const [downloadState, setDownloadState] = useState('');
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -82,9 +85,18 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
   useEffect(() => {
     let active = true;
     setLocalAudio(null);
-    if (downloadContext) void findPracticeDownload(downloadContext).then(file => { if (active) setLocalAudio(file); });
+    if (downloadContext) void (async () => {
+      const file = await findPracticeDownload(downloadContext);
+      if (active) setLocalAudio(file);
+      if (file || offline || !audioUrl || !active) return;
+      const previous = await findPracticeDownload({ ...downloadContext, sourceVersion: undefined });
+      if (!previous || !active) return;
+      // Existing downloads update quietly; tracks never downloaded remain opt-in.
+      const replacement = await downloadPracticeTrack(downloadContext, resolveMediaUrl(audioUrl));
+      if (active) setLocalAudio(replacement);
+    })().catch(error => recordDiagnostic('offline-download', error));
     return () => { active = false; };
-  }, [downloadContext]);
+  }, [downloadContext, audioUrl, offline]);
 
   const [resolvedAudioSrc, setResolvedAudioSrc] = useState<string>('');
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -285,6 +297,7 @@ export const PracticeAudioTrackRow: React.FC<PracticeAudioTrackRowProps> = ({
     const handleError = async () => {
       if (recoveringAudio.current === audio) return;
       recoveringAudio.current = audio;
+      recordDiagnostic('audio-playback', { code: audio.error?.code ?? 'UNKNOWN' });
       try {
       if (!offline && !attemptedFallback.current) {
         attemptedFallback.current = true;

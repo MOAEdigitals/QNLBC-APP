@@ -66,4 +66,15 @@ test('practice downloads create private folders, detect recordings, and keep fai
   assert.deepEqual([...files.keys()], [saved.path]);
   await exports.removePracticeDownload(saved.path);
   assert.equal(await exports.findPracticeDownload(track), null);
+
+  playable = true;
+  const first = await exports.downloadPracticeTrack({ ...track, sourceVersion: 'one' }, 'https://example.com/first');
+  playable = false;
+  await assert.rejects(exports.downloadPracticeTrack({ ...track, sourceVersion: 'two' }, 'https://example.com/second'));
+  assert.ok(files.has(first.path), 'an unsuccessful refresh keeps the previous playable download');
+  playable = true;
+  const replacement = await exports.downloadPracticeTrack({ ...track, sourceVersion: 'two' }, 'https://example.com/second');
+  assert.notEqual(replacement.path, first.path);
+  assert.equal(await exports.findPracticeDownload({ ...track, sourceVersion: 'one' }), null);
+  assert.ok(files.has(replacement.path));
 });

@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
@@ -34,7 +35,7 @@ for (const kind of ['SpecialNumber', 'PracticeEntry', 'ChoirEntry']) {
     context.supabaseSaveChoirEntry = persist;
     context.supabaseCreatePracticeEntry = persist;
     context.supabaseUpdatePracticeEntry = async (_: string, entry: any) => persist(entry);
-    runInNewContext(ts.transpileModule(code + `\nthis.save = handleSave${kind};`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, context);
+    runInNewContext(ts.transpileModule(code + `\nthis.save = handleSave${kind};`, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText, dataReadContext(context));
     return { save: (entry: any, isNew?: boolean, options?: any) => kind === 'PracticeEntry' ? context.save(entry, isNew, options) : context.save(entry, options), calls, get entry() { return savedEntry; }, get songs() { return context.songs; }, failSong: () => { failSong = true; }, failEntry: (value: boolean) => { failEntry = value; } };
   }
   const draft = { id: 'entry', songTitle: 'new song', lyrics: 'Arrangement', performerName: 'Team' };

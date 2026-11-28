@@ -1,3 +1,4 @@
+import { dataReadContext } from './dataReadContext.ts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -19,9 +20,9 @@ function harness(initial: any[] = []) {
       return {data:saved.map(row=>({id:row.id})),error:null};
     }}),
   }) };
-  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/batchLyricsImport.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
+  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/batchLyricsImport.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,dataReadContext({
     exports,crypto:webcrypto,TextEncoder,TextDecoder,Uint8Array,require:(name:string)=>name.includes('songLyrics')?{cleanLeadingSongTitle}:name.includes('songTitleCase')?{songTitleCase}:{supabase:db},
-  });
+  }));
   return {rows,run:exports.importBatchLyricsTxt,failAt:(at:number)=>{failAt=at;},loseResponse:()=>{lost=true;}};
 }
 const file=(name:string,text:string)=>new File([text],name,{type:'text/plain'});
@@ -51,9 +52,9 @@ test('Title Case preserves apostrophes and Unicode names',()=>{
 test('song library loads all pages after a large import instead of stopping at the API row limit',async()=>{
   const rows=Array.from({length:1658},(_,i)=>({id:String(i),title:`Song ${i}`,lyrics:'Verse 1\nLyrics'}));const pages:number[]=[];
   const db={from:()=>({select(){return this;},is(){return this;},order(){return this;},range:async(start:number,end:number)=>{pages.push(start);return {data:rows.slice(start,end+1),error:null};}})};
-  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
+  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,dataReadContext({
     exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptySectionLabels,cleanDuplicateChorusSections}:new Proxy({},{get:()=>()=>null}),
-  });
+  }));
   assert.equal((await exports.fetchSongs()).length,1658);assert.deepEqual(pages,[0,500,1000,1500]);
 });
 
@@ -64,9 +65,9 @@ test('counted library pages load concurrently, retain every lyric, and reject in
     starts.push(start);if(start>0)await new Promise<void>(resolve=>release.push(resolve));
     return {data:rows.slice(start,end+1),error:fail&&start===1000?Error('Read failed'):null,count:start===0?rows.length:null};
   }})};
-  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{
+  const exports:any={};runInNewContext(ts.transpileModule(fs.readFileSync('src/services/supabaseData.ts','utf8').replace(/import\.meta\.env/g,'({})'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,dataReadContext({
     exports,console,require:(name:string)=>name==='../supabase'?{supabase:db,isSupabaseConfigured:()=>true}:name.includes('songLyrics')?{cleanLeadingSongTitle,cleanEmptySectionLabels,cleanDuplicateChorusSections}:new Proxy({},{get:()=>()=>null}),
-  });
+  }));
   const loading=exports.fetchSongs();await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(starts,[0,500,1000],'remaining pages start together rather than waiting for each other');
   release.splice(0).forEach(fn=>fn());const songs=await loading;assert.equal(songs.length,1491);assert.equal(songs[1490].lyrics,'Full lyrics 1490');

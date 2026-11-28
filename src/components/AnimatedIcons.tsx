@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useSyncExternalStore } from 'react';
-import UseAnimations, { type Animation, type EventProps } from 'react-useanimations';
+import type { Animation, EventProps } from 'react-useanimations';
 import copy from 'react-useanimations/lib/copy';
 import download from 'react-useanimations/lib/download2';
 import notification from 'react-useanimations/lib/notification4';
@@ -10,6 +10,7 @@ import check from 'react-useanimations/lib/checkmark';
 import { Bell, Check, Copy, Download, Eye, EyeOff, Loader2, RefreshCw } from 'lucide-react';
 
 type Kind = 'copy' | 'download' | 'bell' | 'loading' | 'refresh' | 'visibility' | 'success';
+const UseAnimations = React.lazy(() => import('react-useanimations'));
 type Props = React.HTMLAttributes<HTMLSpanElement> & { size?: number | string; active?: boolean; trigger?: number };
 const assets: Record<Kind, Animation> = { copy, download, bell: notification, loading, refresh, visibility, success: check };
 const reducedQuery = '(prefers-reduced-motion: reduce)';
@@ -54,7 +55,7 @@ function AnimatedIcon({ kind, className = 'h-5 w-5', size, active, trigger = 0, 
   return <span {...props} ref={host} data-motion-icon={kind} aria-hidden="true"
     className={`inline-flex shrink-0 align-middle ${classes}`}
     style={{ pointerEvents: 'none', ...(size ? { width:size,height:size } : {}), ...style }}>
-    {reduced ? <Static className="h-full w-full" /> : <UseAnimations
+    {reduced ? <Static className="h-full w-full" /> : <React.Suspense fallback={<Static className="h-full w-full" />}><UseAnimations
       key={kind === 'bell' ? trigger : kind}
       animation={assets[kind]} size="100%" strokeColor="currentColor"
       speed={speed}
@@ -63,7 +64,7 @@ function AnimatedIcon({ kind, className = 'h-5 w-5', size, active, trigger = 0, 
       loop={spinning}
       autoplay={spinning ? undefined : kind === 'success' || (kind === 'bell' && trigger > 0)}
       render={(events, animationProps) => { handlers.current = events; return <span {...animationProps} />; }}
-    />}
+    /></React.Suspense>}
   </span>;
 }
 export const CopyIcon = (props: Props) => <AnimatedIcon {...props} kind="copy" />;

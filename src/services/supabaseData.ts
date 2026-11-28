@@ -1,3 +1,5 @@
+import { readAllPages, readRelatedPages } from './readAllPages';
+import { latestRead, beginReadMutation } from './latestRead';
 import { cleanLeadingSongTitle, cleanEmptySectionLabels, cleanDuplicateChorusSections } from '../utils/songLyrics';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import {
@@ -118,40 +120,42 @@ export async function fetchCurrentUserProfile(userId: string, surfaceConnectionE
 }
 
 export async function fetchAllProfiles(): Promise<UserAccount[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('profiles', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: true });
+    const { data, error } = await readAllPages(() => supabase
+      .from('profiles')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: true }).order('id'));
 
-  if (error || !data) {
-    console.warn('Failed to load profiles list:', error);
-    return [];
-  }
+    if (error || !data) {
+      throw error || new Error('Unable to load accounts.');
+    }
 
-  return data.map((d) => ({
-    id: d.id,
-    username: d.username,
-    directoryMemberId: d.directory_member_id || null,
-    name: d.display_name || d.username,
-    displayName: d.display_name || d.username,
-    display_name: d.display_name || d.username,
-    role: d.role as 'admin' | 'user',
-    active: Boolean(d.active),
-    permissions: {
-      canAdd: d.role === 'admin' || Boolean(d.can_add),
-      canEdit: d.role === 'admin' || Boolean(d.can_edit),
-      canDelete: d.role === 'admin' || Boolean(d.can_delete),
-      canUpload: d.role === 'admin' || d.can_upload !== false,
-    },
-    avatar: d.avatar_url || undefined,
-    avatarUrl: d.avatar_url || undefined,
-    avatar_url: d.avatar_url || null,
-    revision: Number(d.revision) || 1,
-    createdAt: d.created_at,
-    updatedAt: d.updated_at,
-  }));
+    return data.map((d) => ({
+      id: d.id,
+      username: d.username,
+      directoryMemberId: d.directory_member_id || null,
+      name: d.display_name || d.username,
+      displayName: d.display_name || d.username,
+      display_name: d.display_name || d.username,
+      role: d.role as 'admin' | 'user',
+      active: Boolean(d.active),
+      permissions: {
+        canAdd: d.role === 'admin' || Boolean(d.can_add),
+        canEdit: d.role === 'admin' || Boolean(d.can_edit),
+        canDelete: d.role === 'admin' || Boolean(d.can_delete),
+        canUpload: d.role === 'admin' || d.can_upload !== false,
+      },
+      avatar: d.avatar_url || undefined,
+      avatarUrl: d.avatar_url || undefined,
+      avatar_url: d.avatar_url || null,
+      revision: Number(d.revision) || 1,
+      createdAt: d.created_at,
+      updatedAt: d.updated_at,
+    }));
+
+    });
 }
 
 export async function updateUserProfile(
@@ -171,94 +175,114 @@ export async function updateUserProfile(
   },
   expectedRevision?: number
 ): Promise<UserAccount> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const payload: Record<string, any> = {};
-  if (updates.displayName !== undefined) payload.display_name = updates.displayName;
-  if (updates.display_name !== undefined) payload.display_name = updates.display_name;
-  if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
-  if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
-  if (updates.avatar !== undefined) payload.avatar_url = updates.avatar;
-  if (updates.role !== undefined) payload.role = updates.role;
-  if (updates.active !== undefined) payload.active = updates.active;
-  if (updates.canAdd !== undefined) payload.can_add = updates.canAdd;
-  if (updates.canEdit !== undefined) payload.can_edit = updates.canEdit;
-  if (updates.canDelete !== undefined) payload.can_delete = updates.canDelete;
-  if (updates.canUpload !== undefined) payload.can_upload = updates.canUpload;
+    const payload: Record<string, any> = {};
+    if (updates.displayName !== undefined) payload.display_name = updates.displayName;
+    if (updates.display_name !== undefined) payload.display_name = updates.display_name;
+    if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
+    if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
+    if (updates.avatar !== undefined) payload.avatar_url = updates.avatar;
+    if (updates.role !== undefined) payload.role = updates.role;
+    if (updates.active !== undefined) payload.active = updates.active;
+    if (updates.canAdd !== undefined) payload.can_add = updates.canAdd;
+    if (updates.canEdit !== undefined) payload.can_edit = updates.canEdit;
+    if (updates.canDelete !== undefined) payload.can_delete = updates.canDelete;
+    if (updates.canUpload !== undefined) payload.can_upload = updates.canUpload;
 
-  let query = supabase
-    .from('profiles')
-    .update(payload)
-    .eq('id', targetUserId);
+    let query = supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', targetUserId);
 
-  if (typeof expectedRevision === 'number') {
-    query = query.eq('revision', expectedRevision);
-  }
+    if (typeof expectedRevision === 'number') {
+      query = query.eq('revision', expectedRevision);
+    }
 
-  const { error } = await query;
+    const { error } = await query;
 
-  if (error) {
-    throw new ConcurrencyConflictError(
-      error.message || 'Profile update conflict: user has been modified by another administrator.'
-    );
-  }
+    if (error) {
+      throw new ConcurrencyConflictError(
+        error.message || 'Profile update conflict: user has been modified by another administrator.'
+      );
+    }
 
-  // Read the authoritative profile separately. PostgREST can return a successful
-  // update with no embedded row, which made `.single()` report a false failure.
-  const { data, error: readError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', targetUserId)
-    .maybeSingle();
-  if (readError || !data) {
-    throw new Error(readError?.message || 'Profile updated but could not be reloaded.');
-  }
+    // Read the authoritative profile separately. PostgREST can return a successful
+    // update with no embedded row, which made `.single()` report a false failure.
+    const { data, error: readError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', targetUserId)
+      .maybeSingle();
+    if (readError || !data) {
+      throw new Error(readError?.message || 'Profile updated but could not be reloaded.');
+    }
 
-  return {
-    id: data.id,
-    username: data.username,
-    directoryMemberId: data.directory_member_id || null,
-    name: data.display_name || data.username,
-    displayName: data.display_name || data.username,
-    display_name: data.display_name || data.username,
-    role: data.role as 'admin' | 'user',
-    active: Boolean(data.active),
-    permissions: {
-      canAdd: data.role === 'admin' || Boolean(data.can_add),
-      canEdit: data.role === 'admin' || Boolean(data.can_edit),
-      canDelete: data.role === 'admin' || Boolean(data.can_delete),
-      canUpload: data.role === 'admin' || data.can_upload !== false,
-    },
-    avatar: data.avatar_url || undefined,
-    avatarUrl: data.avatar_url || undefined,
-    avatar_url: data.avatar_url || null,
-    revision: Number(data.revision) || 1,
-    createdAt: data.created_at,
-    updatedAt: data.updated_at,
-  };
+    return {
+      id: data.id,
+      username: data.username,
+      directoryMemberId: data.directory_member_id || null,
+      name: data.display_name || data.username,
+      displayName: data.display_name || data.username,
+      display_name: data.display_name || data.username,
+      role: data.role as 'admin' | 'user',
+      active: Boolean(data.active),
+      permissions: {
+        canAdd: data.role === 'admin' || Boolean(data.can_add),
+        canEdit: data.role === 'admin' || Boolean(data.can_edit),
+        canDelete: data.role === 'admin' || Boolean(data.can_delete),
+        canUpload: data.role === 'admin' || data.can_upload !== false,
+      },
+      avatar: data.avatar_url || undefined,
+      avatarUrl: data.avatar_url || undefined,
+      avatar_url: data.avatar_url || null,
+      revision: Number(data.revision) || 1,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    };
+
+    } finally { finishReadMutation(); }
 }
 
 export async function updateMyAvatar(avatar: string | null): Promise<UserAccount> {
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) throw new Error('Please sign in again.');
-  const { error } = await supabase.rpc('update_my_avatar', { new_avatar: avatar });
-  if (error) throw new Error(error.message || 'Could not update profile picture.');
-  const profile = await fetchCurrentUserProfile(auth.user.id);
-  if (!profile || (profile.avatar || null) !== avatar) throw new Error('Profile picture could not be verified. Please refresh.');
-  window.dispatchEvent(new Event('qnlbc-avatar-updated'));
-  return profile;
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    const { data: auth, error: authError } = await supabase.auth.getUser();
+    if (authError || !auth.user) throw new Error('Please sign in again.');
+    const { error } = await supabase.rpc('update_my_avatar', { new_avatar: avatar });
+    if (error) throw new Error(error.message || 'Could not update profile picture.');
+    const profile = await fetchCurrentUserProfile(auth.user.id);
+    if (!profile || (profile.avatar || null) !== avatar) throw new Error('Profile picture could not be verified. Please refresh.');
+    window.dispatchEvent(new Event('qnlbc-avatar-updated'));
+    return profile;
+
+    } finally { finishReadMutation(); }
 }
 
 export async function createManagedUser(input: { username: string; password: string; displayName: string; directoryMemberId?: string | null }): Promise<{ id: string }> {
-  return await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    return await invokeAdminFunction('admin-create-user', input, 'Could not create account.');
+
+    } finally { finishReadMutation(); }
 }
 
 export async function updateManagedUser(input: { userId: string; username: string; displayName: string; directoryMemberId?: string | null; password?: string }): Promise<void> {
-  await invokeAdminFunction('admin-update-user', input, 'Could not update account.');
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    await invokeAdminFunction('admin-update-user', input, 'Could not update account.');
+
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteManagedUser(userId: string): Promise<void> {
-  await invokeAdminFunction('admin-delete-user', { userId }, 'Could not delete account.');
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    await invokeAdminFunction('admin-delete-user', { userId }, 'Could not delete account.');
+
+    } finally { finishReadMutation(); }
 }
 
 async function invokeAdminFunction(name: string, body: unknown, fallback: string): Promise<any> {
@@ -294,26 +318,38 @@ async function invokeAdminFunction(name: string, body: unknown, fallback: string
 }
 
 export async function setProfileRole(userId: string, role: 'admin' | 'user'): Promise<void> {
-  if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
-  if (error) {
-    throw new Error(error.message);
-  }
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    if (!isSupabaseConfigured()) return;
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    } finally { finishReadMutation(); }
 }
 
 export async function toggleProfileActive(userId: string, active: boolean): Promise<void> {
-  if (!isSupabaseConfigured()) return;
-  const { error } = await supabase.from('profiles').update({ active }).eq('id', userId);
-  if (error) {
-    throw new Error(error.message);
-  }
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    if (!isSupabaseConfigured()) return;
+    const { error } = await supabase.from('profiles').update({ active }).eq('id', userId);
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    } finally { finishReadMutation(); }
 }
 
 export async function setProfilePermissions(
   userId: string,
   permissions: { canAdd: boolean; canEdit: boolean; canDelete: boolean; canUpload: boolean }
 ): Promise<UserAccount> {
-  return updateUserProfile(userId, permissions);
+  const finishReadMutation = beginReadMutation('profiles');
+  try {
+    return updateUserProfile(userId, permissions);
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
@@ -399,148 +435,162 @@ export function mapSongFromDB(row: any): Song {
 }
 
 export async function fetchSongs(): Promise<Song[]> {
-  if (!isSupabaseConfigured()) return [];
-  const first = await supabase.from('songs').select('*', { count: 'exact' }).is('deleted_at', null)
-    .order('title', { ascending: true }).order('id', { ascending: true }).range(0, 499);
-  if (first.error) throw first.error;
-  const initialRows: any[] = first.data || [];
-  if (typeof first.count === 'number') {
-    const rows: any[] = [...(first.data || [])];
-    for (let offset = 500; offset < first.count; offset += 2000) {
-      const starts = Array.from({ length: Math.min(4, Math.ceil((first.count - offset) / 500)) }, (_, i) => offset + i * 500);
-      const pages = await Promise.all(starts.map(start => supabase.from('songs').select('*').is('deleted_at', null)
-        .order('title', { ascending: true }).order('id', { ascending: true }).range(start, start + 499)));
-      for (const page of pages) { if (page.error) throw page.error; rows.push(...(page.data || [])); }
+  return latestRead('songs', async () => {
+    if (!isSupabaseConfigured()) return [];
+    const first = await supabase.from('songs').select('*', { count: 'exact' }).is('deleted_at', null)
+      .order('title', { ascending: true }).order('id', { ascending: true }).range(0, 499);
+    if (first.error) throw first.error;
+    const initialRows: any[] = first.data || [];
+    if (typeof first.count === 'number') {
+      const rows: any[] = [...(first.data || [])];
+      for (let offset = 500; offset < first.count; offset += 2000) {
+        const starts = Array.from({ length: Math.min(4, Math.ceil((first.count - offset) / 500)) }, (_, i) => offset + i * 500);
+        const pages = await Promise.all(starts.map(start => supabase.from('songs').select('*').is('deleted_at', null)
+          .order('title', { ascending: true }).order('id', { ascending: true }).range(start, start + 499)));
+        for (const page of pages) { if (page.error) throw page.error; rows.push(...(page.data || [])); }
+      }
+      if (rows.length < first.count || new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Song library changed while loading. Please refresh.');
+      return rows.map(mapSongFromDB);
     }
-    if (rows.length < first.count || new Set(rows.map(row => row.id)).size !== rows.length) throw new Error('Song library changed while loading. Please refresh.');
-    return rows.map(mapSongFromDB);
-  }
-  const rows: any[] = [...initialRows];
-  if (initialRows.length < 500) return rows.map(mapSongFromDB);
-  for (let offset = 500; ; offset += 500) {
-    const { data, error } = await supabase.from('songs').select('*').is('deleted_at', null)
-      .order('title', { ascending: true }).order('id', { ascending: true }).range(offset, offset + 499);
-    if (error) throw error;
-    rows.push(...(data || []));
-    if (!data || data.length < 500) return rows.map(mapSongFromDB);
-  }
+    const rows: any[] = [...initialRows];
+    if (initialRows.length < 500) return rows.map(mapSongFromDB);
+    for (let offset = 500; ; offset += 500) {
+      const { data, error } = await supabase.from('songs').select('*').is('deleted_at', null)
+        .order('title', { ascending: true }).order('id', { ascending: true }).range(offset, offset + 499);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 500) return rows.map(mapSongFromDB);
+    }
+
+    });
 }
 
 export async function saveSong(song: Partial<Song>, isNew = false): Promise<Song> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('songs');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  // Preserve rename history for older setlists that stored only a title.
-  let existingMetadata: Record<string, any> = {};
-  let previousTitle: string | undefined;
-  if (!isNew && isUUID(song.id)) {
-    const { data: existing, error } = await supabase.from('songs').select('title,metadata').eq('id', song.id).single();
-    if (error || !existing) throw error || new Error('Song not found');
-    existingMetadata = existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {};
-    previousTitle = existing.title;
-  }
-  const previousTitles = [...new Set([
-    ...(Array.isArray(existingMetadata.previousTitles) ? existingMetadata.previousTitles : []),
-    ...(previousTitle && previousTitle !== song.title?.trim() ? [previousTitle] : []),
-  ].filter((title): title is string => typeof title === 'string' && Boolean(title.trim())))];
+    // Preserve rename history for older setlists that stored only a title.
+    let existingMetadata: Record<string, any> = {};
+    let previousTitle: string | undefined;
+    if (!isNew && isUUID(song.id)) {
+      const { data: existing, error } = await supabase.from('songs').select('title,metadata').eq('id', song.id).single();
+      if (error || !existing) throw error || new Error('Song not found');
+      existingMetadata = existing.metadata && typeof existing.metadata === 'object' ? existing.metadata : {};
+      previousTitle = existing.title;
+    }
+    const previousTitles = [...new Set([
+      ...(Array.isArray(existingMetadata.previousTitles) ? existingMetadata.previousTitles : []),
+      ...(previousTitle && previousTitle !== song.title?.trim() ? [previousTitle] : []),
+    ].filter((title): title is string => typeof title === 'string' && Boolean(title.trim())))];
 
-  const payload = {
-    title: song.title?.trim() || 'Untitled Song',
-    artist: song.artist?.trim() || null,
-    lyrics: cleanDuplicateChorusSections(cleanEmptySectionLabels(cleanLeadingSongTitle(song.title || '', song.lyrics || ''))),
-    category: song.category?.trim() || null,
-    categories: song.categories || [],
-    minus_one_link: (song.minusOneLink || song.minus_one_link)?.trim() || null,
-    is_starred: Boolean(song.isStarred ?? song.is_starred ?? song.starred),
-    is_welcome_song: Boolean(song.isWelcomeSong ?? song.is_welcome_song),
-    is_closing_song: Boolean(song.isClosingSong ?? song.is_closing_song),
-    is_theme_song: Boolean(song.isThemeSong ?? song.is_theme_song),
-    metadata: {
-      ...existingMetadata,
-      previousTitles,
-      attachments: Array.isArray(song.attachments) ? song.attachments : [],
-    },
-  };
+    const payload = {
+      title: song.title?.trim() || 'Untitled Song',
+      artist: song.artist?.trim() || null,
+      lyrics: cleanDuplicateChorusSections(cleanEmptySectionLabels(cleanLeadingSongTitle(song.title || '', song.lyrics || ''))),
+      category: song.category?.trim() || null,
+      categories: song.categories || [],
+      minus_one_link: (song.minusOneLink || song.minus_one_link)?.trim() || null,
+      is_starred: Boolean(song.isStarred ?? song.is_starred ?? song.starred),
+      is_welcome_song: Boolean(song.isWelcomeSong ?? song.is_welcome_song),
+      is_closing_song: Boolean(song.isClosingSong ?? song.is_closing_song),
+      is_theme_song: Boolean(song.isThemeSong ?? song.is_theme_song),
+      metadata: {
+        ...existingMetadata,
+        previousTitles,
+        attachments: Array.isArray(song.attachments) ? song.attachments : [],
+      },
+    };
 
-  const hasValidUUID = isUUID(song.id);
+    const hasValidUUID = isUUID(song.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('songs')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create song');
+      return mapSongFromDB(data);
+    }
+
+    const expectedRev = song.revision || 1;
     const { data, error } = await supabase
       .from('songs')
-      .insert(payload)
+      .update(payload)
+      .eq('id', song.id)
+      .eq('revision', expectedRev)
       .select('*')
-      .single();
+      .maybeSingle();
 
-    if (error || !data) throw error || new Error('Failed to create song');
+    if (error) throw error;
+    if (!data) {
+      // Some API responses omit the updated row. Confirm the intended write before
+      // reporting failure; never treat a zero-row/stale-revision update as success.
+      const { data: reloaded, error: reloadError } = await supabase.from('songs').select('*').eq('id', song.id).maybeSingle();
+      if (reloadError) throw reloadError;
+      const same = (a: unknown, b: unknown): boolean => {
+        if (a === b) return true;
+        if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+        if (Array.isArray(a) !== Array.isArray(b)) return false;
+        const keys = Object.keys(a);
+        return keys.length === Object.keys(b).length && keys.every(key => same((a as any)[key], (b as any)[key]));
+      };
+      if (reloaded && !reloaded.deleted_at && Number(reloaded.revision) === expectedRev + 1 && Object.entries(payload).every(([key, value]) => same(reloaded[key], value))) return mapSongFromDB(reloaded);
+      throw new ConcurrencyConflictError('This song changed while you were editing. Please review the refreshed song and try again.');
+    }
+
     return mapSongFromDB(data);
-  }
 
-  const expectedRev = song.revision || 1;
-  const { data, error } = await supabase
-    .from('songs')
-    .update(payload)
-    .eq('id', song.id)
-    .eq('revision', expectedRev)
-    .select('*')
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!data) {
-    // Some API responses omit the updated row. Confirm the intended write before
-    // reporting failure; never treat a zero-row/stale-revision update as success.
-    const { data: reloaded, error: reloadError } = await supabase.from('songs').select('*').eq('id', song.id).maybeSingle();
-    if (reloadError) throw reloadError;
-    const same = (a: unknown, b: unknown): boolean => {
-      if (a === b) return true;
-      if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
-      if (Array.isArray(a) !== Array.isArray(b)) return false;
-      const keys = Object.keys(a);
-      return keys.length === Object.keys(b).length && keys.every(key => same((a as any)[key], (b as any)[key]));
-    };
-    if (reloaded && !reloaded.deleted_at && Number(reloaded.revision) === expectedRev + 1 && Object.entries(payload).every(([key, value]) => same(reloaded[key], value))) return mapSongFromDB(reloaded);
-    throw new ConcurrencyConflictError('This song changed while you were editing. Please review the refreshed song and try again.');
-  }
-
-  return mapSongFromDB(data);
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteSong(songId: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('songs', songId, expectedRevision);
+  const finishReadMutation = beginReadMutation('songs');
+  try {
+    await executeSoftDelete('songs', songId, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
 // SETLISTS & SETLIST ITEMS DATA ACCESS
 // -------------------------------------------------------------
 export async function fetchSetlists(): Promise<Setlist[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('setlists', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  // Query setlists and active setlist_items
-  const { data: setlistsData, error: setlistErr } = await supabase
-    .from('setlists')
-    .select('*')
-    .is('deleted_at', null)
-    .order('service_date', { ascending: false });
+    // Query setlists and active setlist_items
+    const { data: setlistsData, error: setlistErr } = await readAllPages(() => supabase
+      .from('setlists')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('service_date', { ascending: false }).order('id'));
 
-  if (setlistErr) throw setlistErr;
-  if (!setlistsData || setlistsData.length === 0) return [];
+    if (setlistErr) throw setlistErr;
+    if (!setlistsData || setlistsData.length === 0) return [];
 
-  const setlistIds = setlistsData.map((s) => s.id);
-  const { data: itemsData, error: itemsErr } = await supabase
-    .from('setlist_items')
-    .select('*')
-    .in('setlist_id', setlistIds)
-    .is('deleted_at', null)
-    .order('position', { ascending: true });
+    const setlistIds = setlistsData.map((s) => s.id);
+    const { data: itemsData, error: itemsErr } = await readRelatedPages(setlistIds, batch => supabase
+      .from('setlist_items')
+      .select('*', { count: 'exact' })
+      .in('setlist_id', batch)
+      .is('deleted_at', null)
+      .order('position', { ascending: true }).order('id'));
 
-  if (itemsErr) throw itemsErr;
+    if (itemsErr) throw itemsErr;
 
-  const itemsBySetlistId = new Map<string, any[]>();
-  for (const item of itemsData || []) {
-    const list = itemsBySetlistId.get(item.setlist_id) || [];
-    list.push(item);
-    itemsBySetlistId.set(item.setlist_id, list);
-  }
+    const itemsBySetlistId = new Map<string, any[]>();
+    for (const item of itemsData || []) {
+      const list = itemsBySetlistId.get(item.setlist_id) || [];
+      list.push(item);
+      itemsBySetlistId.set(item.setlist_id, list);
+    }
 
-  return setlistsData.map(row => mapSavedSetlist(row, itemsBySetlistId.get(row.id) || []));
+    return setlistsData.map(row => mapSavedSetlist(row, itemsBySetlistId.get(row.id) || []));
+
+    });
 }
 
 function mapSavedSetlist(row: any, items: any[]): Setlist {
@@ -610,64 +660,76 @@ function mapSavedSetlist(row: any, items: any[]): Setlist {
 const pendingSetlistRequests = new Map<string, string>();
 
 export async function saveSetlist(setlist: Partial<Setlist>, isNew = false): Promise<Setlist> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('setlists');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const setlistPayload = {
-    type: setlist.type || 'sunday',
-    title: setlist.title?.trim() || null,
-    service_date: setlist.date || setlist.service_date || new Date().toISOString().slice(0, 10),
-    presider: setlist.presider?.trim() || null,
-    welcome_song: (setlist.welcomeSong || setlist.welcome_song)?.trim() || null,
-    closing_song: (setlist.closingSong || setlist.closing_song)?.trim() || null,
-    theme_song: (setlist.themeSong || setlist.theme_song)?.trim() || null,
-    sunday_school_leader: setlist.sundaySchool?.songLeader?.trim() || null,
-    sunday_school_notes: setlist.sundaySchool?.notes?.trim() || null,
-    worship_leader: setlist.worshipService?.songLeader?.trim() || null,
-    worship_notes: setlist.worshipService?.notes?.trim() || null,
-    program_leader: setlist.program?.songLeader?.trim() || null,
-    program_notes: setlist.program?.notes?.trim() || null,
-    general_notes: (setlist.generalNotes || setlist.general_notes)?.trim() || null,
-  };
+    const setlistPayload = {
+      type: setlist.type || 'sunday',
+      title: setlist.title?.trim() || null,
+      service_date: setlist.date || setlist.service_date || new Date().toISOString().slice(0, 10),
+      presider: setlist.presider?.trim() || null,
+      welcome_song: (setlist.welcomeSong || setlist.welcome_song)?.trim() || null,
+      closing_song: (setlist.closingSong || setlist.closing_song)?.trim() || null,
+      theme_song: (setlist.themeSong || setlist.theme_song)?.trim() || null,
+      sunday_school_leader: setlist.sundaySchool?.songLeader?.trim() || null,
+      sunday_school_notes: setlist.sundaySchool?.notes?.trim() || null,
+      worship_leader: setlist.worshipService?.songLeader?.trim() || null,
+      worship_notes: setlist.worshipService?.notes?.trim() || null,
+      program_leader: setlist.program?.songLeader?.trim() || null,
+      program_notes: setlist.program?.notes?.trim() || null,
+      general_notes: (setlist.generalNotes || setlist.general_notes)?.trim() || null,
+    };
 
-  const items = [
-    ['sunday_school', setlist.sundaySchool?.songs || []],
-    ['worship', setlist.worshipService?.songs || []],
-    ['program', setlist.program?.songs || []],
-  ].flatMap(([section, entries]) => (entries as SetlistSongItem[]).map((item, position) => ({
-    id: isUUID(item.id) ? item.id : null, section, position,
-    song_id: isUUID(item.songId || item.song_id) ? (item.songId || item.song_id) : null,
-    song_title: item.title?.trim() || 'Untitled', key_note: (item.keyNote || item.key_note)?.trim() || null,
-    notes: item.notes?.trim() || null, lyrics_mode: item.lyricsMode || item.lyrics_mode || 'live',
-    lyrics_snapshot: item.lyricsSnapshot || item.lyrics_snapshot || null,
-    source_song_revision: item.sourceSongRevision || item.source_song_revision || null,
-  })));
-  const payload = { target_id: isUUID(setlist.id) ? setlist.id : null,
-    expected_revision: setlist.revision || 1, creating: isNew || !isUUID(setlist.id),
-    parent_payload: setlistPayload, items_payload: items };
-  const key = JSON.stringify(payload);
-  const requestId = pendingSetlistRequests.get(key) || generateUUID();
-  pendingSetlistRequests.set(key, requestId);
-  const { data, error } = await supabase.rpc('save_setlist_atomic', { request_id: requestId, ...payload });
-  if (error || !data?.parent || !Array.isArray(data.items)) {
-    throw new Error(error?.message || 'Setlist save could not be confirmed. Your draft is preserved.');
-  }
-  pendingSetlistRequests.delete(key);
-  return mapSavedSetlist(data.parent, data.items);
+    const items = [
+      ['sunday_school', setlist.sundaySchool?.songs || []],
+      ['worship', setlist.worshipService?.songs || []],
+      ['program', setlist.program?.songs || []],
+    ].flatMap(([section, entries]) => (entries as SetlistSongItem[]).map((item, position) => ({
+      id: isUUID(item.id) ? item.id : null, section, position,
+      song_id: isUUID(item.songId || item.song_id) ? (item.songId || item.song_id) : null,
+      song_title: item.title?.trim() || 'Untitled', key_note: (item.keyNote || item.key_note)?.trim() || null,
+      notes: item.notes?.trim() || null, lyrics_mode: item.lyricsMode || item.lyrics_mode || 'live',
+      lyrics_snapshot: item.lyricsSnapshot || item.lyrics_snapshot || null,
+      source_song_revision: item.sourceSongRevision || item.source_song_revision || null,
+    })));
+    const payload = { target_id: isUUID(setlist.id) ? setlist.id : null,
+      expected_revision: setlist.revision || 1, creating: isNew || !isUUID(setlist.id),
+      parent_payload: setlistPayload, items_payload: items };
+    const key = JSON.stringify(payload);
+    const requestId = pendingSetlistRequests.get(key) || generateUUID();
+    pendingSetlistRequests.set(key, requestId);
+    const { data, error } = await supabase.rpc('save_setlist_atomic', { request_id: requestId, ...payload });
+    if (error || !data?.parent || !Array.isArray(data.items)) {
+      throw new Error(error?.message || 'Setlist save could not be confirmed. Your draft is preserved.');
+    }
+    pendingSetlistRequests.delete(key);
+    return mapSavedSetlist(data.parent, data.items);
+
+    } finally { finishReadMutation(); }
 }
 export async function deleteSetlist(setlistId: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('setlists', setlistId, expectedRevision);
+  const finishReadMutation = beginReadMutation('setlists');
+  try {
+    await executeSoftDelete('setlists', setlistId, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function saveSetlistOrder(date: string, orderedIds: string[], expectedRevisions: Record<string, number>) {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
-  const { data, error } = await supabase.rpc('reorder_setlist_cards', {
-    p_service_date: date, p_ordered_ids: orderedIds, p_expected_revisions: expectedRevisions,
-  });
-  if (error) throw new Error(error.message);
-  if (!Array.isArray(data) || data.length !== orderedIds.length || data.some((row, index) => row.id !== orderedIds[index] || row.display_order !== index || !Number.isFinite(Number(row.revision)))) {
-    throw new Error('The saved order could not be confirmed. Reload before trying again.');
-  }
-  return data.map(row => ({ id: row.id as string, displayOrder: Number(row.display_order), revision: Number(row.revision), updatedAt: row.updated_at as string }));
+  const finishReadMutation = beginReadMutation('setlists');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+    const { data, error } = await supabase.rpc('reorder_setlist_cards', {
+      p_service_date: date, p_ordered_ids: orderedIds, p_expected_revisions: expectedRevisions,
+    });
+    if (error) throw new Error(error.message);
+    if (!Array.isArray(data) || data.length !== orderedIds.length || data.some((row, index) => row.id !== orderedIds[index] || row.display_order !== index || !Number.isFinite(Number(row.revision)))) {
+      throw new Error('The saved order could not be confirmed. Reload before trying again.');
+    }
+    return data.map(row => ({ id: row.id as string, displayOrder: Number(row.display_order), revision: Number(row.revision), updatedAt: row.updated_at as string }));
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
@@ -702,73 +764,84 @@ export function mapSpecialNumberFromDB(row: any): SpecialNumberEntry {
 }
 
 export async function fetchSpecialNumbers(): Promise<SpecialNumberEntry[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('specialNumbers', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('special_numbers')
-    .select('*')
-    .is('deleted_at', null)
-    .order('scheduled_date', { ascending: false });
+    const { data, error } = await readAllPages(() => supabase
+      .from('special_numbers')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('scheduled_date', { ascending: false }).order('id'));
 
-  if (error) throw error;
-  return (data || []).map(mapSpecialNumberFromDB);
+    if (error) throw error;
+    return (data || []).map(mapSpecialNumberFromDB);
+
+    });
 }
 
 export async function saveSpecialNumber(
   entry: Partial<SpecialNumberEntry>,
   isNew = false
 ): Promise<SpecialNumberEntry> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('specialNumbers');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const rawSongId = (entry.songId || entry.song_id)?.trim();
-  const validSongId = isUUID(rawSongId) ? rawSongId : null;
+    const rawSongId = (entry.songId || entry.song_id)?.trim();
+    const validSongId = isUUID(rawSongId) ? rawSongId : null;
 
-  const payload = {
-    performer_name: (entry.performerName || entry.performer_name)?.trim() || 'Performer',
-    scheduled_date: entry.scheduledDate || entry.scheduled_date || new Date().toISOString().slice(0, 10),
-    song_id: validSongId,
-    song_title: (entry.songTitle || entry.song_title)?.trim() || null,
-    lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
-    lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
-    source_song_revision: entry.sourceSongRevision || entry.source_song_revision || null,
-    minus_one_link: (entry.minusOneLink || entry.minus_one_link)?.trim() || null,
-    notes: entry.notes?.trim() || null,
-    status: entry.status || 'scheduled',
-  };
+    const payload = {
+      performer_name: (entry.performerName || entry.performer_name)?.trim() || 'Performer',
+      scheduled_date: entry.scheduledDate || entry.scheduled_date || new Date().toISOString().slice(0, 10),
+      song_id: validSongId,
+      song_title: (entry.songTitle || entry.song_title)?.trim() || null,
+      lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
+      lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
+      source_song_revision: entry.sourceSongRevision || entry.source_song_revision || null,
+      minus_one_link: (entry.minusOneLink || entry.minus_one_link)?.trim() || null,
+      notes: entry.notes?.trim() || null,
+      status: entry.status || 'scheduled',
+    };
 
-  const hasValidUUID = isUUID(entry.id);
+    const hasValidUUID = isUUID(entry.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('special_numbers')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create special number');
+      return mapSpecialNumberFromDB(data);
+    }
+
+    const expectedRev = entry.revision || 1;
     const { data, error } = await supabase
       .from('special_numbers')
-      .insert(payload)
+      .update(payload)
+      .eq('id', entry.id)
+      .eq('revision', expectedRev)
       .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create special number');
+    if (error || !data) {
+      throw new ConcurrencyConflictError(
+        error?.message || 'Special number update conflict: modified by another user.'
+      );
+    }
+
     return mapSpecialNumberFromDB(data);
-  }
 
-  const expectedRev = entry.revision || 1;
-  const { data, error } = await supabase
-    .from('special_numbers')
-    .update(payload)
-    .eq('id', entry.id)
-    .eq('revision', expectedRev)
-    .select('*')
-    .single();
-
-  if (error || !data) {
-    throw new ConcurrencyConflictError(
-      error?.message || 'Special number update conflict: modified by another user.'
-    );
-  }
-
-  return mapSpecialNumberFromDB(data);
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteSpecialNumber(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('special_numbers', id, expectedRevision);
+  const finishReadMutation = beginReadMutation('specialNumbers');
+  try {
+    await executeSoftDelete('special_numbers', id, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
@@ -803,70 +876,81 @@ export function mapChoirEntryFromDB(row: any): ChoirEntry {
 }
 
 export async function fetchChoirEntries(): Promise<ChoirEntry[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('choir', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('choir_entries')
-    .select('*')
-    .is('deleted_at', null)
-    .order('service_date', { ascending: false });
+    const { data, error } = await readAllPages(() => supabase
+      .from('choir_entries')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('service_date', { ascending: false }).order('id'));
 
-  if (error) throw error;
-  return (data || []).map(mapChoirEntryFromDB);
+    if (error) throw error;
+    return (data || []).map(mapChoirEntryFromDB);
+
+    });
 }
 
 export async function saveChoirEntry(entry: Partial<ChoirEntry>, isNew = false): Promise<ChoirEntry> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('choir');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const rawSongId = (entry.songId || entry.song_id)?.trim();
-  const validSongId = isUUID(rawSongId) ? rawSongId : null;
+    const rawSongId = (entry.songId || entry.song_id)?.trim();
+    const validSongId = isUUID(rawSongId) ? rawSongId : null;
 
-  const payload = {
-    media_attachments: entry.mediaAttachments || [],
-    choir_group: (entry.choirGroup || entry.choir_group)?.trim() || 'Church Choir',
-    service_date: entry.date || entry.service_date || new Date().toISOString().slice(0, 10),
-    song_id: validSongId,
-    song_title: (entry.songTitle || entry.song_title)?.trim() || 'Untitled',
-    lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
-    lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
-    source_song_revision: entry.sourceSongRevision || entry.source_song_revision || null,
-    notes: entry.notes?.trim() || null,
-    is_done: Boolean(entry.isDone ?? entry.is_done),
-  };
+    const payload = {
+      media_attachments: entry.mediaAttachments || [],
+      choir_group: (entry.choirGroup || entry.choir_group)?.trim() || 'Church Choir',
+      service_date: entry.date || entry.service_date || new Date().toISOString().slice(0, 10),
+      song_id: validSongId,
+      song_title: (entry.songTitle || entry.song_title)?.trim() || 'Untitled',
+      lyrics_mode: entry.lyricsMode || entry.lyrics_mode || 'live',
+      lyrics_snapshot: entry.lyricsSnapshot || entry.lyrics_snapshot || entry.lyrics || null,
+      source_song_revision: entry.sourceSongRevision || entry.source_song_revision || null,
+      notes: entry.notes?.trim() || null,
+      is_done: Boolean(entry.isDone ?? entry.is_done),
+    };
 
-  const hasValidUUID = isUUID(entry.id);
+    const hasValidUUID = isUUID(entry.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('choir_entries')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create choir entry');
+      return mapChoirEntryFromDB(data);
+    }
+
+    const expectedRev = entry.revision || 1;
     const { data, error } = await supabase
       .from('choir_entries')
-      .insert(payload)
+      .update(payload)
+      .eq('id', entry.id)
+      .eq('revision', expectedRev)
       .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create choir entry');
+    if (error || !data) {
+      throw new ConcurrencyConflictError(
+        error?.message || 'Choir entry update conflict: modified by another user.'
+      );
+    }
+
     return mapChoirEntryFromDB(data);
-  }
 
-  const expectedRev = entry.revision || 1;
-  const { data, error } = await supabase
-    .from('choir_entries')
-    .update(payload)
-    .eq('id', entry.id)
-    .eq('revision', expectedRev)
-    .select('*')
-    .single();
-
-  if (error || !data) {
-    throw new ConcurrencyConflictError(
-      error?.message || 'Choir entry update conflict: modified by another user.'
-    );
-  }
-
-  return mapChoirEntryFromDB(data);
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteChoirEntry(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('choir_entries', id, expectedRevision);
+  const finishReadMutation = beginReadMutation('choir');
+  try {
+    await executeSoftDelete('choir_entries', id, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
@@ -938,100 +1022,97 @@ function mapPracticeRowToEntry(
 }
 
 export async function fetchPracticeEntries(): Promise<PracticeGroupEntry[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('practice', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data: practices, error: practiceErr } = await supabase
-    .from('practice_entries')
-    .select('*')
-    .is('deleted_at', null)
-    .order('practice_date', { ascending: false });
+    const { data: practices, error: practiceErr } = await readAllPages(() => supabase
+      .from('practice_entries')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('practice_date', { ascending: false }).order('id'));
 
-  if (practiceErr) {
-    console.error('Error fetching practice entries from Supabase:', formatSupabaseError(practiceErr), practiceErr);
-    throw practiceErr;
-  }
-  if (!practices || practices.length === 0) return [];
-
-  const practiceIds = practices.map((p) => p.id);
-  const { data: vocalParts, error: partsErr } = await supabase
-    .from('vocal_parts')
-    .select('*')
-    .in('practice_id', practiceIds)
-    .is('deleted_at', null)
-    .order('position', { ascending: true });
-
-  if (partsErr) {
-    console.warn('Error fetching vocal parts for practice entries:', formatSupabaseError(partsErr));
-  }
-
-  const partIds = (vocalParts || []).map((part) => part.id);
-  const [{ data: practiceAttachments, error: practiceAttachmentsErr }, { data: partAttachments, error: partAttachmentsErr }] =
-    await Promise.all([
-      supabase
-        .from('attachments')
-        .select('*')
-        .eq('owner_type', 'practice')
-        .in('owner_id', practiceIds)
-        .is('deleted_at', null)
-        .order('position', { ascending: true }),
-      partIds.length > 0
-        ? supabase
-            .from('attachments')
-            .select('*')
-            .eq('owner_type', 'vocal_part')
-            .in('owner_id', partIds)
-            .is('deleted_at', null)
-            .order('position', { ascending: true })
-        : Promise.resolve({ data: [], error: null }),
-    ]);
-
-  if (practiceAttachmentsErr) {
-    console.warn('Error fetching practice attachments:', formatSupabaseError(practiceAttachmentsErr));
-  }
-  if (partAttachmentsErr) {
-    console.warn('Error fetching vocal-part attachments:', formatSupabaseError(partAttachmentsErr));
-  }
-
-  const practiceAttachmentsByOwner = new Map<string, SongAttachment[]>();
-  for (const attachment of practiceAttachments || []) {
-    const list = practiceAttachmentsByOwner.get(attachment.owner_id) || [];
-    list.push(mapAttachmentFromDB(attachment));
-    practiceAttachmentsByOwner.set(attachment.owner_id, list);
-  }
-
-  const audioAttachmentByPart = new Map<string, any>();
-  for (const attachment of partAttachments || []) {
-    if (!audioAttachmentByPart.has(attachment.owner_id)) {
-      audioAttachmentByPart.set(attachment.owner_id, attachment);
+    if (practiceErr) {
+      console.error('Error fetching practice entries from Supabase:', formatSupabaseError(practiceErr), practiceErr);
+      throw practiceErr;
     }
-  }
+    if (!practices || practices.length === 0) return [];
 
-  const partsByPracticeId = new Map<string, PracticePartTrack[]>();
-  for (const part of vocalParts || []) {
-    const list = partsByPracticeId.get(part.practice_id) || [];
-    const audioAttachment = audioAttachmentByPart.get(part.id);
-    list.push({
-      id: part.id,
-      partLabel: part.label === 'Custom' ? part.custom_label || 'Custom' : part.label,
-      customLabel: part.custom_label || undefined,
-      custom_label: part.custom_label || undefined,
-      name: part.name || undefined,
-      notes: part.notes || undefined,
-      type: audioAttachment?.kind || undefined,
-      audioUrl: audioAttachment?.external_url || undefined,
-      urlOrData: audioAttachment?.external_url || undefined,
-      position: part.position,
-      revision: Number(part.revision) || 1,
-      createdAt: part.created_at,
+    const practiceIds = practices.map((p) => p.id);
+    const { data: vocalParts, error: partsErr } = await readRelatedPages(practiceIds, batch => supabase
+      .from('vocal_parts')
+      .select('*', { count: 'exact' })
+      .in('practice_id', batch)
+      .is('deleted_at', null)
+      .order('position', { ascending: true }).order('id'));
+
+    if (partsErr) throw partsErr;
+
+    const partIds = (vocalParts || []).map((part) => part.id);
+    const [{ data: practiceAttachments, error: practiceAttachmentsErr }, { data: partAttachments, error: partAttachmentsErr }] =
+      await Promise.all([
+        readRelatedPages(practiceIds, batch => supabase
+          .from('attachments')
+          .select('*', { count: 'exact' })
+          .eq('owner_type', 'practice')
+          .in('owner_id', batch)
+          .is('deleted_at', null)
+          .order('position', { ascending: true }).order('id')),
+        partIds.length > 0
+          ? readRelatedPages(partIds, batch => supabase
+              .from('attachments')
+              .select('*', { count: 'exact' })
+              .eq('owner_type', 'vocal_part')
+              .in('owner_id', batch)
+              .is('deleted_at', null)
+              .order('position', { ascending: true }).order('id'))
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+    if (practiceAttachmentsErr) throw practiceAttachmentsErr;
+    if (partAttachmentsErr) throw partAttachmentsErr;
+
+    const practiceAttachmentsByOwner = new Map<string, SongAttachment[]>();
+    for (const attachment of practiceAttachments || []) {
+      const list = practiceAttachmentsByOwner.get(attachment.owner_id) || [];
+      list.push(mapAttachmentFromDB(attachment));
+      practiceAttachmentsByOwner.set(attachment.owner_id, list);
+    }
+
+    const audioAttachmentByPart = new Map<string, any>();
+    for (const attachment of partAttachments || []) {
+      if (!audioAttachmentByPart.has(attachment.owner_id)) {
+        audioAttachmentByPart.set(attachment.owner_id, attachment);
+      }
+    }
+
+    const partsByPracticeId = new Map<string, PracticePartTrack[]>();
+    for (const part of vocalParts || []) {
+      const list = partsByPracticeId.get(part.practice_id) || [];
+      const audioAttachment = audioAttachmentByPart.get(part.id);
+      list.push({
+        id: part.id,
+        partLabel: part.label === 'Custom' ? part.custom_label || 'Custom' : part.label,
+        customLabel: part.custom_label || undefined,
+        custom_label: part.custom_label || undefined,
+        name: part.name || undefined,
+        notes: part.notes || undefined,
+        type: audioAttachment?.kind || undefined,
+        audioUrl: audioAttachment?.external_url || undefined,
+        urlOrData: audioAttachment?.external_url || undefined,
+        position: part.position,
+        revision: Number(part.revision) || 1,
+        createdAt: part.created_at,
+      });
+      partsByPracticeId.set(part.practice_id, list);
+    }
+
+    return practices.map((row) => {
+      const parts = partsByPracticeId.get(row.id) || [];
+      const attachments = practiceAttachmentsByOwner.get(row.id) || [];
+      return mapPracticeRowToEntry(row, parts, attachments);
     });
-    partsByPracticeId.set(part.practice_id, list);
-  }
 
-  return practices.map((row) => {
-    const parts = partsByPracticeId.get(row.id) || [];
-    const attachments = practiceAttachmentsByOwner.get(row.id) || [];
-    return mapPracticeRowToEntry(row, parts, attachments);
-  });
+    });
 }
 
 function buildPracticePayload(entry: Partial<PracticeGroupEntry>) {
@@ -1244,83 +1325,87 @@ export async function savePracticeVocalPart(
   practiceId: string,
   part: PracticePartTrack
 ): Promise<PracticePartTrack> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
-  if (!practiceId || !isUUID(practiceId)) {
-    throw new Error('Invalid practice ID for vocal part: ' + practiceId);
-  }
-  if (!isUUID(part.id)) throw new Error('A stable vocal part ID is required.');
+  const finishReadMutation = beginReadMutation('practice');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+    if (!practiceId || !isUUID(practiceId)) {
+      throw new Error('Invalid practice ID for vocal part: ' + practiceId);
+    }
+    if (!isUUID(part.id)) throw new Error('A stable vocal part ID is required.');
 
-  const { data: parent, error: parentError } = await supabase
-    .from('practice_entries')
-    .select('id')
-    .eq('id', practiceId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (parentError) throw parentError;
-  if (!parent) throw new Error('Practice no longer exists or could not be accessed.');
+    const { data: parent, error: parentError } = await supabase
+      .from('practice_entries')
+      .select('id')
+      .eq('id', practiceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (parentError) throw parentError;
+    if (!parent) throw new Error('Practice no longer exists or could not be accessed.');
 
-  const existingResult = await supabase
-    .from('vocal_parts')
-    .select('id')
-    .eq('id', part.id)
-    .eq('practice_id', practiceId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (existingResult.error) throw existingResult.error;
+    const existingResult = await supabase
+      .from('vocal_parts')
+      .select('id')
+      .eq('id', part.id)
+      .eq('practice_id', practiceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (existingResult.error) throw existingResult.error;
 
-  const payload = {
-    practice_id: practiceId,
-    ...vocalPartDatabaseFields(part),
-    name: part.name?.trim() || null,
-    notes: part.notes?.trim() || null,
-  };
+    const payload = {
+      practice_id: practiceId,
+      ...vocalPartDatabaseFields(part),
+      name: part.name?.trim() || null,
+      notes: part.notes?.trim() || null,
+    };
 
-  const { data: savedPart, error: saveError } = existingResult.data
-    ? await supabase
-        .from('vocal_parts')
-        .update(payload)
-        .eq('id', existingResult.data.id)
-        .select('*')
-        .single()
-    // Reuse the modal's UUID even if a previous attempt saved the row but failed
-    // while syncing attachments (or the insert response was lost).
-    : { data: await insertPracticeVocalPart({ ...payload, id: part.id }), error: null };
+    const { data: savedPart, error: saveError } = existingResult.data
+      ? await supabase
+          .from('vocal_parts')
+          .update(payload)
+          .eq('id', existingResult.data.id)
+          .select('*')
+          .single()
+      // Reuse the modal's UUID even if a previous attempt saved the row but failed
+      // while syncing attachments (or the insert response was lost).
+      : { data: await insertPracticeVocalPart({ ...payload, id: part.id }), error: null };
 
-  if (saveError || !savedPart) {
-    throw saveError || new Error('No vocal part returned after save');
-  }
+    if (saveError || !savedPart) {
+      throw saveError || new Error('No vocal part returned after save');
+    }
 
-  const audioUrl = (part.audioUrl || part.urlOrData || '').trim();
-  await syncOwnerAttachments(
-    'vocal_part',
-    savedPart.id,
-    audioUrl
-      ? [
-          {
-            id: part.id,
-            name: part.name || `${part.partLabel || 'Vocal'} Practice Track`,
-            type: part.type || 'audio',
-            url: audioUrl,
-            urlOrData: audioUrl,
-          },
-        ]
-      : []
-  );
+    const audioUrl = (part.audioUrl || part.urlOrData || '').trim();
+    await syncOwnerAttachments(
+      'vocal_part',
+      savedPart.id,
+      audioUrl
+        ? [
+            {
+              id: part.id,
+              name: part.name || `${part.partLabel || 'Vocal'} Practice Track`,
+              type: part.type || 'audio',
+              url: audioUrl,
+              urlOrData: audioUrl,
+            },
+          ]
+        : []
+    );
 
-  return {
-    ...part,
-    id: savedPart.id,
-    partLabel: savedPart.label === 'Custom' ? savedPart.custom_label || 'Custom' : savedPart.label,
-    customLabel: savedPart.custom_label || undefined,
-    custom_label: savedPart.custom_label || undefined,
-    name: savedPart.name || undefined,
-    notes: savedPart.notes || undefined,
-    audioUrl,
-    urlOrData: audioUrl,
-    position: savedPart.position,
-    revision: Number(savedPart.revision) || 1,
-    createdAt: savedPart.created_at,
-  };
+    return {
+      ...part,
+      id: savedPart.id,
+      partLabel: savedPart.label === 'Custom' ? savedPart.custom_label || 'Custom' : savedPart.label,
+      customLabel: savedPart.custom_label || undefined,
+      custom_label: savedPart.custom_label || undefined,
+      name: savedPart.name || undefined,
+      notes: savedPart.notes || undefined,
+      audioUrl,
+      urlOrData: audioUrl,
+      position: savedPart.position,
+      revision: Number(savedPart.revision) || 1,
+      createdAt: savedPart.created_at,
+    };
+
+    } finally { finishReadMutation(); }
 }
 
 /** Save one rehearsal-track attachment without updating the parent practice. */
@@ -1329,243 +1414,291 @@ export async function savePracticeAttachment(
   attachment: SongAttachment,
   requestedPosition?: number
 ): Promise<SongAttachment> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
-  if (!practiceId || !isUUID(practiceId)) {
-    throw new Error('Invalid practice ID for attachment: ' + practiceId);
-  }
+  const finishReadMutation = beginReadMutation('practice');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+    if (!practiceId || !isUUID(practiceId)) {
+      throw new Error('Invalid practice ID for attachment: ' + practiceId);
+    }
 
-  const existingResult = isUUID(attachment.id)
-    ? await supabase
+    const existingResult = isUUID(attachment.id)
+      ? await supabase
+          .from('attachments')
+          .select('*')
+          .eq('id', attachment.id)
+          .eq('owner_type', 'practice')
+          .eq('owner_id', practiceId)
+          .is('deleted_at', null)
+          .maybeSingle()
+      : { data: null, error: null };
+    if (existingResult.error) throw existingResult.error;
+
+    let position = requestedPosition;
+    if (position === undefined || position < 0) {
+      const { data: positions, error: positionError } = await supabase
         .from('attachments')
-        .select('*')
-        .eq('id', attachment.id)
+        .select('position')
         .eq('owner_type', 'practice')
         .eq('owner_id', practiceId)
         .is('deleted_at', null)
-        .maybeSingle()
-    : { data: null, error: null };
-  if (existingResult.error) throw existingResult.error;
+        .order('position', { ascending: false })
+        .limit(1);
+      if (positionError) throw positionError;
+      position = positions?.length ? Number(positions[0].position) + 1 : 0;
+    }
 
-  let position = requestedPosition;
-  if (position === undefined || position < 0) {
-    const { data: positions, error: positionError } = await supabase
-      .from('attachments')
-      .select('position')
-      .eq('owner_type', 'practice')
-      .eq('owner_id', practiceId)
-      .is('deleted_at', null)
-      .order('position', { ascending: false })
-      .limit(1);
-    if (positionError) throw positionError;
-    position = positions?.length ? Number(positions[0].position) + 1 : 0;
-  }
+    const externalUrl = (attachment.url || attachment.urlOrData || '').trim();
+    if (!externalUrl) throw new Error('A cloud media URL is required before saving the track.');
+    const payload = {
+      owner_type: 'practice',
+      owner_id: practiceId,
+      name: attachment.name?.trim() || 'Practice Track',
+      category: attachment.category || null,
+      kind: attachment.type || 'audio',
+      media_id: null,
+      external_url: externalUrl,
+      text_content: null,
+      position,
+    };
 
-  const externalUrl = (attachment.url || attachment.urlOrData || '').trim();
-  if (!externalUrl) throw new Error('A cloud media URL is required before saving the track.');
-  const payload = {
-    owner_type: 'practice',
-    owner_id: practiceId,
-    name: attachment.name?.trim() || 'Practice Track',
-    category: attachment.category || null,
-    kind: attachment.type || 'audio',
-    media_id: null,
-    external_url: externalUrl,
-    text_content: null,
-    position,
-  };
+    const { data, error } = existingResult.data
+      ? await supabase
+          .from('attachments')
+          .update(payload)
+          .eq('id', existingResult.data.id)
+          .select('*')
+          .single()
+      // Reuse the modal's stable UUID so retrying after a lost response updates
+      // the same attachment instead of inserting a duplicate row.
+      : await supabase.from('attachments').insert({ ...payload, id: attachment.id }).select('*').single();
+    if (error || !data) throw error || new Error('No attachment returned after save');
+    return mapAttachmentFromDB(data);
 
-  const { data, error } = existingResult.data
-    ? await supabase
-        .from('attachments')
-        .update(payload)
-        .eq('id', existingResult.data.id)
-        .select('*')
-        .single()
-    // Reuse the modal's stable UUID so retrying after a lost response updates
-    // the same attachment instead of inserting a duplicate row.
-    : await supabase.from('attachments').insert({ ...payload, id: attachment.id }).select('*').single();
-  if (error || !data) throw error || new Error('No attachment returned after save');
-  return mapAttachmentFromDB(data);
+    } finally { finishReadMutation(); }
 }
 
 export async function createPracticeEntry(
   entry: Partial<PracticeGroupEntry>
 ): Promise<PracticeGroupEntry> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('practice');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const validPayload = buildPracticePayload(entry);
+    const validPayload = buildPracticePayload(entry);
 
-  const { data, error } = await supabase
-    .from('practice_entries')
-    .insert(validPayload)
-    .select('*')
-    .single();
+    const { data, error } = await supabase
+      .from('practice_entries')
+      .insert(validPayload)
+      .select('*')
+      .single();
 
-  if (error) {
-    console.error('Supabase insert error on practice_entries:', formatSupabaseError(error), {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-    throw error;
-  }
+    if (error) {
+      console.error('Supabase insert error on practice_entries:', formatSupabaseError(error), {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw error;
+    }
 
-  if (!data) {
-    throw new Error('No data returned from practice insert.');
-  }
+    if (!data) {
+      throw new Error('No data returned from practice insert.');
+    }
 
-  const newPracticeId = data.id;
+    const newPracticeId = data.id;
 
-  // Sync vocal parts if provided
-  const parts = entry.parts || entry.vocalParts || [];
-  if (parts.length > 0) {
-    await syncPracticeVocalParts(newPracticeId, parts);
-  }
+    // Sync vocal parts if provided
+    const parts = entry.parts || entry.vocalParts || [];
+    if (parts.length > 0) {
+      await syncPracticeVocalParts(newPracticeId, parts);
+    }
 
-  await syncOwnerAttachments(
-    'practice',
-    newPracticeId,
-    entry.customAttachments || entry.attachments || []
-  );
+    await syncOwnerAttachments(
+      'practice',
+      newPracticeId,
+      entry.customAttachments || entry.attachments || []
+    );
 
-  const all = await fetchPracticeEntries();
-  const refreshed = all.find((p) => p.id === newPracticeId);
-  return refreshed || mapPracticeRowToEntry(data, parts);
+    const all = await fetchPracticeEntries();
+    const refreshed = all.find((p) => p.id === newPracticeId);
+    return refreshed || mapPracticeRowToEntry(data, parts);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function updatePracticeEntry(
   practiceId: string,
   entry: Partial<PracticeGroupEntry>
 ): Promise<PracticeGroupEntry> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
-  if (!practiceId || !isUUID(practiceId)) {
-    throw new Error('Invalid practice ID for update: ' + practiceId);
-  }
-
-  const validPayload = buildPracticePayload(entry);
-
-  const { data, error } = await supabase
-    .from('practice_entries')
-    .update(validPayload)
-    .eq('id', practiceId)
-    .select('*')
-    .single();
-
-  if (error) {
-    console.error('Supabase update error on practice_entries:', formatSupabaseError(error), {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-    if (error.code === 'PGRST116') {
-      const notFoundErr = new Error('Practice no longer exists or could not be accessed.');
-      (notFoundErr as any).code = 'PGRST116';
-      (notFoundErr as any).details = error.details;
-      (notFoundErr as any).hint = error.hint;
-      throw notFoundErr;
+  const finishReadMutation = beginReadMutation('practice');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+    if (!practiceId || !isUUID(practiceId)) {
+      throw new Error('Invalid practice ID for update: ' + practiceId);
     }
-    throw error;
-  }
 
-  if (!data) {
-    throw new Error('Practice no longer exists or could not be accessed.');
-  }
+    const validPayload = buildPracticePayload(entry);
 
-  // Sync vocal parts if provided
-  const parts = entry.parts || entry.vocalParts || [];
-  await syncPracticeVocalParts(practiceId, parts);
-  await syncOwnerAttachments(
-    'practice',
-    practiceId,
-    entry.customAttachments || entry.attachments || []
-  );
+    const { data, error } = await supabase
+      .from('practice_entries')
+      .update(validPayload)
+      .eq('id', practiceId)
+      .select('*')
+      .single();
 
-  const all = await fetchPracticeEntries();
-  const refreshed = all.find((p) => p.id === practiceId);
-  return refreshed || mapPracticeRowToEntry(data, parts);
+    if (error) {
+      console.error('Supabase update error on practice_entries:', formatSupabaseError(error), {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      if (error.code === 'PGRST116') {
+        const notFoundErr = new Error('Practice no longer exists or could not be accessed.');
+        (notFoundErr as any).code = 'PGRST116';
+        (notFoundErr as any).details = error.details;
+        (notFoundErr as any).hint = error.hint;
+        throw notFoundErr;
+      }
+      throw error;
+    }
+
+    if (!data) {
+      throw new Error('Practice no longer exists or could not be accessed.');
+    }
+
+    // Sync vocal parts if provided
+    const parts = entry.parts || entry.vocalParts || [];
+    await syncPracticeVocalParts(practiceId, parts);
+    await syncOwnerAttachments(
+      'practice',
+      practiceId,
+      entry.customAttachments || entry.attachments || []
+    );
+
+    const all = await fetchPracticeEntries();
+    const refreshed = all.find((p) => p.id === practiceId);
+    return refreshed || mapPracticeRowToEntry(data, parts);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function savePracticeEntry(
   entry: Partial<PracticeGroupEntry>,
   isNew = false
 ): Promise<PracticeGroupEntry> {
-  if (isNew || !entry.id || !isUUID(entry.id)) {
-    return createPracticeEntry(entry);
-  }
-  return updatePracticeEntry(entry.id, entry);
+  const finishReadMutation = beginReadMutation('practice');
+  try {
+    if (isNew || !entry.id || !isUUID(entry.id)) {
+      return createPracticeEntry(entry);
+    }
+    return updatePracticeEntry(entry.id, entry);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function deletePracticeEntry(id: string, expectedRevision?: number): Promise<void> {
-  if (!isSupabaseConfigured()) return;
+  const finishReadMutation = beginReadMutation('practice');
   try {
-    if (expectedRevision !== undefined && expectedRevision > 0) {
-      await executeSoftDelete('practice_entries', id, expectedRevision);
-      return;
+    if (!isSupabaseConfigured()) return;
+    try {
+      if (expectedRevision !== undefined && expectedRevision > 0) {
+        await executeSoftDelete('practice_entries', id, expectedRevision);
+        return;
+      }
+    } catch (rpcErr) {
+      console.warn('RPC soft delete fallback to direct soft delete for practice_entries:', rpcErr);
     }
-  } catch (rpcErr) {
-    console.warn('RPC soft delete fallback to direct soft delete for practice_entries:', rpcErr);
-  }
 
-  const { error } = await supabase
-    .from('practice_entries')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', id);
+    const { error } = await supabase
+      .from('practice_entries')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', id);
 
-  if (error) {
-    const errorDetails = formatSupabaseError(error);
-    console.error('Failed to delete practice entry:', errorDetails, error);
-    throw error;
-  }
+    if (error) {
+      const errorDetails = formatSupabaseError(error);
+      console.error('Failed to delete practice entry:', errorDetails, error);
+      throw error;
+    }
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
 // RECOGNITIONS: BIRTHDAYS, ANNIVERSARIES, VISITORS, SPECIALS
 // -------------------------------------------------------------
 export async function fetchBirthdays(): Promise<BirthdayCelebrant[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('birthdays', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('birthdays')
-    .select('*')
-    .is('deleted_at', null)
-    .order('birth_date', { ascending: true });
+    const { data, error } = await readAllPages(() => supabase
+      .from('birthdays')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('birth_date', { ascending: true }).order('id'));
 
-  if (error) throw error;
-  return (data || []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    birthDate: row.birth_date,
-    birth_date: row.birth_date,
-    ministryOrGroup: row.ministry_or_group || undefined,
-    ministry_or_group: row.ministry_or_group || undefined,
-    notes: row.notes || undefined,
-    revision: Number(row.revision) || 1,
-    createdAt: row.created_at || undefined,
-  }));
+    if (error) throw error;
+    return (data || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      birthDate: row.birth_date,
+      birth_date: row.birth_date,
+      ministryOrGroup: row.ministry_or_group || undefined,
+      ministry_or_group: row.ministry_or_group || undefined,
+      notes: row.notes || undefined,
+      revision: Number(row.revision) || 1,
+      createdAt: row.created_at || undefined,
+    }));
+
+    });
 }
 
 export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = false): Promise<BirthdayCelebrant> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('birthdays');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const payload = {
-    name: item.name?.trim() || 'Celebrant',
-    birth_date: item.birthDate || item.birth_date || new Date().toISOString().slice(0, 10),
-    ministry_or_group: (item.ministryOrGroup || item.ministry_or_group)?.trim() || null,
-    notes: item.notes?.trim() || null,
-  };
+    const payload = {
+      name: item.name?.trim() || 'Celebrant',
+      birth_date: item.birthDate || item.birth_date || new Date().toISOString().slice(0, 10),
+      ministry_or_group: (item.ministryOrGroup || item.ministry_or_group)?.trim() || null,
+      notes: item.notes?.trim() || null,
+    };
 
-  const hasValidUUID = isUUID(item.id);
+    const hasValidUUID = isUUID(item.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('birthdays')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create birthday');
+      return {
+        id: data.id,
+        name: data.name,
+        birthDate: data.birth_date,
+        ministryOrGroup: data.ministry_or_group || undefined,
+        notes: data.notes || undefined,
+        revision: Number(data.revision) || 1,
+        createdAt: data.created_at || undefined,
+      };
+    }
+
     const { data, error } = await supabase
       .from('birthdays')
-      .insert(payload)
+      .update(payload)
+      .eq('id', item.id)
+      .eq('revision', item.revision || 1)
       .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create birthday');
+    if (error || !data) {
+      throw new ConcurrencyConflictError(error?.message || 'Birthday record update conflict.');
+    }
+
     return {
       id: data.id,
       name: data.name,
@@ -1575,83 +1708,95 @@ export async function saveBirthday(item: Partial<BirthdayCelebrant>, isNew = fal
       revision: Number(data.revision) || 1,
       createdAt: data.created_at || undefined,
     };
-  }
 
-  const { data, error } = await supabase
-    .from('birthdays')
-    .update(payload)
-    .eq('id', item.id)
-    .eq('revision', item.revision || 1)
-    .select('*')
-    .single();
-
-  if (error || !data) {
-    throw new ConcurrencyConflictError(error?.message || 'Birthday record update conflict.');
-  }
-
-  return {
-    id: data.id,
-    name: data.name,
-    birthDate: data.birth_date,
-    ministryOrGroup: data.ministry_or_group || undefined,
-    notes: data.notes || undefined,
-    revision: Number(data.revision) || 1,
-    createdAt: data.created_at || undefined,
-  };
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteBirthday(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('birthdays', id, expectedRevision);
+  const finishReadMutation = beginReadMutation('birthdays');
+  try {
+    await executeSoftDelete('birthdays', id, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function fetchAnniversaries(): Promise<AnniversaryCelebrant[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('anniversaries', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('anniversaries')
-    .select('*')
-    .is('deleted_at', null)
-    .order('anniversary_date', { ascending: true });
+    const { data, error } = await readAllPages(() => supabase
+      .from('anniversaries')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('anniversary_date', { ascending: true }).order('id'));
 
-  if (error) throw error;
-  return (data || []).map((row) => ({
-    id: row.id,
-    title: row.title,
-    anniversaryDate: row.anniversary_date,
-    anniversary_date: row.anniversary_date,
-    type: row.type,
-    yearsCount: row.years_count ?? undefined,
-    years_count: row.years_count ?? undefined,
-    notes: row.notes || undefined,
-    revision: Number(row.revision) || 1,
-    createdAt: row.created_at || undefined,
-  }));
+    if (error) throw error;
+    return (data || []).map((row) => ({
+      id: row.id,
+      title: row.title,
+      anniversaryDate: row.anniversary_date,
+      anniversary_date: row.anniversary_date,
+      type: row.type,
+      yearsCount: row.years_count ?? undefined,
+      years_count: row.years_count ?? undefined,
+      notes: row.notes || undefined,
+      revision: Number(row.revision) || 1,
+      createdAt: row.created_at || undefined,
+    }));
+
+    });
 }
 
 export async function saveAnniversary(
   item: Partial<AnniversaryCelebrant>,
   isNew = false
 ): Promise<AnniversaryCelebrant> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('anniversaries');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const payload = {
-    title: item.title?.trim() || 'Anniversary',
-    anniversary_date: item.anniversaryDate || item.anniversary_date || new Date().toISOString().slice(0, 10),
-    type: item.type || 'Wedding',
-    years_count: item.yearsCount ?? item.years_count ?? null,
-    notes: item.notes?.trim() || null,
-  };
+    const payload = {
+      title: item.title?.trim() || 'Anniversary',
+      anniversary_date: item.anniversaryDate || item.anniversary_date || new Date().toISOString().slice(0, 10),
+      type: item.type || 'Wedding',
+      years_count: item.yearsCount ?? item.years_count ?? null,
+      notes: item.notes?.trim() || null,
+    };
 
-  const hasValidUUID = isUUID(item.id);
+    const hasValidUUID = isUUID(item.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('anniversaries')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create anniversary');
+      return {
+        id: data.id,
+        title: data.title,
+        anniversaryDate: data.anniversary_date,
+        type: data.type,
+        yearsCount: data.years_count ?? undefined,
+        notes: data.notes || undefined,
+        revision: Number(data.revision) || 1,
+        createdAt: data.created_at || undefined,
+      };
+    }
+
     const { data, error } = await supabase
       .from('anniversaries')
-      .insert(payload)
+      .update(payload)
+      .eq('id', item.id)
+      .eq('revision', item.revision || 1)
       .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create anniversary');
+    if (error || !data) {
+      throw new ConcurrencyConflictError(error?.message || 'Anniversary record update conflict.');
+    }
+
     return {
       id: data.id,
       title: data.title,
@@ -1662,82 +1807,93 @@ export async function saveAnniversary(
       revision: Number(data.revision) || 1,
       createdAt: data.created_at || undefined,
     };
-  }
 
-  const { data, error } = await supabase
-    .from('anniversaries')
-    .update(payload)
-    .eq('id', item.id)
-    .eq('revision', item.revision || 1)
-    .select('*')
-    .single();
-
-  if (error || !data) {
-    throw new ConcurrencyConflictError(error?.message || 'Anniversary record update conflict.');
-  }
-
-  return {
-    id: data.id,
-    title: data.title,
-    anniversaryDate: data.anniversary_date,
-    type: data.type,
-    yearsCount: data.years_count ?? undefined,
-    notes: data.notes || undefined,
-    revision: Number(data.revision) || 1,
-    createdAt: data.created_at || undefined,
-  };
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteAnniversary(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('anniversaries', id, expectedRevision);
+  const finishReadMutation = beginReadMutation('anniversaries');
+  try {
+    await executeSoftDelete('anniversaries', id, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function fetchVisitors(): Promise<Visitor[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('visitors', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('visitors')
-    .select('*')
-    .is('deleted_at', null)
-    .order('date_visited', { ascending: false });
+    const { data, error } = await readAllPages(() => supabase
+      .from('visitors')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('date_visited', { ascending: false }).order('id'));
 
-  if (error) throw error;
-  return (data || []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    barangay: row.barangay || '',
-    tier: row.tier,
-    dateVisited: row.date_visited,
-    date_visited: row.date_visited,
-    contactNumber: row.contact_number || undefined,
-    contact_number: row.contact_number || undefined,
-    notes: row.notes || undefined,
-    revision: Number(row.revision) || 1,
-  }));
+    if (error) throw error;
+    return (data || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      barangay: row.barangay || '',
+      tier: row.tier,
+      dateVisited: row.date_visited,
+      date_visited: row.date_visited,
+      contactNumber: row.contact_number || undefined,
+      contact_number: row.contact_number || undefined,
+      notes: row.notes || undefined,
+      revision: Number(row.revision) || 1,
+    }));
+
+    });
 }
 
 export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promise<Visitor> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('visitors');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const payload = {
-    name: item.name?.trim() || 'Visitor',
-    barangay: item.barangay?.trim() || null,
-    tier: item.tier || '1st timer',
-    date_visited: item.dateVisited || item.date_visited || new Date().toISOString().slice(0, 10),
-    contact_number: (item.contactNumber || item.contact_number)?.trim() || null,
-    notes: item.notes?.trim() || null,
-  };
+    const payload = {
+      name: item.name?.trim() || 'Visitor',
+      barangay: item.barangay?.trim() || null,
+      tier: item.tier || '1st timer',
+      date_visited: item.dateVisited || item.date_visited || new Date().toISOString().slice(0, 10),
+      contact_number: (item.contactNumber || item.contact_number)?.trim() || null,
+      notes: item.notes?.trim() || null,
+    };
 
-  const hasValidUUID = isUUID(item.id);
+    const hasValidUUID = isUUID(item.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('visitors')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create visitor');
+      return {
+        id: data.id,
+        name: data.name,
+        barangay: data.barangay || '',
+        tier: data.tier,
+        dateVisited: data.date_visited,
+        contactNumber: data.contact_number || undefined,
+        notes: data.notes || undefined,
+        revision: Number(data.revision) || 1,
+      };
+    }
+
     const { data, error } = await supabase
       .from('visitors')
-      .insert(payload)
+      .update(payload)
+      .eq('id', item.id)
+      .eq('revision', item.revision || 1)
       .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create visitor');
+    if (error || !data) {
+      throw new ConcurrencyConflictError(error?.message || 'Visitor record update conflict.');
+    }
+
     return {
       id: data.id,
       name: data.name,
@@ -1748,84 +1904,94 @@ export async function saveVisitor(item: Partial<Visitor>, isNew = false): Promis
       notes: data.notes || undefined,
       revision: Number(data.revision) || 1,
     };
-  }
 
-  const { data, error } = await supabase
-    .from('visitors')
-    .update(payload)
-    .eq('id', item.id)
-    .eq('revision', item.revision || 1)
-    .select('*')
-    .single();
-
-  if (error || !data) {
-    throw new ConcurrencyConflictError(error?.message || 'Visitor record update conflict.');
-  }
-
-  return {
-    id: data.id,
-    name: data.name,
-    barangay: data.barangay || '',
-    tier: data.tier,
-    dateVisited: data.date_visited,
-    contactNumber: data.contact_number || undefined,
-    notes: data.notes || undefined,
-    revision: Number(data.revision) || 1,
-  };
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteVisitor(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('visitors', id, expectedRevision);
+  const finishReadMutation = beginReadMutation('visitors');
+  try {
+    await executeSoftDelete('visitors', id, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 export async function fetchSpecialRecognitions(): Promise<SpecialRecognition[]> {
-  if (!isSupabaseConfigured()) return [];
+  return latestRead('recognitions', async () => {
+    if (!isSupabaseConfigured()) return [];
 
-  const { data, error } = await supabase
-    .from('recognitions')
-    .select('*')
-    .is('deleted_at', null)
-    .order('recognition_date', { ascending: false });
+    const { data, error } = await readAllPages(() => supabase
+      .from('recognitions')
+      .select('*', { count: 'exact' })
+      .is('deleted_at', null)
+      .order('recognition_date', { ascending: false }).order('id'));
 
-  if (error) throw error;
-  return (data || []).map((row) => ({
-    id: row.id,
-    name: row.name,
-    recognitionType: row.recognition_type,
-    recognition_type: row.recognition_type,
-    customType: row.custom_type || undefined,
-    custom_type: row.custom_type || undefined,
-    date: row.recognition_date,
-    recognition_date: row.recognition_date,
-    description: row.description || undefined,
-    revision: Number(row.revision) || 1,
-  }));
+    if (error) throw error;
+    return (data || []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      recognitionType: row.recognition_type,
+      recognition_type: row.recognition_type,
+      customType: row.custom_type || undefined,
+      custom_type: row.custom_type || undefined,
+      date: row.recognition_date,
+      recognition_date: row.recognition_date,
+      description: row.description || undefined,
+      revision: Number(row.revision) || 1,
+    }));
+
+    });
 }
 
 export async function saveSpecialRecognition(
   item: Partial<SpecialRecognition>,
   isNew = false
 ): Promise<SpecialRecognition> {
-  if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
+  const finishReadMutation = beginReadMutation('recognitions');
+  try {
+    if (!isSupabaseConfigured()) throw new Error('Supabase is not configured');
 
-  const payload = {
-    name: item.name?.trim() || 'Honoree',
-    recognition_type: item.recognitionType || item.recognition_type || 'Newly Graduated',
-    custom_type: (item.customType || item.custom_type)?.trim() || null,
-    recognition_date: item.date || item.recognition_date || new Date().toISOString().slice(0, 10),
-    description: item.description?.trim() || null,
-  };
+    const payload = {
+      name: item.name?.trim() || 'Honoree',
+      recognition_type: item.recognitionType || item.recognition_type || 'Newly Graduated',
+      custom_type: (item.customType || item.custom_type)?.trim() || null,
+      recognition_date: item.date || item.recognition_date || new Date().toISOString().slice(0, 10),
+      description: item.description?.trim() || null,
+    };
 
-  const hasValidUUID = isUUID(item.id);
+    const hasValidUUID = isUUID(item.id);
 
-  if (isNew || !hasValidUUID) {
+    if (isNew || !hasValidUUID) {
+      const { data, error } = await supabase
+        .from('recognitions')
+        .insert(payload)
+        .select('*')
+        .single();
+
+      if (error || !data) throw error || new Error('Failed to create recognition');
+      return {
+        id: data.id,
+        name: data.name,
+        recognitionType: data.recognition_type,
+        customType: data.custom_type || undefined,
+        date: data.recognition_date,
+        description: data.description || undefined,
+        revision: Number(data.revision) || 1,
+      };
+    }
+
     const { data, error } = await supabase
       .from('recognitions')
-      .insert(payload)
+      .update(payload)
+      .eq('id', item.id)
+      .eq('revision', item.revision || 1)
       .select('*')
       .single();
 
-    if (error || !data) throw error || new Error('Failed to create recognition');
+    if (error || !data) {
+      throw new ConcurrencyConflictError(error?.message || 'Recognition record update conflict.');
+    }
+
     return {
       id: data.id,
       name: data.name,
@@ -1835,33 +2001,16 @@ export async function saveSpecialRecognition(
       description: data.description || undefined,
       revision: Number(data.revision) || 1,
     };
-  }
 
-  const { data, error } = await supabase
-    .from('recognitions')
-    .update(payload)
-    .eq('id', item.id)
-    .eq('revision', item.revision || 1)
-    .select('*')
-    .single();
-
-  if (error || !data) {
-    throw new ConcurrencyConflictError(error?.message || 'Recognition record update conflict.');
-  }
-
-  return {
-    id: data.id,
-    name: data.name,
-    recognitionType: data.recognition_type,
-    customType: data.custom_type || undefined,
-    date: data.recognition_date,
-    description: data.description || undefined,
-    revision: Number(data.revision) || 1,
-  };
+    } finally { finishReadMutation(); }
 }
 
 export async function deleteSpecialRecognition(id: string, expectedRevision: number): Promise<void> {
-  await executeSoftDelete('recognitions', id, expectedRevision);
+  const finishReadMutation = beginReadMutation('recognitions');
+  try {
+    await executeSoftDelete('recognitions', id, expectedRevision);
+
+    } finally { finishReadMutation(); }
 }
 
 // -------------------------------------------------------------
