@@ -1,3 +1,4 @@
+import { mergeSongSnapshot, newestSong } from './utils/songRevisions';
 import { usePullToRefresh, refreshLocalScreens } from './hooks/usePullToRefresh';
 import { PullToRefreshIndicator } from './components/PullToRefreshIndicator';
 import { songTitleCase } from './utils/songTitleCase';
@@ -272,7 +273,7 @@ export default function App() {
     ]);
     if (own !== coreLoadEpoch.current) return;
     setSetlists(serverSetlists);
-    setSongs(serverSongs);
+    setSongs(previous => mergeSongSnapshot(previous, serverSongs));
     setSavedNames(serverSavedNames);
     loadedSectionsRef.current.add('home');
     loadedSectionsRef.current.add('songs');
@@ -482,7 +483,7 @@ export default function App() {
       onSongsChange: async () => {
         if (offlineReadOnlyRef.current || signingOutRef.current) return;
         const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
-        if (isMounted && !offlineReadOnlyRef.current && !signingOutRef.current) { setSongs(fresh); scheduleOfflineSync(); }
+        if (isMounted && !offlineReadOnlyRef.current && !signingOutRef.current) { setSongs(previous => mergeSongSnapshot(previous, fresh)); scheduleOfflineSync(); }
       },
       onSpecialNumbersChange: async () => {
         scheduleOfflineSync();
@@ -650,7 +651,7 @@ export default function App() {
       ]);
 
       setSetlists(sList);
-      setSongs(sSongs);
+      setSongs(previous => mergeSongSnapshot(previous, sSongs));
       setSpecialNumbers(sSpec);
       setChoirEntries(sChoir);
       setPracticeEntries(sPrac);
@@ -938,13 +939,13 @@ export default function App() {
       setSongs((prev) =>
         isNew
           ? [...prev.filter((s) => s.id !== newOrUpdated.id && s.id !== saved.id), saved]
-          : prev.map((s) => (s.id === newOrUpdated.id ? saved : s))
+          : prev.map((s) => (s.id === newOrUpdated.id ? newestSong(s, saved) : s))
       );
       return saved;
     } catch (err: any) {
       console.error('Failed to save song to Supabase:', err);
       const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
-      setSongs(fresh);
+      setSongs(previous => mergeSongSnapshot(previous, fresh));
       void showAppMessage('Unable to save song: ' + (err.message || 'Database error'));
       throw err;
     }
@@ -979,7 +980,7 @@ export default function App() {
     } catch (err: any) {
       console.error('Failed to delete song from Supabase:', err);
       const fresh = await fetchSongs().catch(() => preserveOnRefreshFailure('songs'));
-      setSongs(fresh);
+      setSongs(previous => mergeSongSnapshot(previous, fresh));
       void showAppMessage('Unable to delete song: ' + (err.message || 'Database error'));
       return false;
     }
